@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FOCALYST | Deep Focus for Students</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body { background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%); font-family: 'Inter', sans-serif; }
+        .transition-all { transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <div class="w-full max-w-md">
+        <h1 class="text-5xl font-bold text-center mb-12 text-white tracking-wider">Focalyst</h1>
+
+        <div id="setupView" class="bg-white rounded-3xl shadow-2xl p-8 space-y-6">
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Study Duration (minutes)</label>
+                <input type="number" id="studyMin" value="30" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-400 outline-none text-lg">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Break Duration (minutes)</label>
+                <input type="number" id="breakMin" value="5" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-400 outline-none text-lg">
+            </div>
+            <div>
+                <label class="block text-gray-700 font-semibold mb-2">Number of Sets</label>
+                <input type="number" id="totalSetsInput" value="3" class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:border-blue-400 outline-none text-lg">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 pt-4">
+                <button onclick="setPresets(25, 5, 4)" class="py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-medium">25/5×4</button>
+                <button onclick="setPresets(45, 10, 3)" class="py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-medium">45/10×3</button>
+                <button onclick="setPresets(60, 15, 2)" class="py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-medium">60/15×2</button>
+                <button onclick="setPresets(90, 30, 2)" class="py-3 bg-gray-200 hover:bg-gray-300 rounded-xl font-medium">90/30×2</button>
+            </div>
+
+            <button onclick="startApp()" class="w-full py-4 rounded-xl font-bold text-white text-lg hover:scale-105 bg-[#3498db] transition-all">Start Session</button>
+        </div>
+
+        <div id="timerView" class="hidden bg-white rounded-3xl shadow-2xl p-8">
+            <div id="standardTimerContent">
+                <div class="flex items-center justify-center gap-4 mb-6">
+                    <div id="statusBadge" class="px-6 py-2 rounded-full text-sm font-semibold text-white">FOCUS TIME</div>
+                    <div id="setCounter" class="text-sm font-semibold text-gray-600">Set 1/3</div>
+                </div>
+                
+                <div id="displayTime" class="text-7xl font-bold text-center mb-6 text-[#2c3e50]">30:00</div>
+
+                <div id="progressContainer" class="w-full bg-gray-200 rounded-full h-3 mb-8 overflow-hidden">
+                    <div id="progressBar" class="h-full rounded-full transition-all duration-1000 w-0 bg-[#3498db]"></div>
+                </div>
+            </div>
+
+            <div id="breakInterstitial" class="hidden text-center">
+                <div class="text-6xl mb-6">🎉</div>
+                <div class="text-2xl font-bold mb-4 text-[#2c3e50]">Well done!</div>
+                <div id="interstitialSetInfo" class="text-lg mb-2 text-gray-600">Set 1 of 3 complete</div>
+                <div class="text-lg mb-6 text-gray-600">Next session begins in</div>
+            </div>
+
+            <div class="flex gap-3">
+                <button id="mainBtn" onclick="toggleTimer()" class="flex-1 py-4 rounded-xl font-semibold text-white hover:scale-105 flex items-center justify-center gap-2 bg-[#3498db] transition-all">
+                    <i data-lucide="play"></i> <span id="btnText">Start</span>
+                </button>
+                <button onclick="resetApp()" class="flex-1 py-4 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold hover:scale-105 flex items-center justify-center gap-2 transition-all">
+                    <i data-lucide="rotate-ccw"></i> Reset
+                </button>
+            </div>
+        </div>
+
+        <div id="completeView" class="hidden bg-white rounded-3xl shadow-2xl p-8 text-center">
+            <div class="text-6xl mb-6">🎉</div>
+            <div class="text-3xl font-bold mb-4 text-[#2c3e50]">All Sets Complete!</div>
+            <div id="finalMessage" class="text-lg mb-8 text-gray-600">You completed your study sessions. Great work!</div>
+            <button onclick="resetApp()" class="w-full py-4 bg-gray-200 hover:bg-gray-300 rounded-xl font-semibold hover:scale-105 flex items-center justify-center gap-2 transition-all">
+                <i data-lucide="rotate-ccw"></i> Start New Session
+            </button>
+        </div>
+
+        <div class="mt-12 text-center text-white/90">
+            <p class="mb-6 font-medium">Join the journey. I'm building Focalyst in public.</p>
+            <div class="kit-container">
+                <script async data-uid="8fbd7a933d" src="https://chintan-sho.kit.com/8fbd7a933d/index.js"></script>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let studyDuration, breakDuration, totalSets, currentSet = 1;
+        let timeLeft, isRunning = false, isBreak = false, interval;
+
+        function setPresets(s, b, t) {
+            document.getElementById('studyMin').value = s;
+            document.getElementById('breakMin').value = b;
+            document.getElementById('totalSetsInput').value = t;
+        }
+
+        function startApp() {
+            studyDuration = parseInt(document.getElementById('studyMin').value) || 1;
+            breakDuration = parseInt(document.getElementById('breakMin').value) || 1;
+            totalSets = parseInt(document.getElementById('totalSetsInput').value) || 1;
+            
+            currentSet = 1;
+            isBreak = false;
+            timeLeft = studyDuration * 60;
+            
+            document.getElementById('setupView').classList.add('hidden');
+            document.getElementById('completeView').classList.add('hidden');
+            document.getElementById('timerView').classList.remove('hidden');
+            
+            updateDisplay();
+            lucide.createIcons();
+        }
+
+        function toggleTimer() {
+            isRunning = !isRunning;
+            if (isRunning) {
+                interval = setInterval(tick, 1000);
+                updateBtn(true);
+            } else {
+                clearInterval(interval);
+                updateBtn(false);
+            }
+        }
+
+        function tick() {
+            if (timeLeft > 0) {
+                timeLeft--;
+                updateDisplay();
+            } else {
+                if (!isBreak) {
+                    isBreak = true;
+                    timeLeft = breakDuration * 60;
+                } else {
+                    isBreak = false;
+                    if (currentSet >= totalSets) {
+                        finishAll();
+                        return;
+                    }
+                    currentSet++;
+                    timeLeft = studyDuration * 60;
+                }
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            document.getElementById('displayTime').innerText = `${m}:${s < 10 ? '0' : ''}${s}`;
+            
+            const badge = document.getElementById('statusBadge');
+            const progress = document.getElementById('progressBar');
+            const setInfo = document.getElementById('setCounter');
+            
+            setInfo.innerText = `Set ${currentSet}/${totalSets}`;
+            
+            if (isBreak) {
+                badge.innerText = "BREAK TIME";
+                badge.style.backgroundColor = "#e07856";
+                document.getElementById('displayTime').style.color = "#e07856";
+                document.getElementById('standardTimerContent').classList.add('hidden');
+                document.getElementById('breakInterstitial').classList.remove('hidden');
+                document.getElementById('interstitialSetInfo').innerText = `Set ${currentSet} of ${totalSets} complete`;
+            } else {
+                badge.innerText = "FOCUS TIME";
+                badge.style.backgroundColor = "#3498db";
+                document.getElementById('displayTime').style.color = "#2c3e50";
+                document.getElementById('standardTimerContent').classList.remove('hidden');
+                document.getElementById('breakInterstitial').classList.add('hidden');
+                
+                const total = studyDuration * 60;
+                const perc = ((total - timeLeft) / total) * 100;
+                progress.style.width = `${perc}%`;
+                progress.style.backgroundColor = "#3498db";
+            }
+        }
+
+        function updateBtn(running) {
+            const btn = document.getElementById('mainBtn');
+            const text = document.getElementById('btnText');
+            if (running) {
+                btn.innerHTML = '<i data-lucide="pause"></i> <span>Pause</span>';
+                btn.style.backgroundColor = "#6c8ea0";
+            } else {
+                btn.innerHTML = '<i data-lucide="play"></i> <span>Start</span>';
+                btn.style.backgroundColor = "#3498db";
+            }
+            lucide.createIcons();
+        }
+
+        function finishAll() {
+            clearInterval(interval);
+            document.getElementById('timerView').classList.add('hidden');
+            document.getElementById('completeView').classList.remove('hidden');
+            document.getElementById('finalMessage').innerText = `You completed ${totalSets} study sessions. Great work!`;
+        }
+
+        function resetApp() {
+            clearInterval(interval);
+            isRunning = false;
+            document.getElementById('setupView').classList.remove('hidden');
+            document.getElementById('timerView').classList.add('hidden');
+            document.getElementById('completeView').classList.add('hidden');
+            updateBtn(false);
+        }
+
+        lucide.createIcons();
+    </script>
+</body>
+</html>
