@@ -38,10 +38,16 @@ export default function BottomNav() {
                                 <button
                                     key={item.label}
                                     onClick={() => setQuickAddOpen(!quickAddOpen)}
-                                    className="relative -top-3 w-14 h-14 rounded-full bg-accent flex items-center justify-center shadow-lg active:scale-95 transition-transform"
+                                    className="flex flex-col items-center gap-0.5 pt-2 pb-1 min-w-[48px]"
                                     aria-label="Quick Add"
                                 >
-                                    <QuickAddIcon size={28} color="#FFFFFF" />
+                                    <QuickAddIcon size={24} color={quickAddOpen ? '#4A6C8C' : '#95A7B5'} />
+                                    <span
+                                        className={`text-[10px] font-medium ${quickAddOpen ? 'text-navy' : 'text-blue-muted'
+                                            }`}
+                                    >
+                                        Add
+                                    </span>
                                 </button>
                             )
                         }

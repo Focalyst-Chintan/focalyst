@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import TaskMenu from './TaskMenu'
 
 interface TaskItem {
@@ -22,6 +22,9 @@ const MOCK_TASKS: TaskItem[] = [
 
 export default function TodoList({ onAddTask }: TodoListProps) {
     const [tasks, setTasks] = useState<TaskItem[]>(MOCK_TASKS)
+    const dragItem = useRef<number | null>(null)
+    const dragOverItem = useRef<number | null>(null)
+    const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
 
     const toggleTask = (id: string) => {
         setTasks((prev) =>
@@ -44,16 +47,85 @@ export default function TodoList({ onAddTask }: TodoListProps) {
         }
     }
 
+    // ── Drag handlers ──
+    const handleDragStart = (index: number) => {
+        dragItem.current = index
+        setDraggingIdx(index)
+    }
+
+    const handleDragEnter = (index: number) => {
+        dragOverItem.current = index
+    }
+
+    const handleDragEnd = () => {
+        if (dragItem.current === null || dragOverItem.current === null) {
+            setDraggingIdx(null)
+            return
+        }
+        const reordered = [...tasks]
+        const [removed] = reordered.splice(dragItem.current, 1)
+        reordered.splice(dragOverItem.current, 0, removed)
+        setTasks(reordered)
+        dragItem.current = null
+        dragOverItem.current = null
+        setDraggingIdx(null)
+    }
+
+    // ── Touch drag handlers for mobile ──
+    const touchStartY = useRef<number>(0)
+    const touchItemIdx = useRef<number | null>(null)
+
+    const handleTouchStart = (index: number, e: React.TouchEvent) => {
+        touchStartY.current = e.touches[0].clientY
+        touchItemIdx.current = index
+        dragItem.current = index
+        setDraggingIdx(index)
+    }
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (touchItemIdx.current === null) return
+        const touchY = e.touches[0].clientY
+        const taskElements = document.querySelectorAll('[data-task-row]')
+        taskElements.forEach((el, idx) => {
+            const rect = el.getBoundingClientRect()
+            if (touchY >= rect.top && touchY <= rect.bottom) {
+                dragOverItem.current = idx
+            }
+        })
+    }
+
+    const handleTouchEnd = () => {
+        handleDragEnd()
+        touchItemIdx.current = null
+    }
+
     return (
         <section>
             <h2 className="text-navy text-lg font-semibold mb-3">TO-DO List</h2>
 
             <div className="flex flex-col gap-2">
-                {tasks.map((task) => (
+                {tasks.map((task, index) => (
                     <div
                         key={task.id}
-                        className="flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3"
+                        data-task-row
+                        draggable
+                        onDragStart={() => handleDragStart(index)}
+                        onDragEnter={() => handleDragEnter(index)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                        onTouchStart={(e) => handleTouchStart(index, e)}
+                        onTouchMove={handleTouchMove}
+                        onTouchEnd={handleTouchEnd}
+                        className={`flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3 cursor-grab active:cursor-grabbing transition-all ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
+                            }`}
                     >
+                        {/* Drag handle */}
+                        <div className="flex flex-col gap-[3px] shrink-0 mr-1 touch-none">
+                            <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
+                            <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
+                            <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
+                        </div>
+
                         {/* Checkbox */}
                         <button
                             onClick={() => toggleTask(task.id)}

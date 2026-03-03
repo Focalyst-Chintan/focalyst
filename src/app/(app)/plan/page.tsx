@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import TodoList from '@/components/plan/TodoList'
 import HabitList from '@/components/plan/HabitList'
+import CalendarView from '@/components/plan/CalendarView'
 
 type TabView = 'today' | 'calendar'
 
@@ -43,8 +44,8 @@ export default function PlanPage() {
                 <button
                     onClick={() => setActiveTab('today')}
                     className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'today'
-                            ? 'bg-navy text-white'
-                            : 'bg-card-bg text-navy'
+                        ? 'bg-navy text-white'
+                        : 'bg-card-bg text-navy'
                         }`}
                 >
                     TODAY
@@ -52,8 +53,8 @@ export default function PlanPage() {
                 <button
                     onClick={() => setActiveTab('calendar')}
                     className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'calendar'
-                            ? 'bg-navy text-white'
-                            : 'bg-card-bg text-navy'
+                        ? 'bg-navy text-white'
+                        : 'bg-card-bg text-navy'
                         }`}
                 >
                     CALENDAR
@@ -86,9 +87,8 @@ export default function PlanPage() {
                     <HabitList onAddHabit={() => router.push('/plan/new-habit')} />
                 </>
             ) : (
-                /* Calendar placeholder */
-                <div className="flex items-center justify-center h-60 bg-card-bg rounded-xl">
-                    <p className="text-blue-muted text-sm">Calendar view coming soon</p>
+                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                    <CalendarView />
                 </div>
             )}
         </div>
