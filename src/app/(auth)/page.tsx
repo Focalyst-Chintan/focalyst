@@ -6,9 +6,11 @@ export default function WelcomePage() {
         <main className="min-h-screen bg-navy flex flex-col items-center justify-between px-6 py-12">
             {/* Top section — Logo + Branding */}
             <div className="flex-1 flex flex-col items-center justify-center gap-3">
-                <FocalystLogo size={80} />
+                <div className="brightness-0 invert">
+                    <FocalystLogo size={80} />
+                </div>
 
-                <h1 className="text-white text-[24px] font-bold tracking-[0.2em] mt-4">
+                <h1 className="text-white text-[40px] font-bold tracking-[0.25em] mt-4">
                     FOCALYST
                 </h1>
 
