@@ -131,11 +131,32 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
 
     const getRemindersForDate = (dateStr: string) => {
-        return reminders.filter((r) => r.date === dateStr)
+        const queryDate = new Date(dateStr + 'T00:00:00')
+        return reminders.filter((r) => {
+            const reminderDate = new Date(r.date + 'T00:00:00')
+            // Must be on or after the original date
+            if (queryDate < reminderDate) return false
+
+            if (r.repeat === 'never') {
+                return r.date === dateStr
+            }
+            if (r.repeat === 'daily') {
+                return true // every day from the start date
+            }
+            if (r.repeat === 'weekly') {
+                const diffTime = queryDate.getTime() - reminderDate.getTime()
+                const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+                return diffDays % 7 === 0
+            }
+            if (r.repeat === 'monthly') {
+                return queryDate.getDate() === reminderDate.getDate()
+            }
+            return false
+        })
     }
 
     const getTodayEventCount = () => {
-        return reminders.filter((r) => r.date === todayStr()).length
+        return getRemindersForDate(todayStr()).length
     }
 
     return (

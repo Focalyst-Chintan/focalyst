@@ -70,11 +70,14 @@ export default function PlanPage() {
                             <span className="text-navy text-[42px] font-light ml-1">{date.month}</span>
                             <p className="text-blue-muted text-xs mt-0.5">{date.weekday}</p>
                         </div>
-                        <span className="text-blue-muted text-sm">
+                        <button
+                            onClick={() => setActiveTab('calendar')}
+                            className="text-blue-muted text-sm hover:text-navy hover:underline transition-colors"
+                        >
                             {eventCount === 0
                                 ? 'No events'
                                 : `${eventCount} event${eventCount > 1 ? 's' : ''}`}
-                        </span>
+                        </button>
                     </div>
 
                     <TodoList />
