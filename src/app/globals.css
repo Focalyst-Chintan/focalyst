@@ -1,0 +1,50 @@
+@import "tailwindcss";
+
+@theme inline {
+  /* Brand Colors */
+  --color-white: #FFFFFF;
+  --color-navy: #4A6C8C;
+  --color-navy-dark: #3A5570;
+  --color-navy-darker: #2C4259;
+  --color-accent: #FF751F;
+  --color-accent-dark: #E6601A;
+  --color-accent-light: #FFF0E8;
+  --color-blue-muted: #95A7B5;
+  --color-card-bg: #CAD6E4;
+  --color-card-border: #B8C9D9;
+  --color-page-bg: #F4F7FA;
+  --color-success: #2E7D52;
+  --color-success-light: #E8F5EE;
+  --color-error: #C0392B;
+  --color-error-light: #FDEDEC;
+
+  /* Font */
+  --font-inter: var(--font-inter-var), -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  background: var(--color-page-bg);
+  color: var(--color-navy-darker);
+  font-family: var(--font-inter);
+}
+
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-card-bg) 25%,
+    var(--color-card-border) 50%,
+    var(--color-card-bg) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
