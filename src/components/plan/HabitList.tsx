@@ -1,48 +1,24 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { usePlan } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 
-interface HabitItem {
-    id: string
-    name: string
-    current_streak: number
-    completed_today: boolean
-}
-
-interface HabitListProps {
-    onAddHabit: () => void
-}
-
-// Mock data for UI — will be replaced with Supabase queries
-const MOCK_HABITS: HabitItem[] = [
-    { id: '1', name: 'Morning walk', current_streak: 3, completed_today: false },
-    { id: '2', name: 'Gym', current_streak: 5, completed_today: false },
-]
-
-export default function HabitList({ onAddHabit }: HabitListProps) {
-    const [habits, setHabits] = useState<HabitItem[]>(MOCK_HABITS)
+export default function HabitList() {
+    const { habits, updateHabit, deleteHabit } = usePlan()
+    const router = useRouter()
 
     const toggleHabit = (id: string) => {
-        setHabits((prev) =>
-            prev.map((h) =>
-                h.id === id ? { ...h, completed_today: !h.completed_today } : h
-            )
-        )
+        const habit = habits.find((h) => h.id === id)
+        if (habit) updateHabit(id, { completed_today: !habit.completed_today })
     }
 
-    const deleteHabit = (id: string) => {
-        setHabits((prev) => prev.filter((h) => h.id !== id))
-    }
-
-    const renameHabit = (id: string) => {
+    const handleRename = (id: string) => {
         const habit = habits.find((h) => h.id === id)
         if (!habit) return
         const newName = prompt('Rename habit:', habit.name)
         if (newName && newName.trim()) {
-            setHabits((prev) =>
-                prev.map((h) => (h.id === id ? { ...h, name: newName.trim() } : h))
-            )
+            updateHabit(id, { name: newName.trim() })
         }
     }
 
@@ -59,9 +35,7 @@ export default function HabitList({ onAddHabit }: HabitListProps) {
                         {/* Checkbox */}
                         <button
                             onClick={() => toggleHabit(habit.id)}
-                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${habit.completed_today
-                                    ? 'bg-navy border-navy'
-                                    : 'border-blue-muted bg-white'
+                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${habit.completed_today ? 'bg-navy border-navy' : 'border-blue-muted bg-white'
                                 }`}
                             aria-label={habit.completed_today ? 'Unmark habit' : 'Complete habit'}
                         >
@@ -73,12 +47,8 @@ export default function HabitList({ onAddHabit }: HabitListProps) {
                         </button>
 
                         {/* Name */}
-                        <span
-                            className={`flex-1 text-sm font-medium transition-all ${habit.completed_today
-                                    ? 'text-blue-muted line-through'
-                                    : 'text-navy-darker'
-                                }`}
-                        >
+                        <span className={`flex-1 text-sm font-medium transition-all ${habit.completed_today ? 'text-blue-muted line-through' : 'text-navy'
+                            }`}>
                             {habit.name}
                         </span>
 
@@ -89,8 +59,9 @@ export default function HabitList({ onAddHabit }: HabitListProps) {
 
                         {/* Menu */}
                         <TaskMenu
+                            onEdit={() => router.push(`/plan/edit-habit/${habit.id}`)}
                             onDelete={() => deleteHabit(habit.id)}
-                            onRename={() => renameHabit(habit.id)}
+                            onRename={() => handleRename(habit.id)}
                             onTag={() => console.log('Tag habit:', habit.id)}
                         />
                     </div>
@@ -99,7 +70,7 @@ export default function HabitList({ onAddHabit }: HabitListProps) {
 
             {/* Add habit button */}
             <button
-                onClick={onAddHabit}
+                onClick={() => router.push('/plan/new-habit')}
                 className="w-full h-11 bg-accent text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] hover:bg-accent-dark"
             >
                 + Add new habit

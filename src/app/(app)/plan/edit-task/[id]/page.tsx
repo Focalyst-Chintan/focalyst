@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { usePlan } from '@/context/PlanContext'
 
 type Priority = 1 | 2 | 3
 
-export default function NewTaskForm() {
+export default function EditTaskPage() {
     const router = useRouter()
-    const { addTask } = usePlan()
+    const params = useParams()
+    const taskId = params.id as string
+    const { tasks, updateTask } = usePlan()
+
+    const task = tasks.find((t) => t.id === taskId)
+
     const [title, setTitle] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -17,19 +22,40 @@ export default function NewTaskForm() {
     const [reminders, setReminders] = useState(false)
     const [error, setError] = useState('')
 
+    useEffect(() => {
+        if (task) {
+            setTitle(task.title)
+            setStartDate(task.start_date)
+            setEndDate(task.end_date)
+            setTags(task.tags.join(', '))
+            setPriority(task.priority)
+            setReminders(task.reminders)
+        }
+    }, [task])
+
+    if (!task) {
+        return (
+            <div className="px-5 py-4">
+                <button onClick={() => router.back()} className="mb-4 text-blue-muted hover:text-navy transition-colors" aria-label="Go back">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+                <p className="text-navy text-lg font-semibold">Task not found</p>
+            </div>
+        )
+    }
+
     const handleSave = () => {
         const trimmed = title.trim()
         if (!trimmed) { setError('Task title is required'); return }
         if (trimmed.length < 2 || trimmed.length > 200) { setError('Title must be 2-200 characters'); return }
 
-        addTask({
+        updateTask(taskId, {
             title: trimmed,
             start_date: startDate,
             end_date: endDate,
             tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
             priority,
             reminders,
-            is_completed: false,
         })
         router.push('/plan')
     }
@@ -40,7 +66,7 @@ export default function NewTaskForm() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
 
-            <h1 className="text-navy text-[28px] font-bold mb-1">New task</h1>
+            <h1 className="text-navy text-[28px] font-bold mb-1">Edit task</h1>
 
             <label className="text-blue-muted text-sm font-medium block mt-4 mb-2">Describe</label>
             <input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setError('') }} placeholder="What do you need to do?"
@@ -74,7 +100,7 @@ export default function NewTaskForm() {
             {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
 
             <button onClick={handleSave} className="w-full h-12 bg-accent text-white text-[15px] font-semibold rounded-xl mt-6 transition-all active:scale-[0.98] hover:bg-accent-dark">
-                Save task
+                Save changes
             </button>
         </div>
     )

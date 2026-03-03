@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { usePlan } from '@/context/PlanContext'
 
 const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
-export default function NewHabitForm() {
+export default function EditHabitPage() {
     const router = useRouter()
-    const { addHabit } = usePlan()
+    const params = useParams()
+    const habitId = params.id as string
+    const { habits, updateHabit } = usePlan()
+
+    const habit = habits.find((h) => h.id === habitId)
+
     const [name, setName] = useState('')
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
@@ -17,6 +22,29 @@ export default function NewHabitForm() {
     const [reminders, setReminders] = useState(false)
     const [reminderTime, setReminderTime] = useState('07:00')
     const [error, setError] = useState('')
+
+    useEffect(() => {
+        if (habit) {
+            setName(habit.name)
+            setStartDate(habit.start_date)
+            setEndDate(habit.end_date)
+            setSelectedDays(habit.repeat_days)
+            setAllDays(habit.all_days)
+            setReminders(habit.reminders)
+            setReminderTime(habit.reminder_time)
+        }
+    }, [habit])
+
+    if (!habit) {
+        return (
+            <div className="px-5 py-4">
+                <button onClick={() => router.back()} className="mb-4 text-blue-muted hover:text-navy transition-colors" aria-label="Go back">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                </button>
+                <p className="text-navy text-lg font-semibold">Habit not found</p>
+            </div>
+        )
+    }
 
     const toggleDay = (index: number) => {
         setAllDays(false)
@@ -34,16 +62,14 @@ export default function NewHabitForm() {
         if (trimmed.length < 2 || trimmed.length > 100) { setError('Name must be 2-100 characters'); return }
         if (selectedDays.length === 0) { setError('Select at least one repeat day'); return }
 
-        addHabit({
+        updateHabit(habitId, {
             name: trimmed,
             start_date: startDate,
             end_date: endDate,
             repeat_days: selectedDays,
             all_days: allDays,
             reminders,
-            reminder_time: reminders ? reminderTime : '07:00',
-            current_streak: 0,
-            completed_today: false,
+            reminder_time: reminders ? reminderTime : habit.reminder_time,
         })
         router.push('/plan')
     }
@@ -54,7 +80,7 @@ export default function NewHabitForm() {
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
             </button>
 
-            <h1 className="text-navy text-[28px] font-bold mb-1">New habit</h1>
+            <h1 className="text-navy text-[28px] font-bold mb-1">Edit habit</h1>
 
             <label className="text-blue-muted text-sm font-medium block mt-4 mb-2">Name your habit</label>
             <input type="text" value={name} onChange={(e) => { setName(e.target.value); setError('') }} placeholder="e.g. Meditation"
@@ -100,7 +126,7 @@ export default function NewHabitForm() {
             {error && <p className="text-red-500 text-xs mt-3">{error}</p>}
 
             <button onClick={handleSave} className="w-full h-12 bg-accent text-white text-[15px] font-semibold rounded-xl mt-6 transition-all active:scale-[0.98] hover:bg-accent-dark">
-                Save habit
+                Save changes
             </button>
         </div>
     )
