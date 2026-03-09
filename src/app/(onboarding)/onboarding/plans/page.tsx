@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
+import { joinWaitlist } from '@/actions/waitlist'
 
 type BillingCycle = 'monthly' | 'yearly'
 
@@ -34,28 +36,97 @@ const LIFETIME_FEATURES = [
 ]
 
 export default function PlansPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex items-center justify-center min-h-screen">
+                <div className="animate-pulse bg-card-bg w-12 h-12 rounded-full" />
+            </div>
+        }>
+            <PlansContent />
+        </Suspense>
+    )
+}
+
+function PlansContent() {
     const [billing, setBilling] = useState<BillingCycle>('monthly')
+    const [isProcessing, setIsProcessing] = useState(false)
+    const [toast, setToast] = useState<string | null>(null)
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const redirect = searchParams.get('redirect')
+    const supabase = createClient()
 
-    const handleSelectFree = () => {
-        router.push('/onboarding/name')
+    const showToast = (message: string) => {
+        setToast(message)
+        setTimeout(() => setToast(null), 4000)
     }
 
-    const handleSelectPro = () => {
-        // Razorpay stub — log to console
-        console.log(`[Razorpay Stub] Selected Pro plan (${billing})`)
-        router.push('/onboarding/name')
+    const handleSelectFree = async () => {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            await supabase.from('users').update({
+                plan: 'free',
+                updated_at: new Date().toISOString()
+            }).eq('id', user.id)
+        }
+
+        if (redirect) {
+            router.push(redirect)
+        } else {
+            router.push('/onboarding/name')
+        }
     }
 
-    const handleSelectLifetime = () => {
-        // Razorpay stub — log to console
-        console.log('[Razorpay Stub] Selected Lifetime plan')
-        router.push('/onboarding/name')
+    const handleSelectPro = async () => {
+        setIsProcessing(true)
+        try {
+            await joinWaitlist('pro')
+            showToast('Thanks for your interest! Pro features are coming in our next update.')
+        } catch {
+            showToast('Something went wrong. Please try again.')
+        } finally {
+            setIsProcessing(false)
+        }
+    }
+
+    const handleSelectLifetime = async () => {
+        setIsProcessing(true)
+        try {
+            await joinWaitlist('lifetime')
+            showToast('Thanks for your interest! Pro features are coming in our next update.')
+        } catch {
+            showToast('Something went wrong. Please try again.')
+        } finally {
+            setIsProcessing(false)
+        }
     }
 
     return (
         <main className="min-h-screen bg-white px-5 py-8">
             <div className="max-w-[400px] mx-auto">
+                {/* Toast Notification */}
+                {toast && (
+                    <div
+                        className="fixed top-6 left-1/2 -translate-x-1/2 z-50 max-w-[340px] w-full bg-navy text-white text-[13px] font-medium px-4 py-3 rounded-xl shadow-lg animate-[fadeInDown_0.3s_ease-out]"
+                        style={{ animationFillMode: 'forwards' }}
+                    >
+                        {toast}
+                    </div>
+                )}
+
+                {/* Back button for users arriving from profile */}
+                {redirect && (
+                    <button
+                        onClick={() => router.push(redirect)}
+                        className="flex items-center gap-1 text-navy text-[14px] font-medium mb-4 hover:opacity-70 transition-opacity"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                        </svg>
+                        Back
+                    </button>
+                )}
+
                 {/* Headline */}
                 <h1 className="text-navy text-[28px] font-bold leading-9 mb-6">
                     Plans to catalyse your focus
@@ -66,8 +137,8 @@ export default function PlansPage() {
                     <button
                         onClick={() => setBilling('monthly')}
                         className={`flex-1 h-10 rounded-full text-[13px] font-semibold transition-all ${billing === 'monthly'
-                                ? 'bg-navy text-white'
-                                : 'text-navy hover:bg-card-border/30'
+                            ? 'bg-navy text-white'
+                            : 'text-navy hover:bg-card-border/30'
                             }`}
                     >
                         Monthly
@@ -75,11 +146,11 @@ export default function PlansPage() {
                     <button
                         onClick={() => setBilling('yearly')}
                         className={`flex-1 h-10 rounded-full text-[13px] font-semibold transition-all ${billing === 'yearly'
-                                ? 'bg-navy text-white'
-                                : 'text-navy hover:bg-card-border/30'
+                            ? 'bg-navy text-white'
+                            : 'text-navy hover:bg-card-border/30'
                             }`}
                     >
-                        Yearly
+                        Yearly (2 months free)
                     </button>
                 </div>
 
@@ -134,9 +205,10 @@ export default function PlansPage() {
                         </p>
                         <button
                             onClick={handleSelectPro}
-                            className="w-full h-11 bg-navy text-white text-[15px] font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] hover:bg-navy-dark"
+                            disabled={isProcessing}
+                            className="w-full h-11 bg-navy text-white text-[15px] font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] hover:bg-navy-dark disabled:opacity-50"
                         >
-                            Get Pro plan
+                            {isProcessing ? 'Processing...' : 'Get Pro plan'}
                         </button>
                         <ul className="mt-3 space-y-1.5">
                             {PRO_FEATURES.map((f) => (
@@ -160,9 +232,10 @@ export default function PlansPage() {
                         </p>
                         <button
                             onClick={handleSelectLifetime}
-                            className="w-full h-11 rounded-xl border-[1.5px] border-navy text-navy text-[15px] font-semibold mt-3 transition-all active:scale-[0.98] hover:bg-navy/5"
+                            disabled={isProcessing}
+                            className="w-full h-11 rounded-xl border-[1.5px] border-navy text-navy text-[15px] font-semibold mt-3 transition-all active:scale-[0.98] hover:bg-navy/5 disabled:opacity-50"
                         >
-                            Get Lifetime plan
+                            {isProcessing ? 'Processing...' : 'Get Lifetime plan'}
                         </button>
                         <ul className="mt-3 space-y-1.5">
                             {LIFETIME_FEATURES.map((f) => (

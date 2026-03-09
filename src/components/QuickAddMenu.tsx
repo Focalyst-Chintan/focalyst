@@ -10,8 +10,8 @@ interface QuickAddMenuProps {
 
 const ACTIONS = [
     { href: '/plan/new-task', label: 'Task', Icon: NewTaskIcon },
-    { href: '/focus/new-session', label: 'Session', Icon: NewSessionIcon },
-    { href: '/notes/new-note', label: 'Note', Icon: NewNoteIcon },
+    { href: '/focus', label: 'Session', Icon: NewSessionIcon },
+    { href: '/notes/new', label: 'Note', Icon: NewNoteIcon },
 ]
 
 export default function QuickAddMenu({ open, onClose }: QuickAddMenuProps) {

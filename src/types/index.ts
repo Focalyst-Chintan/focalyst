@@ -18,6 +18,7 @@ export interface User {
     updated_at: string
 }
 
+
 export interface Task {
     id: string
     user_id: string
@@ -91,9 +92,11 @@ export interface Note {
     user_id: string
     title: string
     content: string | null
-    content_text: string | null
-    tags: string[] | null
-    is_deleted: boolean
+    is_favourite: boolean
+    folder: string | null
+    note_type?: 'text' | 'voice'
+    transcript?: string | null
+    duration_seconds?: number | null
     created_at: string
     updated_at: string
 }
@@ -115,8 +118,8 @@ export interface Subscription {
     user_id: string
     plan: Exclude<UserPlan, 'free'>
     status: SubscriptionStatus
-    razorpay_payment_id: string | null
-    razorpay_subscription_id: string | null
+    polar_subscription_id: string | null
+    polar_order_id: string | null
     amount_paise: number
     currency: string
     started_at: string

@@ -3,10 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+import { createClient } from '@/lib/supabase'
+
 export default function NamePage() {
     const [name, setName] = useState('')
     const [error, setError] = useState('')
     const router = useRouter()
+    const supabase = createClient()
 
     const validateName = (value: string): string => {
         const trimmed = value.trim()
@@ -23,8 +26,15 @@ export default function NamePage() {
             return
         }
 
-        // TODO: Save to Supabase users.full_name when connected
-        console.log('[Supabase Stub] Saving name:', name.trim())
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            await supabase.from('users').update({
+                full_name: name.trim(),
+                updated_at: new Date().toISOString()
+            }).eq('id', user.id)
+        }
+
+        console.log('[Supabase] Saved name:', name.trim())
         router.push('/onboarding/profile-type')
     }
 

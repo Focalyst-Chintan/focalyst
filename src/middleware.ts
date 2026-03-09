@@ -90,7 +90,9 @@ export async function middleware(request: NextRequest) {
         }
 
         // Logged in and onboarded → redirect away from onboarding
-        if (onboardingDone && isOnboardingRoute) {
+        // Exception: /onboarding/plans is always accessible for plan management
+        const isPlansPage = pathname === '/onboarding/plans'
+        if (onboardingDone && isOnboardingRoute && !isPlansPage) {
             const url = request.nextUrl.clone()
             url.pathname = '/plan'
             return NextResponse.redirect(url)

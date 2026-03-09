@@ -23,6 +23,7 @@ export default function EditHabitPage() {
     const [reminderTime, setReminderTime] = useState('07:00')
     const [error, setError] = useState('')
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (habit) {
             setName(habit.name)

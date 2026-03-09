@@ -22,6 +22,7 @@ export default function EditTaskPage() {
     const [reminders, setReminders] = useState(false)
     const [error, setError] = useState('')
 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
         if (task) {
             setTitle(task.title)

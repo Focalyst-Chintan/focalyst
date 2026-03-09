@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase'
 import { usePlan } from '@/context/PlanContext'
 import TodoList from '@/components/plan/TodoList'
 import HabitList from '@/components/plan/HabitList'
@@ -27,14 +28,31 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
 
 export default function PlanPage() {
     const [activeTab, setActiveTab] = useState<TabView>('today')
-    const router = useRouter()
+    const [userName, setUserName] = useState<string>('User')
     const { getTodayEventCount } = usePlan()
+    const supabase = createClient()
     const date = getFormattedDate()
     const greeting = getGreeting()
     const eventCount = getTodayEventCount()
 
-    // TODO: Replace with actual user name from Supabase
-    const userName = 'Rahul'
+    useEffect(() => {
+        async function fetchUserName() {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('users')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .single()
+
+                if (profile?.full_name) {
+                    setUserName(profile.full_name.split(' ')[0]) // Just first name
+                }
+            }
+        }
+        fetchUserName()
+    }, [supabase])
+
 
     return (
         <div className="px-5 py-4">

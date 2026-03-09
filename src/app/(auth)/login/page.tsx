@@ -48,6 +48,31 @@ export default function LoginPage() {
                     Continue with Google
                 </button>
 
+                {/* Divider */}
+                <div className="flex items-center w-full gap-4">
+                    <div className="flex-1 h-[1px] bg-card-bg"></div>
+                    <span className="text-blue-muted text-xs font-medium uppercase tracking-wider">or</span>
+                    <div className="flex-1 h-[1px] bg-card-bg"></div>
+                </div>
+
+                {/* Email Login */}
+                <div className="w-full flex flex-col gap-3">
+                    <input
+                        type="email"
+                        placeholder="Enter your email"
+                        className="w-full h-12 bg-card-bg rounded-xl px-4 text-sm text-navy-darker placeholder:text-blue-muted outline-none border-[1.5px] border-transparent focus:border-navy/20 transition-all"
+                    />
+                    <button
+                        disabled
+                        className="w-full h-12 bg-navy text-white text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-navy-dark opacity-50 cursor-not-allowed"
+                    >
+                        Continue with email
+                    </button>
+                    <p className="text-[10px] text-blue-muted text-center italic">
+                        Email login is coming soon. Please use Google for now.
+                    </p>
+                </div>
+
                 {/* Footer note */}
                 <p className="text-blue-muted text-xs text-center mt-4">
                     By continuing, you agree to our Terms of Service and Privacy Policy.

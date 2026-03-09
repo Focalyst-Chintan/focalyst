@@ -390,9 +390,9 @@ CREATE TABLE subscriptions (
                            CHECK (plan IN ('pro_monthly', 'pro_yearly', 'lifetime')),
   status                   TEXT NOT NULL DEFAULT 'active'
                            CHECK (status IN ('active', 'cancelled', 'expired', 'pending')),
-  razorpay_payment_id      TEXT,
-  razorpay_subscription_id TEXT,
-  razorpay_order_id        TEXT,
+  polar_payment_id         TEXT,
+  polar_subscription_id    TEXT,
+  polar_order_id           TEXT,
   razorpay_signature       TEXT,
   amount_paise             INTEGER NOT NULL,
   currency                 TEXT NOT NULL DEFAULT 'INR',

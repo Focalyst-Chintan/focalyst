@@ -10,7 +10,7 @@ import {
     NotesTabIcon,
     InsightsTabIcon,
 } from '@/components/icons'
-import QuickAddMenu from './QuickAddMenu'
+import QuickAddMenu from '@/components/QuickAddMenu'
 
 const NAV_ITEMS = [
     { href: '/plan', label: 'Plan', Icon: PlanTabIcon },
