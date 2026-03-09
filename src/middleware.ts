@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
     // If not logged in and trying to access protected routes
     if (!user && (isAppRoute || isOnboardingRoute)) {
         const url = request.nextUrl.clone()
-        url.pathname = '/'
+        url.pathname = '/login'
         return NextResponse.redirect(url)
     }
 
