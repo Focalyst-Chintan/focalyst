@@ -5,6 +5,7 @@ import { useChat } from '@/context/ChatContext'
 import { usePlan } from '@/context/PlanContext'
 import { CloseIcon, MicrophoneIcon, SendArrowIcon } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
+import ReactMarkdown from 'react-markdown'
 
 export function AIChatOverlay() {
     const { isChatOpen, closeChat, messages, addMessage, isTyping, setIsTyping } = useChat()
@@ -180,9 +181,13 @@ export function AIChatOverlay() {
                             <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${msg.role === 'user'
                                     ? 'bg-navy text-white rounded-tr-sm'
-                                    : 'bg-card-bg/30 text-navy rounded-tl-sm'
+                                    : 'bg-card-bg/30 text-navy rounded-tl-sm prose prose-sm prose-blue max-w-none prose-p:leading-relaxed prose-pre:my-0'
                                     }`}>
-                                    {msg.content}
+                                    {msg.role === 'assistant' ? (
+                                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                    ) : (
+                                        msg.content
+                                    )}
                                 </div>
                             </div>
                         ))
