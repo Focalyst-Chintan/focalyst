@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { usePlan } from '@/context/PlanContext'
 import TodoList from '@/components/plan/TodoList'
@@ -27,13 +27,27 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
 }
 
 export default function PlanPage() {
+    const router = useRouter()
+    const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState<TabView>('today')
     const [userName, setUserName] = useState<string>('User')
+    const [showSuccess, setShowSuccess] = useState(false)
     const { getTodayEventCount } = usePlan()
     const supabase = createClient()
     const date = getFormattedDate()
     const greeting = getGreeting()
     const eventCount = getTodayEventCount()
+
+    useEffect(() => {
+        if (searchParams.get('payment') === 'success' || searchParams.get('status') === 'success') {
+            setShowSuccess(true)
+            // Cleanup URL
+            const timeout = setTimeout(() => {
+                router.replace('/plan')
+            }, 5000)
+            return () => clearTimeout(timeout)
+        }
+    }, [searchParams, router])
 
     useEffect(() => {
         async function fetchUserName() {
@@ -56,6 +70,28 @@ export default function PlanPage() {
 
     return (
         <div className="px-5 py-4">
+            {/* Success Message */}
+            {showSuccess && (
+                <div className="mb-6 bg-navy text-white p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
+                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                    </div>
+                    <div>
+                        <p className="font-bold text-[15px]">Welcome to Pro!</p>
+                        <p className="text-white/70 text-[12px]">Your subscription is now active. Enjoy!</p>
+                    </div>
+                    <button
+                        onClick={() => setShowSuccess(false)}
+                        className="ml-auto text-white/40 hover:text-white"
+                    >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M18 6L6 18M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            )}
             {/* Greeting */}
             <h1 className="text-navy text-xl font-semibold">
                 {greeting}, {userName}

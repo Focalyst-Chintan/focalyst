@@ -28,6 +28,11 @@ const PRICING = {
         yearlyLabel: '39.99',
         yearlyMonthlyEquiv: '3.33',
         lifetimeLabel: '99.00',
+        ids: {
+            monthly: 'b3930493-c480-48b4-a9ba-429253d84deb',
+            yearly: '2a6f2130-f866-4b84-968e-3a097b20607c',
+            lifetime: '5c2d430b-908b-4b15-a2d6-01b655d73cfb',
+        }
     },
 }
 
@@ -77,6 +82,15 @@ export default function PaywallPage() {
 
     const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
         setIsLoading(true)
+
+        // ─── International (Polar) → Direct Redirect ────────────────
+        if (region === 'INT') {
+            const productId = PRICING.INT.ids[planType as keyof typeof PRICING.INT.ids]
+            console.log("Redirecting to Polar:", productId)
+            window.location.href = `/api/checkout/polar?productId=${productId}`
+            return
+        }
+
         try {
             const res = await fetch('/api/checkout/create', {
                 method: 'POST',
@@ -94,17 +108,7 @@ export default function PaywallPage() {
                 return
             }
 
-            if (data.provider === 'polar') {
-                const checkoutUrl = data.url || data.checkoutUrl
-                if (checkoutUrl) {
-                    console.log("Redirecting to Polar:", checkoutUrl)
-                    window.location.href = checkoutUrl
-                } else {
-                    console.error('No Polar URL in response:', data)
-                    alert('Error: Polar did not return a checkout URL.')
-                    setIsLoading(false)
-                }
-            } else if (data.provider === 'razorpay') {
+            if (data.provider === 'razorpay') {
                 openRazorpayCheckout(data)
             }
         } catch (error: any) {
