@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
+import { createClient } from '@/lib/supabase'
 
 type BillingCycle = 'monthly' | 'yearly'
 type Region = 'IN' | 'INT'
@@ -57,6 +58,7 @@ export default function PaywallPage() {
     const [billing, setBilling] = useState<BillingCycle>('yearly')
     const [region, setRegion] = useState<Region>('INT')
     const [isLoading, setIsLoading] = useState(false)
+    const [isRestoring, setIsRestoring] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly')
 
     useEffect(() => {
@@ -92,14 +94,43 @@ export default function PaywallPage() {
             if (data.provider === 'polar' && data.checkoutUrl) {
                 window.location.href = data.checkoutUrl
             } else if (data.provider === 'razorpay') {
-                // For Razorpay, we'd open Razorpay checkout modal
-                // This requires the Razorpay script to be loaded on the client
                 openRazorpayCheckout(data)
             }
         } catch (error) {
             console.error('Checkout failed:', error)
         } finally {
             setIsLoading(false)
+        }
+    }
+
+    const restoreSubscription = async () => {
+        setIsRestoring(true)
+        try {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (!user) {
+                alert('Please log in to restore your purchase.')
+                return
+            }
+
+            const { data: sub, error } = await supabase
+                .from('subscriptions')
+                .select('*')
+                .eq('user_id', user.id)
+                .in('status', ['active'])
+                .single()
+
+            if (sub && !error) {
+                router.push('/dashboard?payment=success')
+            } else {
+                alert('No active subscription found.')
+            }
+        } catch (error) {
+            console.error('Restore failed:', error)
+            alert('Failed to restore subscription.')
+        } finally {
+            setIsRestoring(false)
         }
     }
 
@@ -288,6 +319,17 @@ export default function PaywallPage() {
                         ))}
                     </ul>
                 </div>
+
+                {/* ─── Restore Purchase ───────────────────── */}
+                <div className="text-center mt-6">
+                    <button
+                        onClick={restoreSubscription}
+                        disabled={isRestoring}
+                        className="text-[13px] font-semibold text-gray-500 underline hover:text-gray-800 transition-colors disabled:opacity-60"
+                    >
+                        {isRestoring ? 'Restoring...' : 'Restore Purchase'}
+                    </button>
+                </div>
             </div>
 
             {/* ─── Sticky Bottom CTA ─────────────────────── */}
@@ -318,7 +360,7 @@ export default function PaywallPage() {
 
                     {/* CTA Button */}
                     <button
-                        onClick={() => handleCheckout(selectedPlan === 'lifetime' ? 'lifetime' : 'monthly')}
+                        onClick={() => handleCheckout(selectedPlan)}
                         disabled={isLoading}
                         className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60"
                     >
@@ -337,8 +379,11 @@ export default function PaywallPage() {
 
                     {/* Footer Links */}
                     <div className="flex items-center justify-between mt-4 px-1">
-                        <button className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors">
-                            RESTORE PURCHASE
+                        <button
+                            onClick={() => handleCheckout('yearly')}
+                            className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors"
+                        >
+                            PROCEED WITH ANNUAL
                         </button>
                         <button
                             onClick={() => router.back()}
