@@ -108,23 +108,26 @@ export async function POST(request: NextRequest) {
             },
             body: JSON.stringify({
                 product_id: productId,
-                success_url: process.env.POLAR_SUCCESS_URL,
+                success_url: 'https://focalyst.online/dashboard?payment=success',
                 customer_metadata: {
                     user_id: user.id,
                 },
             }),
         }).catch(err => {
-            console.error('Fetch error calling Polar:', err)
+            console.error('Polar Connection Error Detail:', JSON.stringify(err, null, 2))
             throw new Error(`Connection to Polar failed: ${err.message}`)
         })
 
         if (!polarResponse.ok) {
             const errBody = await polarResponse.text()
-            console.error('Polar API Error:', {
-                status: polarResponse.status,
-                productId,
-                body: errBody
-            })
+            console.error('Polar API Error Details:', errBody)
+
+            // Try to parse as JSON for cleaner logging if possible
+            try {
+                const jsonErr = JSON.parse(errBody)
+                console.error('Polar API JSON Error:', JSON.stringify(jsonErr, null, 2))
+            } catch (e) { }
+
             return NextResponse.json({
                 error: 'Polar checkout failed',
                 details: errBody,
