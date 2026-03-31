@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { usePlan } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
+import HabitRow from './HabitRow'
 
 export default function HabitList() {
     const { habits, loading, error, updateHabit, deleteHabit, refreshData } = usePlan()
@@ -42,43 +43,14 @@ export default function HabitList() {
                         </p>
                     ) : (
                         habits.map((habit) => (
-                            <div
+                            <HabitRow
                                 key={habit.id}
-                                className="flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3"
-                            >
-                                {/* Checkbox */}
-                                <button
-                                    onClick={() => toggleHabit(habit.id)}
-                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${habit.completed_today ? 'bg-navy border-navy' : 'border-blue-muted bg-white'
-                                        }`}
-                                    aria-label={habit.completed_today ? 'Unmark habit' : 'Complete habit'}
-                                >
-                                    {habit.completed_today && (
-                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    )}
-                                </button>
-
-                                {/* Name */}
-                                <span className={`flex-1 text-sm font-medium transition-all ${habit.completed_today ? 'text-blue-muted line-through' : 'text-navy'
-                                    }`}>
-                                    {habit.name}
-                                </span>
-
-                                {/* Streak badge */}
-                                <span className="text-blue-muted text-xs font-medium whitespace-nowrap">
-                                    Streak {habit.current_streak} days
-                                </span>
-
-                                {/* Menu */}
-                                <TaskMenu
-                                    onEdit={() => router.push(`/plan/edit-habit/${habit.id}`)}
-                                    onDelete={() => deleteHabit(habit.id)}
-                                    onRename={() => handleRename(habit.id)}
-                                    onTag={() => console.log('Tag habit:', habit.id)}
-                                />
-                            </div>
+                                habit={habit}
+                                onToggle={() => toggleHabit(habit.id)}
+                                onEdit={() => router.push(`/plan/edit-habit/${habit.id}`)}
+                                onDelete={() => deleteHabit(habit.id)}
+                                onRename={() => handleRename(habit.id)}
+                            />
                         ))
                     )}
                 </div>
