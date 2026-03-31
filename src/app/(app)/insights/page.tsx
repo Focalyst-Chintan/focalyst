@@ -51,33 +51,37 @@ export default async function InsightsPage() {
     const completedTasks = completedTodayData?.length || 0
     const totalTasks = pendingCount + completedTasks
 
-    // 3. Fetch Pomodoro Sessions
+    // 3. Fetch daily_focus_activity data
     const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today)
 
-    // current week
-    const { data: currentWeekSessions } = await supabase
-        .from('pomodoro_sessions')
+    // Fetch ALL records for the authenticated user
+    const { data: allActivities } = await supabase
+        .from('daily_focus_activity')
         .select('*')
         .eq('user_id', user.id)
-        .gte('completed_at', startOfWeek.toISOString())
-        .lte('completed_at', endOfWeek.toISOString())
+
+    // Calculate total focus time across all recorded days
+    const totalFocusMinutesALL = allActivities?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0
+
+    // current week
+    const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
+    const endOfWeekStr = endOfWeek.toISOString().split('T')[0]
+
+    const currentWeekActivities = allActivities?.filter(a => a.date >= startOfWeekStr && a.date <= endOfWeekStr) || []
 
     // previous week
     const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000)
     const lastWeekEnd = new Date(startOfWeek.getTime() - 1)
+    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0]
+    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0]
 
-    const { data: previousWeekSessions } = await supabase
-        .from('pomodoro_sessions')
-        .select('focus_minutes, sets_completed')
-        .eq('user_id', user.id)
-        .gte('completed_at', lastWeekStart.toISOString())
-        .lte('completed_at', lastWeekEnd.toISOString())
+    const previousWeekActivities = allActivities?.filter(a => a.date >= lastWeekStartStr && a.date <= lastWeekEndStr) || []
 
-    const currentFocusMinutes = currentWeekSessions?.reduce((acc, curr) => acc + (curr.focus_minutes * curr.sets_completed), 0) || 0
-    const prevFocusMinutes = previousWeekSessions?.reduce((acc, curr) => acc + (curr.focus_minutes * curr.sets_completed), 0) || 0
+    const currentFocusMinutes = currentWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
+    const prevFocusMinutes = previousWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
 
     const focusTrend = calculateTrend(currentFocusMinutes, prevFocusMinutes)
-    const dailyActivityData = aggregateSessionsByDay(currentWeekSessions || [], startOfWeek, endOfWeek)
+    const dailyActivityData = aggregateSessionsByDay(currentWeekActivities, startOfWeek, endOfWeek)
 
     // 4. Fetch Active Habits (Streaks)
     const { data: habitsData } = await supabase
@@ -113,7 +117,7 @@ export default async function InsightsPage() {
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
 
                 <div className="grid grid-cols-2 gap-4">
-                    <FocusTimeCard minutes={currentFocusMinutes} trend={focusTrend} />
+                    <FocusTimeCard minutes={totalFocusMinutesALL} trend={focusTrend} />
                     <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
                 </div>
 

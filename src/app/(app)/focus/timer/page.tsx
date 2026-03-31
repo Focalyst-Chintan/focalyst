@@ -30,35 +30,88 @@ function TimerContent() {
                 }
             }
         }
-
         requestWakeLock()
-
         return () => {
-            if (wakeLock.current) {
-                wakeLock.current.release()
-            }
+            if (wakeLock.current) wakeLock.current.release()
         }
     }, [])
 
     const endTimeRef = useRef<number | null>(null)
+    const lastTickTime = useRef(Date.now())
+    const pendingLogSecs = useRef(0)
+
+    // Flush utility to safely update DB
+    const flushPendingTime = async (currentMode: string) => {
+        const toLog = pendingLogSecs.current
+        if (toLog <= 0) return
+
+        pendingLogSecs.current = 0 // Clear immediately to prevent double counting
+
+        const focusToAdd = currentMode === 'FOCUS' ? toLog / 60 : 0
+        const breakToAdd = currentMode === 'BREAK' ? toLog / 60 : 0
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                const dateStr = new Date().toISOString().split('T')[0]
+                await supabase.rpc('increment_daily_focus', {
+                    p_user_id: session.user.id,
+                    p_date: dateStr,
+                    p_focus_mins: focusToAdd,
+                    p_break_mins: breakToAdd
+                })
+            }
+        } catch (err) {
+            console.error('Failed to log explicit focus time', err)
+        }
+    }
+
+    // Flush on unmount to catch any remaining time
+    const modeRef = useRef(mode)
+    useEffect(() => {
+        modeRef.current = mode
+    }, [mode])
+
+    useEffect(() => {
+        const handleBeforeUnload = () => flushPendingTime(modeRef.current)
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload)
+            flushPendingTime(modeRef.current)
+        }
+    }, [])
 
     useEffect(() => {
         if (isActive && mode !== 'DONE') {
             endTimeRef.current = Date.now() + (timeLeft * 1000)
+            lastTickTime.current = Date.now()
         } else {
+            // When pausing or finishing
             endTimeRef.current = null
+            flushPendingTime(mode)
         }
-    }, [isActive, mode]) // Re-run when play/pause is toggled
+    }, [isActive, mode])
 
     useEffect(() => {
         let interval: NodeJS.Timeout
         if (isActive && mode !== 'DONE') {
             interval = setInterval(() => {
+                const now = Date.now()
+                // Track exact elapsed time for DB
+                const deltaSecs = (now - lastTickTime.current) / 1000
+                pendingLogSecs.current += deltaSecs
+                lastTickTime.current = now
+
+                // Flush every 10 seconds periodically just in case of crash
+                if (pendingLogSecs.current >= 10) {
+                    flushPendingTime(mode)
+                }
+
                 if (endTimeRef.current) {
-                    const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
+                    const remaining = Math.max(0, Math.ceil((endTimeRef.current - now) / 1000))
                     setTimeLeft(remaining)
                     if (remaining === 0) {
-                        handleTimeUp()
+                        flushPendingTime(mode).then(() => handleTimeUp())
                     }
                 }
             }, 500)
@@ -197,7 +250,10 @@ function TimerContent() {
                     {isActive ? 'Pause' : 'Resume'}
                 </button>
                 <button
-                    onClick={() => router.push('/focus')}
+                    onClick={() => {
+                        flushPendingTime(mode)
+                        router.push('/focus')
+                    }}
                     className="bg-card-bg text-navy px-8 py-3 rounded-xl font-medium"
                 >
                     Reset

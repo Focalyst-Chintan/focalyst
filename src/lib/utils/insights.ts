@@ -21,7 +21,7 @@ export function calculateTrend(currentValue: number, previousValue: number) {
     return Math.round(((currentValue - previousValue) / previousValue) * 100)
 }
 
-export function aggregateSessionsByDay(sessions: PomodoroSession[], startOfWeek: Date, endOfWeek: Date) {
+export function aggregateSessionsByDay(activities: any[], startOfWeek: Date, endOfWeek: Date) {
     const dailyData = [
         { day: 'Mon', focus: 0, break: 0, date: new Date(startOfWeek) },
         { day: 'Tue', focus: 0, break: 0, date: new Date(startOfWeek.getTime() + 1 * 24 * 60 * 60 * 1000) },
@@ -32,26 +32,23 @@ export function aggregateSessionsByDay(sessions: PomodoroSession[], startOfWeek:
         { day: 'Sun', focus: 0, break: 0, date: new Date(startOfWeek.getTime() + 6 * 24 * 60 * 60 * 1000) },
     ]
 
-    sessions.forEach(session => {
-        const sessionDate = new Date(session.completed_at)
-        // ensure session matches timeframe
-        if (sessionDate >= startOfWeek && sessionDate <= endOfWeek) {
-            let dayIndex = sessionDate.getDay() - 1 // Mon is 0
-            if (dayIndex === -1) dayIndex = 6 // Sun is 6
+    activities.forEach(activity => {
+        // Parse date string securely, ignoring time zone offsets if it's YYYY-MM-DD
+        const [year, month, day] = activity.date.split('-').map(Number)
+        const activityDate = new Date(year, month - 1, day)
 
-            // calculate actual focus time (if user abandoned early sets completed will be less)
-            dailyData[dayIndex].focus += session.focus_minutes * session.sets_completed
-            // add break time logic, breaks only occur between sets. Number of breaks = sets completed - 1 (or sets completed if all finished? usually ends after last set)
-            const breakCount = Math.max(0, session.sets_completed - (session.was_completed ? 1 : 0))
-            dailyData[dayIndex].break += session.break_minutes * breakCount
-        }
+        let dayIndex = activityDate.getDay() - 1 // Mon is 0
+        if (dayIndex === -1) dayIndex = 6 // Sun is 6
+
+        dailyData[dayIndex].focus += activity.focus_time_minutes || 0
+        dailyData[dayIndex].break += activity.break_time_minutes || 0
     })
 
-    // convert to hours for chart readability
+    // convert to exact hours for chart readability
     return dailyData.map(d => ({
         ...d,
-        focus: Number((d.focus / 60).toFixed(1)),
-        break: Number((d.break / 60).toFixed(1))
+        focus: Number((d.focus / 60).toFixed(2)),
+        break: Number((d.break / 60).toFixed(2))
     }))
 }
 
