@@ -91,8 +91,8 @@ export default function PaywallPage() {
                 return
             }
 
-            if (data.provider === 'polar' && data.checkoutUrl) {
-                window.location.href = data.checkoutUrl
+            if (data.provider === 'polar' && (data.url || data.checkoutUrl)) {
+                window.location.href = data.url || data.checkoutUrl
             } else if (data.provider === 'razorpay') {
                 openRazorpayCheckout(data)
             }

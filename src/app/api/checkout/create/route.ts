@@ -114,17 +114,28 @@ export async function POST(request: NextRequest) {
         })
 
         if (!polarResponse.ok) {
-            const err = await polarResponse.text()
-            console.error('Polar checkout error:', err)
-            return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 })
+            const errBody = await polarResponse.text()
+            console.error('Polar Checkout Creation Failed:', {
+                status: polarResponse.status,
+                statusText: polarResponse.statusText,
+                body: errBody,
+                productId,
+                userId: user.id
+            })
+            return NextResponse.json({
+                error: 'Failed to create Polar checkout session',
+                details: errBody
+            }, { status: 500 })
         }
 
         const polarData = await polarResponse.json()
+        console.log('Polar Checkout Created Successfully:', polarData.id)
 
         return NextResponse.json({
             provider: 'polar',
             type: planType === 'lifetime' ? 'order' : 'subscription',
-            checkoutUrl: polarData.url,
+            url: polarData.url,
+            checkoutUrl: polarData.url, // Keep for backward compatibility
         })
 
     } catch (error) {
