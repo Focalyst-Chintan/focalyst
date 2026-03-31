@@ -11,6 +11,7 @@ interface NoteOptionsMenuProps {
     onAddToFolder: () => void;
     onDownload: () => void;
     onDelete: () => void;
+    isDownloading?: boolean;
 }
 
 export const NoteOptionsMenu = ({
@@ -21,7 +22,8 @@ export const NoteOptionsMenu = ({
     onToggleFavourite,
     onAddToFolder,
     onDownload,
-    onDelete
+    onDelete,
+    isDownloading = false
 }: NoteOptionsMenuProps) => {
     if (!isOpen) return null;
 
@@ -58,8 +60,15 @@ export const NoteOptionsMenu = ({
                         </span>
                     </button>
 
-                    <button onClick={() => { onDownload(); onClose(); }} className="flex items-center p-4 md:py-3 md:px-4 border-b border-card-bg md:border-none md:rounded-lg md:hover:bg-page-bg text-left">
+                    <button
+                        onClick={() => { onDownload(); }}
+                        disabled={isDownloading}
+                        className="flex items-center justify-between p-4 md:py-3 md:px-4 border-b border-card-bg md:border-none md:rounded-lg md:hover:bg-page-bg text-left disabled:opacity-70"
+                    >
                         <span className="text-[15px] font-medium text-navy">Download as PDF</span>
+                        {isDownloading && (
+                            <div className="w-4 h-4 border-2 border-navy border-t-transparent rounded-full animate-spin ml-2" />
+                        )}
                     </button>
 
                     <button onClick={() => { onDelete(); onClose(); }} className="flex items-center p-4 md:py-3 md:px-4 text-left md:rounded-lg md:hover:bg-red-50">

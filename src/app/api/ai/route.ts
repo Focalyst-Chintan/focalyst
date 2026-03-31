@@ -1,13 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { GoogleGenerativeAI, SchemaType, FunctionDeclaration } from '@google/generative-ai'
+import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@google/generative-ai'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(req: Request) {
     try {
-        const { message, tabContext } = await req.json()
+        const { message } = await req.json()
 
         if (!message) {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 })
@@ -50,65 +50,169 @@ export async function POST(req: Request) {
 
         // 2. Call Gemini API
         // System Prompt to define Focalyst's persona
-        const systemInstruction = `You are Focalyst AI, a helpful, concise productivity assistant within the Focalyst app. 
-You help users plan their day, reflect on habits, and manage their time using Pomodoro techniques. 
-Keep your answers brief (1-3 sentences) and action-oriented. Do not use emojis.`
+        const systemInstruction = `You are the Focalyst AI Productivity Coach. Your goal is to analyze user data, provide candid but empathetic feedback, and optimize their daily schedules.
 
-        // Define the tool
-        const addTaskDeclaration: FunctionDeclaration = {
-            name: 'addTask',
-            description: 'Add a new task to the user\'s To-Do list.',
+You have access to the user's database via tools. Always fetch their data before giving a productivity review.
+
+When giving suggestions or pointing out weaknesses, you MUST cite actual psychological, neuroscientific, or behavioral science research (e.g., Huberman, chronotypes, Zeigarnik effect, habit loops). Do not give generic advice.
+
+If the user asks to plan their day, first ask them for their goals and available free time. Once they reply, automatically use the create_todos tool to populate their list.`
+
+        // Define the tools
+        const getProductivityDataDeclaration: FunctionDeclaration = {
+            name: 'get_user_productivity_data',
+            description: 'Fetches the user\'s current metrics (focus/break hours, habit streaks, to-do completion) to provide a review.',
+            parameters: {
+                type: SchemaType.OBJECT,
+                properties: {},
+            }
+        }
+
+        const createTodosDeclaration: FunctionDeclaration = {
+            name: 'create_todos',
+            description: 'Automatically adds an array of tasks to the user\'s to-do list.',
             parameters: {
                 type: SchemaType.OBJECT,
                 properties: {
-                    title: {
-                        type: SchemaType.STRING,
-                        description: 'The name or title of the task.',
-                    },
-                    due_date: {
-                        type: SchemaType.STRING,
-                        description: 'The due date for the task in YYYY-MM-DD format. If today, use the current date in the user\'s timezone.',
+                    tasks: {
+                        type: SchemaType.ARRAY,
+                        description: 'An array of tasks to add.',
+                        items: {
+                            type: SchemaType.OBJECT,
+                            properties: {
+                                task_name: { type: SchemaType.STRING, description: 'The name of the task.' },
+                                estimated_minutes: { type: SchemaType.NUMBER, description: 'Estimated time in minutes.' }
+                            },
+                            required: ['task_name']
+                        }
                     }
                 },
-                required: ['title']
+                required: ['tasks']
+            }
+        }
+
+        const createHabitDeclaration: FunctionDeclaration = {
+            name: 'create_new_habit',
+            description: 'Sets up a new daily habit tracker for the user.',
+            parameters: {
+                type: SchemaType.OBJECT,
+                properties: {
+                    habit_name: { type: SchemaType.STRING, description: 'The name of the new habit.' }
+                },
+                required: ['habit_name']
             }
         }
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-2.0-flash",
             systemInstruction: systemInstruction,
-            tools: [{ functionDeclarations: [addTaskDeclaration] }]
         })
 
-        const result = await model.generateContent(message)
-        let responseText = ""
+        // Start multi-turn chat
+        const chat = model.startChat({
+            tools: [{ functionDeclarations: [getProductivityDataDeclaration, createTodosDeclaration, createHabitDeclaration] }]
+        })
+
+        const result = await chat.sendMessage(message)
+        let response = result.response
         let action = null
-        const calls = result.response.functionCalls()
 
-        if (calls && calls.length > 0) {
-            const call = calls[0]
-            if (call.name === 'addTask') {
-                const args = call.args as { title: string, due_date?: string }
+        // Loop to handle tool calls
+        while (response.functionCalls()?.length) {
+            const calls = response.functionCalls()!
+            const toolResults: { name: string; response: unknown }[] = []
 
-                const { error: insertError } = await supabase.from('tasks').insert([
-                    {
+            for (const call of calls) {
+                if (call.name === 'get_user_productivity_data') {
+                    // Fetch last 7 days of focus data
+                    const sevenDaysAgo = new Date()
+                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+
+                    const { data: focusData } = await supabase
+                        .from('daily_focus_activity')
+                        .select('date, focus_time_minutes, break_time_minutes')
+                        .eq('user_id', user.id)
+                        .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+
+                    // Fetch active habit streaks
+                    const { data: habits } = await supabase
+                        .from('habits')
+                        .select('name, current_streak')
+                        .eq('user_id', user.id)
+                        .eq('is_active', true)
+
+                    // Fetch task completion percentage
+                    const { data: tasks } = await supabase
+                        .from('tasks')
+                        .select('is_completed')
+                        .eq('user_id', user.id)
+
+                    const totalTasks = tasks?.length || 0
+                    const completedTasks = tasks?.filter(t => t.is_completed).length || 0
+                    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+
+                    toolResults.push({
+                        name: 'get_user_productivity_data',
+                        response: {
+                            focus_activity: focusData || [],
+                            habit_streaks: habits || [],
+                            task_completion_stats: {
+                                total_tasks: totalTasks,
+                                completed_tasks: completedTasks,
+                                completion_rate: completionRate.toFixed(1) + '%'
+                            }
+                        }
+                    })
+                }
+
+                if (call.name === 'create_todos') {
+                    const args = call.args as { tasks: { task_name: string, estimated_minutes?: number }[] }
+                    const tasksToInsert = args.tasks.map(t => ({
                         user_id: user.id,
-                        title: args.title,
-                        due_date: args.due_date || new Date().toISOString().split('T')[0]
-                    }
-                ])
+                        title: t.task_name,
+                        due_date: new Date().toISOString().split('T')[0],
+                        priority: 'medium'
+                    }))
 
-                if (insertError) {
-                    console.error('Task Insert Error:', insertError)
-                    responseText = `I had trouble adding the task "${args.title}". Please try again.`
-                } else {
-                    responseText = `"${args.title}" added to your To-Do list.`
-                    action = 'refresh_plan'
+                    const { error: insertError } = await supabase.from('tasks').insert(tasksToInsert)
+
+                    toolResults.push({
+                        name: 'create_todos',
+                        response: { success: !insertError, error: insertError?.message }
+                    })
+                    if (!insertError) action = 'refresh_plan'
+                }
+
+                if (call.name === 'create_new_habit') {
+                    const args = call.args as { habit_name: string }
+                    const { error: habitError } = await supabase.from('habits').insert({
+                        user_id: user.id,
+                        name: args.habit_name,
+                        frequency: 'daily',
+                        is_active: true,
+                        current_streak: 0
+                    })
+
+                    toolResults.push({
+                        name: 'create_new_habit',
+                        response: { success: !habitError, error: habitError?.message }
+                    })
+                    if (!habitError) action = 'refresh_plan'
                 }
             }
-        } else {
-            responseText = result.response.text()
+
+            // Send tool results back to Gemini
+            const parts: Part[] = toolResults.map(tr => ({
+                functionResponse: {
+                    name: tr.name,
+                    response: tr.response as any
+                }
+            }))
+            const resultNext = await chat.sendMessage(parts)
+            response = resultNext.response
         }
+
+        const responseText = response.text()
 
         // 3. Log Conversations to Supabase
         await supabase.from('ai_chat_logs').insert([

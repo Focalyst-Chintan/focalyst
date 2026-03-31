@@ -26,6 +26,24 @@ body {
   background: var(--color-page-bg);
   color: var(--color-navy-darker);
   font-family: var(--font-inter);
+  /* Native mobile behavior */
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Enable selection for inputs and notes */
+input,
+textarea,
+[contenteditable="true"],
+.selectable-text {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+html {
+  overscroll-behavior-y: none;
 }
 
 /* Skeleton shimmer animation */
@@ -65,4 +83,21 @@ body {
 body.distraction-free header,
 body.distraction-free nav {
   display: none !important;
+}
+
+/* Page Fade-in Animation */
+@keyframes pageFadeIn {
+  from {
+    opacity: 0.2;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-fade-in {
+  animation: pageFadeIn 0.25s ease-out forwards;
 }

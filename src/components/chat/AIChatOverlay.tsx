@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@/context/ChatContext'
 import { usePlan } from '@/context/PlanContext'
-import { CloseIcon, MicrophoneIcon, SendArrowIcon, AIChatIcon } from '@/components/icons'
+import { CloseIcon, MicrophoneIcon, SendArrowIcon } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
 
 export function AIChatOverlay() {
@@ -13,6 +13,7 @@ export function AIChatOverlay() {
     const [isFreeUser, setIsFreeUser] = useState(false)
     const [messagesUsed, setMessagesUsed] = useState(0)
     const [loadingInfo, setLoadingInfo] = useState(true)
+    const [showToast, setShowToast] = useState(false)
     const chatContainerRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
 
@@ -100,9 +101,11 @@ export function AIChatOverlay() {
                 addMessage({ id: Date.now().toString(), role: 'assistant', content: data.reply })
                 if (data.action === 'refresh_plan') {
                     refreshData()
+                    setShowToast(true)
+                    setTimeout(() => setShowToast(false), 3000)
                 }
             }
-        } catch (error) {
+        } catch (netError) {
             addMessage({ id: Date.now().toString(), role: 'assistant', content: 'Network error. Please try again later.' })
         } finally {
             setIsTyping(false)
@@ -133,6 +136,13 @@ export function AIChatOverlay() {
 
                 {/* Mobile drag handle */}
                 <div className="w-12 h-1.5 bg-card-bg rounded-full mx-auto mb-4 md:hidden"></div>
+
+                {/* Toast Notification */}
+                {showToast && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-navy/90 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg animate-bounce flex items-center gap-2 border border-white/20 backdrop-blur-sm">
+                        <span>✨ Focalyst AI updated your planner</span>
+                    </div>
+                )}
 
                 {/* Header */}
                 <div className="px-6 pb-4 flex justify-between items-start border-b border-page-bg">
@@ -196,7 +206,7 @@ export function AIChatOverlay() {
                 <div className="absolute bottom-0 left-0 right-0 bg-white px-6 py-4 pb-safe border-t border-page-bg">
                     {isLimitReached ? (
                         <div className="flex flex-col items-center gap-2 pb-2">
-                            <p className="text-[13px] text-navy font-medium text-center">You've used all 5 free messages today.</p>
+                            <p className="text-[13px] text-navy font-medium text-center">You&apos;ve used all 5 free messages today.</p>
                             <p className="text-[12px] text-blue-muted text-center max-w-[260px] mb-2">Upgrade to Pro for unlimited AI chat 🚀</p>
                             <button className="bg-accent text-white font-semibold text-[14px] py-2.5 px-6 rounded-full shadow-md">
                                 Upgrade Now

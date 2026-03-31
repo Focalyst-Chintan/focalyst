@@ -1,57 +1,35 @@
-import jsPDF from 'jspdf';
-
-export function generatePdf(title: string, contentText: string, filename: string) {
+export async function generatePdf(title: string, htmlContent: string) {
     try {
-        const Doc = (jsPDF as any).jsPDF || jsPDF;
-        const pdf = new Doc({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
+        const response = await fetch('/api/notes/generate-pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                htmlContent,
+                noteTitle: title,
+            }),
         });
 
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 20;
-
-        // Draw background (F4F7FA)
-        pdf.setFillColor(244, 247, 250);
-        pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-
-        // Title (Navy: 4A6C8C)
-        pdf.setTextColor(74, 108, 140);
-        pdf.setFontSize(24);
-        pdf.setFont("helvetica", "bold");
-
-        const displayTitle = title?.trim() || 'Untitled document';
-        const splitTitle = pdf.splitTextToSize(displayTitle, pageWidth - 2 * margin);
-        pdf.text(splitTitle, margin, margin + 10);
-
-        const titleHeight = splitTitle.length * 10;
-
-        // Body (Navy text)
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "normal");
-
-        const cleanContent = contentText || '';
-        const splitText = pdf.splitTextToSize(cleanContent, pageWidth - 2 * margin);
-
-        let yPos = margin + titleHeight + 10;
-
-        for (let i = 0; i < splitText.length; i++) {
-            if (yPos > pageHeight - margin) {
-                pdf.addPage();
-                pdf.setFillColor(244, 247, 250);
-                pdf.rect(0, 0, pageWidth, pageHeight, 'F');
-                pdf.setTextColor(74, 108, 140);
-                yPos = margin;
-            }
-            pdf.text(splitText[i], margin, yPos);
-            yPos += 7;
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Failed to generate PDF');
         }
 
-        pdf.save(filename || 'focalyst-note.pdf');
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${slugify(title || 'untitled')}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        return true;
     } catch (err) {
         console.error('PDF Generation Error:', err);
+        throw err;
     }
 }
 

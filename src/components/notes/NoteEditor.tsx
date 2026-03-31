@@ -30,6 +30,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
     const [title, setTitle] = useState(initialNote.title || 'Untitled document')
     const [content, setContent] = useState(initialNote.content || '')
     const [charCount, setCharCount] = useState(0)
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false)
 
     const [titleError, setTitleError] = useState('')
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
@@ -133,10 +134,18 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
         await supabase.from('notes').update({ is_favourite: newValue }).eq('id', note.id)
     }
 
-    const handleDownloadPdf = () => {
-        if (!editor) return
-        const plainText = editor.getText()
-        generatePdf(title, plainText, `${slugify(title)}-focalyst.pdf`)
+    const handleDownloadPdf = async () => {
+        if (!editor || isDownloadingPdf) return
+        setIsDownloadingPdf(true)
+        try {
+            const htmlContent = editor.getHTML()
+            await generatePdf(title, htmlContent)
+        } catch (err) {
+            console.error('PDF generation failed:', err)
+            alert('Failed to generate PDF. Please try again.')
+        } finally {
+            setIsDownloadingPdf(false)
+        }
     }
 
     const formatVoiceDate = (dateStr: string) => {
@@ -218,10 +227,18 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                             <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" stroke={note.is_favourite ? '#4A6C8C' : '#95A7B5'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                     </button>
-                    <button onClick={handleDownloadPdf} className="p-2 -mr-2 rounded-full hover:bg-card-bg/20 transition-colors">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="#95A7B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
+                    <button
+                        onClick={handleDownloadPdf}
+                        disabled={isDownloadingPdf}
+                        className="p-2 -mr-2 rounded-full hover:bg-card-bg/20 transition-colors disabled:opacity-50 relative"
+                    >
+                        {isDownloadingPdf ? (
+                            <div className="w-5 h-5 border-2 border-navy border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" stroke="#95A7B5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        )}
                     </button>
                 </div>
             </div>
@@ -289,12 +306,14 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                         <h3 className="text-[18px] font-bold text-navy">Summary</h3>
                     </div>
                 )}
-                <EditorContent editor={editor} />
+                <div className="selectable-text">
+                    <EditorContent editor={editor} />
+                </div>
             </div>
 
             {/* Transcript Area */}
             {isVoiceNote && activeTab === 'transcript' && (
-                <div className="flex-1 overflow-y-auto px-4 py-6 pb-32">
+                <div className="flex-1 overflow-y-auto px-4 py-6 pb-32 selectable-text">
                     <div className="prose prose-sm sm:prose-base text-navy font-medium whitespace-pre-wrap">
                         {note.transcript}
                     </div>

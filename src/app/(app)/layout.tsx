@@ -16,7 +16,7 @@ export default function AppLayout({
             <ChatProvider>
                 <div className="min-h-screen bg-page-bg flex flex-col relative">
                     <Header />
-                    <main className="flex-1 pb-20">
+                    <main className="flex-1 pb-20 page-fade-in">
                         {children}
                     </main>
                     <BottomNav />

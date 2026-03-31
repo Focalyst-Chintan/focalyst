@@ -49,7 +49,8 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/focus') ||
         pathname.startsWith('/notes') ||
         pathname.startsWith('/insights') ||
-        pathname.startsWith('/account')
+        pathname.startsWith('/account') ||
+        pathname.startsWith('/paywall')
 
     // Auth routes (welcome + login)
     const isAuthRoute = pathname === '/' || pathname === '/login'
@@ -98,6 +99,16 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(url)
         }
     }
+
+    // --- Region Detection ---
+    const country = request.headers.get('x-vercel-ip-country') || ''
+    const region = country === 'IN' ? 'IN' : 'INT'
+    supabaseResponse.cookies.set('user-region', region, {
+        path: '/',
+        httpOnly: false, // readable by client JS
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+    })
 
     return supabaseResponse
 }

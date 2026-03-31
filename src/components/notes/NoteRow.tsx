@@ -23,6 +23,16 @@ export const NoteRow = ({
     onDelete
 }: NoteRowProps) => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isDownloading, setIsDownloading] = useState(false);
+
+    const handleDownload = async () => {
+        setIsDownloading(true);
+        try {
+            await onDownload(note);
+        } finally {
+            setIsDownloading(false);
+        }
+    };
 
     const formatDuration = (seconds?: number | null) => {
         if (!seconds) return '0 min';
@@ -98,8 +108,9 @@ export const NoteRow = ({
                 onEdit={() => onEdit(note)}
                 onToggleFavourite={() => onToggleFavourite(note)}
                 onAddToFolder={() => onAddToFolder(note)}
-                onDownload={() => onDownload(note)}
+                onDownload={handleDownload}
                 onDelete={() => onDelete(note)}
+                isDownloading={isDownloading}
             />
         </div>
     )

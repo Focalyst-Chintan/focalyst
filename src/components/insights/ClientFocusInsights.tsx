@@ -3,9 +3,14 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { FocusTimeCard } from '@/components/insights/FocusTimeCard'
-import { FocusActivityCard } from '@/components/insights/FocusActivityCard'
 import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
 import { getStartAndEndOfWeek, calculateTrend } from '@/lib/utils/insights'
+import dynamic from 'next/dynamic'
+
+const FocusActivityCard = dynamic(() => import('@/components/insights/FocusActivityCard').then(mod => mod.FocusActivityCard), {
+    loading: () => <div className="h-48 w-full bg-card-bg/20 animate-pulse rounded-3xl" />,
+    ssr: false
+})
 
 export function ClientFocusInsights({ isPaid, productivityScore }: { isPaid: boolean, productivityScore: number }) {
     const supabase = createClient()

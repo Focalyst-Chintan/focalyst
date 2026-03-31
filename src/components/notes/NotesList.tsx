@@ -100,9 +100,13 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
         }
     }
 
-    const handleDownload = (note: Note) => {
-        const textContent = note.content ? note.content.replace(/<[^>]*>?/gm, '') : '';
-        generatePdf(note.title, textContent, `${slugify(note.title || 'untitled-document')}-focalyst.pdf`)
+    const handleDownload = async (note: Note) => {
+        try {
+            await generatePdf(note.title, note.content || '');
+        } catch (err) {
+            console.error('Failed to download PDF:', err);
+            alert('Unable to generate PDF at this time. Please try again.');
+        }
     }
 
     const handleDelete = async (note: Note) => {
