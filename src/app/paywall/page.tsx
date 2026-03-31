@@ -87,22 +87,21 @@ export default function PaywallPage() {
             const data = await res.json()
 
             if (!res.ok) {
-                console.error('Checkout error:', data.error)
+                const errMsg = data.error || data.details || 'Unable to start checkout. Please try again.'
+                console.error('Checkout creation failed:', errMsg)
+                alert(errMsg)
+                setIsLoading(false)
                 return
             }
 
             if (data.provider === 'polar') {
-                try {
-                    const checkoutUrl = data.url || data.checkoutUrl
-                    if (checkoutUrl) {
-                        console.log("Polar URL received:", checkoutUrl)
-                        window.location.href = checkoutUrl
-                    } else {
-                        throw new Error(data.error || 'No checkout URL received from Polar')
-                    }
-                } catch (err: any) {
-                    console.error('Polar redirect failed:', err)
-                    alert(`International checkout failed: ${err.message}`)
+                const checkoutUrl = data.url || data.checkoutUrl
+                if (checkoutUrl) {
+                    console.log("Redirecting to Polar:", checkoutUrl)
+                    window.location.href = checkoutUrl
+                } else {
+                    console.error('No Polar URL in response:', data)
+                    alert('Error: Polar did not return a checkout URL.')
                     setIsLoading(false)
                 }
             } else if (data.provider === 'razorpay') {
@@ -111,7 +110,6 @@ export default function PaywallPage() {
         } catch (error: any) {
             console.error('Checkout failed:', error)
             alert(`Payment system error: ${error.message}`)
-        } finally {
             setIsLoading(false)
         }
     }
