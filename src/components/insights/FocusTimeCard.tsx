@@ -2,7 +2,7 @@ import { TimerIcon } from '@/components/icons/TimerIcon'
 
 export function FocusTimeCard({ minutes, trend }: { minutes: number, trend: number }) {
     const hours = Math.floor(minutes / 60)
-    const mins = minutes % 60
+    const mins = Math.floor(minutes % 60)
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between">

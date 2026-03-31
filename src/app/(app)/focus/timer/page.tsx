@@ -54,12 +54,34 @@ function TimerContent() {
             const { data: { session } } = await supabase.auth.getSession()
             if (session) {
                 const dateStr = new Date().toISOString().split('T')[0]
-                await supabase.rpc('increment_daily_focus', {
-                    p_user_id: session.user.id,
-                    p_date: dateStr,
-                    p_focus_mins: focusToAdd,
-                    p_break_mins: breakToAdd
-                })
+
+                // Fetch today's existing focus_time_minutes first
+                const { data: existingData } = await supabase
+                    .from('daily_focus_activity')
+                    .select('focus_time_minutes, break_time_minutes')
+                    .eq('user_id', session.user.id)
+                    .eq('date', dateStr)
+                    .single()
+
+                const existingFocus = existingData?.focus_time_minutes || 0
+                const existingBreak = existingData?.break_time_minutes || 0
+
+                // Upsert new values
+                const { data, error } = await supabase
+                    .from('daily_focus_activity')
+                    .upsert({
+                        user_id: session.user.id,
+                        date: dateStr,
+                        focus_time_minutes: existingFocus + focusToAdd,
+                        break_time_minutes: existingBreak + breakToAdd
+                    }, { onConflict: 'user_id,date' })
+                    .select()
+
+                if (error) {
+                    console.error('Error saving focus time to Supabase:', error)
+                } else {
+                    console.log('Saved to Supabase:', data)
+                }
             }
         } catch (err) {
             console.error('Failed to log explicit focus time', err)

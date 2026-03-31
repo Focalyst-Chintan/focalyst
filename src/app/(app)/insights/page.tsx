@@ -2,12 +2,10 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 
 import { TasksCompletedCard } from '@/components/insights/TasksCompletedCard'
-import { FocusTimeCard } from '@/components/insights/FocusTimeCard'
-import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
-import { FocusActivityCard } from '@/components/insights/FocusActivityCard'
+import { ClientFocusInsights } from '@/components/insights/ClientFocusInsights'
 import { CurrentStreaksList } from '@/components/insights/CurrentStreaksList'
 import { AISummaryCard } from '@/components/insights/AISummaryCard'
-import { getStartAndEndOfWeek, aggregateSessionsByDay, calculateTrend, calculateProductivityScore } from '@/lib/utils/insights'
+import { getStartAndEndOfWeek, calculateTrend, calculateProductivityScore } from '@/lib/utils/insights'
 
 export default async function InsightsPage() {
     const supabase = await createServerSupabaseClient()
@@ -60,8 +58,7 @@ export default async function InsightsPage() {
         .select('*')
         .eq('user_id', user.id)
 
-    // Calculate total focus time across all recorded days
-    const totalFocusMinutesALL = allActivities?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0
+    // Calculate total focus time across all recorded days (handled by client component now)
 
     // current week
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
@@ -79,9 +76,6 @@ export default async function InsightsPage() {
 
     const currentFocusMinutes = currentWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
     const prevFocusMinutes = previousWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
-
-    const focusTrend = calculateTrend(currentFocusMinutes, prevFocusMinutes)
-    const dailyActivityData = aggregateSessionsByDay(currentWeekActivities, startOfWeek, endOfWeek)
 
     // 4. Fetch Active Habits (Streaks)
     const { data: habitsData } = await supabase
@@ -116,12 +110,7 @@ export default async function InsightsPage() {
             <div className="space-y-4">
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
 
-                <div className="grid grid-cols-2 gap-4">
-                    <FocusTimeCard minutes={totalFocusMinutesALL} trend={focusTrend} />
-                    <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
-                </div>
-
-                <FocusActivityCard data={dailyActivityData} isPaid={isPaid} />
+                <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore} />
             </div>
 
             <CurrentStreaksList habits={habitsData || []} />
