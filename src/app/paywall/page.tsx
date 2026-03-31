@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 
 type BillingCycle = 'monthly' | 'yearly'
 type Region = 'IN' | 'INT'
@@ -109,45 +110,43 @@ export default function PaywallPage() {
         amount?: number
         keyId: string
     }) => {
-        // Dynamically load Razorpay script if not already present
-        if (typeof window === 'undefined') return
-
-        const script = document.createElement('script')
-        script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-        script.onload = () => {
-            const options: Record<string, unknown> = {
-                key: data.keyId,
-                name: 'Focalyst',
-                description: data.type === 'order' ? 'Lifetime Access' : 'Pro Subscription',
-                handler: () => {
-                    // Payment success – redirect
-                    router.push('/plan?payment=success')
-                },
-                modal: {
-                    ondismiss: () => {
-                        setIsLoading(false)
-                    },
-                },
-                theme: { color: '#1D70F5' },
-            }
-
-            if (data.type === 'order') {
-                options.order_id = data.orderId
-                options.amount = data.amount
-                options.currency = 'INR'
-            } else {
-                options.subscription_id = data.subscriptionId
-            }
-
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const rzp = new (window as any).Razorpay(options)
-            rzp.open()
+        if (typeof window === 'undefined' || !(window as any).Razorpay) {
+            console.error('Razorpay SDK not loaded')
+            setIsLoading(false)
+            return
         }
-        document.body.appendChild(script)
+
+        const options: Record<string, unknown> = {
+            key: data.keyId,
+            name: 'Focalyst',
+            description: data.type === 'order' ? 'Lifetime Access' : 'Pro Subscription',
+            handler: () => {
+                // Payment success – redirect
+                router.push('/dashboard?payment=success')
+            },
+            modal: {
+                ondismiss: () => {
+                    setIsLoading(false)
+                },
+            },
+            theme: { color: '#1D70F5' },
+        }
+
+        if (data.type === 'order') {
+            options.order_id = data.orderId
+            options.amount = data.amount
+            options.currency = 'INR'
+        } else {
+            options.subscription_id = data.subscriptionId
+        }
+
+        const rzp = new (window as any).Razorpay(options)
+        rzp.open()
     }
 
     return (
         <main className="min-h-screen bg-white relative pb-[220px]">
+            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <div className="max-w-[420px] mx-auto px-5 pt-5">
                 {/* ─── Top Bar ──────────────────────────────── */}
                 <div className="flex items-center justify-between mb-8">
