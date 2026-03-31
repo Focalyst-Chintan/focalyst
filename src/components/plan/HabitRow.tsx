@@ -51,17 +51,6 @@ function buildRelativeCalendar(createdAt: string, completedDates: string[], toda
     return entries
 }
 
-/**
- * Compute the number of empty offset cells so that the creation date
- * lands on the correct row (day-of-week). Row 0 = Monday, Row 6 = Sunday.
- */
-function getStartDayOffset(createdAt: string): number {
-    const creationDate = new Date(createdAt.split('T')[0] + 'T00:00:00')
-    const jsDay = creationDate.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
-    // Convert to Mon=0 ... Sun=6
-    return jsDay === 0 ? 6 : jsDay - 1
-}
-
 export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }: HabitRowProps) {
     // 1. Dynamic data state
     const [isCheckedToday, setIsCheckedToday] = useState(habit.completed_today)
@@ -103,9 +92,6 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
         () => buildRelativeCalendar(habit.created_at, localCompletedDates, todayDate),
         [habit.created_at, localCompletedDates, todayDate]
     )
-
-    // Compute offset so creation date lands on correct day-of-week row
-    const startOffset = useMemo(() => getStartDayOffset(habit.created_at), [habit.created_at])
 
     // 2. Time-Based Logic (Midnight Reset)
     useEffect(() => {
@@ -151,10 +137,6 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const totalDays = 365
     const completionPercentage = Math.round((completedDaysCount / totalDays) * 100)
     const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
-
-    // Compute total columns needed: offset + 365 days, ceiling to fill last column
-    const totalCells = startOffset + totalDays
-    const numColumns = Math.ceil(totalCells / 7)
 
     return (
         <div className="flex flex-col bg-card-bg rounded-xl overflow-hidden transition-all duration-300">
@@ -206,22 +188,17 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                         <span className="text-xs font-bold text-navy">{completedDaysCount} / {totalDays} Days</span>
                     </div>
 
-                    {/* Contribution Graph: 7 rows (Mon-Sun) × dynamic columns */}
+                    {/* Contribution Graph: 7 rows (Mon-Sun) × 53 columns */}
                     <div
                         className="mb-6 overflow-x-auto"
                         style={{
                             display: 'grid',
                             gridTemplateRows: 'repeat(7, min-content)',
-                            gridTemplateColumns: `repeat(${numColumns}, min-content)`,
+                            gridTemplateColumns: 'repeat(53, min-content)',
                             gridAutoFlow: 'column',
                             gap: '4px',
                         }}
                     >
-                        {/* Empty offset cells so creation date aligns to correct day-of-week row */}
-                        {Array.from({ length: startOffset }).map((_, i) => (
-                            <div key={`offset-${i}`} className="w-3 h-3" />
-                        ))}
-
                         {/* Actual day circles */}
                         {calendar.map((day) => (
                             <div
