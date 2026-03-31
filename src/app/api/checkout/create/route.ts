@@ -93,9 +93,11 @@ export async function POST(request: NextRequest) {
         }
 
         // ─── International → Polar ──────────────────────────────────
+        console.log('Polar Token Debug:', process.env.POLAR_ACCESS_TOKEN ? `${process.env.POLAR_ACCESS_TOKEN.substring(0, 10)}...` : 'NOT FOUND')
+
         const productId = POLAR_PRODUCT_IDS[planType]
         if (!productId) {
-            return NextResponse.json({ error: 'Invalid plan type for Polar' }, { status: 400 })
+            return NextResponse.json({ error: `Invalid plan type: ${planType}` }, { status: 400 })
         }
 
         const polarResponse = await fetch('https://api.polar.sh/v1/checkouts/custom', {
@@ -111,25 +113,27 @@ export async function POST(request: NextRequest) {
                     user_id: user.id,
                 },
             }),
+        }).catch(err => {
+            console.error('Fetch error calling Polar:', err)
+            throw new Error(`Connection to Polar failed: ${err.message}`)
         })
 
         if (!polarResponse.ok) {
             const errBody = await polarResponse.text()
-            console.error('Polar Checkout Creation Failed:', {
+            console.error('Polar API Error:', {
                 status: polarResponse.status,
-                statusText: polarResponse.statusText,
-                body: errBody,
                 productId,
-                userId: user.id
+                body: errBody
             })
             return NextResponse.json({
-                error: 'Failed to create Polar checkout session',
-                details: errBody
-            }, { status: 500 })
+                error: 'Polar checkout failed',
+                details: errBody,
+                status: polarResponse.status
+            }, { status: polarResponse.status })
         }
 
         const polarData = await polarResponse.json()
-        console.log('Polar Checkout Created Successfully:', polarData.id)
+        console.log('Polar URL generated:', polarData.url)
 
         return NextResponse.json({
             provider: 'polar',

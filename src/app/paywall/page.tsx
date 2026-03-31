@@ -91,13 +91,26 @@ export default function PaywallPage() {
                 return
             }
 
-            if (data.provider === 'polar' && (data.url || data.checkoutUrl)) {
-                window.location.href = data.url || data.checkoutUrl
+            if (data.provider === 'polar') {
+                try {
+                    const checkoutUrl = data.url || data.checkoutUrl
+                    if (checkoutUrl) {
+                        console.log("Polar URL received:", checkoutUrl)
+                        window.location.href = checkoutUrl
+                    } else {
+                        throw new Error(data.error || 'No checkout URL received from Polar')
+                    }
+                } catch (err: any) {
+                    console.error('Polar redirect failed:', err)
+                    alert(`International checkout failed: ${err.message}`)
+                    setIsLoading(false)
+                }
             } else if (data.provider === 'razorpay') {
                 openRazorpayCheckout(data)
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Checkout failed:', error)
+            alert(`Payment system error: ${error.message}`)
         } finally {
             setIsLoading(false)
         }
