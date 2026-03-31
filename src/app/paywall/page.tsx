@@ -308,10 +308,10 @@ export default function PaywallPage() {
                         ) : (
                             <>
                                 <p className="text-white text-[15px] font-semibold">
-                                    7 days free trial, then {price.symbol} {billing === 'yearly' ? price.yearlyMonthlyEquiv : price.monthlyLabel}/month
+                                    7 days free trial, then {price.symbol} {price.monthlyLabel}/month
                                 </p>
                                 <p className="text-gray-400 text-[12px] mt-1">
-                                    {billing === 'yearly' ? `Billed annually at ${price.symbol} ${price.yearlyLabel}. Cancel anytime.` : 'No payments today! Cancel anytime.'}
+                                    No payments today! Cancel anytime.
                                 </p>
                             </>
                         )}
@@ -319,7 +319,7 @@ export default function PaywallPage() {
 
                     {/* CTA Button */}
                     <button
-                        onClick={() => handleCheckout(selectedPlan)}
+                        onClick={() => handleCheckout(selectedPlan === 'lifetime' ? 'lifetime' : 'monthly')}
                         disabled={isLoading}
                         className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60"
                     >
