@@ -252,7 +252,7 @@ export default function AccountPage() {
                         </p>
 
                         <button
-                            onClick={() => router.push('/onboarding/plans?redirect=/account')}
+                            onClick={() => router.push('/paywall')}
                             className="w-full bg-white text-navy text-[15px] font-semibold h-11 rounded-xl mt-5 hover:bg-white/90 transition-colors"
                         >
                             Manage Plan
