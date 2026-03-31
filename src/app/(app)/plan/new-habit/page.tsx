@@ -44,6 +44,7 @@ export default function NewHabitForm() {
             reminder_time: reminders ? reminderTime : '07:00',
             current_streak: 0,
             completed_today: false,
+            completedDates: [],
         })
         router.push('/plan')
     }

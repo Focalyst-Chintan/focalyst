@@ -28,6 +28,7 @@ export interface HabitItem {
     reminders: boolean
     reminder_time: string
     position?: number
+    completedDates: string[] // Array of 'YYYY-MM-DD' strings for the current year
 }
 
 export interface Reminder {
@@ -82,8 +83,8 @@ const MOCK_TASKS: TaskItem[] = [
 ]
 
 const MOCK_HABITS: HabitItem[] = [
-    { id: '10', name: 'Morning walk', current_streak: 3, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4], all_days: false, reminders: false, reminder_time: '07:00' },
-    { id: '11', name: 'Gym', current_streak: 5, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4, 5, 6], all_days: true, reminders: false, reminder_time: '07:00' },
+    { id: '10', name: 'Morning walk', current_streak: 3, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4], all_days: false, reminders: false, reminder_time: '07:00', completedDates: [] },
+    { id: '11', name: 'Gym', current_streak: 5, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4, 5, 6], all_days: true, reminders: false, reminder_time: '07:00', completedDates: [] },
 ]
 
 const MOCK_REMINDERS: Reminder[] = [
@@ -164,17 +165,34 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
             if (habitError) throw habitError
 
-            // Check today's completions
+            // Fetch all habit_logs for the current year (for the contribution graph)
             const habitIds = (habitData || []).map((h) => h.id)
             let todayCompletions: string[] = []
+            // Map of habitId -> array of completed date strings
+            const yearCompletions: Record<string, string[]> = {}
+
             if (habitIds.length > 0) {
+                const year = new Date().getFullYear()
+                const yearStart = `${year}-01-01`
+                const yearEnd = `${year}-12-31`
+
                 const { data: logData } = await supabase
                     .from('habit_logs')
-                    .select('habit_id')
+                    .select('habit_id, completed_date')
                     .in('habit_id', habitIds)
-                    .eq('completed_date', todayStr())
+                    .gte('completed_date', yearStart)
+                    .lte('completed_date', yearEnd)
 
-                todayCompletions = (logData || []).map((l) => l.habit_id)
+                const today = todayStr()
+                for (const log of logData || []) {
+                    if (log.completed_date === today) {
+                        todayCompletions.push(log.habit_id)
+                    }
+                    if (!yearCompletions[log.habit_id]) {
+                        yearCompletions[log.habit_id] = []
+                    }
+                    yearCompletions[log.habit_id].push(log.completed_date)
+                }
             }
 
             const mappedHabits: HabitItem[] = (habitData || []).map((h) => ({
@@ -189,6 +207,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 reminders: !!h.reminder_time,
                 reminder_time: h.reminder_time || '07:00',
                 position: h.position,
+                completedDates: yearCompletions[h.id] || [],
             }))
 
             setTasks(mappedTasks)
@@ -377,6 +396,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     reminders: !!data.reminder_time,
                     reminder_time: data.reminder_time || '07:00',
                     position: data.position,
+                    completedDates: [],
                 }])
                 return
             } catch (err) {

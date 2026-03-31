@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { HabitItem } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import { useRouter } from 'next/navigation'
@@ -13,6 +13,56 @@ interface HabitRowProps {
     onRename: () => void
 }
 
+interface DayEntry {
+    date: string       // 'YYYY-MM-DD'
+    isCompleted: boolean
+    isFuture: boolean
+}
+
+/**
+ * Build a chronological array of 365 day entries for the current year.
+ * Each entry maps to one calendar day from Jan 1 to Dec 31.
+ */
+function buildYearCalendar(completedDates: string[], todayStr: string): DayEntry[] {
+    const year = new Date().getFullYear()
+    const completedSet = new Set(completedDates)
+    const entries: DayEntry[] = []
+
+    // Iterate from Jan 1 to Dec 31 of the current year
+    const startDate = new Date(year, 0, 1) // Jan 1
+    const endDate = new Date(year, 11, 31) // Dec 31
+
+    const current = new Date(startDate)
+    while (current <= endDate) {
+        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`
+        entries.push({
+            date: dateStr,
+            isCompleted: completedSet.has(dateStr),
+            isFuture: dateStr > todayStr,
+        })
+        current.setDate(current.getDate() + 1)
+    }
+
+    return entries
+}
+
+/**
+ * Compute the number of empty cells to prepend so that Jan 1 lands
+ * on the correct row (day-of-week). Row 0 = Monday, Row 6 = Sunday.
+ */
+function getJan1Offset(): number {
+    const year = new Date().getFullYear()
+    const jan1 = new Date(year, 0, 1)
+    const jsDay = jan1.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+    // Convert to Mon=0 ... Sun=6
+    return jsDay === 0 ? 6 : jsDay - 1
+}
+
+function getTodayStr(): string {
+    const d = new Date()
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }: HabitRowProps) {
     const router = useRouter()
 
@@ -20,86 +70,61 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const [isCheckedToday, setIsCheckedToday] = useState(habit.completed_today)
     const [currentStreak, setCurrentStreak] = useState(habit.current_streak || 0)
     const [isExpanded, setIsExpanded] = useState(false)
+    const [localCompletedDates, setLocalCompletedDates] = useState<string[]>(habit.completedDates || [])
 
-    // Generate a believable history based on initial streak for visual proof
-    const [habitHistory, setHabitHistory] = useState<boolean[]>(() => {
-        const history = new Array(365).fill(false)
+    // Sync with prop changes
+    useEffect(() => {
+        setIsCheckedToday(habit.completed_today)
+        setCurrentStreak(habit.current_streak || 0)
+        setLocalCompletedDates(habit.completedDates || [])
+    }, [habit.completed_today, habit.current_streak, habit.completedDates])
 
-        // Let's add some random sparse data for older days just to show visual gaps
-        for (let i = 0; i < 300; i++) {
-            // Deterministic random based on habit name length to keep it stable
-            if ((i * habit.name.length) % 7 === 0) {
-                history[i] = true
-            }
-        }
-
-        // Apply recent streak
-        let daysToApply = habit.current_streak || 0
-        let currentIndex = 364 // Today
-
-        if (habit.completed_today) {
-            history[currentIndex] = true
-            daysToApply--
-            currentIndex--
-        } else {
-            // Assume we miss today but maybe have streak from yesterday? 
-            // If currentStreak > 0 but not completed today, it means the streak is up to yesterday
-            currentIndex--
-        }
-
-        while (daysToApply > 0 && currentIndex >= 0) {
-            history[currentIndex] = true
-            daysToApply--
-            currentIndex--
-        }
-        return history
-    })
+    // Build the chronological calendar
+    const todayDate = getTodayStr()
+    const yearCalendar = useMemo(
+        () => buildYearCalendar(localCompletedDates, todayDate),
+        [localCompletedDates, todayDate]
+    )
 
     // 2. Time-Based Logic (Midnight Reset)
     useEffect(() => {
         const checkMidnight = () => {
             const now = new Date()
             if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-                // It's exactly midnight
                 setIsCheckedToday((prevChecked) => {
                     if (!prevChecked) {
-                        // If it wasn't checked yesterday, reset streak
                         setCurrentStreak(0)
                     }
-                    // For the new day, it's unchecked
                     return false
                 })
-
-                // Shift history (optional if we strictly treat index 364 as "today")
-                // A simpler approach is just relying on the fact that at midnight, a new day starts.
-                // Keeping it simple for the requirement:
             }
         }
 
-        const intervalId = setInterval(checkMidnight, 1000) // Check every second for precision
+        const intervalId = setInterval(checkMidnight, 1000)
         return () => clearInterval(intervalId)
     }, [])
 
     // Checkbox Action
     const handleToggle = (e: React.MouseEvent) => {
-        e.stopPropagation() // Prevent drop-down from expanding
+        e.stopPropagation()
 
         setIsCheckedToday(prev => {
             const newValue = !prev
 
-            setHabitHistory(history => {
-                const newHistory = [...history]
-                newHistory[364] = newValue // 364 is today
-                return newHistory
+            // Update local completed dates to sync the grid
+            setLocalCompletedDates(dates => {
+                const today = getTodayStr()
+                if (newValue) {
+                    return dates.includes(today) ? dates : [...dates, today]
+                } else {
+                    return dates.filter(d => d !== today)
+                }
             })
 
             setCurrentStreak(streak => {
                 if (newValue) {
-                    // Completing today: if we had a streak yesterday, it continues. 
-                    // Since we shifted logic, if we just check it today, streak +1 or start at 1
                     return streak === 0 ? 1 : streak + 1
                 } else {
-                    // Unchecking today: remove today's contribution to streak
                     return Math.max(0, streak - 1)
                 }
             })
@@ -114,9 +139,13 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
         setIsExpanded(!isExpanded)
     }
 
-    const completedDaysCount = habitHistory.filter(Boolean).length
-    const completionPercentage = Math.round((completedDaysCount / 365) * 100)
-    const averagePerDay = (completedDaysCount / 365).toFixed(1)
+    const completedDaysCount = yearCalendar.filter(d => d.isCompleted).length
+    const totalDays = yearCalendar.length
+    const completionPercentage = Math.round((completedDaysCount / totalDays) * 100)
+    const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
+
+    // Compute offset for Jan 1 alignment
+    const jan1Offset = getJan1Offset()
 
     return (
         <div className="flex flex-col bg-card-bg rounded-xl overflow-hidden transition-all duration-300">
@@ -164,16 +193,35 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
             {isExpanded && (
                 <div className="border-t border-navy/10 px-4 py-4 bg-[#EAF3FA]">
                     <div className="flex justify-between items-center mb-4">
-                        <span className="text-xs font-bold text-navy tracking-wider uppercase">Yearly Progress</span>
-                        <span className="text-xs font-bold text-navy">{completedDaysCount} / 365 Days</span>
+                        <span className="text-xs font-bold text-navy tracking-wider uppercase">Your Progress</span>
+                        <span className="text-xs font-bold text-navy">{completedDaysCount} / {totalDays} Days</span>
                     </div>
 
-                    {/* Grid of 365 days */}
-                    <div className="grid grid-cols-[repeat(26,minmax(0,1fr))] gap-1.5 mb-6">
-                        {habitHistory.map((isCompleted, index) => (
+                    {/* Contribution Graph: 7 rows (Mon-Sun) × 53 columns (weeks) */}
+                    <div
+                        className="mb-6 overflow-x-auto"
+                        style={{
+                            display: 'grid',
+                            gridTemplateRows: 'repeat(7, 1fr)',
+                            gridAutoFlow: 'column',
+                            gridAutoColumns: 'minmax(0, 1fr)',
+                            gap: '3px',
+                        }}
+                    >
+                        {/* Empty offset cells so Jan 1 aligns to the correct day-of-week row */}
+                        {Array.from({ length: jan1Offset }).map((_, i) => (
+                            <div key={`offset-${i}`} className="w-2.5 h-2.5" />
+                        ))}
+
+                        {/* Actual day circles */}
+                        {yearCalendar.map((day) => (
                             <div
-                                key={index}
-                                className={`w-2.5 h-2.5 rounded-full ${isCompleted ? 'bg-navy' : 'border border-[#C8CCD0]'}`}
+                                key={day.date}
+                                title={day.date}
+                                className={`w-2.5 h-2.5 rounded-full ${day.isCompleted
+                                    ? 'bg-navy'
+                                    : 'border border-[#C8CCD0]'
+                                    }`}
                             />
                         ))}
                     </div>
