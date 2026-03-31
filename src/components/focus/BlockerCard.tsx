@@ -57,7 +57,7 @@ export default function BlockerCard() {
             {/* Toast Notification */}
             {toast && (
                 <div
-                    className="fixed bottom-10 md:top-6 md:bottom-auto left-1/2 -translate-x-1/2 z-50 max-w-[340px] w-full bg-navy text-white text-[13px] font-medium px-4 py-3 rounded-xl shadow-lg transition-all"
+                    className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] max-w-[340px] w-auto bg-navy text-white text-[14px] text-center font-medium px-6 py-3 rounded-xl shadow-lg transition-all"
                     style={{ animation: 'fadeInDown 0.3s ease-out forwards' }}
                 >
                     {toast}

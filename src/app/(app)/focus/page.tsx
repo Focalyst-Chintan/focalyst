@@ -27,9 +27,9 @@ export default async function FocusPage() {
             <main className="max-w-md mx-auto p-4 pt-6">
                 <PomodoroSection userPlan={userPlan} />
 
-                <hr className="border-t border-navy/10 mx-[-16px] my-6" />
-                <BlockerCard />
-                <hr className="border-t border-navy/10 mx-[-16px] mb-8 mt-6" />
+                <div className="my-6">
+                    <BlockerCard />
+                </div>
 
                 <CountdownSection userPlan={userPlan} userId={session.user.id} />
             </main>
