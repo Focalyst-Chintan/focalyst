@@ -104,7 +104,7 @@ If the user asks to plan their day, first ask them for their goals and available
         }
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-3.0-flash",
+            model: "gemini-2.5-flash",
             systemInstruction: systemInstruction,
         })
 
