@@ -1,5 +1,6 @@
 import PomodoroSection from '@/components/focus/PomodoroSection'
 import CountdownSection from '@/components/focus/CountdownSection'
+import BlockerCard from '@/components/focus/BlockerCard'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 
@@ -25,6 +26,11 @@ export default async function FocusPage() {
         <div className="min-h-screen pb-24 bg-page-bg">
             <main className="max-w-md mx-auto p-4 pt-6">
                 <PomodoroSection userPlan={userPlan} />
+
+                <hr className="border-t border-navy/10 mx-[-16px] my-6" />
+                <BlockerCard />
+                <hr className="border-t border-navy/10 mx-[-16px] mb-8 mt-6" />
+
                 <CountdownSection userPlan={userPlan} userId={session.user.id} />
             </main>
         </div>
