@@ -45,6 +45,7 @@ export default function NewHabitForm() {
             current_streak: 0,
             completed_today: false,
             completedDates: [],
+            created_at: new Date().toISOString(),
         })
         router.push('/plan')
     }

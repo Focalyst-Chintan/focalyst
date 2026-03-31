@@ -28,7 +28,8 @@ export interface HabitItem {
     reminders: boolean
     reminder_time: string
     position?: number
-    completedDates: string[] // Array of 'YYYY-MM-DD' strings for the current year
+    completedDates: string[] // Array of 'YYYY-MM-DD' strings from creation date
+    created_at: string // ISO timestamp of habit creation
 }
 
 export interface Reminder {
@@ -83,8 +84,8 @@ const MOCK_TASKS: TaskItem[] = [
 ]
 
 const MOCK_HABITS: HabitItem[] = [
-    { id: '10', name: 'Morning walk', current_streak: 3, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4], all_days: false, reminders: false, reminder_time: '07:00', completedDates: [] },
-    { id: '11', name: 'Gym', current_streak: 5, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4, 5, 6], all_days: true, reminders: false, reminder_time: '07:00', completedDates: [] },
+    { id: '10', name: 'Morning walk', current_streak: 3, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4], all_days: false, reminders: false, reminder_time: '07:00', completedDates: [], created_at: new Date().toISOString() },
+    { id: '11', name: 'Gym', current_streak: 5, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4, 5, 6], all_days: true, reminders: false, reminder_time: '07:00', completedDates: [], created_at: new Date().toISOString() },
 ]
 
 const MOCK_REMINDERS: Reminder[] = [
@@ -165,33 +166,34 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
             if (habitError) throw habitError
 
-            // Fetch all habit_logs for the current year (for the contribution graph)
+            // Fetch all habit_logs from each habit's creation date (for the contribution graph)
             const habitIds = (habitData || []).map((h) => h.id)
             let todayCompletions: string[] = []
             // Map of habitId -> array of completed date strings
-            const yearCompletions: Record<string, string[]> = {}
+            const habitCompletions: Record<string, string[]> = {}
 
             if (habitIds.length > 0) {
-                const year = new Date().getFullYear()
-                const yearStart = `${year}-01-01`
-                const yearEnd = `${year}-12-31`
+                // Find the earliest created_at among all habits to minimize the query range
+                const earliestCreated = (habitData || []).reduce((min, h) => {
+                    const d = h.created_at ? h.created_at.split('T')[0] : todayStr()
+                    return d < min ? d : min
+                }, todayStr())
 
                 const { data: logData } = await supabase
                     .from('habit_logs')
                     .select('habit_id, completed_date')
                     .in('habit_id', habitIds)
-                    .gte('completed_date', yearStart)
-                    .lte('completed_date', yearEnd)
+                    .gte('completed_date', earliestCreated)
 
                 const today = todayStr()
                 for (const log of logData || []) {
                     if (log.completed_date === today) {
                         todayCompletions.push(log.habit_id)
                     }
-                    if (!yearCompletions[log.habit_id]) {
-                        yearCompletions[log.habit_id] = []
+                    if (!habitCompletions[log.habit_id]) {
+                        habitCompletions[log.habit_id] = []
                     }
-                    yearCompletions[log.habit_id].push(log.completed_date)
+                    habitCompletions[log.habit_id].push(log.completed_date)
                 }
             }
 
@@ -207,7 +209,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 reminders: !!h.reminder_time,
                 reminder_time: h.reminder_time || '07:00',
                 position: h.position,
-                completedDates: yearCompletions[h.id] || [],
+                completedDates: habitCompletions[h.id] || [],
+                created_at: h.created_at || new Date().toISOString(),
             }))
 
             setTasks(mappedTasks)
@@ -397,6 +400,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     reminder_time: data.reminder_time || '07:00',
                     position: data.position,
                     completedDates: [],
+                    created_at: data.created_at || new Date().toISOString(),
                 }])
                 return
             } catch (err) {

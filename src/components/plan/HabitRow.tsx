@@ -1,9 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { HabitItem } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
-import { useRouter } from 'next/navigation'
 
 interface HabitRowProps {
     habit: HabitItem
@@ -19,22 +18,28 @@ interface DayEntry {
     isFuture: boolean
 }
 
+function formatDate(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function getTodayStr(): string {
+    return formatDate(new Date())
+}
+
 /**
- * Build a chronological array of 365 day entries for the current year.
- * Each entry maps to one calendar day from Jan 1 to Dec 31.
+ * Build 365 day entries starting from the habit's creation date.
+ * Index 0 = creation date, Index 364 = creation date + 364 days.
  */
-function buildYearCalendar(completedDates: string[], todayStr: string): DayEntry[] {
-    const year = new Date().getFullYear()
+function buildRelativeCalendar(createdAt: string, completedDates: string[], todayStr: string): DayEntry[] {
     const completedSet = new Set(completedDates)
     const entries: DayEntry[] = []
 
-    // Iterate from Jan 1 to Dec 31 of the current year
-    const startDate = new Date(year, 0, 1) // Jan 1
-    const endDate = new Date(year, 11, 31) // Dec 31
+    // Parse the creation date (handle ISO timestamps like "2026-03-24T...")
+    const creationDate = new Date(createdAt.split('T')[0] + 'T00:00:00')
 
-    const current = new Date(startDate)
-    while (current <= endDate) {
-        const dateStr = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`
+    const current = new Date(creationDate)
+    for (let i = 0; i < 365; i++) {
+        const dateStr = formatDate(current)
         entries.push({
             date: dateStr,
             isCompleted: completedSet.has(dateStr),
@@ -47,56 +52,67 @@ function buildYearCalendar(completedDates: string[], todayStr: string): DayEntry
 }
 
 /**
- * Compute the number of empty cells to prepend so that Jan 1 lands
- * on the correct row (day-of-week). Row 0 = Monday, Row 6 = Sunday.
+ * Compute the number of empty offset cells so that the creation date
+ * lands on the correct row (day-of-week). Row 0 = Monday, Row 6 = Sunday.
  */
-function getJan1Offset(): number {
-    const year = new Date().getFullYear()
-    const jan1 = new Date(year, 0, 1)
-    const jsDay = jan1.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+function getStartDayOffset(createdAt: string): number {
+    const creationDate = new Date(createdAt.split('T')[0] + 'T00:00:00')
+    const jsDay = creationDate.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
     // Convert to Mon=0 ... Sun=6
     return jsDay === 0 ? 6 : jsDay - 1
 }
 
-function getTodayStr(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-}
-
 export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }: HabitRowProps) {
-    const router = useRouter()
-
     // 1. Dynamic data state
     const [isCheckedToday, setIsCheckedToday] = useState(habit.completed_today)
-    const [currentStreak, setCurrentStreak] = useState(habit.current_streak || 0)
     const [isExpanded, setIsExpanded] = useState(false)
     const [localCompletedDates, setLocalCompletedDates] = useState<string[]>(habit.completedDates || [])
 
     // Sync with prop changes
     useEffect(() => {
         setIsCheckedToday(habit.completed_today)
-        setCurrentStreak(habit.current_streak || 0)
         setLocalCompletedDates(habit.completedDates || [])
-    }, [habit.completed_today, habit.current_streak, habit.completedDates])
+    }, [habit.completed_today, habit.completedDates])
 
-    // Build the chronological calendar
+    // Compute continuous unbroken streak from the chronological data
+    const computedStreak = useMemo(() => {
+        let streak = 0
+        const today = new Date()
+        const todayStr = formatDate(today)
+        const yesterday = new Date(today)
+        yesterday.setDate(today.getDate() - 1)
+
+        const set = new Set(localCompletedDates)
+
+        let current = new Date(today)
+        if (!set.has(todayStr)) {
+            current = new Date(yesterday)
+        }
+
+        while (set.has(formatDate(current))) {
+            streak++
+            current.setDate(current.getDate() - 1)
+        }
+
+        return streak
+    }, [localCompletedDates])
+
+    // Build the relative calendar starting from habit creation date
     const todayDate = getTodayStr()
-    const yearCalendar = useMemo(
-        () => buildYearCalendar(localCompletedDates, todayDate),
-        [localCompletedDates, todayDate]
+    const calendar = useMemo(
+        () => buildRelativeCalendar(habit.created_at, localCompletedDates, todayDate),
+        [habit.created_at, localCompletedDates, todayDate]
     )
+
+    // Compute offset so creation date lands on correct day-of-week row
+    const startOffset = useMemo(() => getStartDayOffset(habit.created_at), [habit.created_at])
 
     // 2. Time-Based Logic (Midnight Reset)
     useEffect(() => {
         const checkMidnight = () => {
             const now = new Date()
             if (now.getHours() === 0 && now.getMinutes() === 0 && now.getSeconds() === 0) {
-                setIsCheckedToday((prevChecked) => {
-                    if (!prevChecked) {
-                        setCurrentStreak(0)
-                    }
-                    return false
-                })
+                setIsCheckedToday(false) // Dynamic streak naturally recalibrates
             }
         }
 
@@ -121,14 +137,6 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                 }
             })
 
-            setCurrentStreak(streak => {
-                if (newValue) {
-                    return streak === 0 ? 1 : streak + 1
-                } else {
-                    return Math.max(0, streak - 1)
-                }
-            })
-
             return newValue
         })
 
@@ -139,13 +147,14 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
         setIsExpanded(!isExpanded)
     }
 
-    const completedDaysCount = yearCalendar.filter(d => d.isCompleted).length
-    const totalDays = yearCalendar.length
+    const completedDaysCount = calendar.filter(d => d.isCompleted).length
+    const totalDays = 365
     const completionPercentage = Math.round((completedDaysCount / totalDays) * 100)
     const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
 
-    // Compute offset for Jan 1 alignment
-    const jan1Offset = getJan1Offset()
+    // Compute total columns needed: offset + 365 days, ceiling to fill last column
+    const totalCells = startOffset + totalDays
+    const numColumns = Math.ceil(totalCells / 7)
 
     return (
         <div className="flex flex-col bg-card-bg rounded-xl overflow-hidden transition-all duration-300">
@@ -175,7 +184,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
 
                 {/* Streak badge */}
                 <span className="text-blue-muted text-xs font-medium whitespace-nowrap">
-                    Streak {currentStreak} days
+                    Streak {computedStreak} days
                 </span>
 
                 {/* Menu */}
@@ -197,30 +206,30 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                         <span className="text-xs font-bold text-navy">{completedDaysCount} / {totalDays} Days</span>
                     </div>
 
-                    {/* Contribution Graph: 7 rows (Mon-Sun) × 53 columns (weeks) */}
+                    {/* Contribution Graph: 7 rows (Mon-Sun) × dynamic columns */}
                     <div
                         className="mb-6 overflow-x-auto"
                         style={{
                             display: 'grid',
-                            gridTemplateRows: 'repeat(7, 1fr)',
+                            gridTemplateRows: 'repeat(7, min-content)',
+                            gridTemplateColumns: `repeat(${numColumns}, min-content)`,
                             gridAutoFlow: 'column',
-                            gridAutoColumns: 'minmax(0, 1fr)',
-                            gap: '3px',
+                            gap: '4px',
                         }}
                     >
-                        {/* Empty offset cells so Jan 1 aligns to the correct day-of-week row */}
-                        {Array.from({ length: jan1Offset }).map((_, i) => (
-                            <div key={`offset-${i}`} className="w-2.5 h-2.5" />
+                        {/* Empty offset cells so creation date aligns to correct day-of-week row */}
+                        {Array.from({ length: startOffset }).map((_, i) => (
+                            <div key={`offset-${i}`} className="w-3 h-3" />
                         ))}
 
                         {/* Actual day circles */}
-                        {yearCalendar.map((day) => (
+                        {calendar.map((day) => (
                             <div
                                 key={day.date}
                                 title={day.date}
-                                className={`w-2.5 h-2.5 rounded-full ${day.isCompleted
-                                    ? 'bg-navy'
-                                    : 'border border-[#C8CCD0]'
+                                className={`w-3 h-3 rounded-full flex-shrink-0 ${day.isCompleted
+                                        ? 'bg-navy'
+                                        : 'border border-[#C8CCD0]'
                                     }`}
                             />
                         ))}
