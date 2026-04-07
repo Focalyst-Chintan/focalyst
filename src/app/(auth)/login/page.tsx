@@ -1,15 +1,23 @@
 'use client'
 
+import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
+    const [email, setEmail] = useState('')
+    const [password, setPassword] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+    const [message, setMessage] = useState('')
+    const router = useRouter()
+
     const handleGoogleLogin = async () => {
         try {
             const supabase = createClient()
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
+                    redirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
                 },
             })
             if (error) {
@@ -17,6 +25,45 @@ export default function LoginPage() {
             }
         } catch {
             console.error('Failed to initiate Google login')
+        }
+    }
+
+    const handleEmailAuth = async (action: 'login' | 'signup') => {
+        if (!email || !password) {
+            setMessage('Please enter both email and password.')
+            return
+        }
+        setIsLoading(true)
+        setMessage('')
+        
+        try {
+            const supabase = createClient()
+            let error;
+            if (action === 'signup') {
+                const res = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+                    }
+                })
+                error = res.error
+                if (!error) setMessage('Check your email for the confirmation link.')
+            } else {
+                const res = await supabase.auth.signInWithPassword({
+                    email,
+                    password,
+                })
+                error = res.error
+                if (!error) {
+                    router.push('/auth/callback?next=/onboarding/plans')
+                }
+            }
+            if (error) setMessage(error.message)
+        } catch (err: any) {
+            setMessage(err.message || 'Authentication failed.')
+        } finally {
+            setIsLoading(false)
         }
     }
 
@@ -60,17 +107,38 @@ export default function LoginPage() {
                     <input
                         type="email"
                         placeholder="Enter your email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
                         className="w-full h-12 bg-card-bg rounded-xl px-4 text-sm text-navy-darker placeholder:text-blue-muted outline-none border-[1.5px] border-transparent focus:border-navy/20 transition-all"
                     />
-                    <button
-                        disabled
-                        className="w-full h-12 bg-navy text-white text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-navy-dark opacity-50 cursor-not-allowed"
-                    >
-                        Continue with email
-                    </button>
-                    <p className="text-[10px] text-blue-muted text-center italic">
-                        Email login is coming soon. Please use Google for now.
-                    </p>
+                    <input
+                        type="password"
+                        placeholder="Enter your password"
+                        value={password}
+                        onChange={e => setPassword(e.target.value)}
+                        className="w-full h-12 bg-card-bg rounded-xl px-4 text-sm text-navy-darker placeholder:text-blue-muted outline-none border-[1.5px] border-transparent focus:border-navy/20 transition-all"
+                    />
+                    <div className="flex gap-2 w-full mt-1">
+                        <button
+                            onClick={() => handleEmailAuth('login')}
+                            disabled={isLoading}
+                            className="flex-1 h-12 bg-navy text-white text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-navy-dark disabled:opacity-50"
+                        >
+                            {isLoading ? 'Wait...' : 'Log In'}
+                        </button>
+                        <button
+                            onClick={() => handleEmailAuth('signup')}
+                            disabled={isLoading}
+                            className="flex-1 h-12 border-[1.5px] border-navy text-navy text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-page-bg disabled:opacity-50"
+                        >
+                            Sign Up
+                        </button>
+                    </div>
+                    {message && (
+                        <p className="text-[12px] text-center mt-2 text-error">
+                            {message}
+                        </p>
+                    )}
                 </div>
 
                 {/* Footer note */}

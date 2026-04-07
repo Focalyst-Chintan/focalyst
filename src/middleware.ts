@@ -58,8 +58,8 @@ export async function middleware(request: NextRequest) {
     // Onboarding routes
     const isOnboardingRoute = pathname.startsWith('/onboarding')
 
-    // If not logged in and trying to access protected routes
-    if (!user && (isAppRoute || isOnboardingRoute)) {
+    // If not logged in and trying to access protected routes or the root page
+    if (!user && (isAppRoute || isOnboardingRoute || pathname === '/')) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
