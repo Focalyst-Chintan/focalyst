@@ -4,7 +4,12 @@ import Header from '@/components/Header'
 import BottomNav from '@/components/BottomNav'
 import { PlanProvider } from '@/context/PlanContext'
 import { ChatProvider } from '@/context/ChatContext'
-import { AIChatOverlay } from '@/components/chat/AIChatOverlay'
+import dynamic from 'next/dynamic'
+
+const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
+    ssr: false,
+    loading: () => null
+})
 
 export default function AppLayout({
     children,
@@ -20,7 +25,7 @@ export default function AppLayout({
                         {children}
                     </main>
                     <BottomNav />
-                    <AIChatOverlay />
+                    <ChatUI />
                 </div>
             </ChatProvider>
         </PlanProvider>

@@ -14,6 +14,7 @@ interface ChatContextType {
     closeChat: () => void;
     messages: ChatMessage[];
     addMessage: (message: ChatMessage) => void;
+    updateMessage: (id: string, content: string) => void;
     setMessages: (messages: ChatMessage[]) => void;
     isTyping: boolean;
     setIsTyping: (typing: boolean) => void;
@@ -29,11 +30,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     const openChat = () => setIsChatOpen(true)
     const closeChat = () => setIsChatOpen(false)
     const addMessage = (message: ChatMessage) => setMessages(prev => [...prev, message])
+    const updateMessage = (id: string, content: string) => {
+        setMessages(prev => prev.map(m => m.id === id ? { ...m, content } : m))
+    }
 
     return (
         <ChatContext.Provider value={{
             isChatOpen, openChat, closeChat,
-            messages, addMessage, setMessages,
+            messages, addMessage, updateMessage, setMessages,
             isTyping, setIsTyping
         }}>
             {children}
