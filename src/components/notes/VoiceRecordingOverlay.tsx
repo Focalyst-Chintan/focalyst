@@ -159,7 +159,7 @@ export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: 
                     </div>
 
                     {/* Microphone Pulse Animation */}
-                    <div className="absolute bottom-[200px]">
+                    <div className="absolute bottom-[240px]">
                         <div className="relative flex items-center justify-center">
                             {isRecording && (
                                 <>
@@ -178,19 +178,19 @@ export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: 
                     </div>
 
                     {/* Controls */}
-                    <div className="absolute bottom-[100px] w-full flex justify-center gap-6 px-6 pb-safe">
+                    <div className="absolute bottom-[140px] w-full flex justify-center gap-4 px-4 pb-safe">
                         <button
                             onClick={onClose}
-                            className="bg-white/10 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/20 transition-colors backdrop-blur-md"
+                            className="bg-red-500/20 text-red-400 border border-red-500/30 px-6 py-3.5 rounded-full font-semibold hover:bg-red-500/30 transition-colors backdrop-blur-md"
                         >
-                            Cancel
+                            Discard
                         </button>
                         <button
                             onClick={handleStop}
                             disabled={!isRecording || duration === 0}
-                            className="bg-white text-navy px-12 py-4 rounded-full font-semibold disabled:opacity-50 transition-colors hover:bg-white/90"
+                            className="bg-emerald-500 text-white px-6 py-3.5 rounded-full font-semibold disabled:opacity-50 transition-colors hover:bg-emerald-600 shadow-lg shadow-emerald-500/30"
                         >
-                            Stop & Save
+                            Send & Transcribe
                         </button>
                     </div>
                 </>
