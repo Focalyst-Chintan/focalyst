@@ -83,14 +83,6 @@ export default function PaywallPage() {
     const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
         setIsLoading(true)
 
-        // ─── International (Polar) → Direct Redirect ────────────────
-        if (region === 'INT') {
-            const productId = PRICING.INT.ids[planType as keyof typeof PRICING.INT.ids]
-            console.log("Redirecting to Polar:", productId)
-            window.location.href = `/api/checkout/polar?productId=${productId}`
-            return
-        }
-
         try {
             const res = await fetch('/api/checkout/create', {
                 method: 'POST',
@@ -105,6 +97,11 @@ export default function PaywallPage() {
                 console.error('Checkout creation failed:', errMsg)
                 alert(errMsg)
                 setIsLoading(false)
+                return
+            }
+
+            if (data.provider === 'polar' && data.url) {
+                window.location.href = data.url
                 return
             }
 

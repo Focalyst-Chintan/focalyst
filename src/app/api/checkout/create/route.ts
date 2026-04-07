@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Razorpay from 'razorpay'
+import { Polar } from '@polar-sh/sdk'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 
 // Razorpay plan IDs – set these in your Razorpay dashboard
@@ -93,56 +94,33 @@ export async function POST(request: NextRequest) {
         }
 
         // ─── International → Polar ──────────────────────────────────
-        console.log('Polar Token Debug:', process.env.POLAR_ACCESS_TOKEN ? `${process.env.POLAR_ACCESS_TOKEN.substring(0, 10)}...` : 'NOT FOUND')
+        const polar = new Polar({
+            accessToken: process.env.POLAR_ACCESS_TOKEN || '',
+            server: 'sandbox' // Using sandbox since tokens start with polar_oat_
+        })
 
         const productId = POLAR_PRODUCT_IDS[planType]
         if (!productId) {
             return NextResponse.json({ error: `Invalid plan type: ${planType}` }, { status: 400 })
         }
 
-        const polarResponse = await fetch('https://api.polar.sh/v1/checkouts/custom', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.POLAR_ACCESS_TOKEN}`,
+        const checkoutSession = await polar.checkouts.create({
+            products: [productId],
+            successUrl: process.env.POLAR_SUCCESS_URL || 'https://focalyst.online/dashboard?payment=success',
+            customerMetadata: {
+                userId: user.id,
             },
-            body: JSON.stringify({
-                product_id: productId,
-                success_url: 'https://focalyst.online/dashboard?payment=success',
-                customer_metadata: {
-                    user_id: user.id,
-                },
-            }),
-        }).catch(err => {
-            console.error('Polar Connection Error Detail:', JSON.stringify(err, null, 2))
-            throw new Error(`Connection to Polar failed: ${err.message}`)
         })
 
-        if (!polarResponse.ok) {
-            const errBody = await polarResponse.text()
-            console.error('Polar API Error Details:', errBody)
-
-            // Try to parse as JSON for cleaner logging if possible
-            try {
-                const jsonErr = JSON.parse(errBody)
-                console.error('Polar API JSON Error:', JSON.stringify(jsonErr, null, 2))
-            } catch (e) { }
-
-            return NextResponse.json({
-                error: 'Polar checkout failed',
-                details: errBody,
-                status: polarResponse.status
-            }, { status: polarResponse.status })
+        if (!checkoutSession || !checkoutSession.url) {
+            return NextResponse.json({ error: 'Polar checkout failed to generate URL' }, { status: 500 })
         }
-
-        const polarData = await polarResponse.json()
-        console.log('Polar URL generated:', polarData.url)
 
         return NextResponse.json({
             provider: 'polar',
             type: planType === 'lifetime' ? 'order' : 'subscription',
-            url: polarData.url,
-            checkoutUrl: polarData.url, // Keep for backward compatibility
+            url: checkoutSession.url,
+            checkoutUrl: checkoutSession.url,
         })
 
     } catch (error) {

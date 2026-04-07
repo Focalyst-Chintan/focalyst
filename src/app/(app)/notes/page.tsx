@@ -84,7 +84,7 @@ export default function NotesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-page-bg pb-20">
+        <div className="min-h-screen bg-page-bg pb-32">
             {/* Search Bar */}
             <div className="px-4 py-3">
                 <div className="relative">
@@ -151,7 +151,7 @@ export default function NotesPage() {
             />
 
             {/* Voice Notes FAB */}
-            <div className="fixed bottom-[100px] right-6 z-50">
+            <div className="fixed bottom-24 right-8 z-50">
                 <button
                     onClick={() => {
                         if (isLocked) setIsUpgradeModalOpen(true);
