@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { usePlan } from '@/context/PlanContext'
@@ -26,7 +26,7 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
     }
 }
 
-export default function PlanPage() {
+function PlanContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState<TabView>('today')
@@ -144,5 +144,13 @@ export default function PlanPage() {
                 </div>
             )}
         </div>
+    )
+}
+
+export default function PlanPage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" /></div>}>
+            <PlanContent />
+        </Suspense>
     )
 }

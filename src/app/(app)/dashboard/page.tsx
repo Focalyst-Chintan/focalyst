@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
-export default function DashboardRedirect() {
+function Redirector() {
     const router = useRouter()
     const searchParams = useSearchParams()
 
@@ -16,8 +16,15 @@ export default function DashboardRedirect() {
         }
     }, [router, searchParams])
 
+    return null
+}
+
+export default function DashboardRedirect() {
     return (
         <div className="flex items-center justify-center min-h-screen bg-white">
+            <Suspense fallback={null}>
+                <Redirector />
+            </Suspense>
             <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
         </div>
     )
