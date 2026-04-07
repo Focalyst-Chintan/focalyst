@@ -64,14 +64,11 @@ export function FocusLevelCard({
 
                 {/* Level Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-3">
                         <h2 className="text-[18px] font-bold text-white leading-tight">
-                            Level {current.level} &apos;{current.name}&apos;
+                            {current.name}
                         </h2>
                     </div>
-                    <p className="text-[13px] text-white/80 font-medium mb-3">
-                        Total Focus Time: <span className="font-bold text-white">{formatFocusTime(totalMinutes)}</span>
-                    </p>
 
                     {/* Progress bar */}
                     <div className="flex items-center gap-2">
