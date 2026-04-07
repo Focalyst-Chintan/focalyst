@@ -139,7 +139,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
 
     return (
-        <div className="flex flex-col bg-card-bg rounded-xl transition-all duration-300">
+        <div className="flex flex-col bg-card-bg rounded-xl transition-all duration-300 relative !overflow-visible">
             {/* Main Card Body */}
             <div
                 className="flex items-center gap-3 px-3 py-3 cursor-pointer"
