@@ -7,6 +7,9 @@ export default function InsightsLoading() {
                     <div className="h-5 bg-card-bg rounded w-24"></div>
                 </div>
 
+                {/* Level Card Skeleton */}
+                <div className="rounded-3xl p-5 shadow-sm w-full skeleton-shimmer" style={{ height: '120px' }}></div>
+
                 {/* Tasks Completed */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm flex justify-between items-center w-full">
                     <div className="space-y-4">

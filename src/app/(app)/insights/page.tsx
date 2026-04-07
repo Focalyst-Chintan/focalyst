@@ -5,6 +5,7 @@ import { TasksCompletedCard } from '@/components/insights/TasksCompletedCard'
 import { ClientFocusInsights } from '@/components/insights/ClientFocusInsights'
 import { CurrentStreaksList } from '@/components/insights/CurrentStreaksList'
 import { AISummaryCard } from '@/components/insights/AISummaryCard'
+import { InsightsLevelWrapper } from '@/components/insights/InsightsLevelWrapper'
 import { getStartAndEndOfWeek, calculateTrend, calculateProductivityScore } from '@/lib/utils/insights'
 
 export default async function InsightsPage() {
@@ -58,7 +59,8 @@ export default async function InsightsPage() {
         .select('*')
         .eq('user_id', user.id)
 
-    // Calculate total focus time across all recorded days (handled by client component now)
+    // Calculate total cumulative focus time for level system
+    const totalFocusMinutes = allActivities?.reduce((acc, a) => acc + (a.focus_time_minutes || 0), 0) || 0
 
     // current week
     const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
@@ -106,6 +108,8 @@ export default async function InsightsPage() {
                 <h1 className="text-[24px] font-bold text-navy">Insights</h1>
                 <span className="text-[13px] text-blue-muted">Today, {formattedDate}</span>
             </div>
+
+            <InsightsLevelWrapper totalFocusMinutes={totalFocusMinutes} />
 
             <div className="space-y-4">
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
