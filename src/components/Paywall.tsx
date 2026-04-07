@@ -119,7 +119,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
             const res = await fetch('/api/checkout/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ planType, region }),
+                body: JSON.stringify({ planType, region, isOnboarding }),
             })
 
             const data = await res.json()

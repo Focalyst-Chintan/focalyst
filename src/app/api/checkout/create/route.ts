@@ -32,9 +32,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { planType, region } = body as {
+    const { planType, region, isOnboarding } = body as {
         planType: 'monthly' | 'yearly' | 'lifetime'
         region: 'IN' | 'INT'
+        isOnboarding?: boolean
     }
 
     if (!planType || !region) {
@@ -119,11 +120,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Missing Polar Success URL" }, { status: 500 });
         }
 
-        // 5. Try/Catch Polar SDK Call
+        // Determine success URL based on onboarding context
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://focalyst.online'
+        const polarSuccessUrl = isOnboarding
+            ? `${baseUrl}/onboarding/name?payment=success&checkout_id={CHECKOUT_ID}`
+            : (process.env.POLAR_SUCCESS_URL || `${baseUrl}/plan?payment=success&checkout_id={CHECKOUT_ID}`)
+
         try {
             const checkoutSession = await polar.checkouts.create({
                 products: [productId],
-                successUrl: process.env.POLAR_SUCCESS_URL,
+                successUrl: polarSuccessUrl,
                 customerMetadata: {
                     userId: user.id,
                 },
