@@ -5,7 +5,9 @@ import { useChat } from '@/context/ChatContext'
 import { usePlan } from '@/context/PlanContext'
 import { CloseIcon, MicrophoneIcon, SendArrowIcon } from '@/components/icons'
 import { createClient } from '@/lib/supabase'
-import ReactMarkdown from 'react-markdown'
+import dynamic from 'next/dynamic'
+
+const ReactMarkdown = dynamic(() => import('react-markdown'), { ssr: false })
 
 export function AIChatOverlay() {
     const { isChatOpen, closeChat, messages, addMessage, isTyping, setIsTyping } = useChat()

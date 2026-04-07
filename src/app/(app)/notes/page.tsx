@@ -5,7 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { NotesList, FilterType } from '@/components/notes/NotesList'
 import { UpgradeModal } from '@/components/notes/UpgradeModal'
-import { VoiceRecordingOverlay } from '@/components/notes/VoiceRecordingOverlay'
+import dynamic from 'next/dynamic'
+
+const VoiceRecordingOverlay = dynamic(
+    () => import('@/components/notes/VoiceRecordingOverlay').then(mod => mod.VoiceRecordingOverlay),
+    { ssr: false }
+)
 
 const FILTERS: FilterType[] = ['All', 'Notes', 'Favourite', 'Folders', 'Voice notes']
 
