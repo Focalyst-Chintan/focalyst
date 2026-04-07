@@ -127,7 +127,7 @@ export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: 
     }
 
     return (
-        <div className="fixed inset-0 z-[100] bg-navy/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 sm:p-8 animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] bg-navy/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 sm:p-8 pb-[100px] animate-in fade-in duration-200">
             {/* Header / Timer */}
             <div className="absolute top-16 w-full flex flex-col items-center gap-2">
                 {!error && (
@@ -159,7 +159,7 @@ export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: 
                     </div>
 
                     {/* Microphone Pulse Animation */}
-                    <div className="absolute bottom-32">
+                    <div className="absolute bottom-[200px]">
                         <div className="relative flex items-center justify-center">
                             {isRecording && (
                                 <>
@@ -178,7 +178,7 @@ export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: 
                     </div>
 
                     {/* Controls */}
-                    <div className="absolute bottom-8 w-full flex justify-center gap-6 px-6 pb-safe">
+                    <div className="absolute bottom-[100px] w-full flex justify-center gap-6 px-6 pb-safe">
                         <button
                             onClick={onClose}
                             className="bg-white/10 text-white px-8 py-4 rounded-full font-semibold hover:bg-white/20 transition-colors backdrop-blur-md"

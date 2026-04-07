@@ -140,7 +140,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const [isMenuOpen, setIsMenuOpen] = useState(false)
 
     return (
-        <div className={`flex flex-col bg-card-bg rounded-xl transition-all duration-300 relative !overflow-visible ${isMenuOpen ? 'z-50' : 'z-10'}`}>
+        <div className={`habit-card flex flex-col bg-card-bg rounded-xl transition-all duration-300 relative !overflow-visible ${isMenuOpen ? 'z-50' : 'z-10'}`}>
             {/* Main Card Body */}
             <div
                 className="flex items-center gap-3 px-3 py-3 cursor-pointer"

@@ -102,3 +102,9 @@ body.distraction-free nav {
 .page-fade-in {
   animation: pageFadeIn 0.25s ease-out forwards;
 }
+
+/* Habit Card Component Constraints */
+.habit-card {
+  overflow: visible !important;  /* Override any overflow:hidden */
+  position: relative;
+}
