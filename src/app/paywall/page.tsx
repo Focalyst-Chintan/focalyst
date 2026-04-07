@@ -372,7 +372,7 @@ export default function PaywallPage() {
 
                     {/* CTA Button */}
                     <button
-                        onClick={() => handleCheckout(selectedPlan)}
+                        onClick={() => handleCheckout(selectedPlan === 'lifetime' ? 'lifetime' : 'monthly')}
                         disabled={isLoading}
                         className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60"
                     >
