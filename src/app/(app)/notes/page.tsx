@@ -151,23 +151,23 @@ export default function NotesPage() {
             />
 
             {/* Voice Notes FAB */}
-            <div className="fixed bottom-24 left-4 right-4 z-40">
+            <div className="fixed bottom-[100px] right-6 z-50">
                 <button
                     onClick={() => {
                         if (isLocked) setIsUpgradeModalOpen(true);
                         else setIsVoiceRecordingOpen(true);
                     }}
                     disabled={isProcessingVoice}
-                    className="w-full bg-navy text-white flex items-center justify-center py-4 rounded-xl font-semibold text-[16px] shadow-lg transition-transform active:scale-[0.98] disabled:opacity-70"
+                    aria-label="Capture Voice Notes"
+                    className="w-16 h-16 bg-navy text-white flex items-center justify-center rounded-full shadow-xl transition-transform active:scale-[0.98] hover:scale-105 disabled:opacity-70"
                 >
                     {isProcessingVoice ? (
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
+                        <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                        <svg className="w-5 h-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                         </svg>
                     )}
-                    {isProcessingVoice ? "Processing..." : "Capture Voice Notes"}
                 </button>
             </div>
 
