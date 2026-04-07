@@ -137,9 +137,10 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const totalDays = 365
     const completionPercentage = Math.round((completedDaysCount / totalDays) * 100)
     const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
 
     return (
-        <div className="flex flex-col bg-card-bg rounded-xl transition-all duration-300 relative !overflow-visible">
+        <div className={`flex flex-col bg-card-bg rounded-xl transition-all duration-300 relative !overflow-visible ${isMenuOpen ? 'z-50' : 'z-10'}`}>
             {/* Main Card Body */}
             <div
                 className="flex items-center gap-3 px-3 py-3 cursor-pointer"
@@ -176,6 +177,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                         onDelete={onDelete}
                         onRename={onRename}
                         onTag={() => { }}
+                        onOpenChange={setIsMenuOpen}
                     />
                 </div>
             </div>

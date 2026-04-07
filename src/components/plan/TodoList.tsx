@@ -12,6 +12,7 @@ export default function TodoList() {
     const dragItem = useRef<number | null>(null)
     const dragOverItem = useRef<number | null>(null)
     const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
+    const [openMenuId, setOpenMenuId] = useState<string | null>(null)
 
     const toggleTask = (id: string) => {
         const task = tasks.find((t) => t.id === id)
@@ -117,8 +118,8 @@ export default function TodoList() {
                                 onTouchStart={(e) => handleTouchStart(index, e)}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
-                                className={`flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3 cursor-grab active:cursor-grabbing transition-all ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
-                                    }`}
+                                className={`flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3 cursor-grab active:cursor-grabbing transition-all relative ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
+                                    } ${openMenuId === task.id ? 'z-50' : 'z-10'}`}
                             >
                                 {/* Drag handle */}
                                 <div className="flex flex-col gap-[3px] shrink-0 mr-1 touch-none">
@@ -162,6 +163,7 @@ export default function TodoList() {
                                     onDelete={() => deleteTask(task.id)}
                                     onRename={() => handleRename(task.id)}
                                     onTag={() => handleTag(task.id)}
+                                    onOpenChange={(isOpen) => setOpenMenuId(isOpen ? task.id : null)}
                                 />
                             </div>
                         ))
