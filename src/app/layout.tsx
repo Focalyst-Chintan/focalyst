@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "Focalyst — Own your time",
   description:
     "Your all-in-one AI productivity hub. Plan tasks, focus deeply, capture ideas, and review your progress.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
