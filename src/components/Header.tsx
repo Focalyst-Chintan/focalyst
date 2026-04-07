@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { UserAccountIcon, AIChatIcon } from '@/components/icons'
 import { useChat } from '@/context/ChatContext'
@@ -43,9 +44,16 @@ export default function Header() {
                 )}
             </Link>
 
-            <h1 className="text-navy text-[16px] font-bold tracking-[0.15em]">
-                FOCALYST
-            </h1>
+            <div className="flex items-center justify-center">
+                <Image
+                    src="/logo.png"
+                    alt="Focalyst Logo"
+                    width={40}
+                    height={40}
+                    priority
+                    className="w-10 h-10 object-contain"
+                />
+            </div>
 
             <button onClick={openChat} aria-label="AI Chat">
                 <AIChatIcon size={28} color="#4A6C8C" />

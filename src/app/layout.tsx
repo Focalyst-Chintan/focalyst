@@ -15,8 +15,9 @@ export const metadata: Metadata = {
     "Your all-in-one AI productivity hub. Plan tasks, focus deeply, capture ideas, and review your progress.",
   manifest: "/manifest.json",
   icons: {
-    icon: "/favicon.ico",
-    apple: "/apple-touch-icon.png",
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
   },
   appleWebApp: {
     capable: true,
