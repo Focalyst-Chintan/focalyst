@@ -93,7 +93,7 @@ export default function PaywallPage() {
             const data = await res.json()
 
             if (!res.ok) {
-                const errMsg = data.error || data.details || 'Unable to start checkout. Please try again.'
+                const errMsg = data.error || data.details || `Server Error (${res.status}): Please try again.`
                 console.error('Checkout creation failed:', errMsg)
                 alert(errMsg)
                 setIsLoading(false)
