@@ -139,7 +139,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     const averagePerDay = (completedDaysCount / totalDays).toFixed(1)
 
     return (
-        <div className="flex flex-col bg-card-bg rounded-xl overflow-hidden transition-all duration-300">
+        <div className="flex flex-col bg-card-bg rounded-xl transition-all duration-300">
             {/* Main Card Body */}
             <div
                 className="flex items-center gap-3 px-3 py-3 cursor-pointer"
@@ -182,7 +182,7 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
 
             {/* Expanded Dropdown Content */}
             {isExpanded && (
-                <div className="border-t border-navy/10 px-4 py-4 bg-[#EAF3FA]">
+                <div className="border-t border-navy/10 px-4 py-4 bg-[#EAF3FA] rounded-b-xl">
                     <div className="flex justify-between items-center mb-4">
                         <span className="text-xs font-bold text-navy tracking-wider uppercase">Your Progress</span>
                         <span className="text-xs font-bold text-navy">{completedDaysCount} / {totalDays} Days</span>
