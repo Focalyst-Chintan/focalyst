@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getStartAndEndOfWeek } from '@/lib/utils/insights';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleGenerativeAIStream, StreamingTextResponse } from 'ai';
+import { streamText, tool } from 'ai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { z } from 'zod';
 
 // CRITICAL: Set Edge Runtime to allow streaming in Vercel production
 export const runtime = 'edge';
 export const maxDuration = 30;
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
     try {
@@ -16,6 +15,10 @@ export async function POST(req: Request) {
             console.error('[CHAT_API_ERROR] GEMINI_API_KEY is missing');
             return new Response(JSON.stringify({ error: "API key is missing" }), { status: 500 });
         }
+
+        const google = createGoogleGenerativeAI({
+            apiKey: process.env.GEMINI_API_KEY,
+        });
 
         const { messages } = await req.json();
 
@@ -138,32 +141,53 @@ export async function POST(req: Request) {
             "**Rule 1 - Analysis:** When asked about productivity, deeply analyze their 'Productivity Stats' context. Identify Strengths and Areas for Growth. \n" +
             "**Rule 2 - Science:** You MUST quote scientific research, behavioral psychology, and popular productivity frameworks (e.g., Deep Work, Huberman, Atomic Habits) to explain their metrics and offer advice. \n" +
             "**Rule 3 - Tutoring:** When asked about concepts in their 'Recent Notes', act as an expert tutor to explain and expand on those topics. \n" +
+            "**Rule 4:** If the user asks to add a task, reminder, or to-do, you MUST use the `addTask` tool. Confirm with the user once successful.\n" +
             "Format strictly in highly scannable Markdown. Never explicitly say you are reading a context block.";
 
-        // 6. Map Vercel message format to Google message format (Strict Requirement)
-        const googleMessages = messages.map((m: any) => ({
-            role: m.role === 'user' ? 'user' : 'model',
-            parts: [{ text: m.content }],
-        }));
+        // 6. Use streamText for AI SDK v3+ Streaming
+        const result = streamText({
+            model: google('gemini-1.5-flash'),
+            system: systemInstruction,
+            messages: messages,
+            tools: {
+                addTask: tool({
+                    description: "Use this tool to add a new task or to-do item to the user's database. MUST be used when user expresses intention to add a task.",
+                    parameters: z.object({
+                        title: z.string().describe("The name or title of the task to add"),
+                        dueDate: z.string().optional().describe("The due date in YYYY-MM-DD format if specified")
+                    }),
+                    // @ts-ignore
+                    execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
+                        const { error: taskError } = await supabase.from('tasks').insert({
+                            user_id: user.id,
+                            title: title,
+                            due_date: dueDate || null,
+                            priority: 'medium'
+                        });
 
-        // Inject Context into the first message content
-        if (googleMessages.length > 0 && googleMessages[0].role === 'user') {
-            googleMessages[0].parts[0].text = `${fullContext}\n\n${systemInstruction}\n\n${googleMessages[0].parts[0].text}`;
-        }
+                        if (taskError) {
+                            console.error('[CHAT_TOOL_ERROR] Failed to add task:', taskError);
+                            return { success: false, error: 'Database error' };
+                        }
 
-        // 7. Initialize Model and Generate Stream
-        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-        const response = await model.generateContentStream({
-            contents: googleMessages,
+                        return { success: true, message: `Task "${title}" added successfully` };
+                    }
+                })
+            },
+            // Inject context into the first message for better initial response
+            experimental_prepareAndMapPrompt: async ({ messages: inputMessages }) => {
+                if (inputMessages.length > 0 && inputMessages[0].role === 'user') {
+                    inputMessages[0].content = `${fullContext}\n\n${inputMessages[0].content}`;
+                }
+                return { messages: inputMessages };
+            }
         });
 
-        // 8. Convert to Vercel AI Stream format
-        const stream = GoogleGenerativeAIStream(response);
-        return new StreamingTextResponse(stream);
+        // 7. Return the stream using the recommended v3 method
+        return result.toDataStreamResponse();
 
     } catch (error: any) {
-        console.error('[GEMINI_STREAM_ERROR]', error);
+        console.error('[CHAT_API_ERROR]', error);
         
         return new Response(
             JSON.stringify({ error: error.message || 'An unexpected error occurred' }), 
