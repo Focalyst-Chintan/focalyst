@@ -1,24 +1,41 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useChat } from '@/context/ChatContext'
+import { useChat as useGlobalChat } from '@/context/ChatContext'
 import { usePlan } from '@/context/PlanContext'
 import { CloseIcon, MicrophoneIcon, SendArrowIcon } from '@/components/icons'
 import ReactMarkdown from 'react-markdown'
+import { createClient } from '@/lib/supabase'
+import { useChat } from '@ai-sdk/react'
 
 export function ChatUI() {
-    const { isChatOpen, closeChat, messages, addMessage, updateMessage, isTyping, setIsTyping } = useChat()
+    const { isChatOpen, closeChat } = useGlobalChat()
     const { refreshData } = usePlan()
-    const [inputValue, setInputValue] = useState('')
-    const [error, setError] = useState<string | null>(null)
+    const [isFreeUser, setIsFreeUser] = useState(false)
+    const [messagesUsed, setMessagesUsed] = useState(0)
+    const [loadingInfo, setLoadingInfo] = useState(true)
+    const [showCopyToast, setShowCopyToast] = useState(false)
     const chatContainerRef = useRef<HTMLDivElement>(null)
+    const supabase = createClient()
+
+    const { messages, input, handleInputChange, handleSubmit, isLoading, setInput, append } = useChat({
+        api: '/api/chat',
+        onFinish: () => {
+            refreshData()
+        },
+        onError: (err) => {
+            if (isFreeUser) {
+                setMessagesUsed(prev => Math.max(0, prev - 1))
+            }
+        }
+    });
 
     // Scroll to bottom when messages update or typing
     useEffect(() => {
         if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight
         }
-    }, [messages, isTyping])
+    }, [messages, isLoading])
 
     // Body scroll lock when chat is open
     useEffect(() => {
@@ -30,134 +47,149 @@ export function ChatUI() {
         return () => { document.body.style.overflow = 'auto' }
     }, [isChatOpen])
 
+    // Fetch user plan limits
+    useEffect(() => {
+        if (!isChatOpen) return;
+
+        async function fetchPlanAndUsage() {
+            setLoadingInfo(true)
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return;
+
+            const { data: profile } = await supabase
+                .from('users')
+                .select('plan')
+                .eq('id', user.id)
+                .single()
+
+            const isFree = profile?.plan === 'free'
+            setIsFreeUser(isFree)
+
+            if (isFree) {
+                const today = new Date()
+                today.setHours(0, 0, 0, 0)
+
+                const { count } = await supabase
+                    .from('ai_chat_logs')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('user_id', user.id)
+                    .eq('role', 'user')
+                    .gte('created_at', today.toISOString())
+
+                setMessagesUsed(count || 0)
+            }
+            setLoadingInfo(false)
+        }
+
+        fetchPlanAndUsage()
+    }, [isChatOpen, supabase])
+
     if (!isChatOpen) return null
 
-    const handleSend = async () => {
-        if (!inputValue.trim() || isTyping) return
+    const handleSendAction = (e?: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLInputElement>) => {
+        e?.preventDefault();
+        if (!input.trim() || isLoading) return;
 
-        const userMsg = inputValue.trim()
-        setInputValue('')
-        setError(null)
-
-        // Add user message
-        const userMsgId = Date.now().toString()
-        addMessage({ id: userMsgId, role: 'user', content: userMsg })
-        
-        setIsTyping(true)
-
-        // Add placeholder assistant message for streaming
-        const assistantMsgId = (Date.now() + 1).toString()
-        addMessage({ id: assistantMsgId, role: 'assistant', content: '' })
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    messages: [...messages, { role: 'user', content: userMsg }] 
-                })
-            })
-
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to get response')
-            }
-
-            if (!response.body) {
-                throw new Error('No response body')
-            }
-
-            const reader = response.body.getReader()
-            const decoder = new TextEncoder().encode('').constructor === TextDecoder ? new TextDecoder() : new TextDecoder() // standard check
-            let accumulatedContent = ''
-
-            while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-
-                const chunk = new TextDecoder().decode(value)
-                accumulatedContent += chunk
-                updateMessage(assistantMsgId, accumulatedContent)
-            }
-
-            // Refresh data in case AI performed actions (if we add them later)
-            // refreshData()
-
-        } catch (err: any) {
-            console.error('Chat Error:', err)
-            setError(err.message || 'Focalyst AI is currently experiencing high demand. Please try again soon.')
-            updateMessage(assistantMsgId, err.message || 'Focalyst AI is currently experiencing high demand. Please try again soon.')
-        } finally {
-            setIsTyping(false)
+        if (isFreeUser) {
+            setMessagesUsed(prev => prev + 1)
         }
+        
+        handleSubmit(e as any);
+    }
+
+    const handleCopy = (content: string) => {
+        navigator.clipboard.writeText(content);
+        setShowCopyToast(true);
+        setTimeout(() => setShowCopyToast(false), 2000);
     }
 
     const suggestions = [
-        "Summarize my recent notes",
-        "Help me understand my latest thought",
-        "What are my top productivity goals?",
-        "Tutor me on a complex topic"
+        "What should I focus on today?",
+        "Add a task for tomorrow",
+        "How productive was I this week?",
+        "Remind me to review notes at 8pm"
     ]
+
+    const handleSuggestion = (text: string) => {
+        if (isFreeUser) setMessagesUsed(prev => prev + 1);
+        append({ role: 'user', content: text });
+    }
+
+    const isLimitReached = isFreeUser && messagesUsed >= 5
+    const isReadyToSubmit = input.trim().length > 0 && !isLoading
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end transition-opacity duration-300">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={closeChat}></div>
+            <div className="absolute inset-0 bg-black/20" onClick={closeChat}></div>
 
             {/* Chat Panel */}
-            <div className="relative w-full h-[90vh] mt-auto md:mt-0 md:h-full md:w-[450px] bg-white rounded-t-[2.5rem] md:rounded-l-[2.5rem] md:rounded-r-none shadow-2xl flex flex-col pt-2 animate-in fade-in slide-in-from-bottom md:slide-in-from-right duration-300">
+            <div className="relative w-full h-[85vh] mt-auto md:mt-0 md:h-full md:w-[380px] bg-white rounded-t-3xl md:rounded-l-3xl md:rounded-r-none shadow-2xl flex flex-col pt-2 animate-slide-up md:animate-slide-left">
 
                 {/* Mobile drag handle */}
-                <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4 md:hidden"></div>
+                <div className="w-12 h-1.5 bg-card-bg rounded-full mx-auto mb-4 md:hidden"></div>
+
+                {/* Copy Toast Notification */}
+                {showCopyToast && (
+                    <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-navy/90 text-white px-4 py-2 rounded-full text-xs font-semibold shadow-lg animate-fade-in flex items-center gap-2 border border-white/20 backdrop-blur-sm">
+                        <span>📋 Copied!</span>
+                    </div>
+                )}
 
                 {/* Header */}
-                <div className="px-8 pb-6 flex justify-between items-start border-b border-gray-50">
+                <div className="px-6 pb-4 flex justify-between items-start border-b border-page-bg">
                     <div>
-                        <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Focalyst AI</h2>
-                        <p className="text-xs text-gray-500 font-medium uppercase tracking-wider">Productivity Coach & Tutor</p>
+                        <h2 className="text-[20px] font-semibold text-navy tracking-tight">Ask Focalyst AI</h2>
+                        <p className="text-[11px] text-blue-muted">Powered by Gemini</p>
                     </div>
-                    <button onClick={closeChat} className="p-2 hover:bg-gray-100 rounded-full transition-colors" aria-label="Close Chat">
-                        <CloseIcon size={24} color="#6B7280" />
+                    <button onClick={closeChat} className="p-1 -mr-1" aria-label="Close Chat">
+                        <CloseIcon size={24} color="#95A7B5" />
                     </button>
                 </div>
 
                 {/* Chat Area */}
-                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-8 py-8 pb-32 flex flex-col gap-6">
+                <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-6 py-6 pb-24 flex flex-col gap-4">
                     {messages.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center space-y-8">
-                            <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center animate-pulse">
-                                <span className="text-4xl">✨</span>
-                            </div>
-                            <div>
-                                <h3 className="text-lg font-semibold text-gray-900 mb-2">How can I help you today?</h3>
-                                <p className="text-sm text-gray-500 max-w-[280px] mx-auto leading-relaxed">
-                                    I've analyzed your recent notes and I'm ready to help you optimize your productivity.
-                                </p>
-                            </div>
-                            <div className="grid grid-cols-1 gap-3 w-full max-w-sm">
+                        <div className="flex flex-col items-center justify-center h-full text-center mt-[-40px]">
+                            {/* Empty State */}
+                            <div className="flex flex-col gap-3 w-full max-w-[280px] mx-auto mb-8">
                                 {suggestions.map((text, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => setInputValue(text)}
-                                        className="bg-gray-50 border border-gray-100 text-gray-700 text-sm font-medium py-3.5 px-5 rounded-2xl text-left hover:bg-blue-50 hover:border-blue-100 transition-all duration-200 active:scale-[0.98]"
+                                        onClick={() => handleSuggestion(text)}
+                                        className="bg-card-bg/20 border border-card-bg text-navy text-[13px] font-medium py-3 px-4 rounded-xl text-left hover:bg-card-bg/40 transition-colors"
                                     >
                                         {text}
                                     </button>
                                 ))}
                             </div>
+                            <p className="text-[12px] text-blue-muted max-w-[260px] mx-auto leading-relaxed">
+                                I can add tasks, set reminders, summarise your week, and answer productivity questions.
+                            </p>
                         </div>
                     ) : (
-                        messages.map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                                <div className={`max-w-[90%] rounded-[1.5rem] px-5 py-4 text-[15px] leading-relaxed shadow-sm ${
+                        messages.filter(m => m.role !== 'system' && m.role !== 'data').map((msg) => (
+                            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
+                                <div className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
                                     msg.role === 'user'
-                                        ? 'bg-blue-600 text-white rounded-tr-md'
-                                        : 'bg-gray-50 text-gray-800 rounded-tl-md border border-gray-100'
+                                        ? 'bg-navy text-white rounded-tr-sm'
+                                        : 'bg-card-bg/30 text-navy rounded-tl-sm prose prose-sm prose-blue max-w-none prose-p:leading-relaxed prose-pre:my-0'
                                 }`}>
                                     {msg.role === 'assistant' ? (
-                                        <div className="prose prose-sm prose-blue max-w-none prose-p:leading-relaxed prose-headings:text-gray-900 prose-headings:font-bold prose-strong:text-blue-700 prose-a:text-blue-600">
-                                            <ReactMarkdown>{msg.content || (isTyping && msg.id === messages[messages.length-1].id ? '...' : '')}</ReactMarkdown>
-                                        </div>
+                                        <>
+                                            <ReactMarkdown>{msg.content || (isLoading && msg.id === messages[messages.length-1]?.id ? '...' : '')}</ReactMarkdown>
+                                            
+                                            {/* Copy Button */}
+                                            {msg.content && msg.content !== '...' && msg.content !== '' && (
+                                                <button 
+                                                    onClick={() => handleCopy(msg.content)}
+                                                    className="absolute -bottom-3 -right-2 bg-white border border-page-bg text-blue-muted hover:text-navy rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    title="Copy message"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                </button>
+                                            )}
+                                        </>
                                     ) : (
                                         msg.content
                                     )}
@@ -166,14 +198,14 @@ export function ChatUI() {
                         ))
                     )}
 
-                    {/* Loading/Typing State */}
-                    {isTyping && messages[messages.length-1]?.role === 'user' && (
+                    {/* Typing Indicator */}
+                    {isLoading && messages[messages.length-1]?.role === 'user' && (
                         <div className="flex justify-start">
-                            <div className="bg-gray-50 rounded-[1.5rem] rounded-tl-md px-5 py-4 border border-gray-100">
-                                <div className="flex gap-1.5">
-                                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                                    <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce"></div>
+                            <div className="bg-card-bg/30 rounded-2xl rounded-tl-sm px-4 py-3">
+                                <div className="flex gap-1.5 pt-1">
+                                    <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                                    <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                                    <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce"></div>
                                 </div>
                             </div>
                         </div>
@@ -181,36 +213,43 @@ export function ChatUI() {
                 </div>
 
                 {/* Input Area */}
-                <div className="absolute bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md px-6 py-6 pb-24 border-t border-gray-50">
-                    <div className="relative flex items-center gap-2 bg-gray-50 rounded-2xl px-4 py-2 border border-gray-200 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
-                        <button className="p-2 text-gray-400 hover:text-blue-500 transition-colors" aria-label="Voice input">
-                            <MicrophoneIcon size={22} />
-                        </button>
-                        <input
-                            type="text"
-                            value={inputValue}
-                            onChange={(e) => setInputValue(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === 'Enter' && !e.shiftKey) {
-                                    e.preventDefault()
-                                    handleSend()
-                                }
-                            }}
-                            placeholder="Ask Focalyst anything..."
-                            className="flex-1 bg-transparent border-none outline-none py-2 text-[15px] text-gray-900 placeholder:text-gray-400"
-                        />
-                        <button
-                            onClick={handleSend}
-                            disabled={!inputValue.trim() || isTyping}
-                            className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all ${
-                                inputValue.trim() && !isTyping 
-                                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 scale-100' 
-                                    : 'bg-gray-200 text-gray-400 scale-95 opacity-50 cursor-not-allowed'
-                            }`}
-                        >
-                            <SendArrowIcon size={20} />
-                        </button>
-                    </div>
+                <div className="absolute bottom-0 left-0 right-0 bg-white px-6 py-4 pb-safe border-t border-page-bg">
+                    {isLimitReached ? (
+                        <div className="flex flex-col items-center gap-2 pb-2">
+                            <p className="text-[13px] text-navy font-medium text-center">You've used all 5 free messages today.</p>
+                            <p className="text-[12px] text-blue-muted text-center max-w-[260px] mb-2">Upgrade to Pro for unlimited AI chat 🚀</p>
+                            <button onClick={() => window.location.href = '/plan'} className="bg-accent text-white font-semibold text-[14px] py-2.5 px-6 rounded-full shadow-md">
+                                Upgrade Now
+                            </button>
+                        </div>
+                    ) : (
+                        <form onSubmit={handleSendAction} className="w-full">
+                            <div className="bg-page-bg rounded-full flex items-center px-4 py-2 mb-2">
+                                <button type="button" className="p-1 -ml-1 flex-shrink-0" aria-label="Voice input">
+                                    <MicrophoneIcon size={20} color="#95A7B5" />
+                                </button>
+                                <input
+                                    type="text"
+                                    value={input}
+                                    onChange={handleInputChange}
+                                    placeholder="Ask anything..."
+                                    className="flex-1 bg-transparent border-none outline-none px-3 text-[14px] text-navy placeholder:text-blue-muted min-w-0"
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!isReadyToSubmit}
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-opacity ${isReadyToSubmit ? 'bg-navy opacity-100' : 'bg-navy opacity-40'}`}
+                                >
+                                    <SendArrowIcon size={16} />
+                                </button>
+                            </div>
+                            {!loadingInfo && isFreeUser && (
+                                <p className="text-center text-[11px] text-blue-muted">
+                                    {messagesUsed} of 5 daily messages used
+                                </p>
+                            )}
+                        </form>
+                    )}
                 </div>
 
             </div>

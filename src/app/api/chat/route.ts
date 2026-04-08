@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getStartAndEndOfWeek } from '@/lib/utils/insights';
+import { streamText, tool } from 'ai';
+import { google } from '@ai-sdk/google';
+import { z } from 'zod';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+export const maxDuration = 30; // 30 seconds limit for edge functions
 
 export async function POST(req: Request) {
     try {
@@ -120,65 +122,60 @@ export async function POST(req: Request) {
             ? notes.map((note, index) => `Note ${index + 1} Title: ${note.title}, Content: ${note.content}`).join(' | ')
             : 'No recent notes found.';
 
-        const fullContext = `[USER CONTEXT BLOCK] \n--- RECENT NOTES --- \n ${notesData} \n--- WEEKLY PRODUCTIVITY STATS --- \n Focus Time: ${focusTime} mins | Tasks: ${tasksCompleted}/${tasksTotal} | Habit Streaks: ${habitDataString}`;
+        const fullContext = `[USER CONTEXT] \n--- RECENT NOTES --- \n ${notesData} \n--- PRODUCTIVITY STATS --- \n Focus Time: ${focusTime} mins | Tasks: ${tasksCompleted}/${tasksTotal} | Habit Streaks: ${habitDataString}`;
 
-        // 6. Initialize Gemini
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
-            systemInstruction: "You are the Focalyst AI, an elite productivity coach, behavioral scientist, and personal tutor. You have access to the user's [USER CONTEXT BLOCK] which contains their recent notes and quantitative productivity stats. \n**Rule 1 - Productivity Analysis:** When asked about productivity, you MUST deeply analyze their 'Weekly Productivity Stats'. Break down their Strengths and Areas for Growth. \n**Rule 2 - Research-Backed Coaching:** You MUST quote scientific research, behavioral psychology, and popular productivity frameworks (e.g., Cal Newport's Deep Work, James Clear's Atomic Habits, Pomodoro technique, Huberman's protocols) to explain their metrics and provide actionable advice. \n**Rule 3 - Knowledge Tutor:** When asked about concepts in their 'Recent Notes', act as an expert tutor to explain and expand on those specific topics. \nAlways format your responses in clean, highly scannable Markdown.",
-        });
+        // Prepare the master system instruction
+        const systemInstruction = 
+            "You are the Focalyst AI, an elite productivity coach, behavioral scientist, and personal tutor. \n" +
+            "**Rule 1 - Analysis:** When asked about productivity, deeply analyze their 'Productivity Stats' context. Identify Strengths and Areas for Growth. \n" +
+            "**Rule 2 - Science:** You MUST quote scientific research, behavioral psychology, and popular productivity frameworks (e.g., Deep Work, Huberman, Atomic Habits) to explain their metrics and offer advice. \n" +
+            "**Rule 3 - Tutoring:** When asked about concepts in their 'Recent Notes', act as an expert tutor to explain and expand on those topics. \n" +
+            "**Rule 4:** If the user asks to add a task, reminder, or to-do, you MUST use the `addTask` tool. Confirm with the user once successful.\n" +
+            "Format strictly in highly scannable Markdown. Never explicitly say you are reading a context block.";
 
-        // 4. Inject Context into the first message
-        const chatMessages = messages.map((m: any, index: number) => {
-            if (index === 0 && m.role === 'user') {
-                return {
-                    role: 'user',
-                    parts: [{ text: `${fullContext}\n\n${m.content}` }]
-                };
-            }
-            return {
-                role: m.role === 'assistant' ? 'model' : 'user',
-                parts: [{ text: m.content }]
+        // Inject Context into the first message
+        const aiMessages = [...messages];
+        if (aiMessages.length > 0 && aiMessages[0].role === 'user') {
+            aiMessages[0] = {
+                ...aiMessages[0],
+                content: `${fullContext}\n\n${aiMessages[0].content}`
             };
-        });
-
-        // Extract the last message to send (Gemini Chat API style)
-        const lastMessage = chatMessages.pop();
-        if (!lastMessage) {
-            return NextResponse.json({ error: 'No message provided' }, { status: 400 });
         }
-        const history = chatMessages;
 
-        const chat = model.startChat({
-            history: history,
-        });
+        // 6. Extract Vercel AI SDK stream
+        const response = streamText({
+            model: google('gemini-2.5-flash'),
+            system: systemInstruction,
+            messages: aiMessages,
+            tools: {
+                addTask: tool({
+                    description: "Use this tool to add a new task or to-do item to the user's database. MUST be used when user expresses intention to add a task.",
+                    parameters: z.object({
+                        title: z.string().describe("The name or title of the task to add"),
+                        dueDate: z.string().optional().describe("The due date in YYYY-MM-DD format if specified")
+                    }),
+                    // @ts-ignore
+                    execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
+                        const { error } = await supabase.from('tasks').insert({
+                            user_id: user.id,
+                            title: title,
+                            due_date: dueDate || null,
+                            priority: 'medium'
+                        });
 
-        // 5. Streaming Response
-        const result = await chat.sendMessageStream(lastMessage.parts[0].text);
-
-        const encoder = new TextEncoder();
-        const stream = new ReadableStream({
-            async start(controller) {
-                try {
-                    for await (const chunk of result.stream) {
-                        const chunkText = chunk.text();
-                        if (chunkText) {
-                            controller.enqueue(encoder.encode(chunkText));
+                        if (error) {
+                            console.error('Failed to add task via tool', error);
+                            return { success: false, error: 'Database error while inserting task' };
                         }
+
+                        return { success: true, message: `Task "${title}" added successfully` };
                     }
-                    controller.close();
-                } catch (error: any) {
-                    controller.error(error);
-                }
-            },
+                })
+            }
         });
 
-        return new Response(stream, {
-            headers: {
-                'Content-Type': 'text/plain; charset=utf-8',
-                'Transfer-Encoding': 'chunked',
-            },
-        });
+        // @ts-ignore
+        return response.toDataStreamResponse();
 
     } catch (error: any) {
         console.error('Chat API Error:', error);
