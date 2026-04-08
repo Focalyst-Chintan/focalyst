@@ -44,15 +44,7 @@ export default function Header() {
                 )}
             </Link>
 
-            <div className="flex items-center justify-center gap-2">
-                <Image
-                    src="/logo.png"
-                    alt="Focalyst Logo"
-                    width={28}
-                    height={28}
-                    priority
-                    className="w-7 h-7 object-contain"
-                />
+            <div className="flex items-center justify-center">
                 <span className="font-bold text-[18px] tracking-[0.2em] text-navy">FOCALYST</span>
             </div>
 
