@@ -118,11 +118,11 @@ export async function POST(req: Request) {
             : 'No active streaks';
 
         // 5. Assemble Context Block
-        const notesData = notes && notes.length > 0
+        const notesData = (notes && notes.length > 0)
             ? notes.map((note, index) => `Note ${index + 1} Title: ${note.title}, Content: ${note.content}`).join(' | ')
             : 'No recent notes found.';
 
-        const fullContext = `[USER CONTEXT] \n--- RECENT NOTES --- \n ${notesData} \n--- PRODUCTIVITY STATS --- \n Focus Time: ${focusTime} mins | Tasks: ${tasksCompleted}/${tasksTotal} | Habit Streaks: ${habitDataString}`;
+        const fullContext = `[USER CONTEXT] \n--- RECENT NOTES --- \n ${notesData} \n--- PRODUCTIVITY STATS --- \n Focus Time: ${focusTime || 0} mins | Tasks: ${tasksCompleted || 0}/${tasksTotal || 0} | Habit Streaks: ${habitDataString || ""}`;
 
         // Prepare the master system instruction
         const systemInstruction = 
@@ -143,8 +143,8 @@ export async function POST(req: Request) {
         }
 
         // 6. Extract Vercel AI SDK stream
-        const response = streamText({
-            model: google('gemini-2.5-flash'),
+        const result = streamText({
+            model: google('gemini-1.5-flash'), // Fixed model name from legacy 'gemini-2.5-flash'
             system: systemInstruction,
             messages: aiMessages,
             tools: {
@@ -156,16 +156,16 @@ export async function POST(req: Request) {
                     }),
                     // @ts-ignore
                     execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
-                        const { error } = await supabase.from('tasks').insert({
+                        const { error: taskError } = await supabase.from('tasks').insert({
                             user_id: user.id,
                             title: title,
                             due_date: dueDate || null,
                             priority: 'medium'
                         });
 
-                        if (error) {
-                            console.error('Failed to add task via tool', error);
-                            return { success: false, error: 'Database error while inserting task' };
+                        if (taskError) {
+                            console.error('[CHAT_TOOL_ERROR] Failed to add task:', taskError);
+                            return { success: false, error: 'Database error' };
                         }
 
                         return { success: true, message: `Task "${title}" added successfully` };
@@ -175,15 +175,22 @@ export async function POST(req: Request) {
         });
 
         // @ts-ignore
-        return response.toDataStreamResponse();
+        return result.toDataStreamResponse();
 
     } catch (error: any) {
-        console.error('Chat API Error:', error);
+        console.error('[CHAT_API_ERROR]', error);
         
+        // Return 500 Response so frontend onError catches it properly
         if (error?.status === 429) {
-            return NextResponse.json({ error: 'Focalyst AI is currently experiencing high demand. Please try again in a moment.' }, { status: 429 });
+            return new Response(
+                JSON.stringify({ error: 'Focalyst AI is currently experiencing high demand. Please try again in a moment.' }), 
+                { status: 429, headers: { 'Content-Type': 'application/json' } }
+            );
         }
 
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return new Response(
+            JSON.stringify({ error: error.message || 'An unexpected error occurred' }), 
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
     }
 }

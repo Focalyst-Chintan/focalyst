@@ -20,11 +20,13 @@ export function ChatUI() {
 
     // STRICT HARD-REPLACEMENT: Only pulling out properties TypeScript allows
     // and deriving requested helpers locally for clean types.
-    const { messages, status, sendMessage: _sendMessage } = useChat({
+    const { messages, status, sendMessage: _sendMessage, error: chatError } = useChat({
+        api: '/api/chat',
         onFinish: () => {
             refreshData()
         },
         onError: (err) => {
+            console.error('Chat API Error:', err.message);
             if (isFreeUser) {
                 setMessagesUsed(prev => Math.max(0, prev - 1))
             }
@@ -238,6 +240,14 @@ export function ChatUI() {
 
                 {/* Input Area */}
                 <div className="absolute bottom-0 left-0 right-0 bg-white px-6 py-4 pb-safe border-t border-page-bg">
+                    {chatError && (
+                        <div className="mb-2 px-2 py-1.5 bg-red-50 border border-red-100 rounded-lg animate-fade-in">
+                            <p className="text-[11px] text-red-600 font-medium">
+                                ⚠️ {chatError.message || 'Focalyst AI is currently unavailable. Please try again.'}
+                            </p>
+                        </div>
+                    )}
+                    
                     {isLimitReached ? (
                         <div className="flex flex-col items-center gap-2 pb-2">
                             <p className="text-[13px] text-navy font-medium text-center">You've used all 5 free messages today.</p>
