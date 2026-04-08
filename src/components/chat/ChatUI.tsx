@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useChat as useGlobalChat } from '@/context/ChatContext'
 import { usePlan } from '@/context/PlanContext'
 import { CloseIcon, MicrophoneIcon, SendArrowIcon } from '@/components/icons'
@@ -18,8 +18,9 @@ export function ChatUI() {
     const chatContainerRef = useRef<HTMLDivElement>(null)
     const supabase = createClient()
 
-    const { messages, input, handleInputChange, handleSubmit, isLoading, setInput, append } = useChat({
-        api: '/api/chat',
+    // STRICT HARD-REPLACEMENT: Only pulling out properties TypeScript allows
+    // and deriving requested helpers locally for clean types.
+    const { messages, status, sendMessage: _sendMessage } = useChat({
         onFinish: () => {
             refreshData()
         },
@@ -29,6 +30,25 @@ export function ChatUI() {
             }
         }
     });
+
+    const isLoading = status !== 'ready' && status !== 'error'
+    
+    // Manual React state to handle the input field separately from hook
+    const [inputValue, setInputValue] = React.useState('');
+
+    // Manual append implementation to provide requested syntax
+    const append = (msg: { role: string; content: string }) => {
+        _sendMessage({ text: msg.content })
+    };
+
+    // Helper to extract text content from the new message structure
+    const getMessageContent = (msg: any) => {
+        if (!msg.parts) return ''
+        return msg.parts
+            .filter((part: any) => part.type === 'text')
+            .map((part: any) => part.text)
+            .join('')
+    }
 
     // Scroll to bottom when messages update or typing
     useEffect(() => {
@@ -88,13 +108,14 @@ export function ChatUI() {
 
     const handleSendAction = (e?: React.FormEvent<HTMLFormElement> | React.KeyboardEvent<HTMLInputElement>) => {
         e?.preventDefault();
-        if (!input.trim() || isLoading) return;
+        if (!inputValue.trim() || isLoading) return;
 
         if (isFreeUser) {
             setMessagesUsed(prev => prev + 1)
         }
         
-        handleSubmit(e as any);
+        append({ role: 'user', content: inputValue });
+        setInputValue('');
     }
 
     const handleCopy = (content: string) => {
@@ -116,7 +137,7 @@ export function ChatUI() {
     }
 
     const isLimitReached = isFreeUser && messagesUsed >= 5
-    const isReadyToSubmit = input.trim().length > 0 && !isLoading
+    const isReadyToSubmit = inputValue.trim().length > 0 && !isLoading
 
     return (
         <div className="fixed inset-0 z-50 flex justify-end transition-opacity duration-300">
@@ -168,34 +189,37 @@ export function ChatUI() {
                             </p>
                         </div>
                     ) : (
-                        messages.filter(m => m.role !== 'system' && m.role !== 'data').map((msg) => (
-                            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
-                                <div className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
-                                    msg.role === 'user'
-                                        ? 'bg-navy text-white rounded-tr-sm'
-                                        : 'bg-card-bg/30 text-navy rounded-tl-sm prose prose-sm prose-blue max-w-none prose-p:leading-relaxed prose-pre:my-0'
-                                }`}>
-                                    {msg.role === 'assistant' ? (
-                                        <>
-                                            <ReactMarkdown>{msg.content || (isLoading && msg.id === messages[messages.length-1]?.id ? '...' : '')}</ReactMarkdown>
-                                            
-                                            {/* Copy Button */}
-                                            {msg.content && msg.content !== '...' && msg.content !== '' && (
-                                                <button 
-                                                    onClick={() => handleCopy(msg.content)}
-                                                    className="absolute -bottom-3 -right-2 bg-white border border-page-bg text-blue-muted hover:text-navy rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    title="Copy message"
-                                                >
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                                </button>
-                                            )}
-                                        </>
-                                    ) : (
-                                        msg.content
-                                    )}
+                        messages.filter(m => m.role !== 'system').map((msg) => {
+                            const content = getMessageContent(msg);
+                            return (
+                                <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
+                                    <div className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
+                                        msg.role === 'user'
+                                            ? 'bg-navy text-white rounded-tr-sm'
+                                            : 'bg-card-bg/30 text-navy rounded-tl-sm prose prose-sm prose-blue max-w-none prose-p:leading-relaxed prose-pre:my-0'
+                                    }`}>
+                                        {msg.role === 'assistant' ? (
+                                            <>
+                                                <ReactMarkdown>{content || (isLoading && msg.id === messages[messages.length-1]?.id ? '...' : '')}</ReactMarkdown>
+                                                
+                                                {/* Copy Button */}
+                                                {content && content !== '...' && content !== '' && (
+                                                    <button 
+                                                        onClick={() => handleCopy(content)}
+                                                        className="absolute -bottom-3 -right-2 bg-white border border-page-bg text-blue-muted hover:text-navy rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        title="Copy message"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                    </button>
+                                                )}
+                                            </>
+                                        ) : (
+                                            content
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))
+                            );
+                        })
                     )}
 
                     {/* Typing Indicator */}
@@ -230,8 +254,8 @@ export function ChatUI() {
                                 </button>
                                 <input
                                     type="text"
-                                    value={input}
-                                    onChange={handleInputChange}
+                                    value={inputValue}
+                                    onChange={(e) => setInputValue(e.target.value)}
                                     placeholder="Ask anything..."
                                     className="flex-1 bg-transparent border-none outline-none px-3 text-[14px] text-navy placeholder:text-blue-muted min-w-0"
                                 />
