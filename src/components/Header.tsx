@@ -44,15 +44,16 @@ export default function Header() {
                 )}
             </Link>
 
-            <div className="flex items-center justify-center">
+            <div className="flex items-center justify-center gap-2">
                 <Image
                     src="/logo.png"
                     alt="Focalyst Logo"
-                    width={40}
-                    height={40}
+                    width={28}
+                    height={28}
                     priority
-                    className="w-10 h-10 object-contain"
+                    className="w-7 h-7 object-contain"
                 />
+                <span className="font-bold text-[18px] tracking-[0.2em] text-navy">FOCALYST</span>
             </div>
 
             <button onClick={openChat} aria-label="AI Chat">
