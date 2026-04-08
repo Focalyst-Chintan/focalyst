@@ -144,11 +144,20 @@ export async function POST(req: Request) {
             "**Rule 4:** If the user asks to add a task, reminder, or to-do, you MUST use the `addTask` tool. Confirm with the user once successful.\n" +
             "Format strictly in highly scannable Markdown. Never explicitly say you are reading a context block.";
 
-        // 6. Use streamText for AI SDK v3+ Streaming
+        // 6. Inject context into the first message before calling the model
+        const messagesWithContext = [...messages];
+        if (messagesWithContext.length > 0 && messagesWithContext[0].role === 'user' && fullContext) {
+            messagesWithContext[0] = {
+                ...messagesWithContext[0],
+                content: `${fullContext}\n\n${messagesWithContext[0].content}`
+            };
+        }
+
+        // 7. Use streamText for AI SDK v3+ Streaming
         const result = streamText({
             model: google('gemini-1.5-flash'),
             system: systemInstruction,
-            messages: messages,
+            messages: messagesWithContext,
             tools: {
                 addTask: tool({
                     description: "Use this tool to add a new task or to-do item to the user's database. MUST be used when user expresses intention to add a task.",
@@ -173,18 +182,11 @@ export async function POST(req: Request) {
                         return { success: true, message: `Task "${title}" added successfully` };
                     }
                 })
-            },
-            // Inject context into the first message for better initial response
-            experimental_prepareAndMapPrompt: async ({ messages: inputMessages }) => {
-                if (inputMessages.length > 0 && inputMessages[0].role === 'user') {
-                    inputMessages[0].content = `${fullContext}\n\n${inputMessages[0].content}`;
-                }
-                return { messages: inputMessages };
             }
         });
 
-        // 7. Return the stream using the recommended v3 method
-        return result.toDataStreamResponse();
+        // 8. Return the stream using the correct v3 method
+        return result.toTextStreamResponse();
 
     } catch (error: any) {
         console.error('[CHAT_API_ERROR]', error);
