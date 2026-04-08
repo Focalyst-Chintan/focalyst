@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getStartAndEndOfWeek } from '@/lib/utils/insights';
-import { streamText, tool } from 'ai';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { z } from 'zod';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAIStream, StreamingTextResponse } from 'ai';
 
-export const maxDuration = 30; // 30 seconds limit for edge functions
+// CRITICAL: Set Edge Runtime to allow streaming in Vercel production
+export const runtime = 'edge';
+export const maxDuration = 30;
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: Request) {
     try {
@@ -14,21 +17,17 @@ export async function POST(req: Request) {
             return new Response(JSON.stringify({ error: "API key is missing" }), { status: 500 });
         }
 
-        const google = createGoogleGenerativeAI({
-            apiKey: process.env.GEMINI_API_KEY,
-        });
-
         const { messages } = await req.json();
 
         if (!messages || !Array.isArray(messages)) {
-            return NextResponse.json({ error: 'Messages array is required' }, { status: 400 });
+            return new Response(JSON.stringify({ error: 'Messages array is required' }), { status: 400 });
         }
 
         const supabase = await createServerSupabaseClient();
         const { data: { user } } = await supabase.auth.getUser();
 
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401 });
         }
 
         // 1. Check User Plan & Limits
@@ -53,8 +52,8 @@ export async function POST(req: Request) {
                 .gte('created_at', today.toISOString());
 
             if (count !== null && count >= 5) {
-                return NextResponse.json(
-                    { error: 'Daily limit reached. Upgrade to Pro for unlimited AI chat.' },
+                return new Response(
+                    JSON.stringify({ error: 'Daily limit reached. Upgrade to Pro for unlimited AI chat.' }),
                     { status: 403 }
                 );
             }
@@ -133,73 +132,45 @@ export async function POST(req: Request) {
 
         const fullContext = `[USER CONTEXT] \n--- RECENT NOTES --- \n ${notesData} \n--- PRODUCTIVITY STATS --- \n Focus Time: ${focusTime || 0} mins | Tasks: ${tasksCompleted || 0}/${tasksTotal || 0} | Habit Streaks: ${habitDataString || ""}`;
 
-        // Prepare the master system instruction
+        // Prepare System Instructions
         const systemInstruction = 
             "You are the Focalyst AI, an elite productivity coach, behavioral scientist, and personal tutor. \n" +
             "**Rule 1 - Analysis:** When asked about productivity, deeply analyze their 'Productivity Stats' context. Identify Strengths and Areas for Growth. \n" +
             "**Rule 2 - Science:** You MUST quote scientific research, behavioral psychology, and popular productivity frameworks (e.g., Deep Work, Huberman, Atomic Habits) to explain their metrics and offer advice. \n" +
             "**Rule 3 - Tutoring:** When asked about concepts in their 'Recent Notes', act as an expert tutor to explain and expand on those topics. \n" +
-            "**Rule 4:** If the user asks to add a task, reminder, or to-do, you MUST use the `addTask` tool. Confirm with the user once successful.\n" +
             "Format strictly in highly scannable Markdown. Never explicitly say you are reading a context block.";
 
-        // Inject Context into the first message
-        const aiMessages = [...messages];
-        if (aiMessages.length > 0 && aiMessages[0].role === 'user') {
-            aiMessages[0] = {
-                ...aiMessages[0],
-                content: `${fullContext}\n\n${aiMessages[0].content}`
-            };
+        // 6. Map Vercel message format to Google message format (Strict Requirement)
+        const googleMessages = messages.map((m: any) => ({
+            role: m.role === 'user' ? 'user' : 'model',
+            parts: [{ text: m.content }],
+        }));
+
+        // Inject Context into the first message content
+        if (googleMessages.length > 0 && googleMessages[0].role === 'user') {
+            googleMessages[0].parts[0].text = `${fullContext}\n\n${systemInstruction}\n\n${googleMessages[0].parts[0].text}`;
         }
 
-        // 6. Extract Vercel AI SDK stream
-        const result = streamText({
-            model: google('gemini-1.5-flash'), // Fixed model name from legacy 'gemini-2.5-flash'
-            system: systemInstruction,
-            messages: aiMessages,
-            tools: {
-                addTask: tool({
-                    description: "Use this tool to add a new task or to-do item to the user's database. MUST be used when user expresses intention to add a task.",
-                    parameters: z.object({
-                        title: z.string().describe("The name or title of the task to add"),
-                        dueDate: z.string().optional().describe("The due date in YYYY-MM-DD format if specified")
-                    }),
-                    // @ts-ignore
-                    execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
-                        const { error: taskError } = await supabase.from('tasks').insert({
-                            user_id: user.id,
-                            title: title,
-                            due_date: dueDate || null,
-                            priority: 'medium'
-                        });
+        // 7. Initialize Model and Generate Stream
+        const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
-                        if (taskError) {
-                            console.error('[CHAT_TOOL_ERROR] Failed to add task:', taskError);
-                            return { success: false, error: 'Database error' };
-                        }
-
-                        return { success: true, message: `Task "${title}" added successfully` };
-                    }
-                })
-            }
+        const response = await model.generateContentStream({
+            contents: googleMessages,
         });
 
-        // @ts-ignore
-        return result.toTextStreamResponse();
+        // 8. Convert to Vercel AI Stream format
+        const stream = GoogleGenerativeAIStream(response);
+        return new StreamingTextResponse(stream);
 
     } catch (error: any) {
-        console.error('[CHAT_API_ERROR]', error);
+        console.error('[GEMINI_STREAM_ERROR]', error);
         
-        // Return 500 Response so frontend onError catches it properly
-        if (error?.status === 429) {
-            return new Response(
-                JSON.stringify({ error: 'Focalyst AI is currently experiencing high demand. Please try again in a moment.' }), 
-                { status: 429, headers: { 'Content-Type': 'application/json' } }
-            );
-        }
-
         return new Response(
             JSON.stringify({ error: error.message || 'An unexpected error occurred' }), 
-            { status: 500, headers: { 'Content-Type': 'application/json' } }
+            { 
+                status: 500, 
+                headers: { 'Content-Type': 'application/json' } 
+            }
         );
     }
 }
