@@ -2,13 +2,22 @@ import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase-server';
 import { getStartAndEndOfWeek } from '@/lib/utils/insights';
 import { streamText, tool } from 'ai';
-import { google } from '@ai-sdk/google';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
 
 export const maxDuration = 30; // 30 seconds limit for edge functions
 
 export async function POST(req: Request) {
     try {
+        if (!process.env.GEMINI_API_KEY) {
+            console.error('[CHAT_API_ERROR] GEMINI_API_KEY is missing');
+            return new Response(JSON.stringify({ error: "API key is missing" }), { status: 500 });
+        }
+
+        const google = createGoogleGenerativeAI({
+            apiKey: process.env.GEMINI_API_KEY,
+        });
+
         const { messages } = await req.json();
 
         if (!messages || !Array.isArray(messages)) {
