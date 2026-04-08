@@ -175,7 +175,7 @@ export async function POST(req: Request) {
         });
 
         // @ts-ignore
-        return result.toDataStreamResponse();
+        return result.toTextStreamResponse();
 
     } catch (error: any) {
         console.error('[CHAT_API_ERROR]', error);
