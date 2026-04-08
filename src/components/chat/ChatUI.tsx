@@ -21,7 +21,6 @@ export function ChatUI() {
     // STRICT HARD-REPLACEMENT: Only pulling out properties TypeScript allows
     // and deriving requested helpers locally for clean types.
     const { messages, status, sendMessage: _sendMessage, error: chatError } = useChat({
-        api: '/api/chat',
         onFinish: () => {
             refreshData()
         },
