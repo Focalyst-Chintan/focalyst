@@ -83,127 +83,142 @@ export async function POST(req: Request) {
             "Format strictly in highly scannable Markdown. Never explicitly say you are calling a tool unless confirming a result.";
 
         // 3. Use streamText for AI SDK v3+ Streaming
-        const result = streamText({
-            model: google('gemini-1.5-flash'),
-            system: systemInstruction,
-            messages: messages,
-            tools: {
-                readNotes: tool({
-                    description: "Fetches the user's most recent notes from their database.",
-                    parameters: z.object({
-                        limit: z.number().optional().describe("Number of notes to fetch (max 10)"),
-                        searchQuery: z.string().optional().describe("Optional search term to filter notes")
-                    }),
-                    // @ts-ignore
-                    execute: async ({ limit, searchQuery }: { limit?: number, searchQuery?: string }) => {
-                        console.log(`[TOOL_CALL] readNotes: limit=${limit}, query=${searchQuery}`);
-                        try {
-                            const finalLimit = limit || 5;
-                            let query = supabase
-                                .from('notes')
-                                .select('title, content, created_at')
-                                .eq('user_id', user.id)
-                                .order('created_at', { ascending: false })
-                                .limit(Math.min(finalLimit, 10));
+        try {
+            const result = streamText({
+                model: google('gemini-1.5-flash'),
+                system: systemInstruction,
+                messages: messages,
+                tools: {
+                    readNotes: tool({
+                        description: "Fetches the user's most recent notes from their database.",
+                        parameters: z.object({
+                            limit: z.number().optional().describe("Number of notes to fetch (max 3)"),
+                            searchQuery: z.string().optional().describe("Optional search term to filter notes")
+                        }),
+                        // @ts-ignore
+                        execute: async ({ limit, searchQuery }: { limit?: number, searchQuery?: string }) => {
+                            const finalLimit = Math.min(limit || 3, 3); // AGGRESSIVE: max 3 notes
+                            console.log(`[TOOL_CALL] readNotes: limit=${finalLimit}, query=${searchQuery}`);
+                            try {
+                                let query = supabase
+                                    .from('notes')
+                                    .select('title, content, created_at')
+                                    .eq('user_id', user.id)
+                                    .order('created_at', { ascending: false })
+                                    .limit(finalLimit);
 
-                            if (searchQuery) {
-                                query = query.ilike('content', `%${searchQuery}%`);
-                            }
-
-                            const { data: notes, error: notesError } = await query;
-
-                            if (notesError) throw notesError;
-
-                            if (!notes || notes.length === 0) {
-                                return { success: true, notes: [], message: "No notes found." };
-                            }
-
-                            return {
-                                success: true,
-                                notes: notes.map(n => ({
-                                    title: n.title,
-                                    content: (n.content || "").substring(0, 1000) + ((n.content || "").length > 1000 ? '...' : ''),
-                                    date: n.created_at
-                                })),
-                                message: `Found ${notes.length} notes.`
-                            };
-                        } catch (err) {
-                            console.error('[TOOL_ERROR] readNotes:', err);
-                            return { success: false, notes: [], error: "Failed to fetch notes" };
-                        }
-                    }
-                }),
-                readStats: tool({
-                    description: "Gathers productivity stats for the current week (focus time, tasks, habits).",
-                    parameters: z.object({}),
-                    // @ts-ignore
-                    execute: async () => {
-                        console.log(`[TOOL_CALL] readStats`);
-                        try {
-                            const today = new Date();
-                            const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today);
-                            const startStr = startOfWeek.toISOString().split('T')[0];
-                            const endStr = endOfWeek.toISOString().split('T')[0];
-
-                            const [focusRes, tasksRes, habitsRes] = await Promise.all([
-                                supabase.from('daily_focus_activity').select('focus_time_minutes').eq('user_id', user.id).gte('date', startStr).lte('date', endStr),
-                                supabase.from('tasks').select('is_completed, completed_at').eq('user_id', user.id),
-                                supabase.from('habits').select('name, current_streak').eq('user_id', user.id).eq('is_active', true)
-                            ]);
-
-                            const focusTime = focusRes.data?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0;
-                            
-                            const completedThisWeek = tasksRes.data?.filter(t => 
-                                t.is_completed && t.completed_at && new Date(t.completed_at) >= startOfWeek && new Date(t.completed_at) <= endOfWeek
-                            ).length || 0;
-                            
-                            const pendingTasks = tasksRes.data?.filter(t => !t.is_completed).length || 0;
-
-                            const habitStr = habitsRes.data?.map(h => `${h.name} (${h.current_streak} days)`).join(', ') || 'None';
-
-                            return {
-                                success: true,
-                                stats: {
-                                    focusTimeMinutes: focusTime,
-                                    weeklyTasksCompleted: completedThisWeek,
-                                    totalPendingTasks: pendingTasks,
-                                    activeHabitStreaks: habitStr
+                                if (searchQuery) {
+                                    query = query.ilike('content', `%${searchQuery}%`);
                                 }
-                            };
-                        } catch (err) {
-                            console.error('[TOOL_ERROR] readStats:', err);
-                            return { success: false, error: "Failed to gather stats" };
+
+                                const { data: notes, error: notesError } = await query;
+
+                                if (notesError) throw notesError;
+
+                                if (!notes || notes.length === 0) {
+                                    return { success: true, notes: [], message: "No notes found." };
+                                }
+
+                                const sanitizedNotes = notes.map(n => ({
+                                    title: n.title,
+                                    content: (n.content || "").substring(0, 500), // AGGRESSIVE: max 500 chars
+                                    date: new Date(n.created_at).toLocaleDateString()
+                                }));
+
+                                console.log(`[TOOL_DEBUG] readNotes payload size: ${JSON.stringify(sanitizedNotes).length} chars`);
+
+                                return sanitizedNotes;
+                            } catch (err) {
+                                console.error('[TOOL_ERROR] readNotes:', err);
+                                return { success: false, error: "Failed to fetch notes" };
+                            }
                         }
-                    }
-                }),
-                addTask: tool({
-                    description: "Adds a new task to the user's to-do list.",
-                    parameters: z.object({
-                        title: z.string().describe("Task title"),
-                        dueDate: z.string().optional().describe("Date in YYYY-MM-DD format")
                     }),
-                    // @ts-ignore
-                    execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
-                        console.log(`[TOOL_CALL] addTask: title=${title}`);
-                        const { error: taskError } = await supabase.from('tasks').insert({
-                            user_id: user.id,
-                            title: title,
-                            due_date: dueDate || null,
-                            priority: 'medium'
-                        });
+                    readStats: tool({
+                        description: "Gathers productivity stats for the current week (focus time, tasks, habits).",
+                        parameters: z.object({}),
+                        // @ts-ignore
+                        execute: async () => {
+                            console.log(`[TOOL_CALL] readStats`);
+                            try {
+                                const today = new Date();
+                                const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today);
+                                const startStr = startOfWeek.toISOString().split('T')[0];
+                                const endStr = endOfWeek.toISOString().split('T')[0];
 
-                        if (taskError) {
-                            console.error('[TOOL_ERROR] addTask:', taskError);
-                            return { success: false, error: 'Failed to save task' };
+                                const [focusRes, tasksRes, habitsRes] = await Promise.all([
+                                    supabase.from('daily_focus_activity').select('focus_time_minutes').eq('user_id', user.id).gte('date', startStr).lte('date', endStr),
+                                    supabase.from('tasks').select('is_completed, completed_at').eq('user_id', user.id),
+                                    supabase.from('habits').select('name, current_streak').eq('user_id', user.id).eq('is_active', true)
+                                ]);
+
+                                const focusTime = focusRes.data?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0;
+                                
+                                const completedThisWeek = tasksRes.data?.filter(t => 
+                                    t.is_completed && t.completed_at && new Date(t.completed_at) >= startOfWeek && new Date(t.completed_at) <= endOfWeek
+                                ).length || 0;
+                                
+                                const pendingTasks = tasksRes.data?.filter(t => !t.is_completed).length || 0;
+
+                                const habitStr = habitsRes.data?.map(h => `${h.name} (${h.current_streak} days)`).join(', ') || 'None';
+
+                                return {
+                                    success: true,
+                                    stats: {
+                                        focusTimeMinutes: focusTime,
+                                        weeklyTasksCompleted: completedThisWeek,
+                                        totalPendingTasks: pendingTasks,
+                                        activeHabitStreaks: habitStr
+                                    }
+                                };
+                            } catch (err) {
+                                console.error('[TOOL_ERROR] readStats:', err);
+                                return { success: false, error: "Failed to gather stats" };
+                            }
                         }
+                    }),
+                    addTask: tool({
+                        description: "Adds a new task to the user's to-do list.",
+                        parameters: z.object({
+                            title: z.string().describe("Task title"),
+                            dueDate: z.string().optional().describe("Date in YYYY-MM-DD format")
+                        }),
+                        // @ts-ignore
+                        execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
+                            console.log(`[TOOL_CALL] addTask: title=${title}`);
+                            const { error: taskError } = await supabase.from('tasks').insert({
+                                user_id: user.id,
+                                title: title,
+                                due_date: dueDate || null,
+                                priority: 'medium'
+                            });
 
-                        return { success: true, message: `Task "${title}" added.` };
-                    }
-                })
+                            if (taskError) {
+                                console.error('[TOOL_ERROR] addTask:', taskError);
+                                return { success: false, error: 'Failed to save task' };
+                            }
+
+                            return { success: true, message: `Task "${title}" added.` };
+                        }
+                    })
+                }
+            } as any);
+
+            return result.toTextStreamResponse();
+        } catch (streamingError: any) {
+            console.error('[AI_GENERATION_ERROR]', streamingError);
+            
+            // Check for quota or rate limit errors
+            if (streamingError.message?.toLowerCase().includes('quota') || streamingError.message?.toLowerCase().includes('429')) {
+                return new Response(
+                    "Error: AI API rate limit exceeded. Please wait a minute and try again.", 
+                    { status: 429, headers: { 'Content-Type': 'text/plain' } }
+                );
             }
-        });
+            
+            throw streamingError; // Let the outer catch handle unexpected errors
+        }
 
-        return result.toTextStreamResponse();
 
 
 
