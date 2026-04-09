@@ -83,12 +83,10 @@ export async function POST(req: Request) {
             "Format strictly in highly scannable Markdown. Never explicitly say you are calling a tool unless confirming a result.";
 
         // 3. Use streamText for AI SDK v3+ Streaming
-        // @ts-ignore
         const result = streamText({
             model: google('gemini-1.5-flash'),
             system: systemInstruction,
             messages: messages,
-            maxSteps: 5,
             tools: {
                 readNotes: tool({
                     description: "Fetches the user's most recent notes from their database.",
@@ -96,6 +94,7 @@ export async function POST(req: Request) {
                         limit: z.number().optional().describe("Number of notes to fetch (max 10)"),
                         searchQuery: z.string().optional().describe("Optional search term to filter notes")
                     }),
+                    // @ts-ignore
                     execute: async ({ limit, searchQuery }: { limit?: number, searchQuery?: string }) => {
                         console.log(`[TOOL_CALL] readNotes: limit=${limit}, query=${searchQuery}`);
                         try {
@@ -115,24 +114,29 @@ export async function POST(req: Request) {
 
                             if (notesError) throw notesError;
 
-                            if (!notes || notes.length === 0) return { message: "No notes found." };
+                            if (!notes || notes.length === 0) {
+                                return { success: true, notes: [], message: "No notes found." };
+                            }
 
                             return {
+                                success: true,
                                 notes: notes.map(n => ({
                                     title: n.title,
-                                    content: n.content.substring(0, 1000) + (n.content.length > 1000 ? '...' : ''),
+                                    content: (n.content || "").substring(0, 1000) + ((n.content || "").length > 1000 ? '...' : ''),
                                     date: n.created_at
-                                }))
+                                })),
+                                message: `Found ${notes.length} notes.`
                             };
                         } catch (err) {
                             console.error('[TOOL_ERROR] readNotes:', err);
-                            return { error: "Failed to fetch notes" };
+                            return { success: false, notes: [], error: "Failed to fetch notes" };
                         }
                     }
                 }),
                 readStats: tool({
                     description: "Gathers productivity stats for the current week (focus time, tasks, habits).",
                     parameters: z.object({}),
+                    // @ts-ignore
                     execute: async () => {
                         console.log(`[TOOL_CALL] readStats`);
                         try {
@@ -158,14 +162,17 @@ export async function POST(req: Request) {
                             const habitStr = habitsRes.data?.map(h => `${h.name} (${h.current_streak} days)`).join(', ') || 'None';
 
                             return {
-                                focusTimeMinutes: focusTime,
-                                weeklyTasksCompleted: completedThisWeek,
-                                totalPendingTasks: pendingTasks,
-                                activeHabitStreaks: habitStr
+                                success: true,
+                                stats: {
+                                    focusTimeMinutes: focusTime,
+                                    weeklyTasksCompleted: completedThisWeek,
+                                    totalPendingTasks: pendingTasks,
+                                    activeHabitStreaks: habitStr
+                                }
                             };
                         } catch (err) {
                             console.error('[TOOL_ERROR] readStats:', err);
-                            return { error: "Failed to gather stats" };
+                            return { success: false, error: "Failed to gather stats" };
                         }
                     }
                 }),
@@ -175,6 +182,7 @@ export async function POST(req: Request) {
                         title: z.string().describe("Task title"),
                         dueDate: z.string().optional().describe("Date in YYYY-MM-DD format")
                     }),
+                    // @ts-ignore
                     execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
                         console.log(`[TOOL_CALL] addTask: title=${title}`);
                         const { error: taskError } = await supabase.from('tasks').insert({
@@ -193,9 +201,11 @@ export async function POST(req: Request) {
                     }
                 })
             }
-        } as any);
+        });
 
         return result.toTextStreamResponse();
+
+
 
 
 
