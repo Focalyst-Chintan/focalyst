@@ -68,105 +68,115 @@ export async function POST(req: Request) {
                 {
                     user_id: user.id,
                     role: 'user',
-                    content: newUserMessage.content,
+                    content: typeof newUserMessage.content === 'string' ? newUserMessage.content : JSON.stringify(newUserMessage.content),
                 }
             ]);
         }
 
-        // 3. Fetch user's 10 most recent notes
-        const { data: notes, error: notesError } = await supabase
-            .from('notes')
-            .select('title, content')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(10);
-
-        if (notesError) {
-            console.error('Error fetching notes:', notesError);
-        }
-
-        // 4. Fetch Weekly Productivity Stats
-        const todayForStats = new Date();
-        const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(todayForStats);
-        
-        const startOfWeekStr = startOfWeek.toISOString().split('T')[0];
-        const endOfWeekStr = endOfWeek.toISOString().split('T')[0];
-
-        const { data: focusData } = await supabase
-            .from('daily_focus_activity')
-            .select('focus_time_minutes')
-            .eq('user_id', user.id)
-            .gte('date', startOfWeekStr)
-            .lte('date', endOfWeekStr);
-
-        const focusTime = focusData?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0;
-
-        const { data: pendingData } = await supabase
-            .from('tasks')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('is_completed', false);
-
-        const { data: completedWeeklyData } = await supabase
-            .from('tasks')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('is_completed', true)
-            .gte('completed_at', startOfWeek.toISOString())
-            .lte('completed_at', endOfWeek.toISOString());
-
-        const tasksCompleted = completedWeeklyData?.length || 0;
-        const tasksTotal = tasksCompleted + (pendingData?.length || 0);
-
-        const { data: habitsData } = await supabase
-            .from('habits')
-            .select('name, current_streak')
-            .eq('user_id', user.id)
-            .eq('is_active', true);
-
-        const habitDataString = habitsData && habitsData.length > 0
-            ? habitsData.map(h => `${h.name} (${h.current_streak} days)`).join(', ')
-            : 'No active streaks';
-
-        // 5. Assemble Context Block
-        const notesData = (notes && notes.length > 0)
-            ? notes.map((note, index) => `Note ${index + 1} Title: ${note.title}, Content: ${note.content}`).join(' | ')
-            : 'No recent notes found.';
-
-        const fullContext = `[USER CONTEXT] \n--- RECENT NOTES --- \n ${notesData} \n--- PRODUCTIVITY STATS --- \n Focus Time: ${focusTime || 0} mins | Tasks: ${tasksCompleted || 0}/${tasksTotal || 0} | Habit Streaks: ${habitDataString || ""}`;
-
         // Prepare System Instructions
         const systemInstruction = 
-            "You are the Focalyst AI, an elite productivity coach, behavioral scientist, and personal tutor. \n" +
-            "**Rule 1 - Analysis:** When asked about productivity, deeply analyze their 'Productivity Stats' context. Identify Strengths and Areas for Growth. \n" +
-            "**Rule 2 - Science:** You MUST quote scientific research, behavioral psychology, and popular productivity frameworks (e.g., Deep Work, Huberman, Atomic Habits) to explain their metrics and offer advice. \n" +
-            "**Rule 3 - Tutoring:** When asked about concepts in their 'Recent Notes', act as an expert tutor to explain and expand on those topics. \n" +
-            "**Rule 4:** If the user asks to add a task, reminder, or to-do, you MUST use the `addTask` tool. Confirm with the user once successful.\n" +
-            "Format strictly in highly scannable Markdown. Never explicitly say you are reading a context block.";
+            "You are the Focalyst AI, an elite productivity coach and behavioral scientist. \n" +
+            "**Rule 1 - Analysis:** Use the `readStats` tool to analyze the user's focus time and task completion when they ask about their progress. \n" +
+            "**Rule 2 - Notes:** Use the `readNotes` tool to look up details about their projects, thoughts, or summaries when relevant. \n" +
+            "**Rule 3 - Science:** Quote behavioral psychology and frameworks (e.g., Deep Work, Atomic Habits) to explain advice. \n" +
+            "**Rule 4 - Persistence:** If the user asks to add a task, use the `addTask` tool. \n" +
+            "Format strictly in highly scannable Markdown. Never explicitly say you are calling a tool unless confirming a result.";
 
-        // 6. Inject context into the first message before calling the model
-        const messagesWithContext = [...messages];
-        if (messagesWithContext.length > 0 && messagesWithContext[0].role === 'user' && fullContext) {
-            messagesWithContext[0] = {
-                ...messagesWithContext[0],
-                content: `${fullContext}\n\n${messagesWithContext[0].content}`
-            };
-        }
-
-        // 7. Use streamText for AI SDK v3+ Streaming
+        // 3. Use streamText for AI SDK v3+ Streaming
+        // @ts-ignore
         const result = streamText({
             model: google('gemini-1.5-flash'),
             system: systemInstruction,
-            messages: messagesWithContext,
+            messages: messages,
+            maxSteps: 5,
             tools: {
-                addTask: tool({
-                    description: "Use this tool to add a new task or to-do item to the user's database. MUST be used when user expresses intention to add a task.",
+                readNotes: tool({
+                    description: "Fetches the user's most recent notes from their database.",
                     parameters: z.object({
-                        title: z.string().describe("The name or title of the task to add"),
-                        dueDate: z.string().optional().describe("The due date in YYYY-MM-DD format if specified")
+                        limit: z.number().optional().describe("Number of notes to fetch (max 10)"),
+                        searchQuery: z.string().optional().describe("Optional search term to filter notes")
                     }),
-                    // @ts-ignore
+                    execute: async ({ limit, searchQuery }: { limit?: number, searchQuery?: string }) => {
+                        console.log(`[TOOL_CALL] readNotes: limit=${limit}, query=${searchQuery}`);
+                        try {
+                            const finalLimit = limit || 5;
+                            let query = supabase
+                                .from('notes')
+                                .select('title, content, created_at')
+                                .eq('user_id', user.id)
+                                .order('created_at', { ascending: false })
+                                .limit(Math.min(finalLimit, 10));
+
+                            if (searchQuery) {
+                                query = query.ilike('content', `%${searchQuery}%`);
+                            }
+
+                            const { data: notes, error: notesError } = await query;
+
+                            if (notesError) throw notesError;
+
+                            if (!notes || notes.length === 0) return { message: "No notes found." };
+
+                            return {
+                                notes: notes.map(n => ({
+                                    title: n.title,
+                                    content: n.content.substring(0, 1000) + (n.content.length > 1000 ? '...' : ''),
+                                    date: n.created_at
+                                }))
+                            };
+                        } catch (err) {
+                            console.error('[TOOL_ERROR] readNotes:', err);
+                            return { error: "Failed to fetch notes" };
+                        }
+                    }
+                }),
+                readStats: tool({
+                    description: "Gathers productivity stats for the current week (focus time, tasks, habits).",
+                    parameters: z.object({}),
+                    execute: async () => {
+                        console.log(`[TOOL_CALL] readStats`);
+                        try {
+                            const today = new Date();
+                            const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today);
+                            const startStr = startOfWeek.toISOString().split('T')[0];
+                            const endStr = endOfWeek.toISOString().split('T')[0];
+
+                            const [focusRes, tasksRes, habitsRes] = await Promise.all([
+                                supabase.from('daily_focus_activity').select('focus_time_minutes').eq('user_id', user.id).gte('date', startStr).lte('date', endStr),
+                                supabase.from('tasks').select('is_completed, completed_at').eq('user_id', user.id),
+                                supabase.from('habits').select('name, current_streak').eq('user_id', user.id).eq('is_active', true)
+                            ]);
+
+                            const focusTime = focusRes.data?.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0) || 0;
+                            
+                            const completedThisWeek = tasksRes.data?.filter(t => 
+                                t.is_completed && t.completed_at && new Date(t.completed_at) >= startOfWeek && new Date(t.completed_at) <= endOfWeek
+                            ).length || 0;
+                            
+                            const pendingTasks = tasksRes.data?.filter(t => !t.is_completed).length || 0;
+
+                            const habitStr = habitsRes.data?.map(h => `${h.name} (${h.current_streak} days)`).join(', ') || 'None';
+
+                            return {
+                                focusTimeMinutes: focusTime,
+                                weeklyTasksCompleted: completedThisWeek,
+                                totalPendingTasks: pendingTasks,
+                                activeHabitStreaks: habitStr
+                            };
+                        } catch (err) {
+                            console.error('[TOOL_ERROR] readStats:', err);
+                            return { error: "Failed to gather stats" };
+                        }
+                    }
+                }),
+                addTask: tool({
+                    description: "Adds a new task to the user's to-do list.",
+                    parameters: z.object({
+                        title: z.string().describe("Task title"),
+                        dueDate: z.string().optional().describe("Date in YYYY-MM-DD format")
+                    }),
                     execute: async ({ title, dueDate }: { title: string, dueDate?: string }) => {
+                        console.log(`[TOOL_CALL] addTask: title=${title}`);
                         const { error: taskError } = await supabase.from('tasks').insert({
                             user_id: user.id,
                             title: title,
@@ -175,18 +185,21 @@ export async function POST(req: Request) {
                         });
 
                         if (taskError) {
-                            console.error('[CHAT_TOOL_ERROR] Failed to add task:', taskError);
-                            return { success: false, error: 'Database error' };
+                            console.error('[TOOL_ERROR] addTask:', taskError);
+                            return { success: false, error: 'Failed to save task' };
                         }
 
-                        return { success: true, message: `Task "${title}" added successfully` };
+                        return { success: true, message: `Task "${title}" added.` };
                     }
                 })
             }
-        });
+        } as any);
 
-        // 8. Return the stream using the correct v3 method
         return result.toTextStreamResponse();
+
+
+
+
 
     } catch (error: any) {
         console.error('[CHAT_API_ERROR]', error);
