@@ -84,10 +84,12 @@ export async function POST(req: Request) {
 
         // 3. Use streamText for AI SDK v3+ Streaming
         try {
+            // @ts-ignore
             const result = streamText({
                 model: google('gemini-1.5-flash'),
                 system: systemInstruction,
                 messages: messages,
+                maxSteps: 5,
                 tools: {
                     readNotes: tool({
                         description: "Fetches the user's most recent notes from their database.",
@@ -130,7 +132,7 @@ export async function POST(req: Request) {
                                 return sanitizedNotes;
                             } catch (err) {
                                 console.error('[TOOL_ERROR] readNotes:', err);
-                                return { success: false, error: "Failed to fetch notes" };
+                                return JSON.stringify({ error: "Failed to read database. Politely inform the user you cannot access their notes right now." });
                             }
                         }
                     }),
@@ -173,7 +175,7 @@ export async function POST(req: Request) {
                                 };
                             } catch (err) {
                                 console.error('[TOOL_ERROR] readStats:', err);
-                                return { success: false, error: "Failed to gather stats" };
+                                return JSON.stringify({ error: "Failed to gather productivity stats. Inform the user you are having trouble reaching the database." });
                             }
                         }
                     }),
