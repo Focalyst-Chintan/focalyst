@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { UserAccountIcon, AIChatIcon } from '@/components/icons'
 import { useChat } from '@/context/ChatContext'
