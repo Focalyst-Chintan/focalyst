@@ -77,21 +77,12 @@ function todayStr(): string {
 }
 
 // ── Mock Data (fallback when Supabase is unavailable) ──
-const MOCK_TASKS: TaskItem[] = [
-    { id: '1', title: 'Study Thermodynamics', is_completed: false, start_date: '', end_date: '', tags: [], priority: 2, reminders: false },
-    { id: '2', title: 'Solve PYQ', is_completed: false, start_date: '', end_date: '', tags: [], priority: 2, reminders: false },
-    { id: '3', title: 'Buy notebooks', is_completed: false, start_date: '', end_date: '', tags: [], priority: 1, reminders: false },
-]
+const MOCK_TASKS: TaskItem[] = []
 
-const MOCK_HABITS: HabitItem[] = [
-    { id: '10', name: 'Morning walk', current_streak: 3, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4], all_days: false, reminders: false, reminder_time: '07:00', completedDates: [], created_at: new Date().toISOString() },
-    { id: '11', name: 'Gym', current_streak: 5, completed_today: false, start_date: '', end_date: '', repeat_days: [0, 1, 2, 3, 4, 5, 6], all_days: true, reminders: false, reminder_time: '07:00', completedDates: [], created_at: new Date().toISOString() },
-]
+const MOCK_HABITS: HabitItem[] = []
 
-const MOCK_REMINDERS: Reminder[] = [
-    { id: '50', title: 'Team standup', date: todayStr(), start_time: '10:00', end_time: '10:30', all_day: false, repeat: 'daily' },
-    { id: '51', title: 'Submit assignment', date: todayStr(), start_time: '14:00', end_time: '15:00', all_day: false, repeat: 'never' },
-]
+const MOCK_REMINDERS: Reminder[] = []
+
 
 // ── Priority mapping: DB uses 'high'|'medium'|'low', UI uses 1|2|3 ──
 function priorityToNumber(p: string): 1 | 2 | 3 {
