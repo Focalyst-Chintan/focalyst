@@ -35,6 +35,9 @@ interface CommandPaletteProps {
   onOpenChange: (open: boolean) => void;
   onToggleSidebar?: () => void;
   onToggleAiDrawer?: () => void;
+  onNewHabit?: () => void;
+  onNewReminder?: () => void;
+  onFocusTasksComposer?: () => void;
 }
 
 export function CommandPalette({
@@ -42,6 +45,9 @@ export function CommandPalette({
   onOpenChange,
   onToggleSidebar,
   onToggleAiDrawer,
+  onNewHabit,
+  onNewReminder,
+  onFocusTasksComposer,
 }: CommandPaletteProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
@@ -261,7 +267,12 @@ export function CommandPalette({
             >
               <Command.Item
                 value="New task"
-                onSelect={() => runCommand(() => router.push('/plan/new-task'))}
+                onSelect={() =>
+                  runCommand(() => {
+                    if (onFocusTasksComposer) onFocusTasksComposer();
+                    else router.push('/plan?view=tasks');
+                  })
+                }
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -271,7 +282,12 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="New habit"
-                onSelect={() => runCommand(() => router.push('/plan/new-habit'))}
+                onSelect={() =>
+                  runCommand(() => {
+                    if (onNewHabit) onNewHabit();
+                    else router.push('/plan/new-habit');
+                  })
+                }
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -291,7 +307,12 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="New reminder"
-                onSelect={() => runCommand(() => router.push('/plan?view=calendar'))}
+                onSelect={() =>
+                  runCommand(() => {
+                    if (onNewReminder) onNewReminder();
+                    else router.push('/plan?view=calendar');
+                  })
+                }
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">

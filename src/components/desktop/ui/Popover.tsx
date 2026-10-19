@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 export interface PopoverProps {
   trigger: React.ReactNode;
   children: React.ReactNode | ((props: { close: () => void }) => React.ReactNode);
-  align?: 'left' | 'right' | 'center' | 'end';
+  align?: 'left' | 'right' | 'center' | 'end' | 'start';
   side?: 'top' | 'bottom' | 'left' | 'right';
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -52,6 +52,7 @@ export function Popover({
 
   const alignClasses = {
     left: 'left-0 origin-top-left',
+    start: 'left-0 origin-top-left',
     right: 'right-0 origin-top-right',
     end: 'right-0 origin-top-right',
     center: 'left-1/2 -translate-x-1/2 origin-top',

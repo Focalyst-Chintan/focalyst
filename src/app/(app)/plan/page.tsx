@@ -6,10 +6,12 @@ import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase'
 import { usePlan } from '@/context/PlanContext'
 import { useAuth } from '@/context/AuthContext'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 import TodoList from '@/components/plan/TodoList'
 import HabitList from '@/components/plan/HabitList'
 import CalendarView from '@/components/plan/CalendarView'
 import WeeklyReportModal from '@/components/insights/WeeklyReportModal'
+import { DesktopPlanPage } from '@/components/desktop/plan/DesktopPlanPage'
 
 type TabView = 'today' | 'calendar'
 
@@ -29,7 +31,15 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
     }
 }
 
-function PlanContent() {
+function PlanLoadingSkeleton() {
+    return (
+        <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
+        </div>
+    )
+}
+
+function MobilePlanContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const { t } = useTranslation()
@@ -47,7 +57,6 @@ function PlanContent() {
     useEffect(() => {
         if (searchParams.get('payment') === 'success' || searchParams.get('status') === 'success') {
             setShowSuccess(true)
-            // Cleanup URL
             const timeout = setTimeout(() => {
                 router.replace('/plan')
             }, 5000)
@@ -66,20 +75,17 @@ function PlanContent() {
                 .single()
 
             if (profile?.full_name) {
-                setUserName(profile.full_name.split(' ')[0]) // Just first name
+                setUserName(profile.full_name.split(' ')[0])
             }
         }
         fetchUserName()
     }, [user, supabase])
 
-
     return (
         <>
-        {/* Weekly Report Modal - renders as overlay */}
         {userId && <WeeklyReportModal userId={userId} />}
 
         <div className="px-5 py-4">
-            {/* Success Message */}
             {showSuccess && (
                 <div className="mb-6 bg-navy text-white p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
                     <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
@@ -101,12 +107,10 @@ function PlanContent() {
                     </button>
                 </div>
             )}
-            {/* Greeting */}
             <h1 className="text-navy dark:text-slate-100 text-xl font-semibold">
                 {t(`plan.${greetingKey}`)}, {userName}
             </h1>
 
-            {/* Tab Toggle */}
             <div className="flex gap-2 mt-3 mb-4">
                 <button
                     onClick={() => setActiveTab('today')}
@@ -126,7 +130,6 @@ function PlanContent() {
 
             {activeTab === 'today' ? (
                 <>
-                    {/* Date Display + Event Count */}
                     <div className="flex items-baseline justify-between mb-5">
                         <div>
                             <span className="text-navy dark:text-slate-100 text-[42px] font-bold leading-none">{date.day}</span>
@@ -157,10 +160,24 @@ function PlanContent() {
     )
 }
 
+function PlanPageSwitcher() {
+    const isDesktop = useIsDesktop()
+
+    if (isDesktop === null) {
+        return <PlanLoadingSkeleton />
+    }
+
+    if (isDesktop) {
+        return <DesktopPlanPage />
+    }
+
+    return <MobilePlanContent />
+}
+
 export default function PlanPage() {
     return (
-        <Suspense fallback={<div className="flex items-center justify-center min-h-[50vh]"><div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" /></div>}>
-            <PlanContent />
+        <Suspense fallback={<PlanLoadingSkeleton />}>
+            <PlanPageSwitcher />
         </Suspense>
     )
 }

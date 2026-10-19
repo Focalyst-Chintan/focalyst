@@ -1,7 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 
 interface DesktopShellContextType {
   sidebarCollapsed: boolean;
@@ -21,6 +20,23 @@ interface DesktopShellContextType {
   toggleContextPanel: () => void;
   isContextPanelOpen: boolean;
   setIsContextPanelOpen: (v: boolean) => void;
+  // Global modal triggers for desktop
+  habitModalOpen: boolean;
+  setHabitModalOpen: (v: boolean) => void;
+  editingHabit: any | null;
+  setEditingHabit: (h: any | null) => void;
+  openNewHabitModal: () => void;
+  openEditHabitModal: (habit: any) => void;
+  reminderModalOpen: boolean;
+  setReminderModalOpen: (v: boolean) => void;
+  editingReminder: any | null;
+  setEditingReminder: (r: any | null) => void;
+  openNewReminderModal: (prefillDate?: string) => void;
+  openEditReminderModal: (reminder: any) => void;
+  reminderPrefillDate: string | null;
+  // Trigger to focus task composer on /plan?view=tasks
+  composerFocusTrigger: number;
+  triggerComposerFocus: () => void;
 }
 
 const DesktopShellContext = createContext<DesktopShellContextType | null>(null);
@@ -55,6 +71,14 @@ export function DesktopShellProvider({ children }: { children: React.ReactNode }
   const [contextPanel, setContextPanel] = useState<React.ReactNode | null>(null);
   const [isContextPanelOpen, setIsContextPanelOpen] = useState(true);
 
+  // Modals state
+  const [habitModalOpen, setHabitModalOpen] = useState(false);
+  const [editingHabit, setEditingHabit] = useState<any | null>(null);
+  const [reminderModalOpen, setReminderModalOpen] = useState(false);
+  const [editingReminder, setEditingReminder] = useState<any | null>(null);
+  const [reminderPrefillDate, setReminderPrefillDate] = useState<string | null>(null);
+  const [composerFocusTrigger, setComposerFocusTrigger] = useState(0);
+
   const setSidebarCollapsed = useCallback((v: boolean | ((prev: boolean) => boolean)) => {
     setSidebarCollapsedState((prev) => {
       const next = typeof v === 'function' ? v(prev) : v;
@@ -87,6 +111,32 @@ export function DesktopShellProvider({ children }: { children: React.ReactNode }
     }
   }, [contextPanel]);
 
+  const openNewHabitModal = useCallback(() => {
+    setEditingHabit(null);
+    setHabitModalOpen(true);
+  }, []);
+
+  const openEditHabitModal = useCallback((habit: any) => {
+    setEditingHabit(habit);
+    setHabitModalOpen(true);
+  }, []);
+
+  const openNewReminderModal = useCallback((prefillDate?: string) => {
+    setEditingReminder(null);
+    setReminderPrefillDate(prefillDate || null);
+    setReminderModalOpen(true);
+  }, []);
+
+  const openEditReminderModal = useCallback((reminder: any) => {
+    setEditingReminder(reminder);
+    setReminderPrefillDate(null);
+    setReminderModalOpen(true);
+  }, []);
+
+  const triggerComposerFocus = useCallback(() => {
+    setComposerFocusTrigger((prev) => prev + 1);
+  }, []);
+
   return (
     <DesktopShellContext.Provider
       value={{
@@ -107,6 +157,21 @@ export function DesktopShellProvider({ children }: { children: React.ReactNode }
         toggleContextPanel,
         isContextPanelOpen,
         setIsContextPanelOpen,
+        habitModalOpen,
+        setHabitModalOpen,
+        editingHabit,
+        setEditingHabit,
+        openNewHabitModal,
+        openEditHabitModal,
+        reminderModalOpen,
+        setReminderModalOpen,
+        editingReminder,
+        setEditingReminder,
+        openNewReminderModal,
+        openEditReminderModal,
+        reminderPrefillDate,
+        composerFocusTrigger,
+        triggerComposerFocus,
       }}
     >
       {children}

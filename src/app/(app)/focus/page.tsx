@@ -1,13 +1,23 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
 import PomodoroSection from '@/components/focus/PomodoroSection'
 import CountdownSection from '@/components/focus/CountdownSection'
 import BlockerCard from '@/components/focus/BlockerCard'
+import { DesktopFocusPage } from '@/components/desktop/focus/DesktopFocusPage'
 
-export default function FocusPage() {
+function FocusLoadingSkeleton() {
+    return (
+        <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="w-8 h-8 rounded-full border-2 border-navy border-t-transparent animate-spin" />
+        </div>
+    )
+}
+
+function MobileFocusContent() {
     const supabase = createClient()
     const { user } = useAuth()
 
@@ -37,11 +47,7 @@ export default function FocusPage() {
     }, [supabase, user])
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-page-bg dark:bg-slate-950">
-                <div className="w-8 h-8 rounded-full border-2 border-navy border-t-transparent animate-spin" />
-            </div>
-        )
+        return <FocusLoadingSkeleton />
     }
 
     return (
@@ -56,5 +62,27 @@ export default function FocusPage() {
                 <CountdownSection userPlan={userPlan} userId={userId} />
             </main>
         </div>
+    )
+}
+
+function FocusPageSwitcher() {
+    const isDesktop = useIsDesktop()
+
+    if (isDesktop === null) {
+        return <FocusLoadingSkeleton />
+    }
+
+    if (isDesktop) {
+        return <DesktopFocusPage />
+    }
+
+    return <MobileFocusContent />
+}
+
+export default function FocusPage() {
+    return (
+        <Suspense fallback={<FocusLoadingSkeleton />}>
+            <FocusPageSwitcher />
+        </Suspense>
     )
 }

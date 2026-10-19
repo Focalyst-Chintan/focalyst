@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -35,6 +35,8 @@ import { Kbd } from '@/components/desktop/ui/Kbd';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { CommandPalette } from './CommandPalette';
 import { AIDrawer } from './AIDrawer';
+import { HabitModal } from './plan/HabitModal';
+import { ReminderModal } from './plan/ReminderModal';
 import { useDesktopShortcuts } from '@/hooks/useDesktopShortcuts';
 import { useTheme } from 'next-themes';
 import { getDisplayName } from '@/lib/utils/name';
@@ -85,7 +87,7 @@ function SidebarBrand({
         />
         <span className="text-[13px] font-semibold tracking-[0.32em] text-ink">FOCALYST</span>
       </Link>
-      <IconButton aria-label="Collapse sidebar" tooltip="Collapse ⌘\" onClick={onToggle}>
+      <IconButton label="Collapse sidebar" tooltip="Collapse ⌘\" onClick={onToggle}>
         <PanelLeft size={18} strokeWidth={1.75} />
       </IconButton>
     </div>
@@ -175,8 +177,40 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     toggleNewMenu,
     contextPanel,
     isContextPanelOpen,
+    setIsContextPanelOpen,
     toggleContextPanel,
+    habitModalOpen,
+    setHabitModalOpen,
+    editingHabit,
+    openNewHabitModal,
+    reminderModalOpen,
+    setReminderModalOpen,
+    editingReminder,
+    reminderPrefillDate,
+    openNewReminderModal,
+    triggerComposerFocus,
   } = useDesktopShell();
+
+  // Track viewport width for context panel responsive push vs overlay
+  const [isWideScreen, setIsWideScreen] = useState(true);
+  const contextPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkWidth = () => {
+      setIsWideScreen(window.innerWidth >= 1280);
+    };
+    checkWidth();
+    window.addEventListener('resize', checkWidth);
+    return () => window.removeEventListener('resize', checkWidth);
+  }, []);
+
+  // Esc closes context panel when focus is inside it
+  const handleContextPanelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      setIsContextPanelOpen(false);
+    }
+  };
 
   // Register Global Desktop Shortcuts
   useDesktopShortcuts({
@@ -185,6 +219,14 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     onToggleSidebar: toggleSidebar,
     onToggleContextPanel: toggleContextPanel,
     onOpenNewMenu: toggleNewMenu,
+    onNewHabit: openNewHabitModal,
+    onNewReminder: () => openNewReminderModal(),
+    onFocusTasksComposer: () => {
+      if (!pathname.startsWith('/plan')) {
+        router.push('/plan?view=tasks');
+      }
+      triggerComposerFocus();
+    },
     onEscape: () => {
       if (commandPaletteOpen) {
         setCommandPaletteOpen(false);
@@ -494,205 +536,265 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
             sidebarCollapsed ? 'lg:ml-[100px]' : 'lg:ml-[280px]'
           }`}
         >
-          {/* Pinned Sticky Top Bar */}
-          <header className="sticky top-3 z-30 flex h-16 w-full items-center justify-between rounded-[20px] glass px-4 shadow-[var(--shadow-1)]">
-            {/* Left Title / Breadcrumb */}
-            <div className="flex items-center min-w-[160px]">{getPageTitle()}</div>
+          {/* F1: Sticky Top Bar with Backdrop Blur Wrapper */}
+          <div className="sticky top-0 z-30 pt-3 pb-3">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-full bg-canvas/70 backdrop-blur-xl [mask-image:linear-gradient(to_bottom,black_65%,transparent)]"
+            />
+            <header className="relative z-10 flex h-16 w-full items-center justify-between rounded-[20px] glass-strong px-4 shadow-[var(--shadow-1)]">
+              {/* Left Title / Breadcrumb */}
+              <div className="flex items-center min-w-[160px]">{getPageTitle()}</div>
 
-            {/* Center Search Pill (absolutely centered) */}
-            <div className="absolute left-1/2 -translate-x-1/2">
-              <button
-                type="button"
-                onClick={toggleCommandPalette}
-                className="hidden min-[1180px]:flex w-[360px] h-10 rounded-full bg-surface-2 border border-line px-3.5 items-center justify-between text-[14px] text-ink-3 hover:border-line-strong transition-colors"
-              >
-                <div className="flex items-center gap-2.5">
-                  <Search size={16} className="text-ink-3" />
-                  <span>Search or jump to...</span>
-                </div>
-                <Kbd>⌘K</Kbd>
-              </button>
-              <button
-                type="button"
-                onClick={toggleCommandPalette}
-                className="flex min-[1180px]:hidden h-10 px-3 rounded-full bg-surface-2 border border-line items-center gap-2 text-[13px] text-ink-3 hover:border-line-strong transition-colors"
-              >
-                <Search size={16} />
-                <Kbd>⌘K</Kbd>
-              </button>
-            </div>
+              {/* Center Search Pill (absolutely centered) */}
+              <div className="absolute left-1/2 -translate-x-1/2">
+                <button
+                  type="button"
+                  onClick={toggleCommandPalette}
+                  className="hidden min-[1180px]:flex w-[360px] h-10 rounded-full bg-surface-2 border border-line px-3.5 items-center justify-between text-[14px] text-ink-3 hover:border-line-strong transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Search size={16} className="text-ink-3" />
+                    <span>Search or jump to...</span>
+                  </div>
+                  <Kbd>⌘K</Kbd>
+                </button>
+                <button
+                  type="button"
+                  onClick={toggleCommandPalette}
+                  className="flex min-[1180px]:hidden h-10 px-3 rounded-full bg-surface-2 border border-line items-center gap-2 text-[13px] text-ink-3 hover:border-line-strong transition-colors"
+                >
+                  <Search size={16} />
+                  <Kbd>⌘K</Kbd>
+                </button>
+              </div>
 
-            {/* Right Action Icons */}
-            <div className="flex items-center gap-2">
-              {/* + New Button with Popover */}
-              <Popover
-                open={newMenuOpen}
-                onOpenChange={setNewMenuOpen}
-                trigger={
-                  <Button variant="secondary" size="sm" className="gap-1.5 px-3">
-                    <Plus size={16} />
-                    <span>New</span>
-                    <ChevronDown size={14} className="text-ink-3" />
-                  </Button>
-                }
-                align="end"
-              >
-                <div className="w-48 p-1.5 flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false);
-                      router.push('/plan/new-task');
-                    }}
-                    className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <CalendarCheck2 size={15} className="text-ink-2" />
-                    <span>New task</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false);
-                      router.push('/plan/new-habit');
-                    }}
-                    className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <Plus size={15} className="text-ink-2" />
-                    <span>New habit</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false);
-                      router.push('/notes/new');
-                    }}
-                    className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <NotebookPen size={15} className="text-ink-2" />
-                    <span>New note</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false);
-                      router.push('/plan?view=calendar');
-                    }}
-                    className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <Bell size={15} className="text-ink-2" />
-                    <span>New reminder</span>
-                  </button>
-                  <div className="h-px bg-line my-1" />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setNewMenuOpen(false);
-                      router.push('/focus');
-                    }}
-                    className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <Timer size={15} className="text-ink-2" />
-                    <span>Start focus session</span>
-                  </button>
-                </div>
-              </Popover>
+              {/* Right Action Icons */}
+              <div className="flex items-center gap-2">
+                {/* + New Button with Popover */}
+                <Popover
+                  open={newMenuOpen}
+                  onOpenChange={setNewMenuOpen}
+                  trigger={
+                    <Button variant="secondary" size="sm" className="gap-1.5 px-3">
+                      <Plus size={16} />
+                      <span>New</span>
+                      <ChevronDown size={14} className="text-ink-3" />
+                    </Button>
+                  }
+                  align="end"
+                >
+                  <div className="w-48 p-1.5 flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewMenuOpen(false);
+                        router.push('/plan?view=tasks');
+                        triggerComposerFocus();
+                      }}
+                      className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <CalendarCheck2 size={15} className="text-ink-2" />
+                      <span>New task</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewMenuOpen(false);
+                        openNewHabitModal();
+                      }}
+                      className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <Plus size={15} className="text-ink-2" />
+                      <span>New habit</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewMenuOpen(false);
+                        router.push('/notes/new');
+                      }}
+                      className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <NotebookPen size={15} className="text-ink-2" />
+                      <span>New note</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewMenuOpen(false);
+                        openNewReminderModal();
+                      }}
+                      className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <Bell size={15} className="text-ink-2" />
+                      <span>New reminder</span>
+                    </button>
+                    <div className="h-px bg-line my-1" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewMenuOpen(false);
+                        router.push('/focus');
+                      }}
+                      className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <Timer size={15} className="text-ink-2" />
+                      <span>Start focus session</span>
+                    </button>
+                  </div>
+                </Popover>
 
-              {/* AI Button */}
-              <IconButton
-                size="md"
-                variant="ghost"
-                tooltip="Ask Focalyst AI ⌘J"
-                onClick={toggleAiDrawer}
-              >
-                <Sparkles size={18} className="text-primary-text" />
-              </IconButton>
+                {/* AI Button */}
+                <IconButton
+                  size="md"
+                  variant="ghost"
+                  tooltip="Ask Focalyst AI ⌘J"
+                  onClick={toggleAiDrawer}
+                >
+                  <Sparkles size={18} className="text-primary-text" />
+                </IconButton>
 
-              {/* Bell Button (Reminders) */}
-              <Popover
-                trigger={
-                  <div className="relative">
-                    <IconButton size="md" variant="ghost" tooltip="Reminders">
-                      <Bell size={18} />
-                    </IconButton>
-                    {hasUpcomingReminders && (
-                      <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+                {/* Bell Button (Reminders) */}
+                <Popover
+                  trigger={
+                    <div className="relative">
+                      <IconButton size="md" variant="ghost" tooltip="Reminders">
+                        <Bell size={18} />
+                      </IconButton>
+                      {hasUpcomingReminders && (
+                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-primary" />
+                      )}
+                    </div>
+                  }
+                  align="end"
+                >
+                  <div className="w-[320px] p-4 flex flex-col gap-2">
+                    <span className="text-[13px] font-semibold text-ink">Today's Reminders</span>
+                    {todayReminders.length > 0 ? (
+                      <div className="flex flex-col gap-2 mt-1 max-h-[260px] overflow-y-auto">
+                        {todayReminders.map((r) => (
+                          <div
+                            key={r.id}
+                            className="flex items-center gap-3 p-2 rounded-[10px] bg-surface-2/60 text-left"
+                          >
+                            <span className="text-[12px] tabular-nums text-ink-3 shrink-0 font-medium">
+                              {r.start_time || 'All day'}
+                            </span>
+                            <span className="text-[14px] text-ink truncate">{r.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[13px] text-ink-3 py-4 text-center">
+                        You're all caught up.
+                      </p>
                     )}
                   </div>
-                }
-                align="end"
-              >
-                <div className="w-[320px] p-4 flex flex-col gap-2">
-                  <span className="text-[13px] font-semibold text-ink">Today's Reminders</span>
-                  {todayReminders.length > 0 ? (
-                    <div className="flex flex-col gap-2 mt-1 max-h-[260px] overflow-y-auto">
-                      {todayReminders.map((r) => (
-                        <div
-                          key={r.id}
-                          className="flex items-center gap-3 p-2 rounded-[10px] bg-surface-2/60 text-left"
-                        >
-                          <span className="text-[12px] tabular-nums text-ink-3 shrink-0 font-medium">
-                            {r.start_time || 'All day'}
-                          </span>
-                          <span className="text-[14px] text-ink truncate">{r.title}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-[13px] text-ink-3 py-4 text-center">
-                      You're all caught up.
-                    </p>
-                  )}
-                </div>
-              </Popover>
+                </Popover>
 
-              {/* Avatar Menu */}
-              <Popover
-                trigger={
-                  <button type="button" className="ml-1 focus:outline-none">
-                    <Avatar size={32} name={fullName} />
-                  </button>
-                }
-                align="end"
-              >
-                <div className="w-56 p-2 flex flex-col gap-1">
-                  <div className="px-2 py-1.5">
-                    <div className="text-[13px] font-semibold text-ink truncate">{fullName}</div>
-                    <div className="text-[12px] text-ink-3 truncate">{userEmail}</div>
+                {/* Avatar Menu */}
+                <Popover
+                  trigger={
+                    <button type="button" className="ml-1 focus:outline-none">
+                      <Avatar size={32} name={fullName} />
+                    </button>
+                  }
+                  align="end"
+                >
+                  <div className="w-56 p-2 flex flex-col gap-1">
+                    <div className="px-2 py-1.5">
+                      <div className="text-[13px] font-semibold text-ink truncate">{fullName}</div>
+                      <div className="text-[12px] text-ink-3 truncate">{userEmail}</div>
+                    </div>
+                    <div className="h-px bg-line my-1" />
+                    <button
+                      type="button"
+                      onClick={() => router.push('/account')}
+                      className="h-8 px-2 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <Settings size={14} />
+                      <span>Settings</span>
+                    </button>
+                    <div className="h-px bg-line my-1" />
+                    <button
+                      type="button"
+                      onClick={() => signOut()}
+                      className="h-8 px-2 rounded-[8px] flex items-center gap-2 text-[13px] text-danger hover:bg-danger/10 transition-colors text-left"
+                    >
+                      <LogOut size={14} />
+                      <span>Log out</span>
+                    </button>
                   </div>
-                  <div className="h-px bg-line my-1" />
-                  <button
-                    type="button"
-                    onClick={() => router.push('/account')}
-                    className="h-8 px-2 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
-                  >
-                    <Settings size={14} />
-                    <span>Settings</span>
-                  </button>
-                  <div className="h-px bg-line my-1" />
-                  <button
-                    type="button"
-                    onClick={() => signOut()}
-                    className="h-8 px-2 rounded-[8px] flex items-center gap-2 text-[13px] text-danger hover:bg-danger/10 transition-colors text-left"
-                  >
-                    <LogOut size={14} />
-                    <span>Log out</span>
-                  </button>
-                </div>
-              </Popover>
-            </div>
-          </header>
+                </Popover>
+              </div>
+            </header>
+          </div>
 
           {/* Page Content Container & Optional Context Panel */}
-          <div className="flex flex-1 w-full">
-            <main className="mx-auto w-full max-w-[1440px] pt-6 pb-8 flex-1">
+          <div className="flex flex-1 w-full gap-6 pb-8 items-start">
+            <main className="mx-auto w-full max-w-[1440px] pt-3 flex-1 min-w-0">
               {children}
             </main>
 
             {/* Context Panel slot (340px) */}
+            {/* At >=1280px it pushes content; at 1024-1279px it overlays as a Drawer */}
             {contextPanel !== null && isContextPanelOpen && (
-              <aside className="w-[340px] shrink-0 border-l border-line p-6">
-                {contextPanel}
-              </aside>
+              <>
+                {isWideScreen ? (
+                  <aside
+                    ref={contextPanelRef}
+                    onKeyDown={handleContextPanelKeyDown}
+                    tabIndex={-1}
+                    className="w-[340px] shrink-0 frost rounded-[20px] p-5 sticky top-[88px] max-h-[calc(100vh-104px)] overflow-y-auto transition-all duration-220 ease-[var(--ease)] focus:outline-none"
+                  >
+                    <div className="flex items-center justify-between pb-3 mb-4 border-b border-line">
+                      <h3 className="text-[15px] font-semibold text-ink">Details</h3>
+                      <IconButton
+                        label="Close panel"
+                        tooltip="Close ⌘."
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setIsContextPanelOpen(false)}
+                      >
+                        <PanelLeft size={16} />
+                      </IconButton>
+                    </div>
+                    {contextPanel}
+                  </aside>
+                ) : (
+                  <div
+                    role="dialog"
+                    aria-modal="true"
+                    className="fixed inset-0 z-50 flex justify-end"
+                  >
+                    <div
+                      onClick={() => setIsContextPanelOpen(false)}
+                      className="fixed inset-0 bg-[#05070F]/40 backdrop-blur-sm transition-opacity duration-200"
+                    />
+                    <aside
+                      ref={contextPanelRef}
+                      onKeyDown={handleContextPanelKeyDown}
+                      tabIndex={-1}
+                      className="relative z-10 h-full w-[340px] max-w-full glass-strong shadow-2xl p-6 flex flex-col overflow-y-auto transition-transform duration-220 ease-out animate-in slide-in-from-right focus:outline-none"
+                    >
+                      <div className="flex items-center justify-between pb-3 mb-4 border-b border-line">
+                        <h3 className="text-[15px] font-semibold text-ink">Details</h3>
+                        <IconButton
+                          label="Close panel"
+                          tooltip="Close ⌘."
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setIsContextPanelOpen(false)}
+                        >
+                          <PanelLeft size={16} />
+                        </IconButton>
+                      </div>
+                      {contextPanel}
+                    </aside>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -704,10 +806,33 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
         onOpenChange={setCommandPaletteOpen}
         onToggleSidebar={toggleSidebar}
         onToggleAiDrawer={toggleAiDrawer}
+        onNewHabit={openNewHabitModal}
+        onNewReminder={() => openNewReminderModal()}
+        onFocusTasksComposer={() => {
+          if (!pathname.startsWith('/plan')) {
+            router.push('/plan?view=tasks');
+          }
+          triggerComposerFocus();
+        }}
       />
 
       {/* Global AI Drawer */}
       <AIDrawer open={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />
+
+      {/* Desktop Habit Modal */}
+      <HabitModal
+        isOpen={habitModalOpen}
+        onClose={() => setHabitModalOpen(false)}
+        habitToEdit={editingHabit}
+      />
+
+      {/* Desktop Reminder Modal */}
+      <ReminderModal
+        isOpen={reminderModalOpen}
+        onClose={() => setReminderModalOpen(false)}
+        reminderToEdit={editingReminder}
+        prefillDate={reminderPrefillDate}
+      />
     </div>
   );
 }

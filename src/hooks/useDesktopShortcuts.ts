@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 
 interface DesktopShortcutsOptions {
   onToggleCommandPalette?: () => void;
@@ -10,6 +10,9 @@ interface DesktopShortcutsOptions {
   onToggleContextPanel?: () => void;
   onOpenNewMenu?: () => void;
   onEscape?: () => void;
+  onNewHabit?: () => void;
+  onNewReminder?: () => void;
+  onFocusTasksComposer?: () => void;
 }
 
 export function useDesktopShortcuts({
@@ -19,8 +22,13 @@ export function useDesktopShortcuts({
   onToggleContextPanel,
   onOpenNewMenu,
   onEscape,
+  onNewHabit,
+  onNewReminder,
+  onFocusTasksComposer,
 }: DesktopShortcutsOptions = {}) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const gSequenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const isGActiveRef = useRef(false);
 
@@ -78,9 +86,28 @@ export function useDesktopShortcuts({
 
       const key = e.key.toLowerCase();
 
-      // N -> Open + New menu
+      // N -> Context-aware creation
+      // On Plan habits -> Habit Modal, tasks -> focus composer, calendar -> Reminder Modal; elsewhere opens + New menu.
       if (key === 'n' && !isGActiveRef.current) {
         e.preventDefault();
+        if (pathname.startsWith('/plan')) {
+          const view = searchParams.get('view') || 'habits';
+          if (view === 'habits') {
+            if (onNewHabit) onNewHabit();
+            else onOpenNewMenu?.();
+            return;
+          }
+          if (view === 'tasks') {
+            if (onFocusTasksComposer) onFocusTasksComposer();
+            else onOpenNewMenu?.();
+            return;
+          }
+          if (view === 'calendar') {
+            if (onNewReminder) onNewReminder();
+            else onOpenNewMenu?.();
+            return;
+          }
+        }
         onOpenNewMenu?.();
         return;
       }
@@ -125,11 +152,16 @@ export function useDesktopShortcuts({
     };
   }, [
     router,
+    pathname,
+    searchParams,
     onToggleCommandPalette,
     onToggleAiDrawer,
     onToggleSidebar,
     onToggleContextPanel,
     onOpenNewMenu,
     onEscape,
+    onNewHabit,
+    onNewReminder,
+    onFocusTasksComposer,
   ]);
 }

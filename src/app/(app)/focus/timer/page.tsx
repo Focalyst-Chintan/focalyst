@@ -9,12 +9,25 @@ import { localDateStr } from '@/lib/utils/date'
 import { SeamlessRadialTimerDial } from '@/components/focus/SeamlessRadialTimerDial'
 import { Maximize2, Minimize2, Pause, Play, RotateCcw, ArrowLeft } from 'lucide-react'
 
+import { useIsDesktop } from '@/hooks/useIsDesktop'
+
 function TimerContent() {
     const searchParams = useSearchParams()
     const { t } = useTranslation()
     const router = useRouter()
+    const isDesktop = useIsDesktop()
     const supabase = createClient()
     const { user } = useAuth()
+
+    useEffect(() => {
+        if (isDesktop === true) {
+            router.replace('/focus')
+        }
+    }, [isDesktop, router])
+
+    if (isDesktop === true) {
+        return null
+    }
 
     const focusMins = parseInt(searchParams.get('focus') || '25', 10)
     const breakMins = parseInt(searchParams.get('break') || '5', 10)

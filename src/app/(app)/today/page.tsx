@@ -158,8 +158,8 @@ export default function TodayPage() {
     const el = heatmapContainerRef.current;
     if (!el) return;
     const ro = new ResizeObserver(([entry]) => {
-      const w = entry.contentRect.width - 32; // 32px weekday label column
-      setHeatmapWeeksCount(Math.max(12, Math.min(53, Math.floor((w + 4) / 20))));
+      const w = entry.contentRect.width;
+      setHeatmapWeeksCount(Math.max(12, Math.min(53, Math.floor((w - 40 + 4) / 20))));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -389,7 +389,7 @@ export default function TodayPage() {
   }, [weeklyFocusMinutes, lastWeekSamePeriodMinutes]);
 
   // Heatmap: dynamic calendar-aligned calculation ending with current week
-  const heatmapWeeks = useMemo(() => {
+  const { heatmapWeeks, heatmapMonthLabels } = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDay();
     const mondayDiff = currentDay === 0 ? -6 : 1 - currentDay;
@@ -405,33 +405,49 @@ export default function TodayPage() {
     });
 
     const activeHabitsCount = habits.length || 1;
-    const weeks: { dateStr: string; ratio: number; dayOfWeek: number; monthName?: string }[][] = [];
+    const weeks: { dateStr: string; ratio: number; dayOfWeek: number }[][] = [];
+    const monthLabels: { key: string; label: string; col: number }[] = [];
+    let lastLabeledCol = -999;
 
     let currentCursor = new Date(startMonday);
     for (let w = 0; w < heatmapWeeksCount; w++) {
       const daysInWeek = [];
+      let containsFirstOfMonth: { label: string } | null = null;
+
       for (let d = 0; d < 7; d++) {
         const dStr = localDateStr(currentCursor);
         const count = logsByDate.get(dStr) || 0;
         const ratio = Math.min(1, count / activeHabitsCount);
 
-        let monthName: string | undefined = undefined;
-        if (currentCursor.getDate() <= 7 && d === 0) {
-          monthName = currentCursor.toLocaleDateString('en-US', { month: 'short' });
+        if (currentCursor.getDate() === 1) {
+          containsFirstOfMonth = {
+            label: currentCursor.toLocaleDateString('en-US', { month: 'short' }),
+          };
         }
 
         daysInWeek.push({
           dateStr: dStr,
           ratio,
           dayOfWeek: d,
-          monthName,
         });
 
         currentCursor.setDate(currentCursor.getDate() + 1);
       }
+
+      if (containsFirstOfMonth) {
+        if (w - lastLabeledCol >= 3) {
+          monthLabels.push({
+            key: `${containsFirstOfMonth.label}-${w}`,
+            label: containsFirstOfMonth.label,
+            col: w,
+          });
+          lastLabeledCol = w;
+        }
+      }
+
       weeks.push(daysInWeek);
     }
-    return weeks;
+    return { heatmapWeeks: weeks, heatmapMonthLabels: monthLabels };
   }, [habitLogs, habits.length, heatmapWeeksCount]);
 
   // Deduplicated group members & user rank
@@ -566,9 +582,11 @@ export default function TodayPage() {
         ) : (
           <Card className="lg:col-span-1 xl:col-span-4 min-h-[240px] flex flex-col justify-between p-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-semibold text-ink">Habits</h3>
-              <div className="flex items-center gap-1.5">
+            <div className="flex items-start justify-between min-h-8">
+              <div>
+                <h3 className="text-[16px] font-semibold text-ink">Habits</h3>
+              </div>
+              <div className="flex items-center gap-1.5 self-start">
                 <span className="text-[13px] text-ink-3 tabular-nums font-medium">
                   {completedHabitsCount} of {scheduledHabits.length}
                 </span>
@@ -576,6 +594,7 @@ export default function TodayPage() {
                   size="sm"
                   variant="ghost"
                   tooltip="View Habits"
+                  className="self-start"
                   onClick={() => router.push('/plan?view=habits')}
                 >
                   <ArrowUpRight className="w-4 h-4 text-ink-3" />
@@ -584,7 +603,7 @@ export default function TodayPage() {
             </div>
 
             {/* Habit List & Empty States */}
-            <div className="flex-1 flex flex-col justify-center gap-1 my-2">
+            <div className="flex-1 flex flex-col justify-start gap-1 mt-4">
               {habits.length === 0 ? (
                 <EmptyState
                   title="Build your first habit."
@@ -659,12 +678,15 @@ export default function TodayPage() {
           <Skeleton className="lg:col-span-1 xl:col-span-3 min-h-[240px] rounded-[20px]" />
         ) : (
           <Card className="lg:col-span-1 xl:col-span-3 min-h-[240px] flex flex-col justify-between p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-[16px] font-semibold text-ink">Up next</h3>
+            <div className="flex items-start justify-between min-h-8">
+              <div>
+                <h3 className="text-[16px] font-semibold text-ink">Up next</h3>
+              </div>
               <IconButton
                 size="sm"
                 variant="ghost"
                 tooltip="Calendar"
+                className="self-start"
                 onClick={() => router.push('/plan?view=calendar')}
               >
                 <ArrowUpRight className="w-4 h-4 text-ink-3" />
@@ -718,7 +740,7 @@ export default function TodayPage() {
         ) : (
           <Card className="lg:col-span-2 xl:col-span-8 min-h-[320px] p-6 flex flex-col justify-between relative">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between min-h-8 mb-4">
               <div className="flex items-baseline">
                 <h3 className="text-[16px] font-semibold text-ink">Focus this week</h3>
                 <span className="text-[28px] font-semibold tabular-nums text-ink ml-3 tracking-tight">
@@ -741,6 +763,7 @@ export default function TodayPage() {
                 size="sm"
                 variant="ghost"
                 tooltip="View Insights"
+                className="self-start"
                 onClick={() => router.push('/insights')}
               >
                 <ArrowUpRight className="w-4 h-4 text-ink-3" />
@@ -752,7 +775,13 @@ export default function TodayPage() {
               {weeklyFocusMinutes === 0 && (
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/40 dark:bg-surface-2/40 backdrop-blur-[2px] rounded-xl gap-2">
                   <p className="text-[14px] text-ink-2">No focus sessions yet this week.</p>
-                  <Button variant="ghost" size="sm" onClick={() => router.push('/focus')}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-primary-text hover:bg-primary-soft"
+                    onClick={() => router.push('/focus')}
+                  >
+                    <Play className="w-3.5 h-3.5 mr-1.5" />
                     Start one
                   </Button>
                 </div>
@@ -816,12 +845,15 @@ export default function TodayPage() {
           <Card className="lg:col-span-1 xl:col-span-4 min-h-[320px] p-6 flex flex-col justify-between">
             {/* Header */}
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-[16px] font-semibold text-ink">Tasks</h3>
+              <div className="flex items-start justify-between min-h-8 mb-3">
+                <div>
+                  <h3 className="text-[16px] font-semibold text-ink">Tasks</h3>
+                </div>
                 <IconButton
                   size="sm"
                   variant="ghost"
                   tooltip="View Tasks"
+                  className="self-start"
                   onClick={() => router.push('/plan?view=tasks')}
                 >
                   <ArrowUpRight className="w-4 h-4 text-ink-3" />
@@ -936,12 +968,13 @@ export default function TodayPage() {
         ) : (
           <Card className="lg:col-span-2 xl:col-span-8 p-6 flex flex-col justify-between">
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-start justify-between min-h-8 mb-4">
               <h3 className="text-[16px] font-semibold text-ink">Habit consistency</h3>
               <IconButton
                 size="sm"
                 variant="ghost"
                 tooltip="Habits"
+                className="self-start"
                 onClick={() => router.push('/plan?view=habits')}
               >
                 <ArrowUpRight className="w-4 h-4 text-ink-3" />
@@ -949,34 +982,28 @@ export default function TodayPage() {
             </div>
 
             {/* Full width Heatmap Container with ResizeObserver */}
-            <div ref={heatmapContainerRef} className="w-full overflow-hidden pb-1">
+            <div ref={heatmapContainerRef} className="w-full">
               <div className="flex gap-2">
-                {/* Weekday labels column: Mon, Wed, Fri (32px wide) */}
-                <div className="w-8 shrink-0 flex flex-col pt-5 text-[11px] text-ink-3">
-                  <div className="h-4 flex items-center">Mon</div>
-                  <div className="h-4" />
-                  <div className="h-4 flex items-center">Wed</div>
-                  <div className="h-4" />
-                  <div className="h-4 flex items-center">Fri</div>
-                  <div className="h-4" />
-                  <div className="h-4" />
+                <div
+                  className="grid w-8 shrink-0 gap-1 pt-5 text-[11px] leading-4 text-ink-3"
+                  style={{ gridTemplateRows: 'repeat(7, 16px)' }}
+                >
+                  <span className="row-start-1">Mon</span>
+                  <span className="row-start-3">Wed</span>
+                  <span className="row-start-5">Fri</span>
                 </div>
-
-                {/* Weeks Grid */}
-                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
-                  {/* Month labels row */}
-                  <div
-                    className="grid grid-flow-col gap-1 h-4"
-                    style={{ gridTemplateColumns: `repeat(${heatmapWeeksCount}, 16px)` }}
-                  >
-                    {heatmapWeeks.map((week, idx) => (
-                      <div key={idx} className="text-[11px] text-ink-3 leading-none truncate">
-                        {week[0]?.monthName || ''}
-                      </div>
+                <div>
+                  <div className="relative h-5">
+                    {heatmapMonthLabels.map((m) => (
+                      <span
+                        key={m.key}
+                        className="absolute top-0 whitespace-nowrap text-[11px] text-ink-3"
+                        style={{ left: m.col * 20 }}
+                      >
+                        {m.label}
+                      </span>
                     ))}
                   </div>
-
-                  {/* 7 rows x weeks columns of 16px cells */}
                   <div
                     className="grid grid-flow-col gap-1"
                     style={{
@@ -1034,7 +1061,7 @@ export default function TodayPage() {
           <Card className="lg:col-span-1 xl:col-span-4 min-h-[280px] p-6 flex flex-col justify-between">
             {/* Header */}
             <div>
-              <div className="flex items-center justify-between">
+              <div className="flex items-start justify-between min-h-8">
                 <div>
                   <h3 className="text-[16px] font-semibold text-ink">Your group</h3>
                   <p className="text-[13px] text-ink-3 mt-0.5">
@@ -1045,6 +1072,7 @@ export default function TodayPage() {
                   size="sm"
                   variant="ghost"
                   tooltip="Open Groups"
+                  className="self-start"
                   onClick={() => router.push('/groups')}
                 >
                   <ArrowUpRight className="w-4 h-4 text-ink-3" />
