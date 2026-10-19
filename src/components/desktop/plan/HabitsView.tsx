@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Flame, GripVertical, Plus, Trash2, Edit3, Check } from 'lucide-react';
 import { usePlan, HabitItem } from '@/context/PlanContext';
 import { useDesktopShell } from '@/components/desktop/DesktopShellContext';
+import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { EmptyState } from '@/components/desktop/ui/EmptyState';
 import { Button } from '@/components/desktop/ui/Button';
 import { Modal } from '@/components/desktop/ui/Modal';
@@ -14,8 +15,8 @@ import { useAuth } from '@/context/AuthContext';
 
 export function HabitsView() {
   const { habits, updateHabit, deleteHabit } = usePlan();
-  const { openNewHabitModal, openEditHabitModal, setContextPanel, setIsContextPanelOpen } =
-    useDesktopShell();
+  const { setContextPanel, setIsContextPanelOpen } = useDesktopShell();
+  const { open: openCreate } = useCreate();
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -208,7 +209,7 @@ export function HabitsView() {
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => openEditHabitModal(selectedHabit)}
+            onClick={() => openCreate('habit', { initialData: selectedHabit })}
             className="flex-1 gap-1.5"
           >
             <Edit3 size={14} />
@@ -237,7 +238,7 @@ export function HabitsView() {
     heatmapYear,
     setContextPanel,
     setIsContextPanelOpen,
-    openEditHabitModal,
+    openCreate,
   ]);
 
   const confirmDelete = async () => {
@@ -257,7 +258,7 @@ export function HabitsView() {
           title="No habits yet."
           description="Small, repeatable actions build the life you want."
           actionLabel="Create your first habit"
-          onAction={openNewHabitModal}
+          onAction={() => openCreate('habit')}
         />
       </div>
     );

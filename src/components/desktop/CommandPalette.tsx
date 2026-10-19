@@ -29,6 +29,7 @@ import { Kbd } from '@/components/desktop/ui/Kbd';
 import { useNotes } from '@/hooks/useNotes';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
+import { useCreate } from '@/components/desktop/create/CreateProvider';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -45,14 +46,12 @@ export function CommandPalette({
   onOpenChange,
   onToggleSidebar,
   onToggleAiDrawer,
-  onNewHabit,
-  onNewReminder,
-  onFocusTasksComposer,
 }: CommandPaletteProps) {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { notes, fetchNotes } = useNotes(user?.id);
   const { setTheme } = useTheme();
+  const { open: openCreate } = useCreate();
   const [search, setSearch] = useState('');
 
   // Fetch initial notes for search when palette opens
@@ -267,12 +266,7 @@ export function CommandPalette({
             >
               <Command.Item
                 value="New task"
-                onSelect={() =>
-                  runCommand(() => {
-                    if (onFocusTasksComposer) onFocusTasksComposer();
-                    else router.push('/plan?view=tasks');
-                  })
-                }
+                onSelect={() => runCommand(() => openCreate('task'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -282,12 +276,7 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="New habit"
-                onSelect={() =>
-                  runCommand(() => {
-                    if (onNewHabit) onNewHabit();
-                    else router.push('/plan/new-habit');
-                  })
-                }
+                onSelect={() => runCommand(() => openCreate('habit'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -297,7 +286,7 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="New note"
-                onSelect={() => runCommand(() => router.push('/notes/new'))}
+                onSelect={() => runCommand(() => openCreate('note'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -307,12 +296,7 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="New reminder"
-                onSelect={() =>
-                  runCommand(() => {
-                    if (onNewReminder) onNewReminder();
-                    else router.push('/plan?view=calendar');
-                  })
-                }
+                onSelect={() => runCommand(() => openCreate('reminder'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">
@@ -322,7 +306,7 @@ export function CommandPalette({
               </Command.Item>
               <Command.Item
                 value="Start focus session"
-                onSelect={() => runCommand(() => router.push('/focus'))}
+                onSelect={() => runCommand(() => openCreate('focus'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
               >
                 <div className="flex items-center gap-2.5">

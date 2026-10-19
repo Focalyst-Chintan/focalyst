@@ -132,14 +132,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 return
             }
 
-            // ── Fetch tasks (incomplete, paginated to 20) ──
+            // ── Fetch tasks (incomplete + recently completed) ──
             const { data: taskData, error: taskError } = await supabase
                 .from('tasks')
                 .select('*')
                 .eq('user_id', user.id)
-                .eq('is_completed', false)
                 .order('created_at', { ascending: false })
-                .limit(20)
+                .limit(100)
 
             if (taskError) {
                 console.error("[SUPABASE FETCH ERROR]:", taskError.message, taskError.details)

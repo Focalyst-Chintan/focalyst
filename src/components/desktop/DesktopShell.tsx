@@ -40,6 +40,7 @@ import { ReminderModal } from './plan/ReminderModal';
 import { useDesktopShortcuts } from '@/hooks/useDesktopShortcuts';
 import { useTheme } from 'next-themes';
 import { getDisplayName } from '@/lib/utils/name';
+import { CreateProvider, useCreate } from '@/components/desktop/create/CreateProvider';
 
 const BRAND_LOGO = '/small-logo.png';
 
@@ -111,12 +112,12 @@ function SidebarItem({
   collapsed: boolean;
   trailing?: React.ReactNode;
 }) {
-  const cls = `relative flex h-10 items-center rounded-xl transition-colors duration-150 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] ${
+  const cls = `relative z-10 flex h-10 items-center rounded-xl transition-colors duration-150 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] ${
     collapsed ? 'mx-auto w-10 justify-center' : 'w-full gap-3 px-3'
   } ${
     active
-      ? 'bg-surface dark:bg-surface-2 shadow-[var(--shadow-1)] text-ink'
-      : 'text-ink-2 hover:bg-surface-2 hover:text-ink'
+      ? 'bg-transparent text-ink font-medium'
+      : 'text-ink-2 hover:bg-surface-2/60 hover:text-ink'
   }`;
 
   const inner = (
@@ -132,12 +133,18 @@ function SidebarItem({
   );
 
   const el = href ? (
-    <Link href={href} className={cls} aria-label={collapsed ? label : undefined}>
+    <Link
+      href={href}
+      data-active={active ? 'true' : 'false'}
+      className={cls}
+      aria-label={collapsed ? label : undefined}
+    >
       {inner}
     </Link>
   ) : (
     <button
       type="button"
+      data-active={active ? 'true' : 'false'}
       onClick={onClick}
       className={cls}
       aria-label={collapsed ? label : undefined}
@@ -156,6 +163,14 @@ function SidebarItem({
 }
 
 export function DesktopShell({ children }: { children: React.ReactNode }) {
+  return (
+    <CreateProvider>
+      <DesktopShellInner>{children}</DesktopShellInner>
+    </CreateProvider>
+  );
+}
+
+function DesktopShellInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -176,6 +191,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     setNewMenuOpen,
     toggleNewMenu,
     contextPanel,
+    setContextPanel,
     isContextPanelOpen,
     setIsContextPanelOpen,
     toggleContextPanel,
@@ -190,6 +206,16 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     openNewReminderModal,
     triggerComposerFocus,
   } = useDesktopShell();
+
+  const create = useCreate();
+
+  // Scope context panel to route: clear and close on every route change, only Plan (and Notes) may open it
+  useEffect(() => {
+    if (!pathname.startsWith('/plan') && !pathname.startsWith('/notes')) {
+      setContextPanel(null);
+      setIsContextPanelOpen(false);
+    }
+  }, [pathname, setContextPanel, setIsContextPanelOpen]);
 
   // Track viewport width for context panel responsive push vs overlay
   const [isWideScreen, setIsWideScreen] = useState(true);
@@ -219,13 +245,10 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
     onToggleSidebar: toggleSidebar,
     onToggleContextPanel: toggleContextPanel,
     onOpenNewMenu: toggleNewMenu,
-    onNewHabit: openNewHabitModal,
-    onNewReminder: () => openNewReminderModal(),
+    onNewHabit: () => create.open('habit'),
+    onNewReminder: () => create.open('reminder'),
     onFocusTasksComposer: () => {
-      if (!pathname.startsWith('/plan')) {
-        router.push('/plan?view=tasks');
-      }
-      triggerComposerFocus();
+      create.open('task');
     },
     onEscape: () => {
       if (commandPaletteOpen) {
@@ -249,7 +272,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const todayReminders = useMemo(() => {
-    return (reminders || []).filter((r) => r.date === todayStr);
+    return (reminders || []).filter((r: any) => (r.day || r.date) === todayStr);
   }, [reminders, todayStr]);
 
   const hasUpcomingReminders = todayReminders.length > 0;
@@ -266,6 +289,14 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
 
   const isPlanActive = pathname.startsWith('/plan');
   const currentPlanView = searchParams.get('view') || 'habits';
+
+  // Sliding indicator for sidebar nav
+  const navListRef = useRef<HTMLDivElement>(null);
+  const [ind, setInd] = useState<{ top: number; height: number } | null>(null);
+  useEffect(() => {
+    const el = navListRef.current?.querySelector<HTMLElement>('[data-active="true"]');
+    setInd(el ? { top: el.offsetTop, height: el.offsetHeight } : null);
+  }, [pathname, searchParams, sidebarCollapsed]);
 
   const getPageTitle = () => {
     if (pathname.startsWith('/today')) return 'Today';
@@ -290,7 +321,12 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="relative min-h-screen w-full lg:bg-transparent text-ink font-ui antialiased lg:overflow-x-clip">
+    <div
+      className="relative min-h-screen w-full lg:bg-transparent text-ink font-ui antialiased lg:overflow-x-clip"
+      style={{
+        ['--sb-pad' as any]: sidebarCollapsed ? '18px' : '16px',
+      }}
+    >
       {/* Ambient Canvas background fixed at z-0 */}
       <div className="hidden lg:block fixed inset-0 z-0">
         <AmbientBackground />
@@ -302,7 +338,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
             ========================================================================= */}
         <aside
           className={`fixed top-3 left-3 bottom-3 z-40 hidden lg:flex flex-col rounded-[28px] glass-strong liquid transition-[width] duration-[220ms] ease-[var(--ease)] overflow-hidden shadow-[var(--shadow-2)] ${
-            sidebarCollapsed ? 'w-[76px] items-center px-0 py-4' : 'w-[256px] p-4'
+            sidebarCollapsed ? 'w-[76px] items-center px-[18px] py-4' : 'w-[256px] p-4'
           }`}
         >
           {/* Top Brand Row */}
@@ -310,8 +346,34 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
             <SidebarBrand collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
           </div>
 
-          {/* Primary Navigation */}
-          <nav className={`mt-6 flex flex-col gap-1 shrink-0 ${sidebarCollapsed ? 'w-full items-center' : 'w-full'}`}>
+          {/* Primary Navigation with sliding active pill & glowing left bar */}
+          <nav
+            ref={navListRef}
+            className={`relative mt-6 flex flex-col gap-1 shrink-0 ${
+              sidebarCollapsed ? 'w-full items-center' : 'w-full'
+            }`}
+          >
+            {ind && (
+              <>
+                <span
+                  aria-hidden
+                  className={`fx-active-pill pointer-events-none absolute transition-[transform,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                    sidebarCollapsed ? 'left-1/2 w-10 -translate-x-1/2' : 'inset-x-0'
+                  }`}
+                  style={{ transform: `translateY(${ind.top}px)`, height: ind.height }}
+                />
+                <span
+                  aria-hidden
+                  className="fx-nav-bar pointer-events-none absolute transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]"
+                  style={{
+                    left: 'calc(-1 * var(--sb-pad))',
+                    transform: `translateY(${ind.top + 10}px)`,
+                    height: Math.max(0, ind.height - 20),
+                  }}
+                />
+              </>
+            )}
+
             {navItems.map((item) => {
               const active = pathname.startsWith(item.href);
               return (
@@ -355,14 +417,15 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
+          {/* Hairline group divider between main nav and LABS */}
+          <div className="mx-3 my-3 h-px bg-line shrink-0" />
+
           {/* LABS Section */}
-          <div className={`mt-6 flex flex-col shrink-0 ${sidebarCollapsed ? 'w-full items-center' : 'w-full'}`}>
-            {!sidebarCollapsed ? (
+          <div className={`flex flex-col shrink-0 ${sidebarCollapsed ? 'w-full items-center' : 'w-full'}`}>
+            {!sidebarCollapsed && (
               <span className="text-[11px] leading-[14px] font-medium uppercase tracking-[0.08em] text-ink-3 px-3 mb-2">
                 LABS
               </span>
-            ) : (
-              <div className="mx-auto my-3 h-px w-8 bg-line" />
             )}
 
             <SidebarItem
@@ -381,6 +444,9 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
 
           {/* Flexible Spacer */}
           <div className="flex-1 min-h-[16px]" />
+
+          {/* Hairline group divider before bottom stack */}
+          <div className="mx-3 my-2 h-px bg-line shrink-0" />
 
           {/* Bottom Stack */}
           <div className={`flex flex-col gap-2 shrink-0 ${sidebarCollapsed ? 'w-full items-center' : 'w-full'}`}>
@@ -571,7 +637,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
 
               {/* Right Action Icons */}
               <div className="flex items-center gap-2">
-                {/* + New Button with Popover */}
+                {/* + New Button with Popover routed to useCreate */}
                 <Popover
                   open={newMenuOpen}
                   onOpenChange={setNewMenuOpen}
@@ -589,8 +655,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => {
                         setNewMenuOpen(false);
-                        router.push('/plan?view=tasks');
-                        triggerComposerFocus();
+                        create.open('task');
                       }}
                       className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
                     >
@@ -601,7 +666,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => {
                         setNewMenuOpen(false);
-                        openNewHabitModal();
+                        create.open('habit');
                       }}
                       className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
                     >
@@ -612,7 +677,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => {
                         setNewMenuOpen(false);
-                        router.push('/notes/new');
+                        create.open('note');
                       }}
                       className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
                     >
@@ -623,7 +688,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => {
                         setNewMenuOpen(false);
-                        openNewReminderModal();
+                        create.open('reminder');
                       }}
                       className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
                     >
@@ -635,7 +700,7 @@ export function DesktopShell({ children }: { children: React.ReactNode }) {
                       type="button"
                       onClick={() => {
                         setNewMenuOpen(false);
-                        router.push('/focus');
+                        create.open('focus');
                       }}
                       className="h-9 px-3 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
                     >

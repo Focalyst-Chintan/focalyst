@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan, Reminder } from '@/context/PlanContext';
 import { localDateStr } from '@/lib/utils/date';
+import { DatePicker } from '@/components/desktop/ui/DatePicker';
+import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
 
 const CATEGORIES = [
   { label: 'Work', color: '#2B6BFF' },
@@ -24,7 +26,6 @@ const REPEAT_OPTIONS = [
   { label: 'Every 2 Weeks', value: 'Every 2 Weeks' },
   { label: 'Every Month', value: 'Monthly' },
   { label: 'Every Year', value: 'Yearly' },
-  { label: 'Custom', value: 'Custom' },
 ];
 
 interface ReminderModalProps {
@@ -127,13 +128,10 @@ export function ReminderModal({
         description: description.trim() || null,
         all_day: allDay,
         day: date,
-        date: date,
         start_time: allDay ? null : startTime,
         end_time: allDay ? null : endTime,
         repeat,
         repeat_mode: repeat,
-        custom_every: repeat === 'Custom' ? customEvery : null,
-        custom_unit: repeat === 'Custom' ? customFrequency : null,
         color,
         tag,
         category: tag,
@@ -153,7 +151,6 @@ export function ReminderModal({
             description: description.trim() || null,
             all_day: allDay,
             day: date,
-            date: date,
             start_time: allDay ? null : startTime,
             end_time: allDay ? null : endTime,
             repeat,
@@ -174,7 +171,6 @@ export function ReminderModal({
             title: title.trim(),
             all_day: allDay,
             day: date,
-            date: date,
             start_time: allDay ? null : startTime,
             end_time: allDay ? null : endTime,
             repeat,
@@ -245,11 +241,9 @@ export function ReminderModal({
         <div className="grid grid-cols-2 gap-3 items-end">
           <div>
             <label className="block text-[12px] font-medium text-ink-2 mb-1">Date</label>
-            <input
-              type="date"
+            <DatePicker
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="w-full h-10 rounded-[12px] bg-surface-2 border border-line px-3 text-[13px] text-ink outline-none"
+              onChange={(v) => setDate(v)}
             />
           </div>
           <div className="flex items-center justify-between h-10 px-3 rounded-[12px] bg-surface-2/60 border border-line">
@@ -275,20 +269,16 @@ export function ReminderModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-[12px] font-medium text-ink-2 mb-1">Start time</label>
-              <input
-                type="time"
+              <TimeSelect
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                className="w-full h-10 rounded-[12px] bg-surface-2 border border-line px-3 text-[13px] text-ink font-medium outline-none"
+                onChange={(v) => setStartTime(v)}
               />
             </div>
             <div>
               <label className="block text-[12px] font-medium text-ink-2 mb-1">End time</label>
-              <input
-                type="time"
+              <TimeSelect
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full h-10 rounded-[12px] bg-surface-2 border border-line px-3 text-[13px] text-ink font-medium outline-none"
+                onChange={(v) => setEndTime(v)}
               />
             </div>
           </div>

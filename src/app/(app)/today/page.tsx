@@ -29,6 +29,10 @@ import {
 } from '@/lib/utils/insights';
 import { fetchMyGroupLeaderboard, GroupLeaderboardData } from '@/lib/services/habitGroupService';
 import { getDisplayName, getFirstName } from '@/lib/utils/name';
+import { useCreate } from '@/components/desktop/create/CreateProvider';
+import { useFocusToday } from '@/hooks/useFocusToday';
+import { Modal } from '@/components/desktop/ui/Modal';
+import CountdownForm from '@/components/focus/CountdownForm';
 
 // UI Kit components
 import { Button } from '@/components/desktop/ui/Button';
@@ -121,7 +125,7 @@ function AnalogClock() {
 
 export default function TodayPage() {
   const router = useRouter();
-  const { user, profile } = useAuth();
+  const { user, profile, plan } = useAuth();
   const {
     tasks,
     habits,
@@ -483,6 +487,66 @@ export default function TodayPage() {
       };
     }, [groupData, user?.id]);
 
+  const create = useCreate();
+  const { minutes: focusTodayMins, sessionsCount: focusTodayCount } = useFocusToday();
+
+  // Keep todayFocusMinutes & count synced with useFocusToday hook
+  useEffect(() => {
+    if (focusTodayMins > 0 || focusTodayCount > 0) {
+      setTodayFocusMinutes(focusTodayMins);
+      setTodaySessionsCount(focusTodayCount);
+    }
+  }, [focusTodayMins, focusTodayCount]);
+
+  // Countdowns state for Today banner
+  const [countdowns, setCountdowns] = useState<any[]>([]);
+  const [countdownModalOpen, setCountdownModalOpen] = useState(false);
+
+  const fetchCountdowns = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data } = await supabase
+        .from('countdowns')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('target_date', { ascending: true });
+      setCountdowns(data || []);
+    } catch (e) {
+      console.warn('Error fetching countdowns on today:', e);
+    }
+  }, [user, supabase]);
+
+  useEffect(() => {
+    fetchCountdowns();
+  }, [fetchCountdowns]);
+
+  // Nearest upcoming countdowns
+  const upcomingCountdowns = useMemo(() => {
+    const today = new Date();
+    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+
+    return countdowns
+      .map((c) => {
+        const parts = (c.target_date || '').split('-');
+        let targetMidnight = 0;
+        if (parts.length === 3) {
+          targetMidnight = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
+        } else {
+          const d = new Date(c.target_date);
+          targetMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        }
+        const daysLeft = Math.ceil((targetMidnight - todayMidnight) / 86400000);
+        return {
+          ...c,
+          daysLeft,
+          isPast: daysLeft < 0,
+        };
+      })
+      .filter((c) => !c.isPast)
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 3);
+  }, [countdowns]);
+
   const focusProgress = Math.min(100, Math.round((todayFocusMinutes / 180) * 100));
 
   return (
@@ -502,12 +566,76 @@ export default function TodayPage() {
         <Button
           variant="primary"
           size="md"
-          onClick={() => router.push('/focus')}
+          onClick={() => create.open('focus')}
           className="gap-2 shadow-[var(--shadow-1)]"
         >
           <Play className="h-4 w-4 fill-current" />
           <span>Start focus</span>
         </Button>
+      </div>
+
+      {/* =========================================================================
+          SECTION K: COUNTDOWN BANNER ON TODAY (Desktop only)
+          ========================================================================= */}
+      <div className="hidden lg:flex w-full h-[88px] rounded-[20px] glass liquid px-6 items-center justify-between shadow-[var(--shadow-1)]">
+        <div className="flex items-center gap-6 min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3 shrink-0">
+            COUNTDOWNS
+          </span>
+
+          {upcomingCountdowns.length > 0 ? (
+            <div className="flex items-center divide-x divide-line min-w-0">
+              {upcomingCountdowns.map((item, idx) => (
+                <div key={item.id} className={`${idx === 0 ? 'pr-6' : 'px-6'} flex flex-col justify-center min-w-0`}>
+                  <div className="flex items-baseline gap-1.5">
+                    <span
+                      className={`font-ui font-semibold text-[36px]/[38px] tabular-nums tracking-tight ${
+                        idx === 0 ? 'text-primary-text' : 'text-ink'
+                      }`}
+                    >
+                      {item.daysLeft}
+                    </span>
+                    <span className="text-[13px] text-ink-2 font-medium">days</span>
+                  </div>
+                  <div className="flex items-center gap-2 mt-0.5 min-w-0">
+                    <span className="text-[14px] font-semibold text-ink truncate max-w-[160px]">
+                      {item.event_name}
+                    </span>
+                    <span className="text-[12px] text-ink-3 shrink-0">
+                      {item.target_date}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <span className="text-[14px] text-ink-2">
+              Add a countdown for something that matters.
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          {upcomingCountdowns.length > 0 ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push('/focus#countdowns')}
+              className="text-[13px]"
+            >
+              Manage
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setCountdownModalOpen(true)}
+              className="text-[13px]"
+            >
+              + Add
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* =========================================================================
@@ -565,7 +693,7 @@ export default function TodayPage() {
               <Button
                 variant="onDark"
                 size="sm"
-                onClick={() => router.push('/focus')}
+                onClick={() => create.open('focus')}
               >
                 Start session
               </Button>
@@ -608,7 +736,7 @@ export default function TodayPage() {
                 <EmptyState
                   title="Build your first habit."
                   actionLabel="Create habit"
-                  onAction={() => router.push('/plan/new-habit')}
+                  onAction={() => create.open('habit')}
                 />
               ) : scheduledHabits.length === 0 ? (
                 <p className="text-[13px] text-ink-3 text-center py-4">
@@ -1158,6 +1286,22 @@ export default function TodayPage() {
           </Card>
         )}
       </div>
+
+      {/* Countdown Form Modal */}
+      <Modal
+        isOpen={countdownModalOpen}
+        onClose={() => {
+          setCountdownModalOpen(false);
+          fetchCountdowns();
+        }}
+        size="sm"
+        title="New countdown"
+      >
+        <CountdownForm
+          userId={user?.id || ''}
+          userPlan={plan || 'free'}
+        />
+      </Modal>
     </div>
   );
 }

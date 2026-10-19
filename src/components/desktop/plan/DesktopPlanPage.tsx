@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { usePlan } from '@/context/PlanContext';
 import { useDesktopShell } from '@/components/desktop/DesktopShellContext';
+import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { Button } from '@/components/desktop/ui/Button';
 import { HabitsView } from '@/components/desktop/plan/HabitsView';
@@ -15,7 +16,7 @@ export function DesktopPlanPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { habits, tasks } = usePlan();
-  const { openNewHabitModal, openNewReminderModal, triggerComposerFocus } = useDesktopShell();
+  const { open: openCreate } = useCreate();
 
   const currentView = searchParams.get('view') || 'habits';
 
@@ -30,11 +31,11 @@ export function DesktopPlanPage() {
 
   const handleHeaderAction = () => {
     if (currentView === 'habits') {
-      openNewHabitModal();
+      openCreate('habit');
     } else if (currentView === 'tasks') {
-      triggerComposerFocus();
+      openCreate('task');
     } else if (currentView === 'calendar') {
-      openNewReminderModal();
+      openCreate('reminder');
     }
   };
 

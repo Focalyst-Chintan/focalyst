@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { usePlan, Reminder } from '@/context/PlanContext';
 import { useDesktopShell } from '@/components/desktop/DesktopShellContext';
+import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { Button } from '@/components/desktop/ui/Button';
 import { IconButton } from '@/components/desktop/ui/IconButton';
@@ -96,6 +97,7 @@ export function CalendarDesktopView() {
   const { reminders: contextReminders } = usePlan();
   const { openNewReminderModal, openEditReminderModal, setContextPanel, setIsContextPanelOpen } =
     useDesktopShell();
+  const create = useCreate();
   const { user } = useAuth();
   const supabase = createClient();
 
@@ -326,8 +328,8 @@ export function CalendarDesktopView() {
                           <span
                             className="px-1.5 py-0.2 rounded text-[10px] font-semibold"
                             style={{
-                              backgroundColor: `${tagColor}20`,
-                              color: tagColor,
+                              backgroundColor: `${TAG_COLORS[r.tag] || '#1951FC'}20`,
+                              color: TAG_COLORS[r.tag] || '#1951FC',
                             }}
                           >
                             {r.tag}
@@ -360,7 +362,7 @@ export function CalendarDesktopView() {
           <Button
             variant="secondary"
             size="md"
-            onClick={() => openNewReminderModal(selectedDayYMD)}
+            onClick={() => create.open('reminder', { date: selectedDayYMD })}
             className="w-full gap-2 justify-center"
           >
             <Plus size={16} />
@@ -652,7 +654,7 @@ export function CalendarDesktopView() {
                           key={rem.id}
                           onClick={(e) => {
                             e.stopPropagation();
-                            openEditReminderModal(rem);
+                            create.open('reminder', { initialData: rem });
                           }}
                           style={{
                             top: `${topPx}px`,

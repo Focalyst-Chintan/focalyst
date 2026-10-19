@@ -57,3 +57,9 @@ export function getLevelFromXP(totalXP: number): LevelState {
         xpRemaining,
     }
 }
+
+export function getLevelFromMinutes(totalMinutes: number): number {
+    // 1 focus minute = 10 XP
+    const state = getLevelFromXP(totalMinutes * 10);
+    return state.current.level;
+}

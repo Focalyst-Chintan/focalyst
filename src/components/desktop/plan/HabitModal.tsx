@@ -8,6 +8,8 @@ import { Popover } from '@/components/desktop/ui/Popover';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan, HabitItem } from '@/context/PlanContext';
+import { DatePicker } from '@/components/desktop/ui/DatePicker';
+import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
 
 const DAYS = [
   { label: 'M', index: 0 },
@@ -395,11 +397,9 @@ export function HabitModal({ isOpen, onClose, habitToEdit }: HabitModalProps) {
             <div className="flex items-center gap-3 pt-2 border-t border-line">
               <div className="flex-1">
                 <label className="block text-[11px] font-medium text-ink-3 uppercase mb-1">Time</label>
-                <input
-                  type="time"
+                <TimeSelect
                   value={reminderTime}
-                  onChange={(e) => setReminderTime(e.target.value)}
-                  className="w-full h-9 rounded-[10px] bg-surface border border-line px-3 text-[13px] text-ink font-semibold outline-none"
+                  onChange={(v) => setReminderTime(v)}
                 />
               </div>
               <div className="w-32">
@@ -407,7 +407,7 @@ export function HabitModal({ isOpen, onClose, habitToEdit }: HabitModalProps) {
                 <select
                   value={durationMins}
                   onChange={(e) => setDurationMins(Number(e.target.value))}
-                  className="w-full h-9 rounded-[10px] bg-surface border border-line px-2 text-[13px] text-ink font-semibold outline-none"
+                  className="w-full h-10 rounded-[12px] bg-surface-2 border border-line px-2 text-[13px] text-ink font-semibold outline-none"
                 >
                   <option value={15}>15m</option>
                   <option value={30}>30m</option>
@@ -424,20 +424,16 @@ export function HabitModal({ isOpen, onClose, habitToEdit }: HabitModalProps) {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[12px] font-medium text-ink-2 mb-1">Start date</label>
-            <input
-              type="date"
+            <DatePicker
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full h-9 rounded-[10px] bg-surface-2 border border-line px-2.5 text-[12px] text-ink outline-none"
+              onChange={(v) => setStartDate(v)}
             />
           </div>
           <div>
             <label className="block text-[12px] font-medium text-ink-2 mb-1">End date</label>
-            <input
-              type="date"
+            <DatePicker
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full h-9 rounded-[10px] bg-surface-2 border border-line px-2.5 text-[12px] text-ink outline-none"
+              onChange={(v) => setEndDate(v)}
             />
           </div>
         </div>
