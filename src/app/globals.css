@@ -447,3 +447,108 @@ body.distraction-free nav {
   background: linear-gradient(180deg, #6FA4FF, #1951FC);
   box-shadow: 0 0 12px rgba(55,129,252,0.85), 0 0 2px rgba(55,129,252,1);
 }
+
+/* Phase 4: Desktop Notes Editor (.fx-prose) */
+.fx-prose {
+  font-size: 16px;
+  line-height: 28px;
+  color: var(--ink);
+  min-height: 360px;
+}
+.fx-prose p {
+  margin-bottom: 12px;
+}
+.fx-prose h1 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 36px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-top: 28px;
+  margin-bottom: 8px;
+}
+.fx-prose h2 {
+  font-family: var(--font-ui);
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 24px;
+  margin-bottom: 8px;
+}
+.fx-prose ul:not([data-type="taskList"]),
+.fx-prose ol {
+  padding-left: 22px;
+  margin-bottom: 12px;
+}
+.fx-prose ul:not([data-type="taskList"]) {
+  list-style-type: disc;
+}
+.fx-prose ol {
+  list-style-type: decimal;
+}
+.fx-prose li {
+  margin-bottom: 6px;
+}
+.fx-prose blockquote {
+  border-left: 3px solid var(--primary);
+  padding-left: 16px;
+  font-style: italic;
+  color: var(--ink-2);
+  margin: 16px 0;
+}
+.fx-prose code {
+  background: var(--surface-2);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 14px;
+}
+.fx-prose ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 12px;
+}
+.fx-prose ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.fx-prose ul[data-type="taskList"] li > label {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+  user-select: none;
+}
+.fx-prose ul[data-type="taskList"] li > label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  border: 1.5px solid var(--line-strong);
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-content: center;
+  transition: all 140ms var(--ease);
+}
+.fx-prose ul[data-type="taskList"] li > label input[type="checkbox"]:checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'><polyline points='3.5 8.5 6.5 11.5 12.5 4.5'/></svg>");
+  background-size: 12px 12px;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.fx-prose ul[data-type="taskList"] li[data-checked="true"] > div {
+  text-decoration: line-through;
+  color: var(--ink-3);
+}
+.fx-prose p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

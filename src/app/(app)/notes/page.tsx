@@ -7,6 +7,9 @@ import { createClient } from '@/lib/supabase'
 import { NotesList, FilterType } from '@/components/notes/NotesList'
 import dynamic from 'next/dynamic'
 import { FREE_TIER_LIMITS, isPaidPlan } from '@/lib/featureGates'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
+import DesktopNotesView from '@/components/desktop/notes/DesktopNotesView'
+import { Skeleton } from '@/components/desktop/ui/Skeleton'
 
 const VoiceRecordingOverlay = dynamic(
     () => import('@/components/notes/VoiceRecordingOverlay').then(mod => mod.VoiceRecordingOverlay),
@@ -16,6 +19,7 @@ const VoiceRecordingOverlay = dynamic(
 const FILTERS: FilterType[] = ['All', 'Notes', 'Favourite', 'Folders', 'Voice notes']
 
 export default function NotesPage() {
+    const isDesktop = useIsDesktop()
     const router = useRouter()
     const supabase = createClient()
     const { t } = useTranslation()
@@ -90,6 +94,18 @@ export default function NotesPage() {
         } finally {
             setIsProcessingVoice(false)
         }
+    }
+
+    if (isDesktop === null) {
+        return (
+            <div className="p-6">
+                <Skeleton className="h-[calc(100vh-140px)] w-full rounded-[20px]" />
+            </div>
+        )
+    }
+
+    if (isDesktop) {
+        return <DesktopNotesView />
     }
 
     return (

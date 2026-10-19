@@ -11,6 +11,7 @@ export function useFocusStats(fromYMD: string, toYMD: string) {
     totalMinutes: 0,
     sessions: 0,
     byDay: {} as Record<string, number>,
+    byHour: Array(24).fill(0) as number[],
     loading: true,
   });
 
@@ -62,23 +63,31 @@ export function useFocusStats(fromYMD: string, toYMD: string) {
         }
       });
 
-      // 4) Compute totals and byDay mapping
+      // 4) Compute totals, byDay, and byHour mapping
       let totalMinutes = 0;
       const byDay: Record<string, number> = {};
+      const byHour = Array(24).fill(0);
 
       deduped.forEach((r: any) => {
         const mins = Number(r.focus_minutes) || 0;
         totalMinutes += mins;
 
-        // Local date of this session's started_at
-        const rowDateStr = localDateStr(new Date(r.started_at));
+        // Local date and hour of this session
+        const sessionDate = new Date(r.started_at || r.created_at);
+        const rowDateStr = localDateStr(sessionDate);
         byDay[rowDateStr] = (byDay[rowDateStr] || 0) + mins;
+
+        const hour = sessionDate.getHours();
+        if (hour >= 0 && hour < 24) {
+          byHour[hour] += mins;
+        }
       });
 
       setState({
         totalMinutes,
         sessions: deduped.length,
         byDay,
+        byHour,
         loading: false,
       });
     } catch (err) {

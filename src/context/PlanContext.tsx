@@ -19,6 +19,8 @@ export interface TaskItem {
     priority: Priority
     reminders: boolean
     position?: number
+    completed_at?: string | null
+    due_date?: string | null
 }
 
 export interface HabitItem {
@@ -152,6 +154,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 is_completed: t.is_completed,
                 start_date: t.due_date || '',
                 end_date: t.due_date || '',
+                due_date: t.due_date || null,
+                completed_at: t.completed_at || null,
                 tags: t.tags || [],
                 priority: normalizePriority(t.priority),
                 reminders: !!t.reminder_time,

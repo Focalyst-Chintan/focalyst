@@ -108,6 +108,10 @@ export function useDesktopShortcuts({
             return;
           }
         }
+        if (pathname.startsWith('/notes')) {
+          window.dispatchEvent(new CustomEvent('fx:create-note'));
+          return;
+        }
         onOpenNewMenu?.();
         return;
       }
