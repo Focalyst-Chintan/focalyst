@@ -38,6 +38,8 @@ export default function LandingPage() {
           alt="Focalyst Hero"
           fill
           priority
+          unoptimized
+          sizes="100vw"
           className="object-cover object-[center_60%] select-none pointer-events-none"
         />
 
