@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates';
 import { rateLimit } from '@/lib/rate-limit';
 import { FOCALYST_AI_PERSONA } from '@/constants/focalystPersona';
+import { localDateStr } from '@/lib/utils/date';
 
 // CRITICAL: Set Edge Runtime to allow streaming in Vercel production
 export const runtime = 'edge';
@@ -245,8 +246,8 @@ export async function POST(req: Request) {
                             try {
                                 const today = new Date();
                                 const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today);
-                                const startStr = startOfWeek.toISOString().split('T')[0];
-                                const endStr = endOfWeek.toISOString().split('T')[0];
+                                const startStr = localDateStr(startOfWeek);
+                                const endStr = localDateStr(endOfWeek);
 
                                 const [focusRes, tasksRes, habitsRes] = await Promise.all([
                                     supabase.from('daily_focus_activity').select('focus_time_minutes').eq('user_id', user.id).gte('date', startStr).lte('date', endStr),

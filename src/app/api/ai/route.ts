@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@google/generative-ai'
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates'
 import { rateLimit } from '@/lib/rate-limit'
+import { localDateStr } from '@/lib/utils/date'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -225,7 +226,7 @@ If the user asks to plan their day, first ask them for their goals and available
                             .from('daily_focus_activity')
                             .select('date, focus_time_minutes, break_time_minutes')
                             .eq('user_id', user.id)
-                            .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+                            .gte('date', localDateStr(sevenDaysAgo))
 
                         // Fetch active habit streaks
                         const { data: habits } = await supabase
@@ -266,7 +267,7 @@ If the user asks to plan their day, first ask them for their goals and available
                     const tasksToInsert = args.tasks.map((t: any) => ({
                         user_id: user.id,
                         title: t.task_name,
-                        due_date: new Date().toISOString().split('T')[0],
+                        due_date: localDateStr(),
                         priority: 'medium'
                     }))
 
