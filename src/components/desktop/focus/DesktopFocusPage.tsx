@@ -20,7 +20,7 @@ import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { localDateStr, parseYMDToLocalNoon } from '@/lib/utils/date';
-import { getLevelFromMinutes } from '@/lib/utils/levels';
+import { getLevelFromXp } from '@/lib/xp/levels';
 import { recordFocusSession, reconcileDailyFocus } from '@/lib/focus/recordFocusSession';
 import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { useFocusStats } from '@/hooks/useFocusStats';
@@ -49,7 +49,7 @@ function safeRandomId() {
 export function DesktopFocusPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, plan } = useAuth();
+  const { user, profile, plan } = useAuth();
   const { tasks } = usePlan();
   const todayStr = useMemo(() => localDateStr(new Date()), []);
   const todayFocusStats = useFocusStats(todayStr, todayStr);
@@ -529,10 +529,10 @@ export function DesktopFocusPage() {
     return (tasks || []).filter((t) => !t.is_completed);
   }, [tasks]);
 
-  // User focus level
+  // User focus level derived from total_xp (source of truth)
   const userLevel = useMemo(() => {
-    return getLevelFromMinutes(todayFocusMinutes);
-  }, [todayFocusMinutes]);
+    return getLevelFromXp((profile as any)?.total_xp || 0).level;
+  }, [profile]);
 
   // Apply custom preset
   const applyCustomPreset = () => {

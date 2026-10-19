@@ -333,16 +333,6 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
         <AmbientBackground />
       </div>
 
-      {/* Top viewport fade across full width at z-20 (sidebar is z-40, top bar is z-30) */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 z-20 hidden lg:block h-[88px]"
-        style={{
-          background:
-            'linear-gradient(to bottom, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 70%, transparent) 50%, transparent 100%)',
-        }}
-      />
-
       <div className="relative z-10 flex min-h-screen w-full">
         {/* =========================================================================
             DESKTOP SIDEBAR

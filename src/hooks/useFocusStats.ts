@@ -12,6 +12,7 @@ export function useFocusStats(fromYMD: string, toYMD: string) {
     sessions: 0,
     byDay: {} as Record<string, number>,
     byHour: Array(24).fill(0) as number[],
+    rows: [] as any[],
     loading: true,
   });
 
@@ -88,6 +89,7 @@ export function useFocusStats(fromYMD: string, toYMD: string) {
         sessions: deduped.length,
         byDay,
         byHour,
+        rows: deduped,
         loading: false,
       });
     } catch (err) {

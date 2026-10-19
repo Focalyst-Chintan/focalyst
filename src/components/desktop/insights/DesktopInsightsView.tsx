@@ -1,10 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  AreaChart,
-  Area,
   BarChart,
   Bar,
   XAxis,
@@ -13,6 +11,7 @@ import {
   Tooltip as RechartsTooltip,
   ResponsiveContainer,
   Cell,
+  ReferenceLine,
 } from 'recharts';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
@@ -21,8 +20,8 @@ import { localDateStr, addDaysYMD } from '@/lib/utils/date';
 import { getPeriod, PeriodKind } from '@/lib/utils/period';
 import { useFocusStats } from '@/hooks/useFocusStats';
 import { onDataChanged } from '@/lib/events';
-import { getLevelFromXP, LEVEL_BENCHMARKS } from '@/lib/utils/levels';
-import { calculateProductivityScore } from '@/lib/utils/insights';
+import { getLevelFromXp, LEVELS } from '@/lib/xp/levels';
+import { minuteTicks, fmtMin } from '@/lib/utils/chart';
 import { LevelUpModal } from '@/components/insights/LevelUpModal';
 import WeeklyReportView from '@/components/insights/WeeklyReportView';
 
@@ -32,32 +31,38 @@ import { IconButton } from '@/components/desktop/ui/IconButton';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { Modal } from '@/components/desktop/ui/Modal';
 import { ProgressRing } from '@/components/desktop/ui/ProgressRing';
-import { Skeleton } from '@/components/desktop/ui/Skeleton';
+import { EmptyState } from '@/components/desktop/ui/EmptyState';
 import {
   ChevronLeft,
   ChevronRight,
   Sparkles,
   Flame,
-  RotateCw,
-  Clock,
-  Layers,
-  CheckCircle2,
-  ListTodo,
+  Star,
+  Lock,
+  Check,
 } from 'lucide-react';
 
-function formatFocusTime(minutes: number): string {
-  if (minutes < 60) return `${minutes}m`;
-  const hrs = Math.floor(minutes / 60);
-  const remaining = minutes % 60;
-  if (remaining === 0) return `${hrs}h`;
-  return `${hrs}h ${remaining}m`;
-}
-
-function formatHour12(h: number): string {
-  if (h === 0) return '12 AM';
-  if (h === 12) return '12 PM';
-  if (h > 12) return `${h - 12} PM`;
-  return `${h} AM`;
+function MicroBars({ values, todayIndex }: { values: number[]; todayIndex?: number }) {
+  const max = Math.max(1, ...values);
+  return (
+    <div className="mt-4 flex h-10 items-end gap-[3px]">
+      {values.map((v, i) => (
+        <div
+          key={i}
+          className="flex-1 rounded-[3px]"
+          style={{
+            height: `${Math.max(8, (v / max) * 100)}%`,
+            background:
+              v === 0
+                ? 'var(--surface-3)'
+                : i === todayIndex
+                ? 'linear-gradient(180deg,#6FA4FF,#1951FC)'
+                : 'color-mix(in srgb, #3781FC 55%, transparent)',
+          }}
+        />
+      ))}
+    </div>
+  );
 }
 
 export default function DesktopInsightsView() {
@@ -74,10 +79,12 @@ export default function DesktopInsightsView() {
   const [totalXP, setTotalXP] = useState(0);
   const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
   const [weeklyReport, setWeeklyReport] = useState<any | null>(null);
-  const [weeklyReportAvailable, setWeeklyReportAvailable] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [isLevelsModalOpen, setIsLevelsModalOpen] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
+
+  // Auto-scroll ref for roadmap modal
+  const currentLevelRowRef = useRef<HTMLDivElement>(null);
 
   // Sync kind with URL
   const handleKindChange = (newKind: string) => {
@@ -91,12 +98,16 @@ export default function DesktopInsightsView() {
 
   const period = useMemo(() => getPeriod(kind, offset), [kind, offset]);
 
-  // Query Focus Stats for current & previous elapsed range for fair comparisons
+  // Focus Stats for current & previous elapsed range
   const currentStats = useFocusStats(period.from, period.effectiveTo);
   const prevStats = useFocusStats(period.prevFrom, period.prevTo);
-
-  // Fetch full period focus stats for bar chart display
   const fullPeriodStats = useFocusStats(period.from, period.to);
+
+  // For week view: query previous week full stats to compare each weekday
+  const prevWeekFullStats = useFocusStats(
+    addDaysYMD(period.from, -7),
+    addDaysYMD(period.to, -7)
+  );
 
   // Load user XP, plan & weekly reports
   const loadInsightsMeta = useCallback(async () => {
@@ -113,7 +124,6 @@ export default function DesktopInsightsView() {
         setUserPlan(profile.plan !== 'free' ? 'pro' : 'free');
       }
 
-      // Check weekly report
       const { data: reports } = await supabase
         .from('weekly_reports')
         .select('*')
@@ -123,7 +133,6 @@ export default function DesktopInsightsView() {
 
       if (reports && reports.length > 0) {
         setWeeklyReport(reports[0]);
-        setWeeklyReportAvailable(true);
       }
     } catch (err) {
       console.error('Failed to load insights meta:', err);
@@ -136,10 +145,28 @@ export default function DesktopInsightsView() {
     return unsub;
   }, [loadInsightsMeta]);
 
-  // Level calculations
-  const levelState = useMemo(() => getLevelFromXP(totalXP), [totalXP]);
+  // Exact mobile XP level calculation
+  const levelInfo = useMemo(() => getLevelFromXp(totalXP), [totalXP]);
 
-  // Tasks done in [period.from, period.effectiveTo]
+  // Next 3 levels preview for Level Card
+  const nextThreeLevels = useMemo(() => {
+    return LEVELS.filter((l) => l.level > levelInfo.level).slice(0, 3);
+  }, [levelInfo.level]);
+
+  // Scroll to current level when roadmap modal opens
+  useEffect(() => {
+    if (isLevelsModalOpen) {
+      const timer = setTimeout(() => {
+        currentLevelRowRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        });
+      }, 120);
+      return () => clearTimeout(timer);
+    }
+  }, [isLevelsModalOpen]);
+
+  // Tasks in period
   const tasksDoneCount = useMemo(() => {
     return tasks.filter((t) => {
       if (!t.is_completed || !t.completed_at) return false;
@@ -156,13 +183,18 @@ export default function DesktopInsightsView() {
     }).length;
   }, [tasks, period.prevFrom, period.prevTo]);
 
-  // Habit consistency calculation in [from, effectiveTo]
-  const { habitConsistencyPct, prevHabitConsistencyPct, habitBreakdown } = useMemo(() => {
+  // Habits breakdown & consistency
+  const { habitConsistencyPct, prevHabitConsistencyPct, habitBreakdown, totalHabitCheckins, totalHabitScheduled } = useMemo(() => {
     if (habits.length === 0) {
-      return { habitConsistencyPct: 0, prevHabitConsistencyPct: 0, habitBreakdown: [] };
+      return {
+        habitConsistencyPct: 0,
+        prevHabitConsistencyPct: 0,
+        habitBreakdown: [],
+        totalHabitCheckins: 0,
+        totalHabitScheduled: 0,
+      };
     }
 
-    // Days elapsed in current period
     let daysCount = 0;
     let cur = period.from;
     const currentDates: string[] = [];
@@ -172,7 +204,6 @@ export default function DesktopInsightsView() {
       daysCount++;
     }
 
-    // Previous dates
     let prevCur = period.prevFrom;
     const prevDates: string[] = [];
     while (prevCur <= period.prevTo) {
@@ -183,15 +214,36 @@ export default function DesktopInsightsView() {
     let currentCompletedCount = 0;
     let prevCompletedCount = 0;
 
+    // Week day dates (Mon..Sun of current week) for 7 dots
+    const weekDates: string[] = [];
+    let wCur = period.from;
+    for (let i = 0; i < 7; i++) {
+      weekDates.push(wCur);
+      wCur = addDaysYMD(wCur, 1);
+    }
+
     const breakdown = habits.map((h) => {
-      const dates = h.completedDates || [];
-      const currentHits = dates.filter((d) => d >= period.from && d <= period.effectiveTo).length;
-      const prevHits = dates.filter((d) => d >= period.prevFrom && d <= period.prevTo).length;
+      const dates = new Set((h.completedDates || []).map((d: any) => String(d).slice(0, 10)));
+      let currentHits = 0;
+      currentDates.forEach((d) => {
+        if (dates.has(d)) currentHits++;
+      });
+
+      let prevHits = 0;
+      prevDates.forEach((d) => {
+        if (dates.has(d)) prevHits++;
+      });
 
       currentCompletedCount += currentHits;
       prevCompletedCount += prevHits;
 
       const pct = Math.min(100, Math.round((currentHits / Math.max(1, daysCount)) * 100));
+
+      const weekDots = weekDates.map((d) => ({
+        date: d,
+        done: dates.has(d),
+      }));
+
       return {
         id: h.id,
         name: h.name,
@@ -199,19 +251,89 @@ export default function DesktopInsightsView() {
         color: h.color || '#3781FC',
         pct,
         logsCount: currentHits,
+        weekDots,
       };
     });
 
     const totalScheduled = habits.length * Math.max(1, daysCount);
-    const habitConsistencyPct = Math.min(100, Math.round((currentCompletedCount / totalScheduled) * 100));
+    const habitConsistencyPct = Math.min(100, Math.round((currentCompletedCount / Math.max(1, totalScheduled)) * 100));
 
     const totalPrevScheduled = habits.length * Math.max(1, prevDates.length);
-    const prevHabitConsistencyPct = Math.min(100, Math.round((prevCompletedCount / totalPrevScheduled) * 100));
+    const prevHabitConsistencyPct = Math.min(100, Math.round((prevCompletedCount / Math.max(1, totalPrevScheduled)) * 100));
 
     breakdown.sort((a, b) => b.pct - a.pct);
 
-    return { habitConsistencyPct, prevHabitConsistencyPct, habitBreakdown: breakdown };
+    return {
+      habitConsistencyPct,
+      prevHabitConsistencyPct,
+      habitBreakdown: breakdown,
+      totalHabitCheckins: currentCompletedCount,
+      totalHabitScheduled: totalScheduled,
+    };
   }, [habits, period.from, period.effectiveTo, period.prevFrom, period.prevTo]);
+
+  // Per-day series for KPI MicroBars
+  const todayYMD = localDateStr();
+  const kpiSeries = useMemo(() => {
+    const focusVals: number[] = [];
+    const sessionsVals: number[] = [];
+    const habitPctVals: number[] = [];
+    const taskVals: number[] = [];
+    let todayIdx = -1;
+
+    let cur = period.from;
+    let idx = 0;
+    while (cur <= period.to) {
+      if (cur === todayYMD) todayIdx = idx;
+
+      // Focus minutes & sessions
+      focusVals.push(fullPeriodStats.byDay[cur] || 0);
+
+      // Sessions for cur day
+      const daySessions = (fullPeriodStats.rows || []).filter(
+        (r: any) => localDateStr(new Date(r.started_at || r.created_at)) === cur
+      ).length;
+      sessionsVals.push(daySessions);
+
+      // Habit completion % for cur day
+      if (habits.length > 0) {
+        const doneHabits = habits.filter((h) =>
+          (h.completedDates || []).some((d: any) => String(d).slice(0, 10) === cur)
+        ).length;
+        habitPctVals.push(Math.round((doneHabits / habits.length) * 100));
+      } else {
+        habitPctVals.push(0);
+      }
+
+      // Tasks completed on cur day
+      const doneTasks = tasks.filter((t) => {
+        if (!t.is_completed || !t.completed_at) return false;
+        return localDateStr(new Date(t.completed_at)) === cur;
+      }).length;
+      taskVals.push(doneTasks);
+
+      cur = addDaysYMD(cur, 1);
+      idx++;
+    }
+
+    return { focusVals, sessionsVals, habitPctVals, taskVals, todayIdx };
+  }, [period.from, period.to, todayYMD, fullPeriodStats, habits, tasks]);
+
+  // Context line values
+  const elapsedDaysCount = Math.max(
+    1,
+    Math.round(
+      (new Date(period.effectiveTo + 'T12:00:00').getTime() -
+        new Date(period.from + 'T12:00:00').getTime()) /
+        86400000
+    ) + 1
+  );
+  const avgFocusPerDayMin = Math.round(currentStats.totalMinutes / elapsedDaysCount);
+  const avgSessionMin =
+    currentStats.sessions > 0
+      ? Math.round(currentStats.totalMinutes / currentStats.sessions)
+      : 0;
+  const stillOpenTasksCount = tasks.filter((t) => !t.is_completed).length;
 
   // Delta helpers
   const computeDelta = (curr: number, prev: number) => {
@@ -224,41 +346,147 @@ export default function DesktopInsightsView() {
   const tasksDelta = computeDelta(tasksDoneCount, prevTasksDoneCount);
   const habitsDelta = computeDelta(habitConsistencyPct, prevHabitConsistencyPct);
 
-  // Sparkline data for KPI cards (last 7 data points)
-  const sparklineData = useMemo(() => {
-    const days: { val: number }[] = [];
-    let cur = period.from;
-    while (cur <= period.effectiveTo) {
-      days.push({ val: currentStats.byDay[cur] || 0 });
-      cur = addDaysYMD(cur, 1);
-    }
-    return days.length > 0 ? days : [{ val: 0 }, { val: 0 }];
-  }, [period.from, period.effectiveTo, currentStats.byDay]);
+  // Grouped BarChart for Week focus activity: this week vs last week weekday
+  const weekGroupedData = useMemo(() => {
+    if (kind !== 'week') return [];
+    const list: {
+      weekday: string;
+      fullDate: string;
+      thisWeek: number;
+      lastWeek: number;
+    }[] = [];
 
-  // BarChart data for Focus Activity
-  const focusActivityData = useMemo(() => {
-    const list: { day: string; fullDate: string; minutes: number }[] = [];
     let cur = period.from;
     while (cur <= period.to) {
       const d = new Date(cur + 'T12:00:00');
-      const dayLabel =
-        kind === 'week'
-          ? d.toLocaleDateString('en-GB', { weekday: 'short' })
-          : String(d.getDate());
+      const weekday = d.toLocaleDateString('en-GB', { weekday: 'short' });
+      const lastWeekDate = addDaysYMD(cur, -7);
+
       list.push({
-        day: dayLabel,
+        weekday,
         fullDate: d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }),
-        minutes: fullPeriodStats.byDay[cur] || 0,
+        thisWeek: fullPeriodStats.byDay[cur] || 0,
+        lastWeek: prevWeekFullStats.byDay[lastWeekDate] || 0,
       });
+
       cur = addDaysYMD(cur, 1);
     }
     return list;
-  }, [period.from, period.to, fullPeriodStats.byDay, kind]);
+  }, [kind, period.from, period.to, fullPeriodStats.byDay, prevWeekFullStats.byDay]);
 
-  // Best focus time calculations
-  const { peakHour, peakMinutes, byHourData } = useMemo(() => {
+  // Month calendar data
+  const monthCalendarData = useMemo(() => {
+    if (kind !== 'month') return null;
+
+    // First day of month
+    const [y, m] = period.from.split('-').map(Number);
+    const firstDay = new Date(y, m - 1, 1);
+    const lastDay = new Date(y, m, 0);
+    const totalDays = lastDay.getDate();
+
+    // Monday-based start offset: 0=Mon, 6=Sun
+    let startDayOfWeek = (firstDay.getDay() + 6) % 7;
+
+    // Calculate month max for quartiles
+    let monthMax = 1;
+    for (let d = 1; d <= totalDays; d++) {
+      const dayStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const mins = fullPeriodStats.byDay[dayStr] || 0;
+      if (mins > monthMax) monthMax = mins;
+    }
+
+    // Cells
+    const cells: {
+      dayNumber: number;
+      dateStr: string;
+      minutes: number;
+      isToday: boolean;
+      isFuture: boolean;
+      isCurrentMonth: boolean;
+    }[] = [];
+
+    // Leading padding days from previous month
+    const prevMonthDays = new Date(y, m - 1, 0).getDate();
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      cells.push({
+        dayNumber: prevMonthDays - i,
+        dateStr: '',
+        minutes: 0,
+        isToday: false,
+        isFuture: true,
+        isCurrentMonth: false,
+      });
+    }
+
+    // Current month days
+    let bestDayStr = '';
+    let bestDayMins = 0;
+    for (let d = 1; d <= totalDays; d++) {
+      const dayStr = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+      const mins = fullPeriodStats.byDay[dayStr] || 0;
+      if (mins > bestDayMins) {
+        bestDayMins = mins;
+        bestDayStr = dayStr;
+      }
+      cells.push({
+        dayNumber: d,
+        dateStr: dayStr,
+        minutes: mins,
+        isToday: dayStr === todayYMD,
+        isFuture: dayStr > todayYMD,
+        isCurrentMonth: true,
+      });
+    }
+
+    // Trailing padding to complete 7-col rows
+    while (cells.length % 7 !== 0) {
+      cells.push({
+        dayNumber: 0,
+        dateStr: '',
+        minutes: 0,
+        isToday: false,
+        isFuture: true,
+        isCurrentMonth: false,
+      });
+    }
+
+    // Weekly totals (W1, W2, ...)
+    const weeklyTotals: { label: string; minutes: number }[] = [];
+    const numWeeks = cells.length / 7;
+    for (let w = 0; w < numWeeks; w++) {
+      const weekCells = cells.slice(w * 7, (w + 1) * 7);
+      const wMins = weekCells.reduce((sum, c) => sum + (c.isCurrentMonth ? c.minutes : 0), 0);
+      weeklyTotals.push({ label: `W${w + 1}`, minutes: wMins });
+    }
+
+    // Format best day string
+    let bestDayLabel = 'None';
+    if (bestDayMins > 0 && bestDayStr) {
+      const bDate = new Date(bestDayStr + 'T12:00:00');
+      bestDayLabel = `${bDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric' })} · ${fmtMin(bestDayMins)}`;
+    }
+
+    return {
+      cells,
+      weeklyTotals,
+      monthMax,
+      bestDayLabel,
+    };
+  }, [kind, period.from, fullPeriodStats.byDay, todayYMD]);
+
+  // Max minutes for ticks
+  const weekMaxMin = useMemo(() => {
+    if (kind !== 'week') return 60;
+    const all = weekGroupedData.flatMap((d) => [d.thisWeek, d.lastWeek]);
+    return Math.max(1, ...all);
+  }, [kind, weekGroupedData]);
+
+  const yTicks = useMemo(() => minuteTicks(weekMaxMin), [weekMaxMin]);
+
+  // Best Focus Time: 24 bars + 4 quadrants (Morning 5..12, Afternoon 12..17, Evening 17..21, Night 21..5)
+  const { peakHour, peakMinutes, byHourData, quadrants, bestSentence } = useMemo(() => {
     const arr = fullPeriodStats.byHour || Array(24).fill(0);
-    let bestH = 9;
+    let bestH = 21;
     let maxM = 0;
     arr.forEach((m: number, h: number) => {
       if (m > maxM) {
@@ -266,44 +494,138 @@ export default function DesktopInsightsView() {
         bestH = h;
       }
     });
+
     const byHourList = arr.map((m: number, h: number) => ({
       hour: h,
-      label: formatHour12(h),
       minutes: m,
     }));
-    return { peakHour: bestH, peakMinutes: maxM, byHourData: byHourList };
+
+    // Quadrants share
+    const totalM = arr.reduce((acc, m) => acc + m, 0);
+    let morningM = 0; // 5 to 12
+    let afternoonM = 0; // 12 to 17
+    let eveningM = 0; // 17 to 21
+    let nightM = 0; // 21 to 5
+
+    arr.forEach((m: number, h: number) => {
+      if (h >= 5 && h < 12) morningM += m;
+      else if (h >= 12 && h < 17) afternoonM += m;
+      else if (h >= 17 && h < 21) eveningM += m;
+      else nightM += m;
+    });
+
+    const share = (m: number) => (totalM > 0 ? Math.round((m / totalM) * 100) : 0);
+
+    const quads = [
+      { name: 'Morning', range: '5 to 12', share: share(morningM) },
+      { name: 'Afternoon', range: '12 to 17', share: share(afternoonM) },
+      { name: 'Evening', range: '17 to 21', share: share(eveningM) },
+      { name: 'Night', range: '21 to 5', share: share(nightM) },
+    ];
+
+    const sentence =
+      totalM < 15
+        ? 'Not enough sessions yet.'
+        : `You focus best around ${bestH === 0 ? '12 AM' : bestH === 12 ? '12 PM' : bestH > 12 ? `${bestH - 12} PM` : `${bestH} AM`}`;
+
+    return { peakHour: bestH, peakMinutes: maxM, byHourData: byHourList, quadrants: quads, bestSentence: sentence };
   }, [fullPeriodStats.byHour]);
 
-  // Productivity score calculation
-  const totalTasksInPeriod = tasksDoneCount + tasks.filter((t) => !t.is_completed).length;
-  const streakSum = habits.reduce((acc, h) => acc + (h.current_streak || 0), 0);
-  const prodScore = calculateProductivityScore(
-    tasksDoneCount,
-    totalTasksInPeriod,
-    streakSum,
-    habits.length,
-    currentStats.totalMinutes,
-    prevStats.totalMinutes
-  );
+  // Productivity score calculation: component points
+  const prodBreakdown = useMemo(() => {
+    const totalTasksInPeriod = tasksDoneCount + stillOpenTasksCount;
+    let taskScore = 0;
+    if (totalTasksInPeriod > 0) {
+      taskScore = Math.min(40, Math.round((tasksDoneCount / totalTasksInPeriod) * 40));
+    }
 
-  let grade = 'Grade B';
-  if (prodScore >= 90) grade = 'Grade A+';
-  else if (prodScore >= 80) grade = 'Grade A';
-  else if (prodScore >= 70) grade = 'Grade B+';
-  else if (prodScore >= 60) grade = 'Grade B';
-  else if (prodScore >= 50) grade = 'Grade C';
-  else grade = 'Grade D';
+    let habitScore = 0;
+    if (habits.length > 0) {
+      const streakSum = habits.reduce((acc, h) => acc + (h.current_streak || 0), 0);
+      const avgStreak = streakSum / habits.length;
+      habitScore = Math.min(35, Math.round((avgStreak / 7) * 35));
+    }
+
+    let focusScore = 0;
+    if (prevStats.totalMinutes > 0) {
+      focusScore = Math.min(25, Math.round((currentStats.totalMinutes / prevStats.totalMinutes) * 25));
+    } else if (currentStats.totalMinutes > 0) {
+      focusScore = 25;
+    }
+
+    const total = Math.min(100, taskScore + habitScore + focusScore);
+
+    let grade = 'Grade B';
+    if (total >= 90) grade = 'Grade A+';
+    else if (total >= 80) grade = 'Grade A';
+    else if (total >= 70) grade = 'Grade B+';
+    else if (total >= 60) grade = 'Grade B';
+    else if (total >= 50) grade = 'Grade C';
+    else grade = 'Grade D';
+
+    return {
+      taskScore,
+      habitScore,
+      focusScore,
+      total,
+      grade,
+    };
+  }, [tasksDoneCount, stillOpenTasksCount, habits, prevStats.totalMinutes, currentStats.totalMinutes]);
+
+  // Highlights Card (Row 4): Best day, Longest session, Average session, Active days
+  const highlights = useMemo(() => {
+    const rows = fullPeriodStats.rows || [];
+
+    // Best day
+    let bestDayStr = '';
+    let bestDayM = 0;
+    Object.entries(fullPeriodStats.byDay || {}).forEach(([day, m]) => {
+      if (m > bestDayM) {
+        bestDayM = m;
+        bestDayStr = day;
+      }
+    });
+    let bestDayText = 'None';
+    if (bestDayM > 0 && bestDayStr) {
+      const d = new Date(bestDayStr + 'T12:00:00');
+      bestDayText = `${d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })} · ${fmtMin(bestDayM)}`;
+    }
+
+    // Longest session
+    let longestM = 0;
+    rows.forEach((r: any) => {
+      const m = Number(r.focus_minutes) || 0;
+      if (m > longestM) longestM = m;
+    });
+
+    // Average session
+    const avgSess = rows.length > 0 ? Math.round(fullPeriodStats.totalMinutes / rows.length) : 0;
+
+    // Active days in period
+    const activeDaysCount = Object.values(fullPeriodStats.byDay || {}).filter((m) => m > 0).length;
+    const totalPeriodDays =
+      kind === 'week'
+        ? 7
+        : Math.round(
+            (new Date(period.to + 'T12:00:00').getTime() -
+              new Date(period.from + 'T12:00:00').getTime()) /
+              86400000
+          ) + 1;
+
+    return {
+      bestDay: bestDayText,
+      longestSession: longestM > 0 ? `${longestM}m` : '0m',
+      averageSession: avgSess > 0 ? `${avgSess}m` : '0m',
+      activeDays: `${activeDaysCount} of ${totalPeriodDays}`,
+    };
+  }, [fullPeriodStats, kind, period.from, period.to]);
 
   return (
     <div className="pb-16 max-w-[1280px] mx-auto">
-      {/* SVG Gradients for Charts */}
+      {/* Chart Gradients */}
       <svg width="0" height="0" className="absolute">
         <defs>
-          <linearGradient id="fxSparkGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#3781FC" stopOpacity={0.25} />
-            <stop offset="100%" stopColor="#3781FC" stopOpacity={0} />
-          </linearGradient>
-          <linearGradient id="fxFocusBarGrad" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="fxFocusThisWeekGrad" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#3781FC" />
             <stop offset="100%" stopColor="#1951FC" />
           </linearGradient>
@@ -351,219 +673,392 @@ export default function DesktopInsightsView() {
 
       {/* 12-COLUMN BENTO GRID */}
       <div className="grid grid-cols-12 gap-5">
-        {/* ROW 1: 4 KPI Cards */}
+        {/* ROW 1: 4 KPI Cards with MicroBars */}
         {/* KPI 1: Focus time */}
-        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between h-[152px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-ink-2 font-medium">Focus time</span>
-            {focusDelta !== null && (
-              <span
-                className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
-                  focusDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
-                }`}
-              >
-                {focusDelta >= 0 ? `+${focusDelta}%` : `${focusDelta}%`} vs last {kind}
-              </span>
-            )}
+        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-ink-2 font-medium">Focus time</span>
+              {focusDelta !== null && (
+                <span
+                  className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
+                    focusDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
+                  }`}
+                >
+                  {focusDelta >= 0 ? `+${focusDelta}%` : `${focusDelta}%`} vs last {kind}
+                </span>
+              )}
+            </div>
+            <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
+              {fmtMin(currentStats.totalMinutes)}
+            </div>
+            <div className="text-[12px] text-ink-3 mt-0.5">
+              Avg {fmtMin(avgFocusPerDayMin)} a day
+            </div>
           </div>
-          <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
-            {formatFocusTime(currentStats.totalMinutes)}
-          </div>
-          <div className="h-10 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#3781FC"
-                  strokeWidth={2}
-                  fill="url(#fxSparkGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <MicroBars values={kpiSeries.focusVals} todayIndex={kpiSeries.todayIdx} />
         </div>
 
         {/* KPI 2: Sessions */}
-        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between h-[152px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-ink-2 font-medium">Sessions</span>
-            {sessionsDelta !== null && (
-              <span
-                className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
-                  sessionsDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
-                }`}
-              >
-                {sessionsDelta >= 0 ? `+${sessionsDelta}%` : `${sessionsDelta}%`} vs last {kind}
-              </span>
-            )}
+        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-ink-2 font-medium">Sessions</span>
+              {sessionsDelta !== null && (
+                <span
+                  className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
+                    sessionsDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
+                  }`}
+                >
+                  {sessionsDelta >= 0 ? `+${sessionsDelta}%` : `${sessionsDelta}%`} vs last {kind}
+                </span>
+              )}
+            </div>
+            <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
+              {currentStats.sessions}
+            </div>
+            <div className="text-[12px] text-ink-3 mt-0.5">
+              Avg {avgSessionMin}m each
+            </div>
           </div>
-          <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
-            {currentStats.sessions}
-          </div>
-          <div className="h-10 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#3781FC"
-                  strokeWidth={2}
-                  fill="url(#fxSparkGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <MicroBars values={kpiSeries.sessionsVals} todayIndex={kpiSeries.todayIdx} />
         </div>
 
         {/* KPI 3: Habit consistency */}
-        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between h-[152px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-ink-2 font-medium">Habit consistency</span>
-            {habitsDelta !== null && (
-              <span
-                className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
-                  habitsDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
-                }`}
-              >
-                {habitsDelta >= 0 ? `+${habitsDelta}%` : `${habitsDelta}%`} vs last {kind}
-              </span>
-            )}
+        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-ink-2 font-medium">Habit consistency</span>
+              {habitsDelta !== null && (
+                <span
+                  className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
+                    habitsDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
+                  }`}
+                >
+                  {habitsDelta >= 0 ? `+${habitsDelta}%` : `${habitsDelta}%`} vs last {kind}
+                </span>
+              )}
+            </div>
+            <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
+              {habitConsistencyPct}%
+            </div>
+            <div className="text-[12px] text-ink-3 mt-0.5">
+              {totalHabitCheckins} of {totalHabitScheduled} check-ins
+            </div>
           </div>
-          <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
-            {habitConsistencyPct}%
-          </div>
-          <div className="h-10 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#3781FC"
-                  strokeWidth={2}
-                  fill="url(#fxSparkGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <MicroBars values={kpiSeries.habitPctVals} todayIndex={kpiSeries.todayIdx} />
         </div>
 
         {/* KPI 4: Tasks done */}
-        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between h-[152px]">
-          <div className="flex items-center justify-between">
-            <span className="text-[13px] text-ink-2 font-medium">Tasks done</span>
-            {tasksDelta !== null && (
-              <span
-                className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
-                  tasksDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
-                }`}
-              >
-                {tasksDelta >= 0 ? `+${tasksDelta}%` : `${tasksDelta}%`} vs last {kind}
-              </span>
-            )}
+        <div className="col-span-3 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-[13px] text-ink-2 font-medium">Tasks done</span>
+              {tasksDelta !== null && (
+                <span
+                  className={`text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${
+                    tasksDelta >= 0 ? 'bg-success/12 text-success' : 'bg-danger/12 text-danger'
+                  }`}
+                >
+                  {tasksDelta >= 0 ? `+${tasksDelta}%` : `${tasksDelta}%`} vs last {kind}
+                </span>
+              )}
+            </div>
+            <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
+              {tasksDoneCount}
+            </div>
+            <div className="text-[12px] text-ink-3 mt-0.5">
+              {stillOpenTasksCount} still open
+            </div>
           </div>
-          <div className="text-[32px] leading-[36px] font-semibold tabular-nums text-ink mt-1">
-            {tasksDoneCount}
-          </div>
-          <div className="h-10 w-full mt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area
-                  type="monotone"
-                  dataKey="val"
-                  stroke="#3781FC"
-                  strokeWidth={2}
-                  fill="url(#fxSparkGrad)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
+          <MicroBars values={kpiSeries.taskVals} todayIndex={kpiSeries.todayIdx} />
         </div>
 
-        {/* ROW 2: Focus Activity (8 cols) & Level (4 cols) */}
+        {/* ROW 2: Focus Activity (8 cols) & Level Card (4 cols) */}
         {/* FOCUS ACTIVITY */}
-        <div className="col-span-8 frost p-5 rounded-[20px]">
+        <div className="col-span-8 frost p-5 rounded-[20px] flex flex-col justify-between">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-[16px] font-semibold text-ink">Focus activity</h3>
-            <span className="text-[13px] tabular-nums text-ink-2 font-medium">
-              Total {formatFocusTime(currentStats.totalMinutes)}
-            </span>
+            <div>
+              <h3 className="text-[16px] font-semibold text-ink">Focus activity</h3>
+              {kind === 'month' && monthCalendarData && (
+                <div className="text-[12px] text-ink-3 mt-0.5">
+                  Best day: {monthCalendarData.bestDayLabel}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-4">
+              {kind === 'week' && (
+                <div className="flex items-center gap-3 text-[12px]">
+                  <div className="flex items-center gap-1.5 text-ink-2">
+                    <span className="h-2.5 w-2.5 rounded-full bg-gradient-to-r from-[#3781FC] to-[#1951FC]" />
+                    <span>This week</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-ink-3">
+                    <span className="h-2.5 w-2.5 rounded-full bg-surface-3" />
+                    <span>Last week</span>
+                  </div>
+                </div>
+              )}
+              <span className="text-[13px] tabular-nums text-ink font-semibold">
+                Total {fmtMin(currentStats.totalMinutes)}
+              </span>
+            </div>
           </div>
-          <div className="h-[260px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={focusActivityData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid vertical={false} stroke="var(--line)" />
-                <XAxis
-                  dataKey="day"
-                  tick={{ fontSize: 12, fill: 'var(--ink-3)' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 12, fill: 'var(--ink-3)' }}
-                  axisLine={false}
-                  tickLine={false}
-                  tickFormatter={(v) => (v >= 60 ? `${Math.floor(v / 60)}h` : `${v}m`)}
-                />
-                <RechartsTooltip
-                  cursor={{ fill: 'var(--surface-2)', opacity: 0.5 }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
+
+          {currentStats.totalMinutes === 0 ? (
+            <div className="py-16">
+              <EmptyState
+                title={`No focus yet this ${kind}.`}
+                description="Start a focus session to build momentum and earn XP."
+                actionLabel="Start a session"
+                onAction={() => router.push('/focus')}
+              />
+            </div>
+          ) : kind === 'week' ? (
+            /* WEEK: Grouped BarChart */
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart
+                  data={weekGroupedData}
+                  barGap={4}
+                  margin={{ top: 12, right: 20, left: -20, bottom: 0 }}
+                >
+                  <CartesianGrid vertical={false} stroke="var(--line)" />
+                  <XAxis
+                    dataKey="weekday"
+                    tick={{ fontSize: 12, fill: 'var(--ink-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    ticks={yTicks}
+                    tick={{ fontSize: 12, fill: 'var(--ink-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={fmtMin}
+                  />
+                  <ReferenceLine
+                    y={avgFocusPerDayMin}
+                    stroke="var(--ink-3)"
+                    strokeDasharray="4 4"
+                    label={{
+                      value: `Avg ${fmtMin(avgFocusPerDayMin)}`,
+                      position: 'right',
+                      fill: 'var(--ink-3)',
+                      fontSize: 11,
+                    }}
+                  />
+                  <RechartsTooltip
+                    cursor={{ fill: 'var(--surface-2)', opacity: 0.5 }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        return (
+                          <div className="glass-strong rounded-[12px] px-3.5 py-2.5 text-[13px] text-ink tabular-nums shadow-lg space-y-1">
+                            <div className="font-semibold">{data.fullDate}</div>
+                            <div className="text-primary-text">
+                              This week: {fmtMin(data.thisWeek)}
+                            </div>
+                            <div className="text-ink-3">
+                              Last week: {fmtMin(data.lastWeek)}
+                            </div>
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                  <Bar
+                    dataKey="lastWeek"
+                    fill="var(--surface-3)"
+                    barSize={14}
+                    radius={[4, 4, 0, 0]}
+                  />
+                  <Bar
+                    dataKey="thisWeek"
+                    fill="url(#fxFocusThisWeekGrad)"
+                    barSize={14}
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            /* MONTH: Focus Calendar Grid */
+            monthCalendarData && (
+              <div className="flex gap-6 items-start">
+                <div className="flex-1">
+                  {/* Mon..Sun micro headers */}
+                  <div className="grid grid-cols-7 gap-2 mb-2">
+                    {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((day) => (
+                      <div
+                        key={day}
+                        className="text-center text-[11px] font-semibold uppercase tracking-wider text-ink-3"
+                      >
+                        {day}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 7-Col Grid */}
+                  <div className="grid grid-cols-7 gap-2">
+                    {monthCalendarData.cells.map((c, idx) => {
+                      if (!c.isCurrentMonth) {
+                        return (
+                          <div
+                            key={idx}
+                            className="aspect-[1.5/1] rounded-[10px] p-2 bg-surface-2/40 opacity-30"
+                          />
+                        );
+                      }
+
+                      // Background intensity by quartile of month max
+                      const q = c.minutes / Math.max(1, monthCalendarData.monthMax);
+                      let bgStyle = 'bg-surface-2';
+                      if (c.minutes > 0) {
+                        if (q <= 0.25) bgStyle = 'bg-[#1951FC]/15';
+                        else if (q <= 0.5) bgStyle = 'bg-[#1951FC]/35';
+                        else if (q <= 0.75) bgStyle = 'bg-[#1951FC]/60';
+                        else bgStyle = 'bg-[#1951FC]/85 text-snow';
+                      }
+
                       return (
-                        <div className="glass-strong rounded-[12px] px-3 py-2 text-[13px] text-ink tabular-nums shadow-lg">
-                          {data.fullDate} · {formatFocusTime(data.minutes)}
+                        <div
+                          key={idx}
+                          className={`aspect-[1.5/1] rounded-[10px] p-2 flex flex-col justify-between transition-colors relative ${bgStyle} ${
+                            c.isToday ? 'ring-1 ring-primary' : ''
+                          } ${c.isFuture ? 'opacity-40' : ''}`}
+                        >
+                          <span
+                            className={`text-[11px] font-medium leading-none ${
+                              q > 0.75 && c.minutes > 0 ? 'text-snow/80' : 'text-ink-3'
+                            }`}
+                          >
+                            {c.dayNumber}
+                          </span>
+                          {c.minutes > 0 && (
+                            <span
+                              className={`text-[12px] font-semibold tabular-nums text-right leading-none ${
+                                q > 0.75 ? 'text-snow' : 'text-ink'
+                              }`}
+                            >
+                              {fmtMin(c.minutes)}
+                            </span>
+                          )}
                         </div>
                       );
-                    }
-                    return null;
-                  }}
-                />
-                <Bar
-                  dataKey="minutes"
-                  fill="url(#fxFocusBarGrad)"
-                  barSize={kind === 'week' ? 28 : 10}
-                  radius={[6, 6, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+                    })}
+                  </div>
+                </div>
+
+                {/* Right sidebar: Weekly totals list */}
+                <div className="w-28 shrink-0 flex flex-col gap-2 pt-6 border-l border-line pl-4">
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-3 mb-1">
+                    Totals
+                  </span>
+                  {monthCalendarData.weeklyTotals.map((w) => (
+                    <div
+                      key={w.label}
+                      className="flex items-center justify-between text-[12px] tabular-nums"
+                    >
+                      <span className="text-ink-3">{w.label}</span>
+                      <span className="font-semibold text-ink">{fmtMin(w.minutes)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          )}
         </div>
 
-        {/* LEVEL */}
-        <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
-          <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-text">
-              LEVEL {levelState.current.level}
-            </div>
-            <div className="font-display text-[28px] leading-[34px] text-ink mt-1">
-              {levelState.current.title}
-            </div>
-            <div className="mt-5">
-              <div className="flex items-center justify-between text-[12px] text-ink-2 mb-2">
-                <span>XP Progress</span>
-                <span className="tabular-nums font-medium">{levelState.progress}%</span>
+        {/* LEVEL CARD (col-span-4, stretches to row height) */}
+        <div
+          className="col-span-4 relative overflow-hidden rounded-[20px] p-6 text-snow flex flex-col justify-between"
+          style={{
+            background:
+              'radial-gradient(120% 120% at 0% 100%, #1951FC 0%, #0B2CB1 45%, #03195B 100%)',
+          }}
+        >
+          <div className="ambient-grain" />
+
+          <div className="relative z-10">
+            {/* Top row */}
+            <div className="flex items-start justify-between">
+              <div className="w-16 h-16 rounded-2xl bg-snow/12 border border-snow/20 backdrop-blur-md flex flex-col items-center justify-center shadow-inner">
+                <Star size={22} className="text-snow mb-0.5" />
+                <span className="text-[11px] font-semibold text-snow leading-none">
+                  LV {levelInfo.level}
+                </span>
               </div>
-              <div className="h-2 w-full rounded-full bg-surface-2 overflow-hidden">
+              <div className="text-right">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-snow/60">
+                  CURRENT LEVEL
+                </div>
+                <div className="font-display text-[30px] leading-[34px] text-snow mt-0.5">
+                  {levelInfo.title}
+                </div>
+              </div>
+            </div>
+
+            {/* XP row mt-6 */}
+            <div className="mt-6">
+              <div className="flex items-baseline gap-1">
+                <span className="text-[28px] font-semibold tabular-nums text-snow leading-none">
+                  {totalXP.toLocaleString()}
+                </span>
+                <span className="text-[14px] text-snow/60">
+                  / {levelInfo.nextXp.toLocaleString()} XP
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div className="h-2 w-full rounded-full bg-snow/15 overflow-hidden mt-2.5">
                 <div
-                  className="h-full bg-gradient-to-r from-[#3781FC] to-[#1951FC] rounded-full transition-all duration-300"
-                  style={{ width: `${levelState.progress}%` }}
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.round(levelInfo.progress * 100)}%`,
+                    background: 'linear-gradient(90deg, #CBE9FD, #FFFFFF)',
+                    boxShadow: '0 0 12px rgba(203,233,253,0.7)',
+                  }}
                 />
               </div>
+
+              <div className="text-[13px] text-snow/75 mt-2">
+                {levelInfo.level === 15
+                  ? 'Limitless reached · Max Level'
+                  : `${levelInfo.remaining.toLocaleString()} XP to Level ${levelInfo.nextLevel} · ${levelInfo.nextTitle}`}
+              </div>
             </div>
-            <div className="mt-4 text-[13px] text-ink-2 tabular-nums">
-              {levelState.current.level === 15
-                ? 'Maximum level reached!'
-                : `${formatFocusTime(levelState.xpRemaining)} to Level ${levelState.next.level} · ${levelState.next.title}`}
+
+            {/* Next levels mt-6: 3 rows */}
+            <div className="mt-6 space-y-1.5">
+              {nextThreeLevels.map((lvl) => (
+                <div
+                  key={lvl.level}
+                  className="h-9 rounded-[10px] bg-snow/8 px-3 flex items-center justify-between text-snow"
+                >
+                  <div className="flex items-center gap-2">
+                    <Lock size={14} className="text-snow/50" />
+                    <span className="text-[13px] text-snow/85 font-medium">
+                      Level {lvl.level} · {lvl.title}
+                    </span>
+                  </div>
+                  <span className="text-[12px] tabular-nums text-snow/60 font-medium">
+                    {lvl.xp.toLocaleString()} XP
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="mt-6 pt-4 border-t border-line flex justify-end">
+
+          {/* Footer */}
+          <div className="relative z-10 mt-6 pt-4 border-t border-snow/15 flex justify-end">
             <Button
-              variant="secondary"
+              variant="onDark"
               size="sm"
               onClick={() => setIsLevelsModalOpen(true)}
             >
-              View all levels
+              View roadmap
             </Button>
           </div>
         </div>
@@ -573,106 +1068,217 @@ export default function DesktopInsightsView() {
         <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
           <div>
             <h3 className="text-[16px] font-semibold text-ink mb-3">Best focus time</h3>
-            <div className="h-[140px] w-full">
+            <div className="h-[130px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byHourData} margin={{ top: 5, right: 0, left: 0, bottom: 0 }}>
-                  <Bar dataKey="minutes" barSize={6} radius={[3, 3, 0, 0]}>
+                <BarChart
+                  data={byHourData}
+                  barCategoryGap={2}
+                  margin={{ top: 5, right: 0, left: 0, bottom: 0 }}
+                >
+                  <XAxis
+                    dataKey="hour"
+                    ticks={[0, 6, 12, 18]}
+                    tickFormatter={(h) => (h === 0 ? '12a' : h === 6 ? '6a' : h === 12 ? '12p' : '6p')}
+                    tick={{ fontSize: 11, fill: 'var(--ink-3)' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Bar dataKey="minutes" radius={[3, 3, 0, 0]}>
                     {byHourData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={index === peakHour && peakMinutes > 0 ? 'url(#fxFocusBarGrad)' : 'var(--surface-3)'}
+                        fill={
+                          index === peakHour && peakMinutes > 0
+                            ? 'url(#fxFocusThisWeekGrad)'
+                            : 'var(--surface-3)'
+                        }
                       />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {/* 4-segment row */}
+            <div className="grid grid-cols-4 gap-1.5 pt-3 border-t border-line mt-3">
+              {quadrants.map((q) => (
+                <div key={q.name} className="text-center">
+                  <div className="text-[11px] text-ink-3 truncate">{q.name}</div>
+                  <div className="text-[14px] font-semibold tabular-nums text-ink mt-0.5">
+                    {q.share}%
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="text-[14px] text-ink mt-2">
-            {fullPeriodStats.totalMinutes < 30
-              ? 'Not enough sessions yet.'
-              : `You focus best around ${formatHour12(peakHour)}`}
+
+          <div className="text-[13px] text-ink-2 font-medium mt-3">
+            {bestSentence}
           </div>
         </div>
 
         {/* HABITS */}
-        <div className="col-span-4 frost p-5 rounded-[20px]">
-          <h3 className="text-[16px] font-semibold text-ink mb-3">Habits</h3>
-          {habitBreakdown.length === 0 ? (
-            <div className="py-8 text-center text-[13px] text-ink-3">
-              No active habits scheduled.
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {habitBreakdown.slice(0, 6).map((h) => (
-                <div key={h.id} className="flex items-center gap-3">
-                  <div
-                    className="w-6 h-6 rounded-md flex items-center justify-center text-[13px] shrink-0"
-                    style={{ backgroundColor: `${h.color}22` }}
-                  >
-                    {h.icon}
-                  </div>
-                  <span className="text-[13px] text-ink truncate flex-1">{h.name}</span>
-                  <div className="w-20 h-1.5 rounded-full bg-surface-2 overflow-hidden shrink-0">
+        <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <h3 className="text-[16px] font-semibold text-ink mb-3">Habits</h3>
+            {habitBreakdown.length === 0 ? (
+              <div className="py-8 text-center text-[13px] text-ink-3">
+                No active habits scheduled.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {habitBreakdown.slice(0, 6).map((h) => (
+                  <div key={h.id} className="flex items-center gap-2">
                     <div
-                      className="h-full rounded-full"
-                      style={{ width: `${h.pct}%`, backgroundColor: h.color }}
-                    />
+                      className="w-6 h-6 rounded-md flex items-center justify-center text-[13px] shrink-0"
+                      style={{ backgroundColor: `${h.color}22` }}
+                    >
+                      {h.icon}
+                    </div>
+                    <span className="text-[13px] text-ink truncate flex-1 min-w-[70px]">
+                      {h.name}
+                    </span>
+
+                    {/* In WEEK view: 7 tiny dots per habit */}
+                    {kind === 'week' && (
+                      <div className="flex items-center gap-1 shrink-0 px-1">
+                        {h.weekDots.map((dot, dIdx) => (
+                          <span
+                            key={dIdx}
+                            className="h-2 w-2 rounded-full shrink-0"
+                            style={{
+                              backgroundColor: dot.done ? h.color : 'var(--surface-3)',
+                            }}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    <span className="text-[13px] tabular-nums font-semibold text-ink-2 w-9 text-right shrink-0">
+                      {h.pct}%
+                    </span>
                   </div>
-                  <span className="text-[13px] tabular-nums text-ink-2 w-10 text-right shrink-0">
-                    {h.pct}%
-                  </span>
-                </div>
-              ))}
-              {habitBreakdown.length > 6 && (
-                <div className="text-[12px] text-ink-3 pt-1 text-center">
-                  +{habitBreakdown.length - 6} more
-                </div>
-              )}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="text-[12px] text-ink-3 pt-2">
+            Consistency across your daily routines
+          </div>
         </div>
 
         {/* PRODUCTIVITY SCORE */}
-        <div className="col-span-4 frost p-5 rounded-[20px] flex items-center justify-between gap-4">
-          <div className="relative flex items-center justify-center">
-            <ProgressRing
-              progress={prodScore}
-              size={120}
-              strokeWidth={10}
-              className="text-primary"
-            />
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-[32px] font-semibold tabular-nums text-ink leading-none">
-                {prodScore}
-              </span>
-              <span className="text-[11px] font-medium text-ink-3 mt-1">SCORE</span>
+        <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-baseline justify-between mb-3">
+              <h3 className="text-[16px] font-semibold text-ink">Productivity score</h3>
+              <span className="text-[12px] text-ink-3">Based on tasks, habits and focus</span>
             </div>
-          </div>
-          <div className="flex-1 space-y-2">
-            <div className="inline-block px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-primary-soft text-primary-text mb-1">
-              {grade}
-            </div>
-            <div className="space-y-1.5 text-[12px]">
-              <div className="flex items-center justify-between text-ink-2">
-                <span>Tasks done</span>
-                <span className="tabular-nums font-medium text-ink">40%</span>
+
+            <div className="flex items-center gap-5 mt-2">
+              <div className="relative flex items-center justify-center shrink-0">
+                <ProgressRing
+                  progress={prodBreakdown.total}
+                  size={108}
+                  strokeWidth={9}
+                  className="text-primary"
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-[28px] font-semibold tabular-nums text-ink leading-none">
+                    {prodBreakdown.total}
+                  </span>
+                  <span className="text-[10px] font-semibold text-ink-3 mt-0.5">SCORE</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between text-ink-2">
-                <span>Habits</span>
-                <span className="tabular-nums font-medium text-ink">35%</span>
-              </div>
-              <div className="flex items-center justify-between text-ink-2">
-                <span>Focus</span>
-                <span className="tabular-nums font-medium text-ink">25%</span>
+
+              {/* Earned Points Rows with 4px bars */}
+              <div className="flex-1 space-y-2.5">
+                <div className="inline-block px-2.5 py-0.5 rounded-full text-[12px] font-semibold bg-primary-soft text-primary-text mb-0.5">
+                  {prodBreakdown.grade}
+                </div>
+
+                {/* Tasks */}
+                <div>
+                  <div className="flex justify-between text-[12px] tabular-nums text-ink-2 mb-1">
+                    <span>Tasks</span>
+                    <span className="font-semibold text-ink">{prodBreakdown.taskScore} / 40</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(prodBreakdown.taskScore / 40) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Habits */}
+                <div>
+                  <div className="flex justify-between text-[12px] tabular-nums text-ink-2 mb-1">
+                    <span>Habits</span>
+                    <span className="font-semibold text-ink">{prodBreakdown.habitScore} / 35</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(prodBreakdown.habitScore / 35) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Focus */}
+                <div>
+                  <div className="flex justify-between text-[12px] tabular-nums text-ink-2 mb-1">
+                    <span>Focus</span>
+                    <span className="font-semibold text-ink">{prodBreakdown.focusScore} / 25</span>
+                  </div>
+                  <div className="h-1 w-full rounded-full bg-surface-2 overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full"
+                      style={{ width: `${(prodBreakdown.focusScore / 25) * 100}%` }}
+                    />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* ROW 4: Current Streaks (6 cols) & AI Summary (6 cols) */}
+        {/* ROW 4: Highlights (4 cols) | Current streaks (4 cols) | AI summary (4 cols) */}
+        {/* HIGHLIGHTS */}
+        <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <h3 className="text-[16px] font-semibold text-ink mb-4">Highlights</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <span className="text-[12px] text-ink-3">Best day</span>
+                <span className="text-[14px] font-semibold tabular-nums text-ink">
+                  {highlights.bestDay}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <span className="text-[12px] text-ink-3">Longest session</span>
+                <span className="text-[15px] font-semibold tabular-nums text-ink">
+                  {highlights.longestSession}
+                </span>
+              </div>
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <span className="text-[12px] text-ink-3">Average session</span>
+                <span className="text-[15px] font-semibold tabular-nums text-ink">
+                  {highlights.averageSession}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[12px] text-ink-3">Active days</span>
+                <span className="text-[15px] font-semibold tabular-nums text-ink">
+                  {highlights.activeDays}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* CURRENT STREAKS */}
-        <div className="col-span-6 frost p-5 rounded-[20px]">
+        <div className="col-span-4 frost p-5 rounded-[20px]">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-[16px] font-semibold text-ink">Current streaks</h3>
             <span className="text-[12px] text-ink-3">Active habits</span>
@@ -682,7 +1288,7 @@ export default function DesktopInsightsView() {
               No active streaks right now. Check off your habits today to start!
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-2">
               {habits
                 .filter((h) => (h.current_streak || 0) > 0)
                 .sort((a, b) => (b.current_streak || 0) - (a.current_streak || 0))
@@ -690,11 +1296,11 @@ export default function DesktopInsightsView() {
                 .map((h) => (
                   <div
                     key={h.id}
-                    className="bg-surface-2/60 rounded-[14px] p-3 flex items-center justify-between gap-2 border border-line"
+                    className="bg-surface-2/60 rounded-[12px] px-3 py-2 flex items-center justify-between gap-2 border border-line"
                   >
                     <div className="flex items-center gap-2 truncate">
-                      <span className="text-[18px]">{h.icon || '🎯'}</span>
-                      <span className="text-[14px] font-medium text-ink truncate">{h.name}</span>
+                      <span className="text-[16px]">{h.icon || '🎯'}</span>
+                      <span className="text-[13px] font-medium text-ink truncate">{h.name}</span>
                     </div>
                     <div className="flex items-center gap-1 text-[13px] tabular-nums font-semibold text-accent shrink-0">
                       <Flame size={14} className="fill-accent text-accent" />
@@ -707,21 +1313,21 @@ export default function DesktopInsightsView() {
         </div>
 
         {/* AI SUMMARY */}
-        <div className="col-span-6 frost p-5 rounded-[20px]">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-text">
+        <div className="col-span-4 frost p-5 rounded-[20px] flex flex-col justify-between">
+          <div>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-text mb-2">
               <Sparkles size={16} />
               <span>AI SUMMARY</span>
             </div>
+            <p className="text-[14px] leading-[22px] text-ink mt-2">
+              {currentStats.totalMinutes > 0 || tasksDoneCount > 0
+                ? `You have logged ${fmtMin(currentStats.totalMinutes)} of focus across ${currentStats.sessions} sessions this ${kind}, with ${tasksDoneCount} tasks completed and ${habitConsistencyPct}% habit consistency. Keep leaning into your peak focus window around 9 PM to sustain momentum.`
+                : 'Start logging tasks, completing habits, or beginning focus sessions to receive your personalized AI performance summary.'}
+            </p>
           </div>
-          <p className="text-[14px] leading-[22px] text-ink mt-2">
-            {currentStats.totalMinutes > 0 || tasksDoneCount > 0
-              ? `You have logged ${formatFocusTime(currentStats.totalMinutes)} of focus across ${currentStats.sessions} sessions this ${kind}, with ${tasksDoneCount} tasks completed and ${habitConsistencyPct}% habit consistency. Keep leaning into your peak focus window around ${formatHour12(peakHour)} to sustain momentum.`
-              : 'Start logging tasks, completing habits, or beginning focus sessions to receive your personalized AI performance summary.'}
-          </p>
         </div>
 
-        {/* ROW 5: Weekly Report (12 cols) */}
+        {/* ROW 5: Weekly Report (Full width) */}
         <div className="col-span-12 frost p-6 rounded-[20px] flex items-center justify-between gap-6">
           <div className="flex-1">
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-text">
@@ -747,56 +1353,122 @@ export default function DesktopInsightsView() {
         </div>
       </div>
 
-      {/* Levels Roadmap Modal */}
+      {/* Roadmap Modal (lg, glass-strong liquid) */}
       <Modal
         isOpen={isLevelsModalOpen}
         onClose={() => setIsLevelsModalOpen(false)}
-        size="md"
-        title="Focus Level Roadmap"
-        subtitle="15 levels of focus mastery. Every minute in deep work fuels your XP."
+        size="lg"
+        title="Level roadmap"
+        subtitle="Earn XP from focus, habits and tasks."
       >
-        <div className="py-2 max-h-[60vh] overflow-y-auto space-y-2.5">
-          {LEVEL_BENCHMARKS.map((b) => {
-            const isReached = totalXP >= b.xp;
-            const isCurrent = levelState.current.level === b.level;
-            return (
-              <div
-                key={b.level}
-                className={`p-3.5 rounded-[14px] flex items-center justify-between border transition-all ${
-                  isCurrent
-                    ? 'bg-primary-soft border-primary/30'
-                    : isReached
-                    ? 'bg-surface-2 border-line'
-                    : 'opacity-60 border-transparent'
-                }`}
-              >
-                <div className="flex items-center gap-3">
+        <div className="relative py-4 max-h-[70vh] overflow-y-auto px-2">
+          {/* Vertical timeline 2px rail at left 19px */}
+          <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-line" />
+
+          <div className="space-y-4">
+            {LEVELS.map((lvl) => {
+              const isCompleted = levelInfo.level > lvl.level;
+              const isCurrent = levelInfo.level === lvl.level;
+              const isLocked = levelInfo.level < lvl.level;
+
+              if (isCurrent) {
+                return (
                   <div
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold text-[13px] ${
-                      isCurrent
-                        ? 'bg-primary text-snow shadow-md'
-                        : isReached
-                        ? 'bg-surface-3 text-ink'
-                        : 'bg-surface-2 text-ink-3'
-                    }`}
+                    key={lvl.level}
+                    ref={currentLevelRowRef}
+                    className="relative flex items-start gap-4 min-h-[64px]"
                   >
-                    #{b.level}
+                    {/* Current 40px circle */}
+                    <div
+                      className="relative z-10 w-10 h-10 rounded-full ring-2 ring-primary bg-primary-soft text-primary-text flex items-center justify-center font-bold text-[15px] shrink-0"
+                      style={{
+                        boxShadow: '0 0 0 6px rgba(55,129,252,0.15)',
+                      }}
+                    >
+                      {lvl.level}
+                    </div>
+
+                    <div className="flex-1 pt-1">
+                      <div className="text-[15px] font-semibold text-primary-text">
+                        Level {lvl.level} · {lvl.title}
+                      </div>
+
+                      {/* Inner box */}
+                      <div className="rounded-[14px] border border-primary/40 bg-surface-2 p-3 mt-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-[13px] tabular-nums font-semibold text-ink">
+                            {totalXP.toLocaleString()} / {levelInfo.nextXp.toLocaleString()} XP
+                          </span>
+                          <span className="text-[12px] font-medium text-primary-text">
+                            {Math.round(levelInfo.progress * 100)}%
+                          </span>
+                        </div>
+
+                        {/* 6px bar */}
+                        <div className="h-1.5 w-full rounded-full bg-surface-3 overflow-hidden mt-2">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#3781FC] to-[#1951FC]"
+                            style={{ width: `${Math.round(levelInfo.progress * 100)}%` }}
+                          />
+                        </div>
+
+                        <div className="text-[12px] text-primary-text font-medium mt-2">
+                          {lvl.level === 15
+                            ? 'Limitless reached'
+                            : `${levelInfo.remaining.toLocaleString()} XP to Level ${levelInfo.nextLevel}`}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="text-[14px] font-semibold text-ink">{b.title}</div>
-                    <div className="text-[12px] text-ink-3 tabular-nums">
-                      {formatFocusTime(b.xp)} required
+                );
+              }
+
+              if (isCompleted) {
+                return (
+                  <div
+                    key={lvl.level}
+                    className="relative flex items-start gap-4 min-h-[64px]"
+                  >
+                    {/* Completed 40px circle */}
+                    <div className="relative z-10 w-10 h-10 rounded-full bg-primary text-snow flex items-center justify-center shrink-0">
+                      <Check size={18} strokeWidth={2.5} />
+                    </div>
+
+                    <div className="flex-1 pt-1">
+                      <div className="text-[15px] font-semibold text-ink">
+                        Level {lvl.level} · {lvl.title}
+                      </div>
+                      <div className="text-[13px] text-ink-3 tabular-nums mt-0.5">
+                        {lvl.xp.toLocaleString()} XP
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Locked level
+              return (
+                <div
+                  key={lvl.level}
+                  className="relative flex items-start gap-4 min-h-[64px]"
+                >
+                  {/* Locked 40px circle */}
+                  <div className="relative z-10 w-10 h-10 rounded-full bg-surface-2 text-ink-3 flex items-center justify-center shrink-0">
+                    <Lock size={16} />
+                  </div>
+
+                  <div className="flex-1 pt-1">
+                    <div className="text-[15px] font-medium text-ink-3">
+                      Level {lvl.level} · {lvl.title}
+                    </div>
+                    <div className="text-[12px] text-ink-3 tabular-nums mt-0.5">
+                      {lvl.xp.toLocaleString()} XP required
                     </div>
                   </div>
                 </div>
-                {isCurrent && (
-                  <span className="text-[11px] font-semibold text-primary-text uppercase tracking-wider">
-                    Current
-                  </span>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </Modal>
 
@@ -815,7 +1487,11 @@ export default function DesktopInsightsView() {
       {/* Level-up celebration modal */}
       {showLevelUpModal && (
         <LevelUpModal
-          level={levelState.current}
+          level={{
+            level: levelInfo.level,
+            title: levelInfo.title,
+            xp: levelInfo.floorXp,
+          }}
           onClose={() => setShowLevelUpModal(false)}
         />
       )}

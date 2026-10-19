@@ -90,12 +90,25 @@ export default function DesktopGroupsView() {
     // Listen to custom habit updates
     const unsub = onDataChanged(['habit'], loadGroup);
 
-    // Subscribe to real-time habit_group_members channel
+    const groupId = leaderboardData.group_id;
+    if (!groupId) {
+      return () => {
+        unsub();
+      };
+    }
+
+    // Subscribe to real-time habit_group_members channel with unique channel ID
+    const channelName = `group-members-${groupId}-${Math.random().toString(36).slice(2)}`;
     const channel = supabase
-      .channel('habit-groups-realtime')
+      .channel(channelName)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'habit_group_members' },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'habit_group_members',
+          filter: `group_id=eq.${groupId}`,
+        },
         () => {
           loadGroup();
         }
@@ -106,7 +119,7 @@ export default function DesktopGroupsView() {
       unsub();
       supabase.removeChannel(channel);
     };
-  }, [loadGroup, supabase]);
+  }, [loadGroup, supabase, leaderboardData.group_id]);
 
   // Enrich and deduplicate members by user_id
   const deduplicatedMembers = useMemo(() => {

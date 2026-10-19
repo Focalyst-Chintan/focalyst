@@ -9,6 +9,7 @@ import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { createClient } from '@/lib/supabase';
 import FolderPocketCard from './FolderPocketCard';
+import { FolderCard } from './FolderCard';
 import DesktopNoteEditor from './DesktopNoteEditor';
 import VoiceRecorderModal from './VoiceRecorderModal';
 import { stripHtml } from './noteUtils';
@@ -121,6 +122,10 @@ export default function DesktopNotesView() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // Folder overview search & sort state
+  const [folderSearchQuery, setFolderSearchQuery] = useState('');
+  const [folderSortOption, setFolderSortOption] = useState<'name' | 'updated' | 'count'>('name');
+
   // Distinct folders list
   const existingFolders = useMemo(() => {
     const set = new Set<string>();
@@ -129,6 +134,33 @@ export default function DesktopNotesView() {
     });
     return Array.from(set).sort();
   }, [notes]);
+
+  // Filtered and sorted folders for pane 3
+  const displayedFolders = useMemo(() => {
+    let list = existingFolders.filter((f) =>
+      f.toLowerCase().includes(folderSearchQuery.trim().toLowerCase())
+    );
+
+    if (folderSortOption === 'count') {
+      list.sort((a, b) => {
+        const countA = notes.filter((n) => n.folder === a).length;
+        const countB = notes.filter((n) => n.folder === b).length;
+        return countB - countA;
+      });
+    } else if (folderSortOption === 'updated') {
+      list.sort((a, b) => {
+        const noteA = notes.find((n) => n.folder === a);
+        const noteB = notes.find((n) => n.folder === b);
+        const dateA = noteA ? new Date(noteA.updated_at || noteA.created_at).getTime() : 0;
+        const dateB = noteB ? new Date(noteB.updated_at || noteB.created_at).getTime() : 0;
+        return dateB - dateA;
+      });
+    } else {
+      list.sort((a, b) => a.localeCompare(b));
+    }
+
+    return list;
+  }, [existingFolders, folderSearchQuery, folderSortOption, notes]);
 
   // Filter notes based on activeFilter, selectedFolder, and searchQuery
   const filteredNotes = useMemo(() => {
@@ -213,14 +245,24 @@ export default function DesktopNotesView() {
   const selectFolder = useCallback(
     (folderName: string | null) => {
       setSelectedFolder(folderName);
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams.toString());
       if (folderName) {
         params.set('folder', folderName);
+      } else {
+        params.delete('folder');
+      }
+      // pane 2 lists that folder's notes, card shows active, most recent note opens
+      const targetNotes = folderName ? notes.filter((n) => n.folder === folderName) : notes;
+      if (targetNotes.length > 0) {
+        params.set('id', targetNotes[0].id);
+      } else {
+        params.delete('id');
       }
       params.set('filter', 'all');
+      setActiveFilter('all');
       router.push(`/notes?${params.toString()}`);
     },
-    [router]
+    [router, searchParams, notes]
   );
 
   const handleCreateNewNote = async () => {
@@ -669,65 +711,125 @@ export default function DesktopNotesView() {
 
       {/* PANE 3: Editor or Folder Grid Overview (1fr) */}
       <div className="frost rounded-[28px] flex flex-col overflow-hidden relative">
-        {activeFilter === 'folders' ? (
-          /* Kintsugi Folder Overview */
+        {activeFilter === 'folders' || (!currentNote && notes.length > 0) ? (
+          /* Kintsugi Folder Overview (pane 3 when filter=folders or no note is selected) */
           <div className="flex-1 p-8 overflow-y-auto">
-            {/* Top Breadcrumb & Action */}
-            <div className="flex items-center justify-between pb-6 border-b border-line mb-6">
-              <div className="flex items-center gap-2 text-[14px] text-ink-2 font-medium">
+            {/* Header row: breadcrumb "Notes / Folders" 13 (ink-3 / ink), right: search Input w-64 "Search folders", secondary sm "Sort" menu, primary sm "New folder" */}
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-line mb-6">
+              <div className="flex items-center gap-1.5 text-[13px]">
                 <button
                   type="button"
                   onClick={() => selectFilter('all')}
-                  className="hover:text-ink transition-colors"
+                  className="text-ink-3 hover:text-ink transition-colors cursor-pointer"
                 >
                   Notes
                 </button>
-                <span>›</span>
+                <span className="text-ink-3">/</span>
                 <span className="text-ink font-semibold">Folders</span>
               </div>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={() => setIsNewFolderModalOpen(true)}
-              >
-                <Plus size={14} />
-                <span>New folder</span>
-              </Button>
+
+              <div className="flex items-center gap-2.5">
+                <Input
+                  placeholder="Search folders"
+                  value={folderSearchQuery}
+                  onChange={(e) => setFolderSearchQuery(e.target.value)}
+                  className="w-64 h-9 text-[13px]"
+                />
+
+                <Popover
+                  align="end"
+                  trigger={
+                    <Button variant="secondary" size="sm" className="gap-1.5">
+                      <ArrowUpDown size={13} />
+                      <span>Sort</span>
+                    </Button>
+                  }
+                >
+                  <div className="w-40 p-1 flex flex-col gap-0.5">
+                    {[
+                      { key: 'name', label: 'Name' },
+                      { key: 'updated', label: 'Recently updated' },
+                      { key: 'count', label: 'Most notes' },
+                    ].map((s) => (
+                      <button
+                        key={s.key}
+                        type="button"
+                        onClick={() => setFolderSortOption(s.key as any)}
+                        className={`h-8 px-2.5 rounded-[8px] text-[12px] text-left transition-colors cursor-pointer ${
+                          folderSortOption === s.key
+                            ? 'bg-primary-soft text-primary-text font-semibold'
+                            : 'text-ink hover:bg-surface-2'
+                        }`}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                </Popover>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setIsNewFolderModalOpen(true)}
+                  className="gap-1.5"
+                >
+                  <Plus size={14} />
+                  <span>New folder</span>
+                </Button>
+              </div>
             </div>
 
-            {/* Grid of FolderPocketCards */}
-            <div className="grid grid-cols-3 gap-5">
-              {/* All Notes card */}
-              <FolderPocketCard
+            {/* Grid of FolderCards: grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5 */}
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-5">
+              {/* All Notes card first */}
+              <FolderCard
                 name="All notes"
-                noteCount={notes.length}
-                previewText={
+                count={notes.length}
+                updated={
                   notes.length > 0
-                    ? stripHtml(notes[0].content) || notes[0].title
-                    : 'All captured notes across your workspace.'
+                    ? `Updated ${formatRelativeDate(notes[0].updated_at || notes[0].created_at)}`
+                    : 'No notes yet'
                 }
+                preview={notes.length > 0 ? stripHtml(notes[0].content) || notes[0].title : undefined}
                 active={selectedFolder === null}
                 onClick={() => selectFolder(null)}
               />
 
               {/* Each user folder */}
-              {existingFolders.map((f) => {
+              {displayedFolders.map((f) => {
                 const folderNotes = notes.filter((n) => n.folder === f);
-                const latestText =
-                  folderNotes.length > 0
-                    ? stripHtml(folderNotes[0].content) || folderNotes[0].title
-                    : undefined;
+                const latestNote = folderNotes[0];
+                const latestText = latestNote
+                  ? stripHtml(latestNote.content) || latestNote.title
+                  : undefined;
+                const updatedStr = latestNote
+                  ? `Updated ${formatRelativeDate(latestNote.updated_at || latestNote.created_at)}`
+                  : 'Updated recently';
+
                 return (
-                  <FolderPocketCard
+                  <FolderCard
                     key={f}
                     name={f}
-                    noteCount={folderNotes.length}
-                    previewText={latestText}
+                    count={folderNotes.length}
+                    updated={updatedStr}
+                    preview={latestText}
                     active={selectedFolder === f}
                     onClick={() => selectFolder(f)}
                   />
                 );
               })}
+
+              {/* Dashed New folder tile */}
+              <button
+                type="button"
+                onClick={() => setIsNewFolderModalOpen(true)}
+                className="h-[188px] w-full rounded-[18px] border-2 border-dashed border-line-strong flex flex-col items-center justify-center gap-2 text-ink-3 hover:text-ink hover:border-primary/50 transition-colors cursor-pointer group"
+              >
+                <div className="w-10 h-10 rounded-full bg-surface-2 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <Plus size={20} />
+                </div>
+                <span className="text-[13px] font-medium">New folder</span>
+              </button>
             </div>
           </div>
         ) : currentNote ? (
@@ -743,7 +845,7 @@ export default function DesktopNotesView() {
             onTogglePin={handleTogglePinNote}
             onToggleFavourite={handleToggleFavNote}
           />
-        ) : notes.length === 0 ? (
+        ) : (
           /* Workspace Empty State */
           <div className="flex-1 flex flex-col items-center justify-center p-8">
             <EmptyState
@@ -752,36 +854,6 @@ export default function DesktopNotesView() {
               actionLabel="New note"
               onAction={handleCreateNewNote}
             />
-          </div>
-        ) : (
-          /* Notes exist but none selected: FolderPocketCard grid overview */
-          <div className="flex-1 p-8 overflow-y-auto flex flex-col justify-between">
-            <div>
-              <h3 className="font-display text-[24px] text-ink mb-4">Folders</h3>
-              <div className="grid grid-cols-3 gap-5">
-                <FolderPocketCard
-                  name="All notes"
-                  noteCount={notes.length}
-                  previewText={notes.length > 0 ? stripHtml(notes[0].content) : undefined}
-                  onClick={() => selectFolder(null)}
-                />
-                {existingFolders.map((f) => {
-                  const folderNotes = notes.filter((n) => n.folder === f);
-                  return (
-                    <FolderPocketCard
-                      key={f}
-                      name={f}
-                      noteCount={folderNotes.length}
-                      previewText={folderNotes.length > 0 ? stripHtml(folderNotes[0].content) : undefined}
-                      onClick={() => selectFolder(f)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-            <div className="text-center text-[14px] text-ink-3 py-6">
-              Select a note or start a new one.
-            </div>
           </div>
         )}
       </div>

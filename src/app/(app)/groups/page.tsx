@@ -22,7 +22,24 @@ export default function GroupsPage() {
   }
 
   if (isDesktop) {
-    return <DesktopGroupsView />;
+    return (
+      <React.Suspense
+        fallback={
+          <div className="grid grid-cols-[320px_1fr] gap-5 items-start max-w-[1280px] mx-auto">
+            <div className="frost rounded-[20px] p-4 space-y-3">
+              <Skeleton className="h-9 w-full rounded-[10px]" />
+              <Skeleton className="h-20 w-full rounded-[16px]" />
+            </div>
+            <div className="frost rounded-[28px] p-7 space-y-6">
+              <Skeleton className="h-10 w-64 rounded-[12px]" />
+              <Skeleton className="h-44 w-full rounded-[20px]" />
+            </div>
+          </div>
+        }
+      >
+        <DesktopGroupsView />
+      </React.Suspense>
+    );
   }
 
   // Mobile fallback (< 1024px)

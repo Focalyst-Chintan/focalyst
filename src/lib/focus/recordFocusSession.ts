@@ -1,6 +1,7 @@
 import { localDateStr } from '@/lib/utils/date';
 import { createClient } from '@/lib/supabase';
 import { emitDataChanged } from '@/lib/events';
+import { awardXP } from '@/lib/xp/award';
 
 const KEY = (id: string) => `fx-focus-saved-${id}`;
 const inFlight = new Set<string>();
@@ -188,7 +189,10 @@ export async function recordFocusSession(s: FocusSession, isRetry = false): Prom
       localStorage.removeItem('fx-pending-focus');
     } catch {}
 
-    // 4) Dispatch events and notifications
+    // 4) Award XP matching mobile app (10 XP per completed focus session, idempotent per session id)
+    await awardXP(10, 'Focus Session Complete', `focus_${s.id}`);
+
+    // 5) Dispatch events and notifications
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('fx:focus-updated'));
       window.dispatchEvent(new CustomEvent('focalyst:focus-updated'));

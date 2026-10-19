@@ -6,6 +6,7 @@ import { HabitItem } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
 import { createClient } from '@/lib/supabase'
+import { awardXP } from '@/lib/xp/award'
 
 interface HabitRowProps {
     habit: HabitItem
@@ -75,6 +76,8 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                         .from('habits')
                         .update({ current_streak: nextStreak })
                         .eq('id', habit.id)
+
+                    awardXP(5, 'Habit Logged')
                 } else {
                     await supabase
                         .from('habit_logs')

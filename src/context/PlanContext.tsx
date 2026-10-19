@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext'
 import { FREE_TIER_LIMITS, isFreePlan } from '@/lib/featureGates'
 import { localDateStr } from '@/lib/utils/date'
 import { onDataChanged } from '@/lib/events'
+import { awardXP } from '@/lib/xp/award'
 
 // ── Types ──
 export interface TaskItem {
@@ -364,6 +365,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     .eq('id', id)
 
                 if (updateError) throw updateError
+
+                if (updates.is_completed === true) {
+                    awardXP(8, 'Task Completed')
+                }
             } catch (err) {
                 console.error('Failed to update task:', err)
                 setError('Failed to update task.')
@@ -488,6 +493,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                         setHabits((prev) => prev.map((h) =>
                             h.id === id ? { ...h, current_streak: h.current_streak + 1 } : h
                         ))
+
+                        awardXP(5, 'Habit Logged')
                     } else {
                         // Delete today's habit_log
                         await supabase
