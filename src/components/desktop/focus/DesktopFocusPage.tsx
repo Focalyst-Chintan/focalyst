@@ -23,8 +23,8 @@ import { localDateStr, parseYMDToLocalNoon } from '@/lib/utils/date';
 import { getLevelFromMinutes } from '@/lib/utils/levels';
 import { recordFocusSession, reconcileDailyFocus } from '@/lib/focus/recordFocusSession';
 import { onDataChanged, emitDataChanged } from '@/lib/events';
-import { useFocusToday } from '@/hooks/useFocusToday';
-import { FocusOrb } from './FocusOrb';
+import { useFocusStats } from '@/hooks/useFocusStats';
+import { FocusRing } from './FocusRing';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { IconButton } from '@/components/desktop/ui/IconButton';
 import { Button } from '@/components/desktop/ui/Button';
@@ -51,9 +51,11 @@ export function DesktopFocusPage() {
   const searchParams = useSearchParams();
   const { user, plan } = useAuth();
   const { tasks } = usePlan();
-  const supabase = createClient();
-  const { minutes: todayFocusMinutes, sessionsCount: todaySessionsCount, refetch: refetchToday } =
-    useFocusToday();
+  const todayStr = useMemo(() => localDateStr(new Date()), []);
+  const todayFocusStats = useFocusStats(todayStr, todayStr);
+  const todayFocusMinutes = todayFocusStats.totalMinutes;
+  const todaySessionsCount = todayFocusStats.sessions;
+  const refetchToday = todayFocusStats.refetch;
 
   // Phase: Focus | Short break | Long break
   const [phase, setPhase] = useState<PomodoroPhase>('focus');
@@ -102,8 +104,7 @@ export function DesktopFocusPage() {
   const currentSessionIdRef = useRef<string>(safeRandomId());
   const sessionStartTimeRef = useRef<number>(Date.now());
   const savedRef = useRef<boolean>(false);
-
-  const todayStr = useMemo(() => localDateStr(new Date()), []);
+  const supabase = createClient();
 
   // Duration in seconds for current phase
   const currentPhaseTotalSeconds = useMemo(() => {
@@ -678,25 +679,26 @@ export function DesktopFocusPage() {
               : 'LONG BREAK'}
           </div>
 
-          {/* FocusOrb in center: size = min(440px, 52vh) on desktop, min(64vh, 680px) in desk mode */}
+          {/* FocusRing in center: size = min(400px, 50vh) on desktop, min(62vh, 640px) in desk mode */}
           <div className="my-auto py-6">
-            <FocusOrb
-              progress={remainingProgress}
-              size={isDeskMode ? 'min(64vh, 680px)' : 'min(440px, 52vh)'}
-              running={isActive}
+            <FocusRing
+              progress={
+                currentPhaseTotalSeconds > 0
+                  ? Math.max(0, currentPhaseTotalSeconds - timeLeft) / currentPhaseTotalSeconds
+                  : 0
+              }
+              size={isDeskMode ? 'min(62vh, 640px)' : 'min(400px, 50vh)'}
+              isBreak={phase !== 'focus'}
             >
               <div className="flex flex-col items-center select-none">
-                <div
-                  className="font-ui font-light text-[80px]/[84px] tabular-nums tracking-[-0.03em] text-snow"
-                  style={{ textShadow: '0 2px 20px rgba(3,25,91,0.55)' }}
-                >
+                <div className="font-ui font-light text-[80px]/[84px] tabular-nums tracking-[-0.03em] text-ink">
                   {timeString}
                 </div>
-                <div className="mt-2 text-[14px] font-medium text-snow/70 max-w-[260px] truncate">
+                <div className="mt-2 text-[13px] font-medium text-ink-2 max-w-[260px] truncate">
                   {currentLinkedTask?.title || 'No task linked'}
                 </div>
               </div>
-            </FocusOrb>
+            </FocusRing>
           </div>
 
           {/* Controls Row: Reset (48 ghost), Start/Pause (72 primary), End (48 ghost), Skip (48 ghost) */}

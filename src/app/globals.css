@@ -447,7 +447,3 @@ body.distraction-free nav {
   background: linear-gradient(180deg, #6FA4FF, #1951FC);
   box-shadow: 0 0 12px rgba(55,129,252,0.85), 0 0 2px rgba(55,129,252,1);
 }
-
-@keyframes fx-breathe { 0%,100% { transform: scale(1); } 50% { transform: scale(1.012); } }
-.fx-orb-breathe { animation: fx-breathe 4s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .fx-orb-breathe { animation: none; } }

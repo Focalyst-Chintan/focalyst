@@ -33,23 +33,27 @@ export async function reconcileDailyFocus(dayStr: string, userId?: string) {
   if (!uid) {
     const {
       data: { user },
+      error: userErr,
     } = await supabase.auth.getUser();
+    if (userErr) {
+      console.error('Failed to get user for reconciliation:', userErr);
+      showFocusToast(`User error: ${userErr.message}`, 'error');
+      return;
+    }
     uid = user?.id;
   }
   if (!uid) return;
 
-  const startIso = `${dayStr}T00:00:00.000Z`;
-  const endIso = `${dayStr}T23:59:59.999Z`;
-
-  const { data: sessions, error } = await supabase
+  const { data: sessions, error: sessErr } = await supabase
     .from('pomodoro_sessions')
     .select('focus_minutes')
     .eq('user_id', uid)
     .gte('started_at', `${dayStr}T00:00:00`)
     .lte('started_at', `${dayStr}T23:59:59`);
 
-  if (error) {
-    console.error('Failed to query pomodoro_sessions for reconciliation:', error);
+  if (sessErr) {
+    console.error('Failed to query pomodoro_sessions for reconciliation:', sessErr);
+    showFocusToast(`Couldn't query focus sessions: ${sessErr.message}`, 'error');
     return;
   }
 
@@ -59,28 +63,53 @@ export async function reconcileDailyFocus(dayStr: string, userId?: string) {
   );
   const sessionCount = (sessions || []).length;
 
-  const { data: existingData } = await supabase
+  const { data: existingData, error: readErr } = await supabase
     .from('daily_focus_activity')
     .select('*')
     .eq('user_id', uid)
     .eq('date', dayStr)
     .maybeSingle();
 
-  const breakMins = existingData?.break_minutes ?? 0;
+  if (readErr) {
+    console.error('Failed to check daily_focus_activity:', readErr);
+    showFocusToast(`Couldn't check focus activity: ${readErr.message}`, 'error');
+    return;
+  }
 
-  const { error: upsertErr } = await supabase.from('daily_focus_activity').upsert(
-    {
-      user_id: uid,
-      date: dayStr,
-      focus_time_minutes: totalFocusMinutes,
-      sessions_completed: sessionCount,
-      break_minutes: breakMins,
-    },
-    { onConflict: 'user_id,date' }
-  );
+  const breakMins = existingData?.break_minutes ?? existingData?.break_time_minutes ?? 0;
 
-  if (upsertErr) {
-    console.error('Failed to reconcile daily_focus_activity:', upsertErr);
+  if (existingData) {
+    const { error: updateErr } = await supabase
+      .from('daily_focus_activity')
+      .update({
+        focus_time_minutes: totalFocusMinutes,
+        sessions_completed: sessionCount,
+        break_minutes: breakMins,
+      })
+      .eq('user_id', uid)
+      .eq('date', dayStr);
+
+    if (updateErr) {
+      console.error('Failed to update daily_focus_activity:', updateErr);
+      showFocusToast(`Couldn't update focus activity: ${updateErr.message}`, 'error');
+    }
+  } else {
+    const { error: insertErr } = await supabase
+      .from('daily_focus_activity')
+      .insert([
+        {
+          user_id: uid,
+          date: dayStr,
+          focus_time_minutes: totalFocusMinutes,
+          sessions_completed: sessionCount,
+          break_minutes: breakMins,
+        },
+      ]);
+
+    if (insertErr) {
+      console.error('Failed to insert daily_focus_activity:', insertErr);
+      showFocusToast(`Couldn't insert focus activity: ${insertErr.message}`, 'error');
+    }
   }
 }
 
@@ -99,7 +128,10 @@ export async function recordFocusSession(s: FocusSession, isRetry = false): Prom
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      throw userError || new Error('User not authenticated');
+      const err = userError || new Error('User not authenticated');
+      console.error('User authentication error:', err);
+      showFocusToast(`Authentication error: ${err.message}`, 'error');
+      throw err;
     }
 
     const day = localDateStr(new Date(s.startedAt));
@@ -122,7 +154,7 @@ export async function recordFocusSession(s: FocusSession, isRetry = false): Prom
       ]);
       if (insertErr) throw insertErr;
       insertSuccess = true;
-    } catch {
+    } catch (firstErr: any) {
       // Fallback without task_id if column missing in table
       const { error: fallbackErr } = await supabase.from('pomodoro_sessions').insert([
         {
@@ -135,7 +167,11 @@ export async function recordFocusSession(s: FocusSession, isRetry = false): Prom
           was_completed: true,
         },
       ]);
-      if (fallbackErr) throw fallbackErr;
+      if (fallbackErr) {
+        console.error('Failed to insert pomodoro_sessions:', fallbackErr);
+        showFocusToast(`Couldn't save focus session: ${fallbackErr.message}`, 'error');
+        throw fallbackErr;
+      }
       insertSuccess = true;
     }
 
@@ -158,16 +194,17 @@ export async function recordFocusSession(s: FocusSession, isRetry = false): Prom
       window.dispatchEvent(new CustomEvent('focalyst:focus-updated'));
       emitDataChanged('focus');
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error("Couldn't save focus time:", err);
+    const msg = err?.message || 'Unknown error';
     if (!isRetry) {
-      showFocusToast("Couldn't save your focus time. Retrying...", 'error');
+      showFocusToast(`Couldn't save focus time: ${msg}. Retrying...`, 'error');
       setTimeout(() => {
         inFlight.delete(s.id);
         recordFocusSession(s, true);
       }, 3000);
     } else {
-      showFocusToast("Couldn't save your focus time. Please check your connection.", 'error');
+      showFocusToast(`Couldn't save focus time: ${msg}. Please check your connection.`, 'error');
     }
   } finally {
     inFlight.delete(s.id);

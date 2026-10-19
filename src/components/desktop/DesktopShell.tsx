@@ -333,6 +333,16 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
         <AmbientBackground />
       </div>
 
+      {/* Top viewport fade across full width at z-20 (sidebar is z-40, top bar is z-30) */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 top-0 z-20 hidden lg:block h-[88px]"
+        style={{
+          background:
+            'linear-gradient(to bottom, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 70%, transparent) 50%, transparent 100%)',
+        }}
+      />
+
       <div className="relative z-10 flex min-h-screen w-full">
         {/* =========================================================================
             DESKTOP SIDEBAR
@@ -358,7 +368,7 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
               <>
                 <span
                   aria-hidden
-                  className={`fx-active-pill pointer-events-none absolute transition-[transform,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                  className={`fx-active-pill pointer-events-none absolute rounded-xl transition-[transform,height] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                     sidebarCollapsed ? 'left-1/2 w-10 -translate-x-1/2' : 'inset-x-0'
                   }`}
                   style={{ transform: `translateY(${ind.top}px)`, height: ind.height }}
@@ -603,16 +613,8 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
             sidebarCollapsed ? 'lg:ml-[100px]' : 'lg:ml-[280px]'
           }`}
         >
-          {/* Sticky Top Bar with pure gradient fade wrapper */}
+          {/* Sticky Top Bar with glass-strong header */}
           <div className="sticky top-0 z-30 pt-3 pb-3">
-            <div
-              aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 h-[calc(100%+24px)]"
-              style={{
-                background:
-                  'linear-gradient(to bottom, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 75%, transparent) 55%, transparent 100%)',
-              }}
-            />
             <header className="relative z-10 flex h-16 w-full items-center justify-between rounded-[20px] glass-strong px-4 shadow-[var(--shadow-1)]">
               {/* Left Title / Breadcrumb */}
               <div className="flex items-center min-w-[160px]">{getPageTitle()}</div>

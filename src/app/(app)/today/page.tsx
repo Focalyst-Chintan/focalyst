@@ -31,7 +31,7 @@ import {
 import { fetchMyGroupLeaderboard, GroupLeaderboardData } from '@/lib/services/habitGroupService';
 import { getDisplayName, getFirstName } from '@/lib/utils/name';
 import { useCreate } from '@/components/desktop/create/CreateProvider';
-import { useFocusToday } from '@/hooks/useFocusToday';
+import { useFocusStats } from '@/hooks/useFocusStats';
 import { Modal } from '@/components/desktop/ui/Modal';
 import CountdownForm from '@/components/focus/CountdownForm';
 
@@ -138,13 +138,21 @@ export default function TodayPage() {
   } = usePlan();
   const supabase = createClient();
 
-  const [loadingFocus, setLoadingFocus] = useState(true);
-  const [focusError, setFocusError] = useState(false);
-  const [todayFocusMinutes, setTodayFocusMinutes] = useState(0);
-  const [todaySessionsCount, setTodaySessionsCount] = useState(0);
-  const [weeklyFocusActivities, setWeeklyFocusActivities] = useState<any[]>([]);
-  const [weeklyFocusMinutes, setWeeklyFocusMinutes] = useState(0);
-  const [lastWeekSamePeriodMinutes, setLastWeekSamePeriodMinutes] = useState(0);
+  // Date strings
+  const todayStr = useMemo(() => localDateStr(new Date()), []);
+  const { startOfWeek, endOfWeek } = useMemo(() => getStartAndEndOfWeek(new Date()), []);
+  const startOfWeekStr = useMemo(() => localDateStr(startOfWeek), [startOfWeek]);
+  const endOfWeekStr = useMemo(() => localDateStr(endOfWeek), [endOfWeek]);
+
+  // Read focus stats strictly from pomodoro_sessions via useFocusStats
+  const todayStats = useFocusStats(todayStr, todayStr);
+  const weekStats = useFocusStats(startOfWeekStr, endOfWeekStr);
+
+  const todayFocusMinutes = todayStats.totalMinutes;
+  const todaySessionsCount = todayStats.sessions;
+  const weeklyFocusMinutes = weekStats.totalMinutes;
+  const loadingFocus = todayStats.loading || weekStats.loading;
+  const focusError = false;
 
   // Group data
   const [groupData, setGroupData] = useState<GroupLeaderboardData | null>(null);
@@ -172,66 +180,6 @@ export default function TodayPage() {
 
   // Quick-add task input
   const [taskInput, setTaskInput] = useState('');
-
-  const todayStr = useMemo(() => localDateStr(new Date()), []);
-
-  // Fetch focus sessions & weekly metrics
-  const fetchFocusMetrics = useCallback(async () => {
-    if (!user) return;
-    setLoadingFocus(true);
-    setFocusError(false);
-
-    try {
-      const now = new Date();
-      const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(now);
-      const startOfWeekStr = localDateStr(startOfWeek);
-      const endOfWeekStr = localDateStr(endOfWeek);
-
-      const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const lastWeekStartStr = localDateStr(lastWeekStart);
-
-      // Last week's same weekday date:
-      const lastWeekSameDay = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const lastWeekSameDayStr = localDateStr(lastWeekSameDay);
-
-      // Fetch daily_focus_activity for this week and last week
-      const { data: activities, error: actError } = await supabase
-        .from('daily_focus_activity')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', lastWeekStartStr)
-        .lte('date', endOfWeekStr);
-
-      if (actError) throw actError;
-
-      const actList: any[] = activities || [];
-      const currentWeekList = actList.filter((a: any) => a.date >= startOfWeekStr && a.date <= endOfWeekStr);
-
-      // Same days of last week (Mon..same weekday)
-      const lastWeekSamePeriodList = actList.filter(
-        (a: any) => a.date >= lastWeekStartStr && a.date <= lastWeekSameDayStr
-      );
-
-      const curMin = currentWeekList.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0);
-      const lastWeekSameMin = lastWeekSamePeriodList.reduce(
-        (acc: number, curr: any) => acc + (curr.focus_time_minutes || 0),
-        0
-      );
-
-      const todayAct = actList.find((a: any) => a.date === todayStr);
-      setTodayFocusMinutes(todayAct?.focus_time_minutes || 0);
-      setTodaySessionsCount(todayAct?.sessions_completed || 0);
-
-      setWeeklyFocusActivities(currentWeekList);
-      setWeeklyFocusMinutes(curMin);
-      setLastWeekSamePeriodMinutes(lastWeekSameMin);
-    } catch (err) {
-      console.error('Focus metrics error:', err);
-      setFocusError(true);
-    } finally {
-      setLoadingFocus(false);
-    }
-  }, [user, supabase, todayStr]);
 
   // Fetch habit logs for heatmap (53 weeks max)
   const fetchHabitHeatmapLogs = useCallback(async () => {
@@ -275,10 +223,9 @@ export default function TodayPage() {
   }, []);
 
   useEffect(() => {
-    fetchFocusMetrics();
     fetchHabitHeatmapLogs();
     fetchGroup();
-  }, [fetchFocusMetrics, fetchHabitHeatmapLogs, fetchGroup]);
+  }, [fetchHabitHeatmapLogs, fetchGroup]);
 
   // Greeting based on local hour
   const greeting = useMemo(() => {
@@ -379,19 +326,23 @@ export default function TodayPage() {
     setTaskInput('');
   };
 
-  // Recharts weekly data
-  const { startOfWeek, endOfWeek } = useMemo(() => getStartAndEndOfWeek(new Date()), []);
+  // Recharts weekly data from weekStats.byDay
   const chartData = useMemo(() => {
-    return aggregateSessionsByDay(weeklyFocusActivities, startOfWeek, endOfWeek);
-  }, [weeklyFocusActivities, startOfWeek, endOfWeek]);
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return days.map((day, idx) => {
+      const d = new Date(startOfWeek.getTime() + idx * 86400000);
+      const ymd = localDateStr(d);
+      const mins = weekStats.byDay[ymd] || 0;
+      return {
+        day,
+        focus: Number((mins / 60).toFixed(2)),
+        break: 0,
+        date: d,
+      };
+    });
+  }, [startOfWeek, weekStats.byDay]);
 
-  // Delta chip comparison against same days of last week
-  const deltaVsLastWeek = useMemo(() => {
-    if (lastWeekSamePeriodMinutes === 0) return null;
-    const diff = weeklyFocusMinutes - lastWeekSamePeriodMinutes;
-    const pct = Math.round((diff / lastWeekSamePeriodMinutes) * 100);
-    return pct;
-  }, [weeklyFocusMinutes, lastWeekSamePeriodMinutes]);
+  const deltaVsLastWeek = null;
 
   // Heatmap: dynamic calendar-aligned calculation ending with current week
   const { heatmapWeeks, heatmapMonthLabels } = useMemo(() => {
@@ -489,15 +440,6 @@ export default function TodayPage() {
     }, [groupData, user?.id]);
 
   const create = useCreate();
-  const { minutes: focusTodayMins, sessionsCount: focusTodayCount } = useFocusToday();
-
-  // Keep todayFocusMinutes & count synced with useFocusToday hook
-  useEffect(() => {
-    if (focusTodayMins > 0 || focusTodayCount > 0) {
-      setTodayFocusMinutes(focusTodayMins);
-      setTodaySessionsCount(focusTodayCount);
-    }
-  }, [focusTodayMins, focusTodayCount]);
 
   // Countdowns state for Today banner
   const [countdowns, setCountdowns] = useState<any[]>([]);
@@ -522,12 +464,14 @@ export default function TodayPage() {
 
     const unsub = onDataChanged(['countdown', 'focus'], () => {
       fetchCountdowns();
-      fetchFocusMetrics();
+      todayStats.refetch();
+      weekStats.refetch();
     });
 
     const handleFocus = () => {
       fetchCountdowns();
-      fetchFocusMetrics();
+      todayStats.refetch();
+      weekStats.refetch();
     };
     window.addEventListener('focus', handleFocus);
 
@@ -535,7 +479,7 @@ export default function TodayPage() {
       unsub();
       window.removeEventListener('focus', handleFocus);
     };
-  }, [fetchCountdowns, fetchFocusMetrics]);
+  }, [fetchCountdowns, todayStats.refetch, weekStats.refetch]);
 
   // Nearest upcoming countdowns
   const upcomingCountdowns = useMemo(() => {
@@ -740,7 +684,7 @@ export default function TodayPage() {
           <Card className="lg:col-span-2 xl:col-span-5 min-h-[240px] flex flex-col items-center justify-center p-6 text-center">
             <AlertCircle className="w-8 h-8 text-danger mb-2" />
             <p className="text-[14px] text-ink mb-3">Couldn't load this.</p>
-            <Button variant="secondary" size="sm" onClick={fetchFocusMetrics}>
+            <Button variant="secondary" size="sm" onClick={() => todayStats.refetch()}>
               Retry
             </Button>
           </Card>
@@ -950,7 +894,7 @@ export default function TodayPage() {
           <Card className="lg:col-span-2 xl:col-span-8 min-h-[320px] flex flex-col items-center justify-center p-6 text-center">
             <AlertCircle className="w-8 h-8 text-danger mb-2" />
             <p className="text-[14px] text-ink mb-3">Couldn't load this.</p>
-            <Button variant="secondary" size="sm" onClick={fetchFocusMetrics}>
+            <Button variant="secondary" size="sm" onClick={() => weekStats.refetch()}>
               Retry
             </Button>
           </Card>
