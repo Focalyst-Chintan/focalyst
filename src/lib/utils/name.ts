@@ -1,9 +1,9 @@
-type Profile = { full_name?: string | null; name?: string | null } | null | undefined;
+type Profile = { full_name?: string | null } | null | undefined;
 type AuthUser = { email?: string | null; user_metadata?: Record<string, any> } | null | undefined;
 
 export function getDisplayName(profile: Profile, user: AuthUser): string {
   const raw =
-    profile?.full_name || profile?.name ||
+    profile?.full_name ||
     user?.user_metadata?.full_name || user?.user_metadata?.name || '';
   if (raw.trim()) return raw.trim();
   const local = (user?.email ?? '').split('@')[0];

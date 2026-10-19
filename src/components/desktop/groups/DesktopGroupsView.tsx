@@ -97,27 +97,38 @@ export default function DesktopGroupsView() {
       };
     }
 
-    // Subscribe to real-time habit_group_members channel with unique channel ID
-    const channelName = `group-members-${groupId}-${Math.random().toString(36).slice(2)}`;
-    const channel = supabase
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'habit_group_members',
-          filter: `group_id=eq.${groupId}`,
-        },
-        () => {
-          loadGroup();
-        }
-      )
-      .subscribe();
+    // Subscribe to real-time habit_group_members channel safely
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    try {
+      const channelName = `group-members-${groupId}-${Math.random().toString(36).slice(2)}`;
+      channel = supabase
+        .channel(channelName)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'habit_group_members',
+            filter: `group_id=eq.${groupId}`,
+          },
+          () => {
+            loadGroup();
+          }
+        )
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime unavailable, using refetch on focus', e);
+    }
+
+    const onFocus = () => loadGroup();
+    window.addEventListener('focus', onFocus);
 
     return () => {
       unsub();
-      supabase.removeChannel(channel);
+      window.removeEventListener('focus', onFocus);
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [loadGroup, supabase, leaderboardData.group_id]);
 
