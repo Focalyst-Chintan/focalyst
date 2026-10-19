@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import ViewShot from 'react-native-view-shot';
 import * as Sharing from 'expo-sharing';
-import * as MediaLibrary from 'expo-media-library';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Defs, RadialGradient, Stop, Rect, Polygon } from 'react-native-svg';
 
@@ -130,22 +129,22 @@ export default function HabitMilestoneModal({
     if (saving || !viewShotRef.current) return;
     try {
       setSaving(true);
-      const { status } = await MediaLibrary.requestPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Photo library permission is needed to save your streak card to Photos.'
-        );
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (!isAvailable) {
+        Alert.alert('Sharing Unavailable', 'Unable to export streak card on this device.');
         return;
       }
       const uri = await viewShotRef.current.capture();
       if (uri) {
-        await MediaLibrary.saveToLibraryAsync(uri);
-        Alert.alert('Saved!', 'Streak card saved to Photos!');
+        await Sharing.shareAsync(uri, {
+          mimeType: 'image/png',
+          dialogTitle: 'Save / Share your streak card',
+          UTI: 'public.png',
+        });
       }
     } catch (err) {
-      console.error('Error saving streak card:', err);
-      Alert.alert('Download Error', 'Unable to save the streak card to Photos. Please try again.');
+      console.error('Error exporting streak card:', err);
+      Alert.alert('Export Error', 'Unable to save the streak card. Please try again.');
     } finally {
       setSaving(false);
     }
