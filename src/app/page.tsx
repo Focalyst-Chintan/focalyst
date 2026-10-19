@@ -58,9 +58,9 @@ export default function LandingPage() {
           {/* Wordmark */}
           <Link
             href="/"
-            className="font-ui font-semibold text-[13px] tracking-[0.32em] text-snow hover:opacity-90 transition-opacity"
+            className="font-ui font-bold text-[16px] tracking-wide text-snow hover:opacity-90 transition-opacity flex items-center gap-2"
           >
-            FOCALYST
+            <span>Focalyst</span>
           </Link>
 
           {/* Center Links */}
@@ -316,24 +316,39 @@ export default function LandingPage() {
         </section>
 
         {/* FOOTER */}
-        <footer className="border-t border-line py-10 max-w-[1280px] mx-auto px-8 flex flex-col sm:flex-row items-center justify-between gap-6 text-[13px] text-ink-3">
-          <div className="flex items-center gap-6">
-            <span className="font-ui font-bold tracking-[0.25em] text-ink text-[13px]">
-              FOCALYST
+        <footer className="border-t border-line py-12 max-w-[1280px] mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-[13px] text-ink-3">
+          <div className="flex flex-col sm:flex-row items-center gap-6">
+            <span className="font-ui font-bold text-[15px] tracking-wide text-ink">
+              Focalyst
             </span>
-            <div className="flex items-center gap-5">
+            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+              <a href="#features" className="hover:text-ink transition-colors">
+                About
+              </a>
               <Link href="/privacy" className="hover:text-ink transition-colors">
-                Privacy
+                Privacy Policy
               </Link>
               <Link href="/terms" className="hover:text-ink transition-colors">
-                Terms
+                Terms of Service
               </Link>
-              <a href="mailto:support@focalyst.online" className="hover:text-ink transition-colors">
-                Contact
+              <a
+                href="mailto:support@focalyst.online?subject=Help%20%26%20FAQ"
+                className="hover:text-ink transition-colors"
+              >
+                Help & FAQ
+              </a>
+              <a
+                href="mailto:support@focalyst.online"
+                className="hover:text-ink transition-colors"
+              >
+                Contact Us
+              </a>
+              <a href="#mcp" className="hover:text-ink transition-colors">
+                Download the App
               </a>
             </div>
           </div>
-          <div>
+          <div className="shrink-0 text-center md:text-right">
             &copy; 2026 Focalyst. All rights reserved.
           </div>
         </footer>

@@ -52,14 +52,14 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/account') ||
         pathname.startsWith('/paywall')
 
-    // Auth routes (welcome + login)
-    const isAuthRoute = pathname === '/' || pathname === '/login'
+    // Auth routes (login)
+    const isAuthRoute = pathname === '/login'
 
     // Onboarding routes
     const isOnboardingRoute = pathname.startsWith('/onboarding')
 
-    // If not logged in and trying to access protected routes or the root page
-    if (!user && (isAppRoute || isOnboardingRoute || pathname === '/')) {
+    // If not logged in and trying to access protected routes
+    if (!user && (isAppRoute || isOnboardingRoute)) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
         return NextResponse.redirect(url)
