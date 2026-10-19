@@ -1,360 +1,215 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import { CalendarCheck2, Timer, ChartColumn, Sparkles, CheckCircle2, Flame } from 'lucide-react';
-import AmbientBackground from '@/components/desktop/AmbientBackground';
 import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
 
 export default function LandingPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [mounted, setMounted] = useState(false);
 
+  // Preserve Capacitor native app redirect if running inside native shell
   useEffect(() => {
-    setMounted(true);
-    // Capacitor / Native preservation
-    if (typeof window !== 'undefined' && (window as any).Capacitor?.isNativePlatform?.()) {
-      if (user) {
-        router.replace('/today');
-      } else {
-        router.replace('/login');
-      }
+    if (
+      typeof window !== 'undefined' &&
+      (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } })
+        .Capacitor?.isNativePlatform?.()
+    ) {
+      router.replace('/login');
     }
-  }, [user, router]);
+  }, [router]);
 
   return (
-    <div className="relative min-h-screen bg-canvas font-ui selection:bg-primary/20 selection:text-primary">
-      {/* =========================================================================
-          HERO SECTION (100vh, always dark)
-          ========================================================================= */}
-      <section className="relative h-screen w-full overflow-hidden bg-[#05070F] text-snow">
-        {/* Background Image */}
-        <Image
+    <div className="dark min-h-screen w-full bg-[#05070F] text-[#F2F5FF] font-ui selection:bg-[#1951FC] selection:text-white overflow-x-hidden">
+      {/* ================= HERO SECTION (100vh with hero.png) ================= */}
+      <section
+        className="relative isolate flex min-h-screen w-full flex-col justify-between overflow-hidden bg-[#05070F]"
+        style={{
+          backgroundImage: "url('/landing/hero.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 58%',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        {/* Background Image Layer */}
+        <img
           src="/landing/hero.png"
-          alt="Focalyst Hero"
-          fill
-          priority
-          unoptimized
-          sizes="100vw"
-          className="object-cover object-[center_60%] select-none pointer-events-none"
+          alt="Own your time. Build what matters."
+          fetchPriority="high"
+          className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[center_58%] select-none"
         />
 
-        {/* Top Gradient Overlay */}
+        {/* Subtle Cinematic Vignette (keeps sky & flower field vivid while ensuring crisp white text & smooth bottom blend) */}
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-[30%] bg-gradient-to-b from-[#03195B]/35 to-transparent z-10"
+          className="pointer-events-none absolute inset-0 z-[1]"
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(4, 12, 36, 0.38) 0%, rgba(4, 12, 36, 0.16) 38%, rgba(5, 7, 15, 0.08) 68%, rgba(5, 7, 15, 0.92) 100%)',
+          }}
         />
 
-        {/* Bottom Gradient Overlay */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[40%] bg-gradient-to-b from-transparent to-[#05070F]/55 z-10"
-        />
-
-        {/* Top Nav */}
-        <header className="absolute top-6 inset-x-0 mx-auto max-w-[1280px] px-8 flex items-center justify-between z-20">
-          {/* Wordmark */}
-          <Link
-            href="/"
-            className="font-ui font-bold text-[16px] tracking-wide text-snow hover:opacity-90 transition-opacity flex items-center gap-2"
-          >
+        {/* Top Navigation Bar */}
+        <header className="relative z-10 mx-auto flex w-full max-w-[1380px] items-center justify-between px-6 pt-7 lg:px-12">
+          {/* Left Brand Wordmark with subtle vertical bar */}
+          <Link className="flex items-center gap-3 text-[16px] font-semibold tracking-[0.04em] text-snow drop-shadow-[0_2px_10px_rgba(0,0,0,0.45)]" href="/">
+            <span className="h-4 w-[1.5px] bg-snow/60" />
             <span>Focalyst</span>
           </Link>
 
-          {/* Center Links */}
-          <nav className="hidden sm:flex items-center gap-8">
+          {/* Center Navigation Links */}
+          <nav className="hidden lg:flex items-center gap-7 text-[13.5px] font-medium text-snow/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
             <a
-              href="#features"
-              className="text-[14px] text-snow/80 hover:text-snow transition-colors font-medium"
+              href="https://focalyst.online/app"
+              className="transition-colors hover:text-snow"
             >
               Features
             </a>
-            <a
-              href="#mcp"
-              className="text-[14px] text-snow/80 hover:text-snow transition-colors font-medium"
-            >
+            <a href="#mcp" className="transition-colors hover:text-snow">
               MCP
+            </a>
+            <a
+              href="https://focalyst.online/app"
+              className="transition-colors hover:text-snow"
+            >
+              About
+            </a>
+            <Link className="transition-colors hover:text-snow" href="/help">
+              Help &amp; FAQ
+            </Link>
+            <Link className="transition-colors hover:text-snow" href="/privacy">
+              Privacy Policy
+            </Link>
+            <Link className="transition-colors hover:text-snow" href="/terms">
+              Terms of Service
+            </Link>
+            <a
+              href="mailto:support@focalyst.online"
+              className="transition-colors hover:text-snow"
+            >
+              Contact Us
             </a>
           </nav>
 
-          {/* Right CTA */}
+          {/* Right Auth / App Actions */}
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-[14px] text-snow/80 hover:text-snow transition-colors font-medium"
-            >
+            <Link className="text-[13.5px] font-medium text-snow/90 transition-colors hover:text-snow drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]" href="/login">
               Log in
             </Link>
-            <Link
-              href="/login?mode=signup"
-              className="glass liquid text-snow text-[14px] font-medium px-5 h-10 rounded-full inline-flex items-center justify-center hover:opacity-95 transition-opacity"
+            <span className="hidden sm:inline-block h-4 w-[1.5px] bg-snow/50" />
+            <a
+              href="https://focalyst.online/app"
+              className="rounded-full border border-snow/65 bg-snow/10 px-4 py-2 text-[13px] font-medium text-snow backdrop-blur-md transition-all hover:bg-snow/20"
             >
-              Get Started
-            </Link>
+              Download the App
+            </a>
           </div>
         </header>
 
-        {/* Centered Hero Content */}
-        <div className="relative z-20 flex flex-col items-center justify-center h-full pt-[12vh] px-6 text-center max-w-[960px] mx-auto">
-          {/* Headline */}
-          <h1
-            className="font-display text-[clamp(52px,6.2vw,104px)] leading-[1.02] tracking-[-0.02em] text-snow animate-in fade-in slide-in-from-bottom-3 duration-700 ease-out"
-          >
-            Own your time. Build what <em className="italic font-normal">matters</em>.
+        {/* Hero Center Copy & Dual Buttons (Positioned in the upper sky above the person's head) */}
+        <div className="relative z-10 mx-auto flex w-full max-w-[1160px] flex-1 flex-col items-center justify-start px-6 pt-[10vh] sm:pt-[12vh] lg:pt-[13vh] text-center">
+          <h1 className="font-display text-[clamp(44px,5.6vw,86px)] font-normal leading-[1.05] tracking-[-0.02em] text-snow lg:whitespace-nowrap [text-shadow:0_4px_24px_rgba(0,0,0,0.35)]">
+            Own your time. Build what <em className="italic">matters.</em>
           </h1>
 
-          {/* Subtext */}
-          <p
-            className="mt-5 max-w-[640px] text-[18px]/[28px] sm:text-[19px]/[30px] text-snow/85 font-ui animate-in fade-in slide-in-from-bottom-3 duration-700 delay-100 ease-out fill-mode-both"
-          >
-            Turn your ambitions into action with AI-powered planning, focused work
-            sessions, and habits that move you forward.
+          <p className="mt-4 max-w-[650px] font-ui text-[15.5px] sm:text-[18px] leading-[1.55] text-snow/95 font-normal [text-shadow:0_2px_14px_rgba(0,0,0,0.45)]">
+            Turn your ambitions into action with AI-powered planning, focused
+            work sessions, and habits that move you forward.
           </p>
 
-          {/* CTA Block */}
-          <div className="mt-9 flex flex-col items-center gap-3 animate-in fade-in slide-in-from-bottom-3 duration-700 delay-200 ease-out fill-mode-both">
-            <Link
-              href="/login?mode=signup"
-              className="glass liquid h-[52px] px-8 rounded-full inline-flex items-center justify-center text-[15px] font-semibold text-snow shadow-[var(--shadow-glass)] hover:scale-[1.02] active:scale-[0.98] transition-all"
-            >
-              Get Started
+          {/* Dual CTA Buttons */}
+          <div className="mt-7 flex flex-col sm:flex-row items-center justify-center gap-3.5 w-full sm:w-auto">
+            <Link className="inline-flex h-[48px] w-full sm:w-auto min-w-[210px] items-center justify-center rounded-full border border-snow/85 bg-snow/20 px-7 text-[15px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_28px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-snow hover:text-[#05070F]" href="/login">
+              Continue on Desktop
             </Link>
-            <Link
-              href="/login"
-              className="text-[14px] text-snow/70 hover:text-snow transition-colors mt-1 font-medium"
+
+            <a
+              href="https://focalyst.online/app"
+              className="inline-flex h-[48px] w-full sm:w-auto min-w-[210px] items-center justify-center rounded-full border border-snow/75 bg-[#05070F]/35 px-7 text-[15px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_28px_rgba(0,0,0,0.28)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-[#05070F]/60"
             >
-              I already have an account
-            </Link>
+              Download the App
+            </a>
           </div>
         </div>
 
-        {/* Scroll Micro Indicator */}
-        <div className="absolute bottom-6 inset-x-0 mx-auto flex flex-col items-center gap-2 z-20 pointer-events-none">
-          <span className="text-[11px] uppercase tracking-[0.08em] text-snow/70 font-medium">
-            Scroll
-          </span>
-          <div className="w-[1px] h-6 bg-gradient-to-b from-snow/60 to-transparent animate-pulse" />
-        </div>
+        {/* Bottom Spacer so the person in the flower meadow stays unobstructed */}
+        <div className="relative z-10 h-16" />
       </section>
 
-      {/* =========================================================================
-          BELOW THE HERO (Theme-aware with AmbientBackground)
-          ========================================================================= */}
-      <div className="relative z-10">
-        <AmbientBackground />
-
-        {/* FEATURES SECTION */}
-        <section id="features" className="py-24 px-6 max-w-[1280px] mx-auto">
-          {/* Section Heading */}
-          <div className="text-center max-w-[680px] mx-auto">
-            <h2 className="font-display text-[32px]/[38px] sm:text-[44px]/[48px] text-ink">
-              Everything you need to focus. Nothing you don&apos;t.
-            </h2>
-            <p className="mt-3 text-[16px] text-ink-2">
-              A calm, unified interface designed for sustained deep work and intentional living.
-            </p>
+      {/* ================= FOCALYST MCP WAITLIST & FOOTER (Always Dark Mode Gradient) ================= */}
+      <section
+        id="mcp"
+        className="relative isolate overflow-hidden px-6 pt-20 pb-14"
+        style={{
+          background:
+            'radial-gradient(65% 75% at 50% 35%, rgba(25, 81, 252, 0.24) 0%, rgba(11, 44, 177, 0.16) 45%, rgba(5, 7, 15, 1) 100%)',
+        }}
+      >
+        {/* Waitlist Card */}
+        <div className="mx-auto max-w-[880px] rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-10 sm:p-14 text-center backdrop-blur-2xl shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)]">
+          <div className="inline-flex items-center justify-center rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF]">
+            FOCALYST MCP
           </div>
 
-          {/* Product Peek Frame */}
-          <div className="mt-14 max-w-[1080px] mx-auto">
-            <div className="glass liquid rounded-[28px] p-3 sm:p-4 shadow-[var(--shadow-glass)] transition-all duration-700 ease-out hover:[transform:perspective(1200px)_rotateX(0deg)] [transform:perspective(1200px)_rotateX(6deg)]">
-              {/* Frost Dashboard Preview Placeholder */}
-              <div className="frost rounded-[20px] p-6 sm:p-8 bg-surface/90 border border-line">
-                <div className="flex items-center justify-between pb-6 border-b border-line">
-                  <div className="flex items-center gap-3">
-                    <div className="h-3 w-3 rounded-full bg-danger/80" />
-                    <div className="h-3 w-3 rounded-full bg-warning/80" />
-                    <div className="h-3 w-3 rounded-full bg-emerald-500/80" />
-                    <span className="text-[12px] font-mono text-ink-3 ml-2 font-medium">
-                      focalyst.online/today
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[12px] font-medium text-primary-text bg-primary-soft px-3 py-1 rounded-full">
-                      Good morning
-                    </span>
-                  </div>
-                </div>
+          <h2 className="mt-5 font-display text-[clamp(36px,4.2vw,54px)] leading-[1.08] tracking-[-0.015em] text-snow">
+            Your Focalyst, inside your AI.
+          </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-5 mt-6">
-                  {/* Focus Card Preview */}
-                  <div className="md:col-span-5 rounded-[20px] p-6 bg-gradient-to-br from-[#1951FC] via-[#0B2CB1] to-[#03195B] text-snow relative overflow-hidden flex flex-col justify-between min-h-[200px]">
-                    <div>
-                      <span className="text-[12px] font-medium uppercase tracking-wider text-snow/75">
-                        Focus Today
-                      </span>
-                      <div className="font-display text-[44px] leading-tight mt-1 text-snow">
-                        2h 15m
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-4">
-                      <span className="text-[13px] text-snow/80">Daily goal: 3h</span>
-                      <span className="glass px-3 py-1 rounded-full text-[12px] font-medium text-snow">
-                        75% complete
-                      </span>
-                    </div>
-                  </div>
+          <p className="mx-auto mt-3.5 max-w-[540px] text-[15.5px] leading-[1.6] text-[#A3ADC8]">
+            Connect your habits, tasks and focus sessions to the AI assistants
+            you already use.
+          </p>
 
-                  {/* Habits Card Preview */}
-                  <div className="md:col-span-4 rounded-[20px] p-5 bg-surface-2 border border-line flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[14px] font-semibold text-ink">Habits</span>
-                        <span className="text-[12px] text-ink-3 font-medium">3 of 5</span>
-                      </div>
-                      <div className="space-y-2.5">
-                        {[
-                          { name: 'Morning meditation', done: true, streak: 14 },
-                          { name: 'Deep work block', done: true, streak: 8 },
-                          { name: 'Evening read', done: false, streak: 5 },
-                        ].map((h, i) => (
-                          <div
-                            key={i}
-                            className="flex items-center justify-between p-2 rounded-xl bg-surface border border-line"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <span
-                                className={`flex h-4 w-4 rounded-full items-center justify-center ${
-                                  h.done ? 'bg-primary text-snow' : 'border border-line-strong'
-                                }`}
-                              >
-                                {h.done && <CheckCircle2 className="h-3 w-3" />}
-                              </span>
-                              <span
-                                className={`text-[13px] font-medium ${
-                                  h.done ? 'text-ink-2 line-through' : 'text-ink'
-                                }`}
-                              >
-                                {h.name}
-                              </span>
-                            </div>
-                            <span className="flex items-center gap-1 text-[11px] font-semibold text-warning">
-                              <Flame className="h-3 w-3" /> {h.streak}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+          <div className="mx-auto mt-8 max-w-[500px]">
+            <KitWaitlist />
+          </div>
+        </div>
 
-                  {/* AI Assistant Preview */}
-                  <div className="md:col-span-3 rounded-[20px] p-5 bg-surface-2 border border-line flex flex-col justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 text-primary-text mb-3">
-                        <Sparkles className="h-4 w-4" />
-                        <span className="text-[13px] font-semibold">Focalyst AI</span>
-                      </div>
-                      <p className="text-[13px] text-ink-2 leading-relaxed">
-                        &ldquo;You completed 84% of planned tasks this week. Your highest focus peak is at 10 AM.&rdquo;
-                      </p>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-line text-[11px] text-ink-3">
-                      Ask AI anything with <kbd className="font-mono bg-surface px-1 py-0.5 rounded border border-line">⌘J</kbd>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+        {/* Footer */}
+        <footer className="mx-auto mt-20 max-w-[1280px] border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[13px] text-[#6B7591]">
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <span className="font-semibold text-snow">Focalyst</span>
+            <a
+              href="https://focalyst.online/app"
+              className="hover:text-snow transition-colors"
+            >
+              Features
+            </a>
+            <a href="#mcp" className="hover:text-snow transition-colors">
+              MCP
+            </a>
+            <a
+              href="https://focalyst.online/app"
+              className="hover:text-snow transition-colors"
+            >
+              About
+            </a>
+            <Link className="hover:text-snow transition-colors" href="/privacy">
+              Privacy Policy
+            </Link>
+            <Link className="hover:text-snow transition-colors" href="/terms">
+              Terms of Service
+            </Link>
+            <Link className="hover:text-snow transition-colors" href="/help">
+              Help &amp; FAQ
+            </Link>
+            <a
+              href="mailto:support@focalyst.online"
+              className="hover:text-snow transition-colors"
+            >
+              Contact Us
+            </a>
+            <a
+              href="https://focalyst.online/app"
+              className="hover:text-snow transition-colors"
+            >
+              Download the App
+            </a>
           </div>
 
-          {/* 3 Pillar Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mt-14 max-w-[1080px] mx-auto">
-            {/* 1. Plan */}
-            <div className="frost p-6 rounded-[24px] border border-line bg-surface/80 hover:shadow-lg transition-shadow">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary-text mb-5">
-                <CalendarCheck2 className="h-6 w-6" strokeWidth={1.75} />
-              </div>
-              <h3 className="text-[18px] font-semibold text-ink">Plan</h3>
-              <p className="mt-2 text-[15px]/[24px] text-ink-2">
-                Habits, tasks and reminders in one calm place.
-              </p>
-            </div>
-
-            {/* 2. Focus */}
-            <div className="frost p-6 rounded-[24px] border border-line bg-surface/80 hover:shadow-lg transition-shadow">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary-text mb-5">
-                <Timer className="h-6 w-6" strokeWidth={1.75} />
-              </div>
-              <h3 className="text-[18px] font-semibold text-ink">Focus</h3>
-              <p className="mt-2 text-[15px]/[24px] text-ink-2">
-                Deep work sessions that actually get saved.
-              </p>
-            </div>
-
-            {/* 3. Reflect */}
-            <div className="frost p-6 rounded-[24px] border border-line bg-surface/80 hover:shadow-lg transition-shadow">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary-soft text-primary-text mb-5">
-                <ChartColumn className="h-6 w-6" strokeWidth={1.75} />
-              </div>
-              <h3 className="text-[18px] font-semibold text-ink">Reflect</h3>
-              <p className="mt-2 text-[15px]/[24px] text-ink-2">
-                Weekly insights that show what&apos;s working.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* MCP STRIP */}
-        <section id="mcp" className="px-6 pb-24">
-          <div className="glass liquid rounded-[28px] p-8 sm:p-14 text-center max-w-[960px] mx-auto shadow-[var(--shadow-glass)]">
-            <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-primary-text bg-primary-soft px-3 py-1 rounded-full">
-              FOCALYST LABS
-            </span>
-            <h2 className="font-display text-[32px]/[38px] sm:text-[42px]/[46px] text-ink mt-4">
-              Your Focalyst, inside your AI.
-            </h2>
-            <p className="text-[15px]/[24px] sm:text-[16px]/[26px] text-ink-2 max-w-[540px] mx-auto mt-3 mb-8">
-              Connect your habits, tasks and focus sessions to the AI assistants you already use.
-            </p>
-
-            <div className="max-w-[520px] mx-auto">
-              <KitWaitlist />
-            </div>
-          </div>
-        </section>
-
-        {/* FOOTER */}
-        <footer className="border-t border-line py-12 max-w-[1280px] mx-auto px-8 flex flex-col md:flex-row items-center justify-between gap-6 text-[13px] text-ink-3">
-          <div className="flex flex-col sm:flex-row items-center gap-6">
-            <span className="font-ui font-bold text-[15px] tracking-wide text-ink">
-              Focalyst
-            </span>
-            <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-              <a href="#features" className="hover:text-ink transition-colors">
-                About
-              </a>
-              <Link href="/privacy" className="hover:text-ink transition-colors">
-                Privacy Policy
-              </Link>
-              <Link href="/terms" className="hover:text-ink transition-colors">
-                Terms of Service
-              </Link>
-              <a
-                href="mailto:support@focalyst.online?subject=Help%20%26%20FAQ"
-                className="hover:text-ink transition-colors"
-              >
-                Help & FAQ
-              </a>
-              <a
-                href="mailto:support@focalyst.online"
-                className="hover:text-ink transition-colors"
-              >
-                Contact Us
-              </a>
-              <a href="#mcp" className="hover:text-ink transition-colors">
-                Download the App
-              </a>
-            </div>
-          </div>
-          <div className="shrink-0 text-center md:text-right">
-            &copy; 2026 Focalyst. All rights reserved.
-          </div>
+          <p>© 2026 Focalyst. All rights reserved.</p>
         </footer>
-      </div>
+      </section>
     </div>
   );
 }
