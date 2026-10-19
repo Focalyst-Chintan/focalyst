@@ -2,12 +2,13 @@
 
 import React, { useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus } from 'lucide-react';
+import { Plus, PanelRight } from 'lucide-react';
 import { usePlan } from '@/context/PlanContext';
 import { useDesktopShell } from '@/components/desktop/DesktopShellContext';
 import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { Button } from '@/components/desktop/ui/Button';
+import { IconButton } from '@/components/desktop/ui/IconButton';
 import { HabitsView } from '@/components/desktop/plan/HabitsView';
 import { TasksView } from '@/components/desktop/plan/TasksView';
 import { CalendarDesktopView } from '@/components/desktop/plan/CalendarDesktopView';
@@ -46,6 +47,26 @@ export function DesktopPlanPage() {
       ? '+ New reminder'
       : '+ New habit';
 
+  const { isContextPanelOpen, setIsContextPanelOpen } = useDesktopShell();
+
+  // Remember open/closed per view in localStorage
+  React.useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`fx-panel-${currentView}`);
+      if (saved !== null) {
+        setIsContextPanelOpen(saved === 'true');
+      }
+    } catch {}
+  }, [currentView, setIsContextPanelOpen]);
+
+  const togglePanel = () => {
+    const next = !isContextPanelOpen;
+    setIsContextPanelOpen(next);
+    try {
+      localStorage.setItem(`fx-panel-${currentView}`, String(next));
+    } catch {}
+  };
+
   return (
     <div className="w-full flex flex-col gap-6">
       {/* Header row, mb 24 */}
@@ -56,21 +77,33 @@ export function DesktopPlanPage() {
             value={currentView}
             onChange={setView}
             options={[
-              { label: `Habits ${habitsCount}`, value: 'habits' },
-              { label: `Tasks ${tasksCount}`, value: 'tasks' },
+              { label: 'Habits', value: 'habits', count: habitsCount },
+              { label: 'Tasks', value: 'tasks', count: tasksCount },
               { label: 'Calendar', value: 'calendar' },
             ]}
           />
         </div>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={handleHeaderAction}
-          className="gap-1.5 shadow-[var(--shadow-1)]"
-        >
-          <span>{actionButtonText}</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          <IconButton
+            label={isContextPanelOpen ? 'Hide details' : 'Show details'}
+            tooltip={isContextPanelOpen ? 'Hide details ⌘.' : 'Show details ⌘.'}
+            size="md"
+            variant="ghost"
+            onClick={togglePanel}
+          >
+            <PanelRight size={18} />
+          </IconButton>
+
+          <Button
+            variant="primary"
+            size="md"
+            onClick={handleHeaderAction}
+            className="gap-1.5 shadow-[var(--shadow-1)]"
+          >
+            <span>{actionButtonText}</span>
+          </Button>
+        </div>
       </div>
 
       {/* Main View Render */}

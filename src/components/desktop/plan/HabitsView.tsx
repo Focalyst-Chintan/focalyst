@@ -12,6 +12,7 @@ import { CalendarHeatmap } from './CalendarHeatmap';
 import { localDateStr, addDaysYMD } from '@/lib/utils/date';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { onDataChanged } from '@/lib/events';
 
 export function HabitsView() {
   const { habits, updateHabit, deleteHabit } = usePlan();
@@ -44,6 +45,15 @@ export function HabitsView() {
 
   useEffect(() => {
     fetchLogs();
+    const unsub = onDataChanged(['habit'], () => {
+      fetchLogs();
+    });
+    const handleFocus = () => fetchLogs();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [fetchLogs]);
 
   // Last 7 days dates ending today (oldest left)
@@ -300,16 +310,14 @@ export function HabitsView() {
           <div
             key={habit.id}
             onClick={() => setSelectedHabitId(habit.id)}
-            className={`group h-16 rounded-[16px] frost px-4 flex items-center gap-3.5 cursor-pointer transition-all duration-150 hover:-translate-y-px hover:border-line-strong ${
+            className={`group relative h-16 rounded-[16px] frost pl-4 pr-4 flex items-center gap-3.5 cursor-pointer transition-all duration-150 hover:-translate-y-px hover:border-line-strong ${
               isSelected ? 'border-primary/40 shadow-sm' : ''
             }`}
           >
-            {/* Optional Grip handle if position column exists */}
-            {hasPosition && (
-              <div className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-3 shrink-0">
-                <GripVertical size={16} />
-              </div>
-            )}
+            {/* Absolute Grip handle at left 4px, visible only on hover */}
+            <div className="absolute left-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-ink-3 pointer-events-none">
+              <GripVertical size={16} />
+            </div>
 
             {/* Icon Chip 36px, radius 12, bg = habit colour at 14% */}
             <div

@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { FREE_TIER_LIMITS, isFreePlan } from '@/lib/featureGates'
 import { localDateStr } from '@/lib/utils/date'
+import { onDataChanged } from '@/lib/events'
 
 // ── Types ──
 export interface TaskItem {
@@ -249,6 +250,15 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         fetchData()
+        const unsub = onDataChanged(['task', 'habit', 'reminder'], () => {
+            fetchData()
+        })
+        const handleFocus = () => fetchData()
+        window.addEventListener('focus', handleFocus)
+        return () => {
+            unsub()
+            window.removeEventListener('focus', handleFocus)
+        }
     }, [fetchData])
 
     // ── Midnight Refresh Logic ──

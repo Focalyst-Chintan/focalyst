@@ -81,7 +81,7 @@ export function CalendarHeatmap({
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="tabular-nums">‹ {year} ›</span>
+          <span className="tabular-nums">{year}</span>
           <button
             type="button"
             onClick={() => onYearChange(year + 1)}

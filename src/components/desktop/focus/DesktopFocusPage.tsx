@@ -6,6 +6,7 @@ import {
   RotateCcw,
   Play,
   Pause,
+  Square,
   SkipForward,
   Maximize2,
   ChevronDown,
@@ -13,13 +14,15 @@ import {
   Plus,
   MoreVertical,
   Check,
+  Settings2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
-import { localDateStr } from '@/lib/utils/date';
+import { localDateStr, parseYMDToLocalNoon } from '@/lib/utils/date';
 import { getLevelFromMinutes } from '@/lib/utils/levels';
-import { recordFocusSession } from '@/lib/focus/recordFocusSession';
+import { recordFocusSession, reconcileDailyFocus } from '@/lib/focus/recordFocusSession';
+import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { useFocusToday } from '@/hooks/useFocusToday';
 import { FocusOrb } from './FocusOrb';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
@@ -165,6 +168,46 @@ export function DesktopFocusPage() {
     }
   }, [user, supabase, todayStr]);
 
+  // Tracking elapsed time via timestamps + accumulated pause
+  const sessionStartedAtRef = useRef<number | null>(null);
+  const accumulatedElapsedMsRef = useRef<number>(0);
+  const lastResumeAtRef = useRef<number | null>(null);
+
+  // Compute live elapsed focus seconds (for focus phase)
+  const getElapsedFocusSeconds = useCallback(() => {
+    if (phase !== 'focus') return 0;
+    let totalMs = accumulatedElapsedMsRef.current;
+    if (isActive && lastResumeAtRef.current) {
+      totalMs += Math.max(0, Date.now() - lastResumeAtRef.current);
+    }
+    return Math.floor(totalMs / 1000);
+  }, [phase, isActive]);
+
+  const [elapsedDisplaySeconds, setElapsedDisplaySeconds] = useState(0);
+
+  useEffect(() => {
+    if (phase !== 'focus') {
+      setElapsedDisplaySeconds(0);
+      return;
+    }
+    setElapsedDisplaySeconds(getElapsedFocusSeconds());
+    if (!isActive) return;
+    const interval = setInterval(() => {
+      setElapsedDisplaySeconds(getElapsedFocusSeconds());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isActive, phase, getElapsedFocusSeconds]);
+
+  // Reconcile today's focus time on mount (fixes today's 0m)
+  useEffect(() => {
+    if (user?.id) {
+      reconcileDailyFocus(todayStr, user.id).then(() => {
+        refetchToday();
+        fetchTodaySessions();
+      });
+    }
+  }, [user?.id, todayStr, refetchToday, fetchTodaySessions]);
+
   useEffect(() => {
     fetchCountdowns();
     fetchTodaySessions();
@@ -176,32 +219,60 @@ export function DesktopFocusPage() {
 
     window.addEventListener('fx:focus-updated', handleFocusUpdated);
     window.addEventListener('focalyst:focus-updated', handleFocusUpdated);
+    const unsub = onDataChanged(['focus', 'countdown'], () => {
+      fetchTodaySessions();
+      refetchToday();
+      fetchCountdowns();
+    });
+
+    const handleFocus = () => {
+      fetchTodaySessions();
+      refetchToday();
+      fetchCountdowns();
+    };
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       window.removeEventListener('fx:focus-updated', handleFocusUpdated);
       window.removeEventListener('focalyst:focus-updated', handleFocusUpdated);
+      window.removeEventListener('focus', handleFocus);
+      unsub();
     };
   }, [fetchCountdowns, fetchTodaySessions, refetchToday]);
 
   // Save current focus block if elapsed >= 60s
-  const saveCurrentFocusBlock = useCallback(async () => {
-    if (phase !== 'focus' || savedRef.current) return;
-    const elapsedSecs = Math.max(0, currentPhaseTotalSeconds - timeLeft);
+  const saveCurrentFocusBlock = useCallback(async (): Promise<number> => {
+    if (phase !== 'focus' || savedRef.current) return 0;
+    const elapsedSecs = getElapsedFocusSeconds();
     if (elapsedSecs >= 60) {
       savedRef.current = true;
       const elapsedMins = Math.floor(elapsedSecs / 60);
       const linkedTask = tasks.find((t) => t.id === linkedTaskId);
+      const startedAt = sessionStartedAtRef.current || sessionStartTimeRef.current;
       await recordFocusSession({
         id: currentSessionIdRef.current,
-        startedAt: sessionStartTimeRef.current,
+        startedAt,
         minutes: elapsedMins,
         taskId: linkedTaskId || null,
         taskTitle: linkedTask?.title || null,
       });
       fetchTodaySessions();
       refetchToday();
+      return elapsedMins;
     }
-  }, [phase, currentPhaseTotalSeconds, timeLeft, tasks, linkedTaskId, fetchTodaySessions, refetchToday]);
+    return 0;
+  }, [phase, getElapsedFocusSeconds, tasks, linkedTaskId, fetchTodaySessions, refetchToday]);
+
+  // Reset session timing refs
+  const resetSessionTiming = useCallback(() => {
+    savedRef.current = false;
+    sessionStartTimeRef.current = Date.now();
+    sessionStartedAtRef.current = null;
+    accumulatedElapsedMsRef.current = 0;
+    lastResumeAtRef.current = null;
+    currentSessionIdRef.current = safeRandomId();
+    setElapsedDisplaySeconds(0);
+  }, []);
 
   // Write pending session record every 15s
   useEffect(() => {
@@ -300,20 +371,41 @@ export function DesktopFocusPage() {
     saveCurrentFocusBlock,
   ]);
 
+  // Start / Pause
+  const toggleStartPause = () => {
+    if (!isActive) {
+      if (timeLeft <= 0) {
+        setTimeLeft(currentPhaseTotalSeconds);
+      }
+      const now = Date.now();
+      if (!sessionStartedAtRef.current) {
+        sessionStartedAtRef.current = now;
+      }
+      lastResumeAtRef.current = now;
+      setIsActive(true);
+    } else {
+      // Pausing
+      if (lastResumeAtRef.current) {
+        accumulatedElapsedMsRef.current += Math.max(0, Date.now() - lastResumeAtRef.current);
+        lastResumeAtRef.current = null;
+      }
+      setIsActive(false);
+    }
+  };
+
   // Reset timer
   const handleReset = async () => {
-    await saveCurrentFocusBlock();
+    const savedMins = await saveCurrentFocusBlock();
     setIsActive(false);
     setTimeLeft(currentPhaseTotalSeconds);
-    savedRef.current = false;
-    sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = safeRandomId();
+    resetSessionTiming();
   };
 
   // Skip block
   const handleSkip = async () => {
-    await saveCurrentFocusBlock();
+    const savedMins = await saveCurrentFocusBlock();
     setIsActive(false);
+    resetSessionTiming();
     if (phase === 'focus') {
       if (currentSet < totalSets) {
         setPhase('short_break');
@@ -331,9 +423,29 @@ export function DesktopFocusPage() {
       setPhase('focus');
       setTimeLeft(focusMins * 60);
     }
-    savedRef.current = false;
-    sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = safeRandomId();
+  };
+
+  // End session: save elapsed focus minutes (if >= 1 min), stop cycle, go back to idle Focus session 1
+  const handleEndSession = async () => {
+    setIsActive(false);
+    if (lastResumeAtRef.current) {
+      accumulatedElapsedMsRef.current += Math.max(0, Date.now() - lastResumeAtRef.current);
+      lastResumeAtRef.current = null;
+    }
+    const savedMins = await saveCurrentFocusBlock();
+    if (savedMins >= 1) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent('fx:toast', {
+            detail: { message: `Saved ${savedMins} min of focus`, type: 'success' },
+          })
+        );
+      }
+    }
+    setPhase('focus');
+    setCurrentSet(1);
+    setTimeLeft(focusMins * 60);
+    resetSessionTiming();
   };
 
   // Phase switch
@@ -342,28 +454,11 @@ export function DesktopFocusPage() {
     await saveCurrentFocusBlock();
     setPhase(newPhase);
     setIsActive(false);
-    savedRef.current = false;
-    sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = safeRandomId();
+    resetSessionTiming();
 
     if (newPhase === 'focus') setTimeLeft(focusMins * 60);
     else if (newPhase === 'short_break') setTimeLeft(shortBreakMins * 60);
     else setTimeLeft(longBreakMins * 60);
-  };
-
-  // Start / Pause
-  const toggleStartPause = () => {
-    if (!isActive) {
-      if (timeLeft <= 0) {
-        setTimeLeft(currentPhaseTotalSeconds);
-      }
-      sessionStartTimeRef.current = Date.now();
-      savedRef.current = false;
-      currentSessionIdRef.current = safeRandomId();
-      setIsActive(true);
-    } else {
-      setIsActive(false);
-    }
   };
 
   // Keyboard Desk Mode & Space
@@ -460,32 +555,34 @@ export function DesktopFocusPage() {
 
   // Countdowns sorting & calculations
   const parsedCountdowns = useMemo(() => {
-    const todayMid = new Date();
-    todayMid.setHours(0, 0, 0, 0);
+    const today = new Date();
+    const todayNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0).getTime();
 
     return countdowns.map((c) => {
-      const [y, m, d] = c.target_date.split('-').map(Number);
-      const targetMid = new Date(y, m - 1, d, 0, 0, 0);
-      const diffMs = targetMid.getTime() - todayMid.getTime();
-      const daysLeft = Math.ceil(diffMs / 86400000);
+      const targetNoon = parseYMDToLocalNoon(c.target_date).getTime();
+      const diffMs = targetNoon - todayNoon;
+      const daysLeft = Math.round(diffMs / 86400000);
       const isPast = daysLeft < 0;
 
       // Progress bar from created date to target date
-      const createdDate = c.created_at ? new Date(c.created_at) : new Date(todayMid.getTime() - 86400000 * 30);
-      const totalSpan = Math.max(1, targetMid.getTime() - createdDate.getTime());
-      const elapsed = Math.max(0, todayMid.getTime() - createdDate.getTime());
+      const createdDate = c.created_at ? new Date(c.created_at) : new Date(todayNoon - 86400000 * 30);
+      const totalSpan = Math.max(1, targetNoon - createdDate.getTime());
+      const elapsed = Math.max(0, todayNoon - createdDate.getTime());
       const progressPct = Math.min(100, Math.round((elapsed / totalSpan) * 100));
+
+      const formattedTarget = new Intl.DateTimeFormat(undefined, {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(parseYMDToLocalNoon(c.target_date));
 
       return {
         ...c,
         daysLeft,
         isPast,
         progressPct,
-        formattedTarget: targetMid.toLocaleDateString('en-US', {
-          day: 'numeric',
-          month: 'short',
-          year: 'numeric',
-        }),
+        formattedTarget,
       };
     }).sort((a, b) => {
       if (a.isPast && !b.isPast) return 1;
@@ -581,17 +678,17 @@ export function DesktopFocusPage() {
               : 'LONG BREAK'}
           </div>
 
-          {/* FocusOrb in center: size = min(440px, 52vh) on desktop, min(60vh, 640px) in desk mode */}
+          {/* FocusOrb in center: size = min(440px, 52vh) on desktop, min(64vh, 680px) in desk mode */}
           <div className="my-auto py-6">
             <FocusOrb
               progress={remainingProgress}
-              size={isDeskMode ? 'min(60vh, 580px)' : 'min(440px, 50vh)'}
-              isRunning={isActive}
+              size={isDeskMode ? 'min(64vh, 680px)' : 'min(440px, 52vh)'}
+              running={isActive}
             >
               <div className="flex flex-col items-center select-none">
                 <div
                   className="font-ui font-light text-[80px]/[84px] tabular-nums tracking-[-0.03em] text-snow"
-                  style={{ textShadow: '0 2px 24px rgba(3,25,91,0.6)' }}
+                  style={{ textShadow: '0 2px 20px rgba(3,25,91,0.55)' }}
                 >
                   {timeString}
                 </div>
@@ -602,34 +699,52 @@ export function DesktopFocusPage() {
             </FocusOrb>
           </div>
 
-          {/* Controls Row mt 28: Reset 48 ghost circle, Start/Pause 72 primary circle with glow, Skip 48 ghost circle */}
-          <div className="flex items-center justify-center gap-6 mt-4">
-            <button
-              type="button"
-              onClick={handleReset}
-              title="Reset timer"
-              className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
-            >
-              <RotateCcw size={20} />
-            </button>
+          {/* Controls Row: Reset (48 ghost), Start/Pause (72 primary), End (48 ghost), Skip (48 ghost) */}
+          <div className="flex flex-col items-center gap-2 mt-4">
+            <div className="flex items-center justify-center gap-5">
+              <button
+                type="button"
+                onClick={handleReset}
+                title="Reset timer"
+                className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
+              >
+                <RotateCcw size={20} />
+              </button>
 
-            <button
-              type="button"
-              onClick={toggleStartPause}
-              title={isActive ? 'Pause' : 'Start'}
-              className="h-[72px] w-[72px] rounded-full bg-primary hover:bg-primary-hover text-snow flex items-center justify-center shadow-[0_10px_30px_rgba(25,81,252,0.45)] transition-transform active:scale-95 cursor-pointer"
-            >
-              {isActive ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
-            </button>
+              <button
+                type="button"
+                onClick={toggleStartPause}
+                title={isActive ? 'Pause' : 'Start'}
+                className="h-[72px] w-[72px] rounded-full bg-primary hover:bg-primary-hover text-snow flex items-center justify-center shadow-[0_10px_30px_rgba(25,81,252,0.45)] transition-transform active:scale-95 cursor-pointer"
+              >
+                {isActive ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
+              </button>
 
-            <button
-              type="button"
-              onClick={handleSkip}
-              title="Skip block"
-              className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
-            >
-              <SkipForward size={20} />
-            </button>
+              <button
+                type="button"
+                onClick={handleEndSession}
+                title="End session"
+                className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
+              >
+                <Square size={20} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSkip}
+                title="Skip block"
+                className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
+              >
+                <SkipForward size={20} />
+              </button>
+            </div>
+
+            {/* Under controls while running/paused: 12px text-ink-3 "X min will be saved" */}
+            {phase === 'focus' && (isActive || elapsedDisplaySeconds >= 60) && (
+              <span className="text-[12px] font-medium text-ink-3 tabular-nums">
+                {Math.floor(elapsedDisplaySeconds / 60)} min will be saved
+              </span>
+            )}
           </div>
 
           {/* Task picker: custom Popover select, width 340, radius 9999 */}
@@ -745,7 +860,7 @@ export function DesktopFocusPage() {
                         key={p.key}
                         type="button"
                         onClick={() => handleSelectPreset(p.focus, p.brk, p.key)}
-                        className={`h-16 w-full rounded-2xl flex flex-col items-center justify-center transition-all ${
+                        className={`relative h-16 w-full rounded-2xl flex flex-col items-center justify-center transition-all ${
                           isActivePill ? 'fx-active-pill' : 'bg-surface-2 hover:bg-surface-2/80'
                         }`}
                       >
@@ -765,18 +880,27 @@ export function DesktopFocusPage() {
                     trigger={
                       <button
                         type="button"
-                        className={`h-16 w-full rounded-2xl flex flex-col items-center justify-center transition-all ${
+                        className={`relative h-16 w-full rounded-2xl flex flex-col items-center justify-center transition-all ${
                           activePreset === 'custom'
                             ? 'fx-active-pill'
                             : 'bg-surface-2 hover:bg-surface-2/80'
                         }`}
                       >
-                        <span className="text-[18px]/[22px] font-semibold tabular-nums text-ink">
-                          {activePreset === 'custom' ? focusMins : 'Set'}
-                        </span>
-                        <span className="text-[11px] text-ink-3">
-                          {activePreset === 'custom' ? `${shortBreakMins} min break` : 'Custom'}
-                        </span>
+                        {activePreset === 'custom' ? (
+                          <>
+                            <span className="text-[18px]/[22px] font-semibold tabular-nums text-ink">
+                              {focusMins}
+                            </span>
+                            <span className="text-[11px] text-ink-3">
+                              {shortBreakMins} min break
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Settings2 size={16} className="text-ink-2 mb-1" />
+                            <span className="text-[13px] font-medium text-ink">Custom</span>
+                          </>
+                        )}
                       </button>
                     }
                   >
@@ -898,14 +1022,22 @@ export function DesktopFocusPage() {
                     + Add
                   </Button>
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              ) : (                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                   {parsedCountdowns.map((c, idx) => {
                     const isNearestUpcoming = idx === 0 && !c.isPast;
+                    const daysLabel =
+                      c.daysLeft === 0
+                        ? 'TODAY'
+                        : c.daysLeft === 1
+                        ? 'TOMORROW'
+                        : c.isPast
+                        ? 'PASSED'
+                        : 'DAYS LEFT';
+
                     return (
                       <div
                         key={c.id}
-                        className={`rounded-[20px] p-5 flex flex-col justify-between relative shadow-sm transition-all ${
+                        className={`rounded-[20px] p-5 min-h-[120px] flex justify-between relative shadow-sm transition-all overflow-hidden ${
                           isNearestUpcoming
                             ? 'text-snow shadow-md'
                             : 'frost text-ink'
@@ -919,97 +1051,102 @@ export function DesktopFocusPage() {
                             : undefined
                         }
                       >
-                        <div className="flex items-start justify-between">
+                        {/* Left: days left */}
+                        <div className="flex flex-col justify-between">
                           <span
-                            className={`text-[14px] font-semibold truncate ${
-                              isNearestUpcoming ? 'text-snow' : 'text-ink'
-                            }`}
-                          >
-                            {c.event_name}
-                          </span>
-
-                          {/* Options menu */}
-                          <div className="relative">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setOpenCountdownMenuId(openCountdownMenuId === c.id ? null : c.id)
-                              }
-                              className={`h-7 w-7 rounded-[8px] flex items-center justify-center transition-colors ${
-                                isNearestUpcoming
-                                  ? 'text-snow/70 hover:text-snow hover:bg-snow/10'
-                                  : 'text-ink-3 hover:text-ink hover:bg-surface-2'
-                              }`}
-                            >
-                              <MoreVertical size={15} />
-                            </button>
-                            {openCountdownMenuId === c.id && (
-                              <div className="absolute right-0 top-full mt-1 w-28 p-1 rounded-[10px] glass-strong shadow-lg z-20 flex flex-col gap-0.5">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenCountdownMenuId(null);
-                                    setEditingCountdownId(c.id);
-                                    setCountdownModalOpen(true);
-                                  }}
-                                  className="h-7 px-2 rounded-[6px] text-[12px] text-left text-ink hover:bg-surface-2"
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenCountdownMenuId(null);
-                                    handleDeleteCountdown(c.id);
-                                  }}
-                                  className="h-7 px-2 rounded-[6px] text-[12px] text-left text-danger hover:bg-danger/10"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Days left */}
-                        <div className="my-3 flex items-baseline gap-2">
-                          <span
-                            className={`font-ui font-semibold text-[48px]/[48px] tabular-nums ${
+                            className={`text-[44px] font-semibold tabular-nums tracking-[-0.03em] leading-none ${
                               isNearestUpcoming ? 'text-snow' : 'text-ink'
                             }`}
                           >
                             {c.isPast ? 0 : c.daysLeft}
                           </span>
                           <span
-                            className={`text-[13px] font-medium ${
-                              isNearestUpcoming ? 'text-snow/80' : 'text-ink-2'
+                            className={`text-[11px] font-semibold uppercase tracking-[0.1em] mt-1 ${
+                              isNearestUpcoming ? 'text-snow/70' : 'text-ink-3'
                             }`}
                           >
-                            {c.isPast ? 'Passed' : 'days left'}
+                            {daysLabel}
                           </span>
                         </div>
 
-                        {/* Target date */}
-                        <span
-                          className={`text-[12px] tabular-nums block mb-2 ${
-                            isNearestUpcoming ? 'text-snow/70' : 'text-ink-3'
-                          }`}
-                        >
-                          {c.formattedTarget}
-                        </span>
+                        {/* Right: title, date, progress bar + options menu */}
+                        <div className="flex flex-col justify-between items-end text-right min-w-0 max-w-[55%]">
+                          <div className="flex items-start justify-end gap-1.5 w-full min-w-0">
+                            <span
+                              title={c.event_name}
+                              className={`text-[15px] font-semibold truncate ${
+                                isNearestUpcoming ? 'text-snow' : 'text-ink'
+                              }`}
+                            >
+                              {c.event_name}
+                            </span>
 
-                        {/* 4px Progress bar */}
-                        <div
-                          className={`h-1 w-full rounded-full overflow-hidden ${
-                            isNearestUpcoming ? 'bg-snow/20' : 'bg-surface-2'
-                          }`}
-                        >
-                          <div
-                            className={`h-full rounded-full ${
-                              isNearestUpcoming ? 'bg-snow' : 'bg-primary'
-                            }`}
-                            style={{ width: `${c.progressPct}%` }}
-                          />
+                            {/* Options menu */}
+                            <div className="relative shrink-0">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setOpenCountdownMenuId(openCountdownMenuId === c.id ? null : c.id)
+                                }
+                                className={`h-6 w-6 rounded-[6px] flex items-center justify-center transition-colors ${
+                                  isNearestUpcoming
+                                    ? 'text-snow/70 hover:text-snow hover:bg-snow/10'
+                                    : 'text-ink-3 hover:text-ink hover:bg-surface-2'
+                                }`}
+                              >
+                                <MoreVertical size={14} />
+                              </button>
+                              {openCountdownMenuId === c.id && (
+                                <div className="absolute right-0 top-full mt-1 w-28 p-1 rounded-[10px] glass-strong shadow-lg z-20 flex flex-col gap-0.5 text-left">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenCountdownMenuId(null);
+                                      setEditingCountdownId(c.id);
+                                      setCountdownModalOpen(true);
+                                    }}
+                                    className="h-7 px-2 rounded-[6px] text-[12px] text-left text-ink hover:bg-surface-2"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setOpenCountdownMenuId(null);
+                                      handleDeleteCountdown(c.id);
+                                    }}
+                                    className="h-7 px-2 rounded-[6px] text-[12px] text-left text-danger hover:bg-danger/10"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="w-full flex flex-col items-end">
+                            <span
+                              className={`text-[13px] tabular-nums mt-0.5 ${
+                                isNearestUpcoming ? 'text-snow/70' : 'text-ink-2'
+                              }`}
+                            >
+                              {c.formattedTarget}
+                            </span>
+
+                            {/* 4px Progress bar */}
+                            <div
+                              className={`h-1 w-28 rounded-full overflow-hidden mt-3 ${
+                                isNearestUpcoming ? 'bg-snow/20' : 'bg-surface-2'
+                              }`}
+                            >
+                              <div
+                                className={`h-full rounded-full ${
+                                  isNearestUpcoming ? 'bg-snow' : 'bg-primary'
+                                }`}
+                                style={{ width: `${c.progressPct}%` }}
+                              />
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -1058,6 +1195,13 @@ export function DesktopFocusPage() {
             id={editingCountdownId || undefined}
             userId={user.id}
             userPlan={plan || 'free'}
+            navigateAfterSave={false}
+            onSaved={() => {
+              emitDataChanged('countdown');
+              setCountdownModalOpen(false);
+              setEditingCountdownId(null);
+              fetchCountdowns();
+            }}
           />
         )}
       </Modal>

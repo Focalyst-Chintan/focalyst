@@ -22,7 +22,8 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { usePlan, TaskItem, HabitItem } from '@/context/PlanContext';
 import { createClient } from '@/lib/supabase';
-import { localDateStr } from '@/lib/utils/date';
+import { localDateStr, parseYMDToLocalNoon } from '@/lib/utils/date';
+import { onDataChanged, emitDataChanged } from '@/lib/events';
 import {
   getStartAndEndOfWeek,
   aggregateSessionsByDay,
@@ -518,34 +519,49 @@ export default function TodayPage() {
 
   useEffect(() => {
     fetchCountdowns();
-  }, [fetchCountdowns]);
+
+    const unsub = onDataChanged(['countdown', 'focus'], () => {
+      fetchCountdowns();
+      fetchFocusMetrics();
+    });
+
+    const handleFocus = () => {
+      fetchCountdowns();
+      fetchFocusMetrics();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      unsub();
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [fetchCountdowns, fetchFocusMetrics]);
 
   // Nearest upcoming countdowns
   const upcomingCountdowns = useMemo(() => {
     const today = new Date();
-    const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+    const todayNoon = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0, 0).getTime();
 
     return (countdowns ?? [])
       .map((c) => {
-        if (!c) return null;
-        const parts = (c.target_date || '').split('-');
-        let targetMidnight = 0;
-        if (parts.length === 3) {
-          targetMidnight = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
-        } else if (c.target_date) {
-          const d = new Date(c.target_date);
-          targetMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-        } else {
-          return null;
-        }
-        const daysLeft = Math.ceil((targetMidnight - todayMidnight) / 86400000);
+        if (!c || !c.target_date) return null;
+        const targetNoon = parseYMDToLocalNoon(c.target_date).getTime();
+        const diffMs = targetNoon - todayNoon;
+        const daysLeft = Math.round(diffMs / 86400000);
+        if (daysLeft < 0) return null;
+
+        const createdDate = c.created_at ? new Date(c.created_at) : new Date(todayNoon - 86400000 * 30);
+        const totalSpan = Math.max(1, targetNoon - createdDate.getTime());
+        const elapsed = Math.max(0, todayNoon - createdDate.getTime());
+        const progressPct = Math.min(100, Math.round((elapsed / totalSpan) * 100));
+
         return {
           ...c,
           daysLeft,
-          isPast: daysLeft < 0,
+          progressPct,
         };
       })
-      .filter((c): c is any => Boolean(c) && !c.isPast)
+      .filter((c): c is any => Boolean(c))
       .sort((a, b) => a.daysLeft - b.daysLeft)
       .slice(0, 3);
   }, [countdowns]);
@@ -580,63 +596,133 @@ export default function TodayPage() {
       {/* =========================================================================
           SECTION K: COUNTDOWN BANNER ON TODAY (Desktop only)
           ========================================================================= */}
-      <div className="hidden lg:flex w-full h-[88px] rounded-[20px] glass liquid px-6 items-center justify-between shadow-[var(--shadow-1)]">
-        <div className="flex items-center gap-6 min-w-0">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3 shrink-0">
+      <div className="hidden lg:flex flex-col gap-3 w-full">
+        <div className="flex items-center justify-between">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
             COUNTDOWNS
           </span>
-
-          {upcomingCountdowns.length > 0 ? (
-            <div className="flex items-center divide-x divide-line min-w-0">
-              {upcomingCountdowns.map((item, idx) => (
-                <div key={item.id} className={`${idx === 0 ? 'pr-6' : 'px-6'} flex flex-col justify-center min-w-0`}>
-                  <div className="flex items-baseline gap-1.5">
-                    <span
-                      className={`font-ui font-semibold text-[36px]/[38px] tabular-nums tracking-tight ${
-                        idx === 0 ? 'text-primary-text' : 'text-ink'
-                      }`}
-                    >
-                      {item.daysLeft}
-                    </span>
-                    <span className="text-[13px] text-ink-2 font-medium">days</span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5 min-w-0">
-                    <span className="text-[14px] font-semibold text-ink truncate max-w-[160px]">
-                      {item.event_name}
-                    </span>
-                    <span className="text-[12px] text-ink-3 shrink-0">
-                      {item.target_date}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <span className="text-[14px] text-ink-2">
-              Add a countdown for something that matters.
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          {upcomingCountdowns.length > 0 ? (
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push('/focus#countdowns')}
-              className="text-[13px]"
+              className="text-[13px] text-ink-2 hover:text-ink"
             >
               Manage
             </Button>
-          ) : (
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setCountdownModalOpen(true)}
-              className="text-[13px]"
+              className="text-[13px] text-ink-2 hover:text-ink"
             >
               + Add
             </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 xl:grid-cols-3 gap-4">
+          {upcomingCountdowns.map((item, idx) => {
+            const isNearest = idx === 0;
+            const daysLabel =
+              item.daysLeft === 0
+                ? 'TODAY'
+                : item.daysLeft === 1
+                ? 'TOMORROW'
+                : 'DAYS LEFT';
+
+            const formattedDate = item.target_date
+              ? new Intl.DateTimeFormat(undefined, {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                }).format(parseYMDToLocalNoon(item.target_date))
+              : '';
+
+            return (
+              <div
+                key={item.id}
+                className={`rounded-[20px] p-5 min-h-[120px] flex justify-between shadow-[var(--shadow-1)] relative overflow-hidden transition-all ${
+                  isNearest ? 'text-snow' : 'frost text-ink'
+                }`}
+                style={
+                  isNearest
+                    ? {
+                        background:
+                          'radial-gradient(120% 120% at 0% 100%, #1951FC 0%, #0B2CB1 45%, #03195B 100%)',
+                      }
+                    : undefined
+                }
+              >
+                {/* Left side: days left */}
+                <div className="flex flex-col justify-between">
+                  <span
+                    className={`text-[44px] font-semibold tabular-nums tracking-[-0.03em] leading-none ${
+                      isNearest ? 'text-snow' : 'text-ink'
+                    }`}
+                  >
+                    {item.daysLeft}
+                  </span>
+                  <span
+                    className={`text-[11px] font-semibold uppercase tracking-[0.1em] mt-1 ${
+                      isNearest ? 'text-snow/70' : 'text-ink-3'
+                    }`}
+                  >
+                    {daysLabel}
+                  </span>
+                </div>
+
+                {/* Right side: title, date, 4px progress bar */}
+                <div className="flex flex-col justify-between items-end text-right min-w-0 max-w-[55%]">
+                  <div className="min-w-0 w-full flex flex-col items-end">
+                    <span
+                      title={item.event_name}
+                      className={`text-[15px] font-semibold truncate w-full ${
+                        isNearest ? 'text-snow' : 'text-ink'
+                      }`}
+                    >
+                      {item.event_name}
+                    </span>
+                    <span
+                      className={`text-[13px] tabular-nums mt-0.5 ${
+                        isNearest ? 'text-snow/70' : 'text-ink-2'
+                      }`}
+                    >
+                      {formattedDate}
+                    </span>
+                  </div>
+
+                  {/* 4px progress bar */}
+                  <div
+                    className={`h-1 w-28 rounded-full overflow-hidden mt-3 ${
+                      isNearest ? 'bg-snow/20' : 'bg-surface-2'
+                    }`}
+                  >
+                    <div
+                      className={`h-full rounded-full ${
+                        isNearest ? 'bg-snow' : 'bg-primary'
+                      }`}
+                      style={{ width: `${item.progressPct ?? 0}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Fill remaining slots with ONE dashed tile */}
+          {upcomingCountdowns.length < 3 && (
+            <button
+              type="button"
+              onClick={() => setCountdownModalOpen(true)}
+              className="rounded-[20px] p-5 min-h-[120px] border border-dashed border-line-strong hover:border-line text-ink-3 hover:text-ink flex flex-col items-center justify-center gap-1.5 transition-colors cursor-pointer group"
+            >
+              <span className="text-[14px] font-medium group-hover:text-ink">
+                + Add countdown
+              </span>
+              <span className="text-[12px] text-ink-3">Track what matters next</span>
+            </button>
           )}
         </div>
       </div>
@@ -1303,6 +1389,12 @@ export default function TodayPage() {
         <CountdownForm
           userId={user?.id || ''}
           userPlan={plan || 'free'}
+          navigateAfterSave={false}
+          onSaved={() => {
+            emitDataChanged('countdown');
+            setCountdownModalOpen(false);
+            fetchCountdowns();
+          }}
         />
       </Modal>
     </div>

@@ -10,6 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { usePlan, HabitItem } from '@/context/PlanContext';
 import { DatePicker } from '@/components/desktop/ui/DatePicker';
 import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
+import { emitDataChanged } from '@/lib/events';
 
 const DAYS = [
   { label: 'M', index: 0 },
@@ -223,6 +224,7 @@ export function HabitModal({ isOpen, onClose, habitToEdit }: HabitModalProps) {
       }
 
       await refreshData();
+      emitDataChanged('habit');
       onClose();
     } catch (err: any) {
       console.error('Failed to save habit:', err);

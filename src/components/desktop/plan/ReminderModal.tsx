@@ -8,6 +8,7 @@ import { usePlan, Reminder } from '@/context/PlanContext';
 import { localDateStr } from '@/lib/utils/date';
 import { DatePicker } from '@/components/desktop/ui/DatePicker';
 import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
+import { emitDataChanged } from '@/lib/events';
 
 const CATEGORIES = [
   { label: 'Work', color: '#2B6BFF' },
@@ -184,6 +185,7 @@ export function ReminderModal({
       }
 
       await refreshData();
+      emitDataChanged('reminder');
       onClose();
     } catch (err: any) {
       console.error('Failed to save reminder:', err);

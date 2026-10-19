@@ -20,6 +20,7 @@ import { Popover } from '@/components/desktop/ui/Popover';
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { onDataChanged } from '@/lib/events';
 
 const MONTH_NAMES = [
   'January',
@@ -145,6 +146,15 @@ export function CalendarDesktopView() {
 
   useEffect(() => {
     fetchAllReminders();
+    const unsub = onDataChanged(['reminder'], () => {
+      fetchAllReminders();
+    });
+    const handleFocus = () => fetchAllReminders();
+    window.addEventListener('focus', handleFocus);
+    return () => {
+      unsub();
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [user]);
 
   // Combined active reminders

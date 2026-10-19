@@ -6,7 +6,19 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
-export default function CountdownForm({ id, userPlan, userId }: { id?: string, userPlan: string, userId: string }) {
+export default function CountdownForm({
+    id,
+    userPlan,
+    userId,
+    onSaved,
+    navigateAfterSave = true,
+}: {
+    id?: string,
+    userPlan: string,
+    userId: string,
+    onSaved?: () => void,
+    navigateAfterSave?: boolean,
+}) {
     const { user } = useAuth()
     const isFree = userPlan === 'free'
     const router = useRouter()
@@ -96,15 +108,29 @@ export default function CountdownForm({ id, userPlan, userId }: { id?: string, u
             is_active: true
         }
 
+        let success = false
         if (id) {
             const { error: updateError } = await supabase.from('countdowns').update(payload).eq('id', id)
-            if (updateError) setError(updateError.message)
-            else router.push('/focus')
+            if (updateError) {
+                setError(updateError.message)
+            } else {
+                success = true
+            }
         } else {
             // Explicitly pass payload mapped inside an array for RLS insert policy alignment
             const { error: insertError } = await supabase.from('countdowns').insert([payload])
-            if (insertError) setError(insertError.message)
-            else router.push('/focus')
+            if (insertError) {
+                setError(insertError.message)
+            } else {
+                success = true
+            }
+        }
+
+        if (success) {
+            onSaved?.()
+            if (navigateAfterSave) {
+                router.push('/focus')
+            }
         }
 
         setSubmitting(false)

@@ -6,6 +6,7 @@ import { usePlan, Priority } from '@/context/PlanContext';
 import { localDateStr } from '@/lib/utils/date';
 import { DatePicker } from '@/components/desktop/ui/DatePicker';
 import { Popover } from '@/components/desktop/ui/Popover';
+import { emitDataChanged } from '@/lib/events';
 
 interface TaskModalProps {
   defaultDate?: string;
@@ -39,6 +40,7 @@ export function TaskModal({ defaultDate, onClose }: TaskModalProps) {
         reminders: false,
       });
       await refreshData();
+      emitDataChanged('task');
       onClose();
     } catch (err) {
       console.error('Failed to create task:', err);

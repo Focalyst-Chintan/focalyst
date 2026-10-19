@@ -603,11 +603,15 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
             sidebarCollapsed ? 'lg:ml-[100px]' : 'lg:ml-[280px]'
           }`}
         >
-          {/* F1: Sticky Top Bar with Backdrop Blur Wrapper */}
+          {/* Sticky Top Bar with pure gradient fade wrapper */}
           <div className="sticky top-0 z-30 pt-3 pb-3">
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 top-0 h-full bg-canvas/70 backdrop-blur-xl [mask-image:linear-gradient(to_bottom,black_65%,transparent)]"
+              className="pointer-events-none absolute inset-x-0 top-0 h-[calc(100%+24px)]"
+              style={{
+                background:
+                  'linear-gradient(to bottom, var(--canvas) 0%, color-mix(in srgb, var(--canvas) 75%, transparent) 55%, transparent 100%)',
+              }}
             />
             <header className="relative z-10 flex h-16 w-full items-center justify-between rounded-[20px] glass-strong px-4 shadow-[var(--shadow-1)]">
               {/* Left Title / Breadcrumb */}
