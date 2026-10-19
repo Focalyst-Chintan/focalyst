@@ -1,7 +1,11 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
+import { FREE_TIER_LIMITS, isFreePlan } from '@/lib/featureGates'
+import { localDateStr } from '@/lib/utils/date'
 
 // ── Types ──
 export interface TaskItem {
@@ -11,7 +15,7 @@ export interface TaskItem {
     start_date: string
     end_date: string
     tags: string[]
-    priority: 1 | 2 | 3
+    priority: Priority
     reminders: boolean
     position?: number
 }
@@ -30,6 +34,8 @@ export interface HabitItem {
     position?: number
     completedDates: string[] // Array of 'YYYY-MM-DD' strings from creation date
     created_at: string // ISO timestamp of habit creation
+    icon?: string
+    color?: string
 }
 
 export interface Reminder {
@@ -52,7 +58,7 @@ interface PlanContextType {
     updateTask: (id: string, updates: Partial<TaskItem>) => void
     deleteTask: (id: string) => void
     reorderTasks: (newOrder: TaskItem[]) => void
-    addHabit: (habit: Omit<HabitItem, 'id'>) => void
+    addHabit: (habit: Omit<HabitItem, 'id'>) => Promise<boolean>
     updateHabit: (id: string, updates: Partial<HabitItem>) => void
     deleteHabit: (id: string) => void
     addReminder: (reminder: Omit<Reminder, 'id'>) => void
@@ -72,8 +78,7 @@ function genId(): string {
 }
 
 function todayStr(): string {
-    const d = new Date()
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    return localDateStr()
 }
 
 // ── Mock Data (fallback when Supabase is unavailable) ──
@@ -84,20 +89,23 @@ const MOCK_HABITS: HabitItem[] = []
 const MOCK_REMINDERS: Reminder[] = []
 
 
-// ── Priority mapping: DB uses 'high'|'medium'|'low', UI uses 1|2|3 ──
-function priorityToNumber(p: string): 1 | 2 | 3 {
-    if (p === 'high') return 1
-    if (p === 'low') return 3
-    return 2
+export type Priority = 'high' | 'medium' | 'low'
+
+export const PRIORITY_WEIGHT: Record<Priority, number> = {
+    high: 1,
+    medium: 2,
+    low: 3,
 }
 
-function numberToPriority(n: 1 | 2 | 3): string {
-    if (n === 1) return 'high'
-    if (n === 3) return 'low'
+export function normalizePriority(value: unknown): Priority {
+    if (value === 'high' || value === 1 || value === '1') return 'high'
+    if (value === 'low' || value === 3 || value === '3') return 'low'
     return 'medium'
 }
 
 export function PlanProvider({ children }: { children: ReactNode }) {
+    const router = useRouter()
+    const { plan } = useAuth()
     const [tasks, setTasks] = useState<TaskItem[]>([])
     const [habits, setHabits] = useState<HabitItem[]>([])
     const [reminders, setReminders] = useState<Reminder[]>([])
@@ -133,48 +141,59 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 .order('created_at', { ascending: false })
                 .limit(20)
 
-            if (taskError) throw taskError
+            if (taskError) {
+                console.error("[SUPABASE FETCH ERROR]:", taskError.message, taskError.details)
+                throw taskError
+            }
 
-            const mappedTasks: TaskItem[] = (taskData || []).map((t) => ({
+            const mappedTasks: TaskItem[] = (taskData || []).map((t: any) => ({
                 id: t.id,
                 title: t.title,
                 is_completed: t.is_completed,
                 start_date: t.due_date || '',
                 end_date: t.due_date || '',
                 tags: t.tags || [],
-                priority: priorityToNumber(t.priority),
+                priority: normalizePriority(t.priority),
                 reminders: !!t.reminder_time,
             }))
 
             // ── Fetch habits (active, paginated to 20) ──
             const { data: habitData, error: habitError } = await supabase
                 .from('habits')
-                .select('*')
+                .select('id, name, current_streak, frequency, custom_days, reminder_time, position, created_at, icon, color')
                 .eq('user_id', user.id)
                 .eq('is_active', true)
                 .order('position', { ascending: true })
                 .limit(20)
 
-            if (habitError) throw habitError
+            if (habitError) {
+                console.error("[SUPABASE FETCH ERROR]:", habitError.message, habitError.details)
+                throw habitError
+            }
 
             // Fetch all habit_logs from each habit's creation date (for the contribution graph)
-            const habitIds = (habitData || []).map((h) => h.id)
+            const habitIds = (habitData || []).map((h: any) => h.id)
             let todayCompletions: string[] = []
             // Map of habitId -> array of completed date strings
             const habitCompletions: Record<string, string[]> = {}
 
             if (habitIds.length > 0) {
                 // Find the earliest created_at among all habits to minimize the query range
-                const earliestCreated = (habitData || []).reduce((min, h) => {
+                const earliestCreated = (habitData || []).reduce((min: string, h: any) => {
                     const d = h.created_at ? h.created_at.split('T')[0] : todayStr()
                     return d < min ? d : min
                 }, todayStr())
 
-                const { data: logData } = await supabase
+                const { data: logData, error: logError } = await supabase
                     .from('habit_logs')
                     .select('habit_id, completed_date')
                     .in('habit_id', habitIds)
                     .gte('completed_date', earliestCreated)
+
+                if (logError) {
+                    console.error("[SUPABASE FETCH ERROR]:", logError.message, logError.details)
+                    throw logError
+                }
 
                 const today = todayStr()
                 for (const log of logData || []) {
@@ -188,7 +207,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            const mappedHabits: HabitItem[] = (habitData || []).map((h) => ({
+            const mappedHabits: HabitItem[] = (habitData || []).map((h: any) => ({
                 id: h.id,
                 name: h.name,
                 current_streak: h.current_streak,
@@ -202,6 +221,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 position: h.position,
                 completedDates: habitCompletions[h.id] || [],
                 created_at: h.created_at || new Date().toISOString(),
+                icon: h.icon || '🎯',
+                color: h.color || '#3B82F6',
             }))
 
             setTasks(mappedTasks)
@@ -209,8 +230,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             // Reminders stay local for now (no reminders table in schema)
             setReminders(MOCK_REMINDERS)
             setUseSupabase(true)
-        } catch (err) {
-            console.error('PlanContext fetch error:', err)
+        } catch (err: any) {
+            // Explicit error logging formatted exactly as requested
+            if (err && typeof err === 'object' && 'message' in err) {
+                console.error("[SUPABASE FETCH ERROR]:", err.message, err.details || '')
+            } else {
+                console.error('PlanContext fetch error:', err)
+            }
             // Fallback to mock data on any error
             setUseSupabase(false)
             setTasks(MOCK_TASKS)
@@ -235,7 +261,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
             // Schedule refresh exactly at midnight
             const timeoutId = setTimeout(() => {
-                console.log('Midnight reached, refreshing data...');
+
                 fetchData();
                 scheduleNextMidnight(); // Schedule for next night
             }, timeUntilMidnight + 1000); // Add 1s buffer
@@ -270,7 +296,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                         user_id: user.id,
                         title: task.title.trim(),
                         due_date: task.start_date || null,
-                        priority: numberToPriority(task.priority),
+                        priority: normalizePriority(task.priority),
                         reminder_time: task.reminders ? new Date().toISOString() : null,
                         tags: task.tags.length > 0 ? task.tags : null,
                     })
@@ -286,7 +312,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     start_date: data.due_date || '',
                     end_date: data.due_date || '',
                     tags: data.tags || [],
-                    priority: priorityToNumber(data.priority),
+                    priority: normalizePriority(data.priority),
                     reminders: !!data.reminder_time,
                 }, ...prev])
                 return
@@ -296,12 +322,12 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             }
         }
         // Fallback: local state
-        setTasks((prev) => [...prev, { ...task, id: genId() }])
+        setTasks((prev) => [...prev, { ...task, priority: normalizePriority(task.priority), id: genId() }])
     }
 
     const updateTask = async (id: string, updates: Partial<TaskItem>) => {
         // Optimistic local update
-        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)))
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates, ...(updates.priority ? { priority: normalizePriority(updates.priority) } : {}) } : t)))
 
         if (useSupabase) {
             try {
@@ -312,7 +338,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     dbUpdates.is_completed = updates.is_completed
                     dbUpdates.completed_at = updates.is_completed ? new Date().toISOString() : null
                 }
-                if (updates.priority !== undefined) dbUpdates.priority = numberToPriority(updates.priority)
+                if (updates.priority !== undefined) dbUpdates.priority = normalizePriority(updates.priority)
                 if (updates.tags !== undefined) dbUpdates.tags = updates.tags.length > 0 ? updates.tags : null
                 if (updates.start_date !== undefined) dbUpdates.due_date = updates.start_date || null
                 if (updates.reminders !== undefined) {
@@ -357,6 +383,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
     // ── Habit CRUD ──
     const addHabit = async (habit: Omit<HabitItem, 'id'>) => {
+        if (isFreePlan(plan) && habits.length >= FREE_TIER_LIMITS.habits) {
+            router.push('/paywall')
+            return false
+        }
+
         if (useSupabase) {
             try {
                 const supabase = createClient()
@@ -372,6 +403,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                         custom_days: habit.all_days ? null : habit.repeat_days,
                         reminder_time: habit.reminders ? habit.reminder_time : null,
                         position: habits.length,
+                        icon: habit.icon || '🎯',
+                        color: habit.color || '#3B82F6',
                     })
                     .select()
                     .single()
@@ -392,14 +425,18 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     position: data.position,
                     completedDates: [],
                     created_at: data.created_at || new Date().toISOString(),
+                    icon: data.icon || '🎯',
+                    color: data.color || '#3B82F6',
                 }])
-                return
+                return true
             } catch (err) {
                 console.error('Failed to add habit:', err)
                 setError('Failed to save habit. Please try again.')
+                return false
             }
         }
-        setHabits((prev) => [...prev, { ...habit, id: genId() }])
+        setHabits((prev) => [...prev, { ...habit, id: genId(), icon: habit.icon || '🎯', color: habit.color || '#3B82F6' }])
+        return true
     }
 
     const updateHabit = async (id: string, updates: Partial<HabitItem>) => {
@@ -478,6 +515,8 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 if (updates.reminders !== undefined) {
                     dbUpdates.reminder_time = updates.reminders ? (updates.reminder_time || '07:00') : null
                 }
+                if (updates.icon !== undefined) dbUpdates.icon = updates.icon
+                if (updates.color !== undefined) dbUpdates.color = updates.color
 
                 if (Object.keys(dbUpdates).length > 0) {
                     const { error: updateError } = await supabase

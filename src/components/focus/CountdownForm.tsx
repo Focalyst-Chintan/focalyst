@@ -3,8 +3,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
+import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
 export default function CountdownForm({ id, userPlan, userId }: { id?: string, userPlan: string, userId: string }) {
+    const { user } = useAuth()
     const isFree = userPlan === 'free'
     const router = useRouter()
     const supabase = createClient()
@@ -47,17 +50,27 @@ export default function CountdownForm({ id, userPlan, userId }: { id?: string, u
             return
         }
 
+        // Forcefully await a fresh session immediately to update headers and prevent RLS failures
+        const { data: { session } } = await supabase.auth.getSession()
+        const currentUserId = session?.user?.id || user?.id || userId
+
+        if (!currentUserId) {
+            setError('User is not authenticated')
+            setSubmitting(false)
+            return
+        }
+
         // Feature Limits
         if (isFree && !id) {
             // Check count limit
             const { count } = await supabase
                 .from('countdowns')
                 .select('*', { count: 'exact', head: true })
-                .eq('user_id', userId)
+                .eq('user_id', currentUserId)
                 .eq('is_active', true)
 
-            if (count && count >= 1) {
-                alert('Free plan allows 1 countdown maximum. Please UPGRADE to Pro or edit your existing countdown.') // Upgrade modal goes here
+            if (count !== null && count >= FREE_TIER_LIMITS.countdowns) {
+                router.push('/paywall')
                 setSubmitting(false)
                 return
             }
@@ -70,14 +83,14 @@ export default function CountdownForm({ id, userPlan, userId }: { id?: string, u
             const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
             if (diffDays > 30) {
-                alert('Free plan supports countdowns up to 30 days ahead. Upgrade for any future date.')
+                router.push('/paywall')
                 setSubmitting(false)
                 return
             }
         }
 
         const payload = {
-            user_id: userId,
+            user_id: currentUserId,
             event_name: eventName,
             target_date: targetDate,
             is_active: true
@@ -88,6 +101,7 @@ export default function CountdownForm({ id, userPlan, userId }: { id?: string, u
             if (updateError) setError(updateError.message)
             else router.push('/focus')
         } else {
+            // Explicitly pass payload mapped inside an array for RLS insert policy alignment
             const { error: insertError } = await supabase.from('countdowns').insert([payload])
             if (insertError) setError(insertError.message)
             else router.push('/focus')
@@ -116,23 +130,23 @@ export default function CountdownForm({ id, userPlan, userId }: { id?: string, u
                 />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 mb-6">
-                <div>
+            <div className="flex flex-col sm:flex-row gap-4 w-full mb-6">
+                <div className="w-full">
                     <label className="block text-navy font-semibold text-lg mb-2">Date</label>
                     <input
                         type="date"
                         value={targetDate}
                         onChange={(e) => setTargetDate(e.target.value)}
-                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none"
+                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm"
                         required
                     />
                 </div>
-                <div>
+                <div className="w-full">
                     <label className="block text-navy font-semibold text-lg mb-2">Time</label>
                     <input
                         type="time"
                         defaultValue="11:00"
-                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none"
+                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm"
                     />
                 </div>
             </div>

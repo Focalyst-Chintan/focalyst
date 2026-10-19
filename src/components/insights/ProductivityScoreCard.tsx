@@ -1,6 +1,11 @@
 import { CycleIcon } from '@/components/icons/CycleIcon'
+import { useTranslation } from 'react-i18next'
+import { Lock } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid: boolean }) {
+    const { t } = useTranslation()
+    const router = useRouter()
     let colorClass = 'text-green-500' // Green (75-100)
     if (score < 50) {
         colorClass = 'text-red-500' // Red (0-49)
@@ -12,11 +17,18 @@ export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid
         <div className="relative bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between overflow-hidden">
             {/* Feature Gate Overlay */}
             {!isPaid && (
-                <div className="absolute inset-0 z-10 bg-white/60 backdrop-blur-[2px] flex flex-col items-center justify-center">
-                    <div className="w-10 h-10 rounded-full bg-navy flex items-center justify-center mb-2 shadow-sm">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <div className="absolute inset-0 z-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-[3px] flex flex-col items-center justify-center px-4 text-center">
+                    <div className="w-10 h-10 rounded-full bg-navy dark:bg-slate-800 flex items-center justify-center mb-2 shadow-sm">
+                        <Lock className="w-5 h-5 text-white" />
                     </div>
-                    <span className="text-[11px] font-semibold text-navy bg-white px-3 py-1 rounded-full shadow-sm border border-card-bg">Upgrade to Pro</span>
+                    <span className="text-[11px] font-bold text-navy dark:text-slate-100 mb-2">Premium Feature</span>
+                    <button
+                        type="button"
+                        onClick={() => router.push('/paywall')}
+                        className="text-[11px] font-semibold text-white bg-accent px-3 py-1.5 rounded-full shadow-sm"
+                    >
+                        Unlock Productivity Score
+                    </button>
                 </div>
             )}
 
@@ -29,7 +41,7 @@ export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid
                 <h3 className={`text-[32px] font-bold tracking-tight ${colorClass}`}>
                     {score}
                 </h3>
-                <p className="text-[12px] text-blue-muted font-medium mt-1">Productivity Score</p>
+                <p className="text-[12px] text-blue-muted font-medium mt-1">{t('insights.productivityScore')}</p>
             </div>
         </div>
     )

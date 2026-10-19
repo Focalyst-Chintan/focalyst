@@ -19,12 +19,20 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify webhook signature
+        const secret = process.env.RAZORPAY_WEBHOOK_SECRET
+        if (!secret) {
+            return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+        }
+
         const expectedSignature = crypto
-            .createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET!)
+            .createHmac('sha256', secret)
             .update(body)
             .digest('hex')
 
-        if (signature !== expectedSignature) {
+        const sigBuffer = Buffer.from(signature)
+        const expectedBuffer = Buffer.from(expectedSignature)
+
+        if (sigBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(sigBuffer, expectedBuffer)) {
             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
         }
 

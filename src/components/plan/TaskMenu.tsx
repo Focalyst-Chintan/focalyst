@@ -99,9 +99,9 @@ export default function TaskMenu({ onEdit, onDelete, onRename, onTag, onOpenChan
                 aria-label="Options"
             >
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="3" r="1.5" fill="#4A6C8C" />
-                    <circle cx="8" cy="8" r="1.5" fill="#4A6C8C" />
-                    <circle cx="8" cy="13" r="1.5" fill="#4A6C8C" />
+                    <circle cx="8" cy="3" r="1.5" fill="currentColor" />
+                    <circle cx="8" cy="8" r="1.5" fill="currentColor" />
+                    <circle cx="8" cy="13" r="1.5" fill="currentColor" />
                 </svg>
             </button>
 
@@ -123,30 +123,30 @@ export default function TaskMenu({ onEdit, onDelete, onRename, onTag, onOpenChan
                             top: `${coords.top}px`,
                             left: `${coords.left}px`,
                         }}
-                        className="bg-white rounded-xl shadow-[0_10px_32px_rgba(0,0,0,0.2)] border border-navy/10 py-1 min-w-[140px] z-[9999] animate-in fade-in zoom-in-95 duration-150 origin-top-right pointer-events-auto"
+                        className="bg-white dark:bg-slate-800 rounded-xl shadow-[0_10px_32px_rgba(0,0,0,0.2)] border border-navy/10 dark:border-slate-700 py-1 min-w-[140px] z-[9999] animate-in fade-in zoom-in-95 duration-150 origin-top-right pointer-events-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy hover:bg-page-bg transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
                         >
                             Edit
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onRename(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy hover:bg-page-bg transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
                         >
                             Rename
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onTag(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy hover:bg-page-bg transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
                         >
                             Tag
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                            className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                         >
                             Delete
                         </button>

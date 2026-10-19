@@ -1,12 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer-core";
 import chromium from "@sparticuz/chromium-min";
+import { createServerSupabaseClient } from '@/lib/supabase-server';
 
 // Set correct dynamic configuration for Vercel
 export const dynamic = "force-dynamic";
 
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 export async function POST(req: NextRequest) {
     try {
+        const supabase = await createServerSupabaseClient();
+        let { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+            const authHeader = req.headers.get('Authorization');
+            if (authHeader?.startsWith('Bearer ')) {
+                const token = authHeader.substring(7);
+                const { data: { user: jwtUser } } = await supabase.auth.getUser(token);
+                user = jwtUser;
+            }
+        }
+
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { htmlContent, noteTitle } = await req.json();
 
         if (!htmlContent) {
@@ -60,7 +86,7 @@ export async function POST(req: NextRequest) {
           </style>
         </head>
         <body>
-          <h1>${noteTitle || "Untitled Note"}</h1>
+          <h1>${escapeHtml(noteTitle || "Untitled Note")}</h1>
           <div class="content">
             ${htmlContent}
           </div>
@@ -68,7 +94,7 @@ export async function POST(req: NextRequest) {
         </html>
       `;
 
-            await page.setContent(fullHtml, { waitUntil: "networkidle0" });
+            await page.setContent(fullHtml, { waitUntil: "networkidle0" as any });
 
             const pdfBuffer = await page.pdf({
                 format: "A4",

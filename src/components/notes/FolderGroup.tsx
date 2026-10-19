@@ -9,6 +9,7 @@ interface FolderGroupProps {
     notes: Note[];
     onEdit: (note: Note) => void;
     onToggleFavourite: (note: Note) => void;
+    onTogglePin?: (note: Note) => void;
     onAddToFolder: (note: Note) => void;
     onDownload: (note: Note) => void;
     onDelete: (note: Note) => void;
@@ -19,6 +20,7 @@ export const FolderGroup = ({
     notes,
     onEdit,
     onToggleFavourite,
+    onTogglePin,
     onAddToFolder,
     onDownload,
     onDelete
@@ -54,6 +56,7 @@ export const FolderGroup = ({
                             note={note}
                             onEdit={onEdit}
                             onToggleFavourite={onToggleFavourite}
+                            onTogglePin={onTogglePin}
                             onAddToFolder={onAddToFolder}
                             onDownload={onDownload}
                             onDelete={onDelete}

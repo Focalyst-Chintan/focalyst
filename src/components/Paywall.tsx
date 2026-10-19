@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Script from 'next/script'
 import { createClient } from '@/lib/supabase'
+import { useCheckout } from '@/hooks/useCheckout'
 
 type BillingCycle = 'monthly' | 'yearly'
 type Region = 'IN' | 'INT'
@@ -72,6 +73,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
     const [isLoading, setIsLoading] = useState(false)
     const [isRestoring, setIsRestoring] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly')
+    const { checkout, restore } = useCheckout()
 
     useEffect(() => {
         const r = getCookie('user-region')
@@ -116,29 +118,24 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
         setIsLoading(true)
 
         try {
-            const res = await fetch('/api/checkout/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ planType, region, isOnboarding }),
-            })
+            const result = await checkout(planType, region, isOnboarding)
+            if (result.success) {
+                // If native purchase
+                if (result.customerInfo) {
+                    router.push(successRedirect)
+                    return
+                }
 
-            const data = await res.json()
+                // If web: Polar
+                if (result.provider === 'polar' && result.url) {
+                    window.location.href = result.url
+                    return
+                }
 
-            if (!res.ok) {
-                const errMsg = data.error || data.details || `Server Error (${res.status}): Please try again.`
-                console.error('Checkout creation failed:', errMsg)
-                alert(errMsg)
-                setIsLoading(false)
-                return
-            }
-
-            if (data.provider === 'polar' && data.url) {
-                window.location.href = data.url
-                return
-            }
-
-            if (data.provider === 'razorpay') {
-                openRazorpayCheckout(data)
+                // If web: Razorpay
+                if (result.provider === 'razorpay') {
+                    openRazorpayCheckout(result)
+                }
             }
         } catch (error: any) {
             console.error('Checkout failed:', error)
@@ -150,29 +147,15 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
     const restoreSubscription = async () => {
         setIsRestoring(true)
         try {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
-
-            if (!user) {
-                alert('Please log in to restore your purchase.')
-                return
-            }
-
-            const { data: sub, error } = await supabase
-                .from('subscriptions')
-                .select('*')
-                .eq('user_id', user.id)
-                .in('status', ['active'])
-                .single()
-
-            if (sub && !error) {
+            const result = await restore()
+            if (result.success) {
                 router.push(successRedirect)
             } else {
-                alert('No active subscription found.')
+                alert((result as any).message || 'No active purchase found.')
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Restore failed:', error)
-            alert('Failed to restore subscription.')
+            alert(error.message || 'Failed to restore subscription.')
         } finally {
             setIsRestoring(false)
         }

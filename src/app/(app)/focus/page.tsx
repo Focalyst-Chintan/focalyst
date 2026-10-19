@@ -1,29 +1,51 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import PomodoroSection from '@/components/focus/PomodoroSection'
 import CountdownSection from '@/components/focus/CountdownSection'
 import BlockerCard from '@/components/focus/BlockerCard'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
+export default function FocusPage() {
+    const supabase = createClient()
+    const { user } = useAuth()
 
-export default async function FocusPage() {
-    const supabase = await createServerSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const [userPlan, setUserPlan] = useState('free')
+    const [userId, setUserId] = useState('')
+    const [loading, setLoading] = useState(true)
 
-    if (!session) {
-        redirect('/login')
+    useEffect(() => {
+        if (!user) return
+
+        async function fetchProfile() {
+            if (!user) return
+            setUserId(user.id)
+
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('plan')
+                .eq('id', user.id)
+                .single()
+
+            if (userProfile) {
+                setUserPlan(userProfile.plan || 'free')
+            }
+            setLoading(false)
+        }
+        fetchProfile()
+    }, [supabase, user])
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-page-bg dark:bg-slate-950">
+                <div className="w-8 h-8 rounded-full border-2 border-navy border-t-transparent animate-spin" />
+            </div>
+        )
     }
 
-    const { data: user } = await supabase
-        .from('users')
-        .select('plan')
-        .eq('id', session.user.id)
-        .single()
-
-    const userPlan = user?.plan || 'free'
-
     return (
-        <div className="min-h-screen pb-24 bg-page-bg">
+        <div className="min-h-screen pb-24 bg-page-bg dark:bg-slate-950">
             <main className="max-w-md mx-auto p-4 pt-6">
                 <PomodoroSection userPlan={userPlan} />
 
@@ -31,7 +53,7 @@ export default async function FocusPage() {
                     <BlockerCard />
                 </div>
 
-                <CountdownSection userPlan={userPlan} userId={session.user.id} />
+                <CountdownSection userPlan={userPlan} userId={userId} />
             </main>
         </div>
     )

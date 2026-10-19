@@ -2,19 +2,22 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase'
 import { usePlan } from '@/context/PlanContext'
+import { useAuth } from '@/context/AuthContext'
 import TodoList from '@/components/plan/TodoList'
 import HabitList from '@/components/plan/HabitList'
 import CalendarView from '@/components/plan/CalendarView'
+import WeeklyReportModal from '@/components/insights/WeeklyReportModal'
 
 type TabView = 'today' | 'calendar'
 
-function getGreeting(): string {
+function getGreetingKey(): string {
     const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
+    if (hour < 12) return 'morning'
+    if (hour < 17) return 'afternoon'
+    return 'evening'
 }
 
 function getFormattedDate(): { day: string; month: string; weekday: string } {
@@ -29,13 +32,16 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
 function PlanContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const { t } = useTranslation()
+    const { user } = useAuth()
     const [activeTab, setActiveTab] = useState<TabView>('today')
     const [userName, setUserName] = useState<string>('User')
+    const [userId, setUserId] = useState<string>(user?.id || '')
     const [showSuccess, setShowSuccess] = useState(false)
     const { getTodayEventCount } = usePlan()
     const supabase = createClient()
     const date = getFormattedDate()
-    const greeting = getGreeting()
+    const greetingKey = getGreetingKey()
     const eventCount = getTodayEventCount()
 
     useEffect(() => {
@@ -51,24 +57,27 @@ function PlanContent() {
 
     useEffect(() => {
         async function fetchUserName() {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (user) {
-                const { data: profile } = await supabase
-                    .from('users')
-                    .select('full_name')
-                    .eq('id', user.id)
-                    .single()
+            if (!user) return
+            setUserId(user.id)
+            const { data: profile } = await supabase
+                .from('users')
+                .select('full_name')
+                .eq('id', user.id)
+                .single()
 
-                if (profile?.full_name) {
-                    setUserName(profile.full_name.split(' ')[0]) // Just first name
-                }
+            if (profile?.full_name) {
+                setUserName(profile.full_name.split(' ')[0]) // Just first name
             }
         }
         fetchUserName()
-    }, [supabase])
+    }, [user, supabase])
 
 
     return (
+        <>
+        {/* Weekly Report Modal - renders as overlay */}
+        {userId && <WeeklyReportModal userId={userId} />}
+
         <div className="px-5 py-4">
             {/* Success Message */}
             {showSuccess && (
@@ -93,25 +102,25 @@ function PlanContent() {
                 </div>
             )}
             {/* Greeting */}
-            <h1 className="text-navy text-xl font-semibold">
-                {greeting}, {userName}
+            <h1 className="text-navy dark:text-slate-100 text-xl font-semibold">
+                {t(`plan.${greetingKey}`)}, {userName}
             </h1>
 
             {/* Tab Toggle */}
             <div className="flex gap-2 mt-3 mb-4">
                 <button
                     onClick={() => setActiveTab('today')}
-                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'today' ? 'bg-navy text-white' : 'bg-card-bg text-navy'
+                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'today' ? 'bg-navy text-white' : 'bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-300'
                         }`}
                 >
-                    TODAY
+                    {t('plan.today')}
                 </button>
                 <button
                     onClick={() => setActiveTab('calendar')}
-                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'calendar' ? 'bg-navy text-white' : 'bg-card-bg text-navy'
+                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'calendar' ? 'bg-navy text-white' : 'bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-300'
                         }`}
                 >
-                    CALENDAR
+                    {t('plan.calendar')}
                 </button>
             </div>
 
@@ -120,17 +129,17 @@ function PlanContent() {
                     {/* Date Display + Event Count */}
                     <div className="flex items-baseline justify-between mb-5">
                         <div>
-                            <span className="text-navy text-[42px] font-bold leading-none">{date.day}</span>
-                            <span className="text-navy text-[42px] font-light ml-1">{date.month}</span>
-                            <p className="text-blue-muted text-xs mt-0.5">{date.weekday}</p>
+                            <span className="text-navy dark:text-slate-100 text-[42px] font-bold leading-none">{date.day}</span>
+                            <span className="text-navy dark:text-slate-300 text-[42px] font-light ml-1">{date.month}</span>
+                            <p className="text-blue-muted dark:text-slate-400 text-xs mt-0.5">{date.weekday}</p>
                         </div>
                         <button
                             onClick={() => setActiveTab('calendar')}
                             className="text-blue-muted text-sm hover:text-navy hover:underline transition-colors"
                         >
                             {eventCount === 0
-                                ? 'No events'
-                                : `${eventCount} event${eventCount > 1 ? 's' : ''}`}
+                                ? t('plan.noEvents')
+                                : `${eventCount} ${t(eventCount > 1 ? 'plan.events' : 'plan.event')}`}
                         </button>
                     </div>
 
@@ -139,11 +148,12 @@ function PlanContent() {
                     <HabitList />
                 </>
             ) : (
-                <div className="bg-white rounded-2xl p-4 shadow-sm">
+                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm dark:border dark:border-slate-800 transition-colors">
                     <CalendarView />
                 </div>
             )}
         </div>
+        </>
     )
 }
 

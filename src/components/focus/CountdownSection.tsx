@@ -2,13 +2,16 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase'
+import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
 import { Countdown } from '@/types'
 
 export default function CountdownSection({ userId, userPlan }: { userPlan: string, userId: string }) {
     const router = useRouter()
     const supabase = createClient()
+    const { t } = useTranslation()
 
     const [countdowns, setCountdowns] = useState<Countdown[]>([])
     const [loading, setLoading] = useState(true)
@@ -37,11 +40,11 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
 
     return (
         <section className="mt-8">
-            <h2 className="text-[20px] font-bold text-navy mb-4">Countdown</h2>
+            <h2 className="text-[20px] font-bold text-navy dark:text-slate-100 mb-4">{t('focus.countdown')}</h2>
 
             {loading ? (
                 <div className="animate-pulse space-y-4">
-                    <div className="h-24 bg-card-bg/50 rounded-xl"></div>
+                    <div className="h-24 bg-card-bg/50 dark:bg-slate-900/50 rounded-xl"></div>
                 </div>
             ) : (
                 <div className="space-y-4 relative">
@@ -58,11 +61,13 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                         const zIndex = openMenuId === countdown.id ? 50 : countdowns.length - index
 
                         return (
-                            <div key={countdown.id} className="bg-card-bg/50 rounded-xl p-4 flex flex-col border border-card-border relative" style={{ zIndex }}>
+                            <div key={countdown.id} className="bg-card-bg/50 dark:bg-slate-900 rounded-xl p-4 flex flex-col border border-card-border dark:border-slate-800 relative" style={{ zIndex }}>
                                 <div className="flex justify-between items-start w-full">
                                     <div className="flex items-baseline gap-2">
-                                        <span className="text-[40px] leading-none font-medium text-navy tracking-tight">{daysRemaining}</span>
-                                        <span className="text-navy text-[18px] font-medium tracking-tight">Days to</span>
+                                        <span className="text-[40px] leading-none font-medium text-navy dark:text-slate-100 tracking-tight">{daysRemaining}</span>
+                                        <span className="text-navy dark:text-slate-300 text-[18px] font-medium tracking-tight">
+                                            {t('plan.totalDays', { count: daysRemaining }).replace(String(daysRemaining), '').trim()}
+                                        </span>
                                     </div>
 
                                     {/* Three dots menu */}
@@ -74,7 +79,7 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                                 e.stopPropagation()
                                                 setOpenMenuId(openMenuId === countdown.id ? null : countdown.id)
                                             }}
-                                            className="w-10 h-10 -mr-2 -mt-2 flex items-center justify-center rounded-full active:bg-card-border/50 text-navy transition-colors"
+                                            className="w-10 h-10 -mr-2 -mt-2 flex items-center justify-center rounded-full active:bg-card-border/50 text-navy dark:text-slate-400 hover:bg-page-bg dark:hover:bg-slate-800 transition-colors"
                                             aria-label="Options"
                                         >
                                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="pointer-events-none">
@@ -95,18 +100,18 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                                         setOpenMenuId(null)
                                                     }}
                                                 />
-                                                <div className="absolute right-0 top-full mt-1 w-32 bg-white rounded-xl shadow-xl border border-card-border py-2 z-[999]">
+                                                <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-card-border dark:border-slate-800 py-2 z-[999]">
                                                     <button
                                                         type="button"
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             setOpenMenuId(null);
-                                                            router.push(`/focus/countdown/${countdown.id}`)
+                                                            router.push(`/focus/countdown/edit?id=${countdown.id}`)
                                                         }}
-                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-navy hover:bg-page-bg transition-colors"
+                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-800 transition-colors"
                                                     >
-                                                        Edit
+                                                        {t('settings.editProfile').split(' ')[0]}
                                                     </button>
                                                     <button
                                                         type="button"
@@ -116,16 +121,16 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                                             setOpenMenuId(null);
                                                             handleDelete(countdown.id)
                                                         }}
-                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-error hover:bg-error-light transition-colors"
+                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-error hover:bg-error-light dark:hover:bg-red-950/20 transition-colors"
                                                     >
-                                                        Delete
+                                                        {t('settings.delete')}
                                                     </button>
                                                 </div>
                                             </>
                                         )}
                                     </div>
                                 </div>
-                                <div className="text-[11px] font-medium text-navy mt-1">
+                                <div className="text-[11px] font-medium text-navy dark:text-slate-400 mt-1">
                                     {target.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {countdown.event_name}
                                 </div>
                             </div>
@@ -135,10 +140,16 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
             )}
 
             <button
-                onClick={() => router.push('/focus/countdown/new')}
-                className="w-full mt-4 bg-accent text-white text-sm font-semibold py-3.5 rounded-xl transition-transform active:scale-95 shadow-sm"
+                onClick={() => {
+                    if (userPlan === 'free' && countdowns.length >= FREE_TIER_LIMITS.countdowns) {
+                        router.push('/paywall')
+                        return
+                    }
+                    router.push('/focus/countdown/new')
+                }}
+                className="w-full mt-4 bg-accent hover:bg-accent/95 text-white text-sm font-semibold py-3.5 rounded-xl transition-transform active:scale-95 shadow-sm"
             >
-                +Add new
+                {t('focus.addnew')}
             </button>
         </section>
     )

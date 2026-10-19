@@ -1,11 +1,19 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { rateLimit } from '@/lib/rate-limit'
 
 export async function GET(request: Request) {
+    const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+    // 5 attempts per minute
+    if (!rateLimit(ip, 5, 60000)) {
+        return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/onboarding/plans'
+    const rawNext = searchParams.get('next') ?? '/onboarding/plans'
+    const next = (rawNext.startsWith('/') && !rawNext.startsWith('//')) ? rawNext : '/onboarding/plans'
 
     if (code) {
         const cookieStore = await cookies()

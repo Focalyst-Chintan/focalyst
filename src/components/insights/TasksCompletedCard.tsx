@@ -1,21 +1,22 @@
 'use client'
 
-
+import { useTranslation } from 'react-i18next'
 
 export function TasksCompletedCard({ completed, total }: { completed: number, total: number }) {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
     const radius = 38
     const circumference = 2 * Math.PI * radius
     const strokeDashoffset = circumference - (percentage / 100) * circumference
+    const { t } = useTranslation()
 
     return (
         <div className="bg-card-bg rounded-3xl p-6 shadow-sm flex justify-between items-center w-full">
             <div className="space-y-1">
-                <h3 className="text-[18px] font-semibold text-navy">Tasks Completed</h3>
-                <p className="text-[13px] text-blue-muted">Great job! You&apos;re almost there.</p>
+                <h3 className="text-[18px] font-semibold text-navy">{t('insights.tasksCompleted')}</h3>
+                <p className="text-[13px] text-blue-muted">{t('insights.tasksSub')}</p>
                 <div className="pt-2">
                     <span className="text-[32px] font-bold text-accent mr-2">{completed}</span>
-                    <span className="text-[16px] text-blue-muted">/ {total} tasks</span>
+                    <span className="text-[16px] text-blue-muted">{t('insights.tasksCount', { count: total })}</span>
                 </div>
             </div>
             <div className="w-24 h-24 relative flex items-center justify-center">

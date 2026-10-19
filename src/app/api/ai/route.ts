@@ -1,46 +1,132 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@google/generative-ai'
+import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates'
+import { rateLimit } from '@/lib/rate-limit'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(req: Request) {
     try {
-        const { message } = await req.json()
+        const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+        if (!rateLimit(ip, 20, 60000)) {
+            return NextResponse.json({ error: 'Too many requests. Please wait a minute before sending more messages.' }, { status: 429 });
+        }
 
-        if (!message) {
+        const body = await req.json()
+        let rawMessage = body.message
+        let messages = body.messages
+
+        // Support both single message and messages array
+        if (!rawMessage && Array.isArray(messages) && messages.length > 0) {
+            const lastMsg = messages[messages.length - 1]
+            rawMessage = typeof lastMsg?.content === 'string' ? lastMsg.content : (lastMsg?.parts?.[0]?.text || '')
+        }
+
+        if (!rawMessage || typeof rawMessage !== 'string' || !rawMessage.trim()) {
             return NextResponse.json({ error: 'Message is required' }, { status: 400 })
         }
 
-        const supabase = await createServerSupabaseClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        // Bound to last 10 messages if array provided and cap message at 3000 chars
+        if (Array.isArray(messages)) {
+            messages = messages.slice(-10).map((msg: any) => {
+                if (typeof msg.content === 'string' && msg.content.length > 3000) {
+                    return { ...msg, content: msg.content.slice(0, 3000) + '... [truncated for length]' }
+                }
+                return msg
+            })
+        }
+        const message = rawMessage.length > 3000 ? rawMessage.slice(0, 3000) + '... [truncated for length]' : rawMessage
+
+        // ── Auth: try Bearer token first (Capacitor), fall back to cookie-based session (web) ──
+        let user: any = null;
+        let supabase: any = null;
+        const authHeader = req.headers.get('Authorization');
+        const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+
+        if (token) {
+            try {
+                // In Capacitor native WebView, cookies are not reliable or stripped, so we use
+                // the Bearer token passed in the Authorization header to authenticate the user.
+                // We create a server client passing the token globally to ensure all subsequent
+                // database queries satisfy RLS policies for that specific user.
+                const { createServerClient } = await import('@supabase/ssr');
+                supabase = createServerClient(
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                    {
+                        cookies: {
+                            getAll() { return []; },
+                            setAll() {}
+                        },
+                        global: {
+                            headers: {
+                                Authorization: `Bearer ${token}`
+                            }
+                        }
+                    }
+                );
+                const { data: { user: jwtUser } } = await supabase.auth.getUser(token);
+                user = jwtUser;
+            } catch (bearerErr) {
+                console.error('[AI_API] Bearer token auth failed:', bearerErr);
+            }
+        }
+
+        if (!user) {
+            // Cookie-based auth fallback
+            try {
+                supabase = await createServerSupabaseClient();
+                const { data: { user: cookieUser } } = await supabase.auth.getUser();
+                user = cookieUser;
+            } catch (cookieErr) {
+                console.warn('[AI_API] Cookie-based auth unavailable:', cookieErr);
+            }
+        }
 
         if (!user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        // Database Atomic Quota Verification
+        const { data: quotaResult, error: quotaError } = await supabase.rpc('check_and_increment_ai_quota', {
+            p_action_type: 'chat'
+        });
+
+        if (quotaResult && quotaResult.allowed === false) {
+            return NextResponse.json(
+                { error: quotaResult.message || 'Daily limit reached. Please try again tomorrow.' },
+                { status: 429 }
+            );
+        }
+
         // 1. Check User Plan & Limits
         const { data: userData } = await supabase
             .from('users')
-            .select('plan')
+            .select('plan, ai_message_count, last_message_date')
             .eq('id', user.id)
             .single()
 
         const isFree = userData?.plan === 'free'
+        let currentMessageCount = userData?.ai_message_count || 0
 
         if (isFree) {
-            const today = new Date()
-            today.setHours(0, 0, 0, 0)
+            const todayKey = localDateKey()
+            const lastKey = dateKeyFromSupabase(userData?.last_message_date)
 
-            const { count } = await supabase
-                .from('ai_chat_logs')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .eq('role', 'user')
-                .gte('created_at', today.toISOString())
+            if (lastKey !== todayKey) {
+                currentMessageCount = 0
+                await supabase
+                    .from('users')
+                    .update({
+                        ai_message_count: 0,
+                        last_message_date: new Date().toISOString(),
+                    })
+                    .eq('id', user.id)
+            }
 
-            if (count !== null && count >= 5) {
+            if (currentMessageCount >= FREE_TIER_LIMITS.aiMessagesPerDay) {
                 return NextResponse.json(
                     { error: 'Daily limit reached. Upgrade to Pro for unlimited AI chat.' },
                     { status: 429 }
@@ -104,7 +190,7 @@ If the user asks to plan their day, first ask them for their goals and available
         }
 
         const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.8-flash",
             systemInstruction: systemInstruction,
         })
 
@@ -118,42 +204,47 @@ If the user asks to plan their day, first ask them for their goals and available
         let action = null
 
         // Loop to handle tool calls
+        let cachedStatsThisTurn: any = null
         while (response.functionCalls()?.length) {
             const calls = response.functionCalls()!
             const toolResults: { name: string; response: unknown }[] = []
 
             for (const call of calls) {
                 if (call.name === 'get_user_productivity_data') {
-                    // Fetch last 7 days of focus data
-                    const sevenDaysAgo = new Date()
-                    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+                    if (cachedStatsThisTurn) {
+                        toolResults.push({
+                            name: 'get_user_productivity_data',
+                            response: cachedStatsThisTurn
+                        })
+                    } else {
+                        // Fetch last 7 days of focus data
+                        const sevenDaysAgo = new Date()
+                        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-                    const { data: focusData } = await supabase
-                        .from('daily_focus_activity')
-                        .select('date, focus_time_minutes, break_time_minutes')
-                        .eq('user_id', user.id)
-                        .gte('date', sevenDaysAgo.toISOString().split('T')[0])
+                        const { data: focusData } = await supabase
+                            .from('daily_focus_activity')
+                            .select('date, focus_time_minutes, break_time_minutes')
+                            .eq('user_id', user.id)
+                            .gte('date', sevenDaysAgo.toISOString().split('T')[0])
 
-                    // Fetch active habit streaks
-                    const { data: habits } = await supabase
-                        .from('habits')
-                        .select('name, current_streak')
-                        .eq('user_id', user.id)
-                        .eq('is_active', true)
+                        // Fetch active habit streaks
+                        const { data: habits } = await supabase
+                            .from('habits')
+                            .select('name, current_streak')
+                            .eq('user_id', user.id)
+                            .eq('is_active', true)
 
-                    // Fetch task completion percentage
-                    const { data: tasks } = await supabase
-                        .from('tasks')
-                        .select('is_completed')
-                        .eq('user_id', user.id)
+                        // Fetch task completion percentage
+                        const { data: tasks } = await supabase
+                            .from('tasks')
+                            .select('is_completed')
+                            .eq('user_id', user.id)
 
-                    const totalTasks = tasks?.length || 0
-                    const completedTasks = tasks?.filter(t => t.is_completed).length || 0
-                    const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
+                        const totalTasks = tasks?.length || 0
+                        const completedTasks = tasks?.filter((t: any) => t.is_completed).length || 0
+                        const completionRate = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0
 
-                    toolResults.push({
-                        name: 'get_user_productivity_data',
-                        response: {
+                        cachedStatsThisTurn = {
                             focus_activity: focusData || [],
                             habit_streaks: habits || [],
                             task_completion_stats: {
@@ -162,12 +253,17 @@ If the user asks to plan their day, first ask them for their goals and available
                                 completion_rate: completionRate.toFixed(1) + '%'
                             }
                         }
-                    })
+
+                        toolResults.push({
+                            name: 'get_user_productivity_data',
+                            response: cachedStatsThisTurn
+                        })
+                    }
                 }
 
                 if (call.name === 'create_todos') {
                     const args = call.args as { tasks: { task_name: string, estimated_minutes?: number }[] }
-                    const tasksToInsert = args.tasks.map(t => ({
+                    const tasksToInsert = args.tasks.map((t: any) => ({
                         user_id: user.id,
                         title: t.task_name,
                         due_date: new Date().toISOString().split('T')[0],
@@ -185,6 +281,22 @@ If the user asks to plan their day, first ask them for their goals and available
 
                 if (call.name === 'create_new_habit') {
                     const args = call.args as { habit_name: string }
+                    if (isFree) {
+                        const { count } = await supabase
+                            .from('habits')
+                            .select('id', { count: 'exact', head: true })
+                            .eq('user_id', user.id)
+                            .eq('is_active', true)
+
+                        if (count !== null && count >= FREE_TIER_LIMITS.habits) {
+                            toolResults.push({
+                                name: 'create_new_habit',
+                                response: { success: false, error: 'Habit limit reached. Upgrade to Pro to add more habits.' }
+                            })
+                            continue
+                        }
+                    }
+
                     const { error: habitError } = await supabase.from('habits').insert({
                         user_id: user.id,
                         name: args.habit_name,
@@ -228,12 +340,23 @@ If the user asks to plan their day, first ask them for their goals and available
             }
         ])
 
+        if (isFree) {
+            await supabase
+                .from('users')
+                .update({
+                    ai_message_count: currentMessageCount + 1,
+                    last_message_date: new Date().toISOString(),
+                })
+                .eq('id', user.id)
+        }
+
         return NextResponse.json({ reply: responseText, action })
 
     } catch (error: any) {
-        console.error('AI Chat Error:', error)
+        const correlationId = crypto.randomUUID();
+        console.error(`[AI_API_ERROR] [${correlationId}]`, error?.message || error);
         return NextResponse.json(
-            { error: error?.message || 'Failed to process request. Please try again later.' },
+            { error: 'Failed to process request. Please try again later.', correlationId },
             { status: 500 }
         )
     }

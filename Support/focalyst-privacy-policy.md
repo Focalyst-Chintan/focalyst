@@ -2,7 +2,7 @@
 
 **Focalyst**
 **Effective Date:** March 1, 2026
-**Last Updated:** March 1, 2026
+**Last Updated:** 25 May 2026
 
 This Privacy Policy describes how Focalyst ("we", "our", or "us") collects, uses, stores, and protects your personal information when you use the Focalyst web application ("the App"). By using Focalyst, you agree to the practices described in this policy.
 
@@ -10,7 +10,7 @@ This Privacy Policy describes how Focalyst ("we", "our", or "us") collects, uses
 
 ## 1. Who We Are
 
-Focalyst is a productivity application built and operated by Chintan. For any privacy-related questions, contact us at **info.chintan.shop@gmail.com**.
+Focalyst is a productivity application built and operated by Chintan. For any privacy-related questions, contact us at **contactfocalyst@gmail.com**.
 
 ---
 
@@ -95,13 +95,13 @@ The Focalyst AI assistant is powered by the Google Gemini API. When you send a m
 
 You have the following rights regarding your personal data:
 
-**Right to access:** You may request a copy of all data we hold about you by emailing info.chintan.shop@gmail.com.
+**Right to access:** You may request a copy of all data we hold about you by emailing **contactfocalyst@gmail.com**.
 
 **Right to correction:** You can edit your name and profile type directly in the app under Profile → Edit Profile.
 
 **Right to deletion:** You can permanently delete your account and all associated data by going to Profile → Delete my account. This is irreversible. Payment records required by law are retained for the mandatory period.
 
-**Right to data portability:** You may request an export of your data in JSON format by emailing info.chintan.shop@gmail.com. We will respond within 7 business days.
+**Right to data portability:** You may request an export of your data in JSON format by emailing **contactfocalyst@gmail.com**. We will respond within 7 business days.
 
 **Right to withdraw consent:** You may withdraw consent for non-essential data processing (such as AI personalisation) by contacting us. Note that withdrawing consent for core processing may limit app functionality.
 
@@ -134,7 +134,7 @@ We do not use Google Analytics, Facebook Pixel, or any advertising networks.
 
 ## 10. Children's Privacy
 
-Focalyst is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us personal information, please contact us at info.chintan.shop@gmail.com and we will delete it promptly.
+Focalyst is not directed at children under the age of 13. We do not knowingly collect personal information from children under 13. If you believe a child has provided us personal information, please contact us at **contactfocalyst@gmail.com** and we will delete it promptly.
 
 ---
 
@@ -148,5 +148,5 @@ We may update this Privacy Policy from time to time. When we make material chang
 
 For privacy-related questions, data requests, or concerns:
 
-**Email:** info.chintan.shop@gmail.com
+**Email:** **contactfocalyst@gmail.com**
 **Response time:** Within 5 business days

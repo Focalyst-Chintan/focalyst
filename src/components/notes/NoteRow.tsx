@@ -1,104 +1,137 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Note } from '@/types'
 import { NotesTabIcon } from '@/components/icons/NotesTabIcon'
 import { NoteOptionsMenu } from './NoteOptionsMenu'
+import { Pin } from 'lucide-react'
 
 interface NoteRowProps {
-    note: Note;
-    onEdit: (note: Note) => void;
-    onToggleFavourite: (note: Note) => void;
-    onAddToFolder: (note: Note) => void;
-    onDownload: (note: Note) => void;
-    onDelete: (note: Note) => void;
+    note: Note
+    onEdit: (note: Note) => void
+    onToggleFavourite: (note: Note) => void
+    onTogglePin?: (note: Note) => void
+    onAddToFolder: (note: Note) => void
+    onDownload: (note: Note) => void
+    onDelete: (note: Note) => void
 }
 
 export const NoteRow = ({
     note,
     onEdit,
     onToggleFavourite,
+    onTogglePin,
     onAddToFolder,
     onDownload,
     onDelete
 }: NoteRowProps) => {
-    const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isDownloading, setIsDownloading] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isDownloading, setIsDownloading] = useState(false)
+    const { t } = useTranslation()
 
     const handleDownload = async () => {
-        setIsDownloading(true);
+        setIsDownloading(true)
         try {
-            await onDownload(note);
+            await onDownload(note)
         } finally {
-            setIsDownloading(false);
+            setIsDownloading(false)
         }
-    };
+    }
 
     const formatDuration = (seconds?: number | null) => {
-        if (!seconds) return '0 min';
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        if (h > 0) return `${h}h ${m}m`;
-        return `${m} min`;
+        if (!seconds) return '0 min'
+        const h = Math.floor(seconds / 3600)
+        const m = Math.floor((seconds % 3600) / 60)
+        if (h > 0) return `${h}h ${m}m`
+        return `${m} min`
     }
 
     const formatTime = (dateString: string) => {
-        const date = new Date(dateString);
-        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase();
+        const date = new Date(dateString)
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()
     }
 
     const titleDisplay = note.title && note.title.trim() !== ''
-        ? <span className="text-[15px] font-semibold text-navy truncate">{note.title}</span>
-        : <span className="text-[15px] italic text-blue-muted truncate">Untitled document</span>;
+        ? <span className="text-[15px] font-semibold text-slate-900 dark:text-white truncate">{note.title}</span>
+        : <span className="text-[15px] italic text-slate-400 truncate">{t('notes.untitled')}</span>
 
     return (
         <div className="relative">
             <div
                 onClick={() => onEdit(note)}
-                className="flex items-center justify-between p-4 bg-white rounded-xl shadow-[0_2px_8px_rgba(74,108,140,0.06)] border border-transparent hover:border-card-bg transition-colors cursor-pointer mb-3"
+                className="flex items-center justify-between p-4 bg-white dark:bg-[#151B2E] rounded-2xl shadow-sm border border-slate-200 dark:border-[#222A41] hover:border-[#2B6BFF]/30 dark:hover:border-slate-700 transition-all cursor-pointer mb-2.5"
             >
-                <div className="flex items-center gap-3 overflow-hidden flex-1">
+                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
                     <div className="shrink-0 flex items-center justify-center">
                         {note.note_type === 'voice' ? (
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M12 2C10.3431 2 9 3.34315 9 5V11C9 12.6569 10.3431 14 12 14C13.6569 14 15 12.6569 15 11V5C15 3.34315 13.6569 2 12 2Z" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M19 10V11C19 14.866 15.866 18 12 18C8.13401 18 5 14.866 5 11V10" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                <path d="M12 18V22" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
+                            <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center text-[#FF6B00]">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
+                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                                    <line x1="12" y1="19" x2="12" y2="22" />
+                                </svg>
+                            </div>
                         ) : (
-                            <NotesTabIcon size={20} color="#4A6C8C" />
+                            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/15 flex items-center justify-center text-[#2B6BFF]">
+                                <NotesTabIcon size={18} color="currentColor" />
+                            </div>
                         )}
                     </div>
 
-                    <div className="flex flex-col overflow-hidden">
-                        {titleDisplay}
+                    <div className="flex flex-col overflow-hidden min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            {titleDisplay}
+                            {note.is_pinned && (
+                                <Pin className="w-3.5 h-3.5 text-[#FF6B00] fill-[#FF6B00] shrink-0" />
+                            )}
+                        </div>
                         {note.folder && note.note_type !== 'voice' && (
-                            <span className="text-[11px] text-blue-muted uppercase tracking-wider mt-0.5 block truncate">
+                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5 block truncate">
                                 {note.folder}
                             </span>
                         )}
                         {note.note_type === 'voice' && (
-                            <span className="text-[12px] text-blue-muted mt-0.5 block truncate">
+                            <span className="text-[12px] text-slate-400 dark:text-slate-500 mt-0.5 block truncate">
                                 {formatTime(note.created_at)} • {formatDuration(note.duration_seconds)}
                             </span>
                         )}
                     </div>
                 </div>
 
-                {/* Three-dot options button */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        setIsMenuOpen(true);
-                    }}
-                    className="p-2 shrink-0 rounded-full hover:bg-page-bg ml-2 -mr-2"
-                >
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <circle cx="12" cy="6" r="2" fill="#4A6C8C" />
-                        <circle cx="12" cy="12" r="2" fill="#4A6C8C" />
-                        <circle cx="12" cy="18" r="2" fill="#4A6C8C" />
-                    </svg>
-                </button>
+                {/* Right Actions: Pin & Three-dot menu */}
+                <div className="flex items-center gap-1 shrink-0 ml-2">
+                    {onTogglePin && (
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onTogglePin(note)
+                            }}
+                            className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
+                                note.is_pinned ? 'text-[#FF6B00]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                            }`}
+                            aria-label={note.is_pinned ? 'Unpin note' : 'Pin note'}
+                            title={note.is_pinned ? 'Unpin note' : 'Pin note'}
+                        >
+                            <Pin className={`w-4 h-4 ${note.is_pinned ? 'fill-[#FF6B00]' : ''}`} />
+                        </button>
+                    )}
+
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setIsMenuOpen(true)
+                        }}
+                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                        aria-label="Note options"
+                    >
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <circle cx="12" cy="6" r="2" fill="currentColor" />
+                            <circle cx="12" cy="12" r="2" fill="currentColor" />
+                            <circle cx="12" cy="18" r="2" fill="currentColor" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <NoteOptionsMenu

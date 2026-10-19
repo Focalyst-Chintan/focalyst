@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from 'react-i18next'
 import { usePlan } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
@@ -9,6 +10,7 @@ import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
 export default function TodoList() {
     const { tasks, loading, error, updateTask, deleteTask, reorderTasks, refreshData } = usePlan()
     const router = useRouter()
+    const { t } = useTranslation()
     const dragItem = useRef<number | null>(null)
     const dragOverItem = useRef<number | null>(null)
     const [draggingIdx, setDraggingIdx] = useState<number | null>(null)
@@ -88,22 +90,27 @@ export default function TodoList() {
         touchItemIdx.current = null
     }
 
+    // Clean localization of Supabase fetch error
+    const translatedError = error === 'Could not load your data. Showing sample data.'
+        ? t('plan.errorLoading')
+        : error
+
     return (
         <section>
-            <h2 className="text-navy text-lg font-semibold mb-3">TO-DO List</h2>
+            <h2 className="text-navy dark:text-slate-100 text-lg font-semibold mb-3">{t('plan.todo')}</h2>
 
             {/* Loading skeleton */}
             {loading && <LoadingSkeleton rows={3} type="task" />}
 
             {/* Error state */}
-            {!loading && error && <ErrorCard message={error} onRetry={refreshData} />}
+            {!loading && error && <ErrorCard message={translatedError || ''} onRetry={refreshData} />}
 
             {/* Task list */}
             {!loading && (
                 <div className="flex flex-col gap-2">
                     {tasks.length === 0 ? (
                         <p className="text-blue-muted text-sm py-4 text-center">
-                            No tasks yet. Add your first task below.
+                            {t('plan.noTasks')}
                         </p>
                     ) : (
                         tasks.map((task, index) => (
@@ -118,40 +125,40 @@ export default function TodoList() {
                                 onTouchStart={(e) => handleTouchStart(index, e)}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
-                                className={`flex items-center gap-3 bg-card-bg rounded-xl px-3 py-3 cursor-grab active:cursor-grabbing transition-all relative ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
+                                className={`flex items-center gap-3 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl px-3.5 py-3.5 cursor-grab active:cursor-grabbing transition-all relative shadow-sm ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
                                     } ${openMenuId === task.id ? 'z-50' : 'z-10'}`}
                             >
                                 {/* Drag handle */}
                                 <div className="flex flex-col gap-[3px] shrink-0 mr-1 touch-none">
-                                    <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
-                                    <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
-                                    <div className="w-4 h-[2px] bg-blue-muted/60 rounded-full" />
+                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
+                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
+                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
                                 </div>
 
                                 {/* Checkbox */}
                                 <button
                                     onClick={() => toggleTask(task.id)}
-                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${task.is_completed ? 'bg-navy border-navy' : 'border-blue-muted bg-white'
+                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${task.is_completed ? 'bg-[#2B6BFF] border-[#2B6BFF]' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-[#0B1021]'
                                         }`}
                                     aria-label={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
                                 >
                                     {task.is_completed && (
                                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
                                     )}
                                 </button>
 
                                 {/* Title + Tags */}
                                 <div className="flex-1 min-w-0">
-                                    <span className={`text-sm font-medium transition-all block truncate ${task.is_completed ? 'text-blue-muted line-through' : 'text-navy'
+                                    <span className={`text-sm font-semibold transition-all block truncate ${task.is_completed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-900 dark:text-white'
                                         }`}>
                                         {task.title}
                                     </span>
                                     {task.tags.length > 0 && (
-                                        <div className="flex gap-1 mt-0.5 flex-wrap">
+                                        <div className="flex gap-1.5 mt-1 flex-wrap">
                                             {task.tags.map((tag) => (
-                                                <span key={tag} className="text-[10px] bg-navy/10 text-navy px-1.5 py-0.5 rounded-full">{tag}</span>
+                                                <span key={tag} className="text-[10px] font-medium bg-blue-50 dark:bg-blue-500/10 text-[#2B6BFF] px-2 py-0.5 rounded-full">{tag}</span>
                                             ))}
                                         </div>
                                     )}
@@ -159,7 +166,7 @@ export default function TodoList() {
 
                                 {/* Menu */}
                                 <TaskMenu
-                                    onEdit={() => router.push(`/plan/edit-task/${task.id}`)}
+                                    onEdit={() => router.push(`/plan/edit-task?id=${task.id}`)}
                                     onDelete={() => deleteTask(task.id)}
                                     onRename={() => handleRename(task.id)}
                                     onTag={() => handleTag(task.id)}
@@ -174,9 +181,9 @@ export default function TodoList() {
             {/* Add task button */}
             <button
                 onClick={() => router.push('/plan/new-task')}
-                className="w-full h-11 bg-accent text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] hover:bg-accent-dark"
+                className="w-full h-11 bg-[#2B6BFF] hover:bg-blue-600 text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1.5"
             >
-                + Add new task
+                + {t('plan.addTask')}
             </button>
         </section>
     )

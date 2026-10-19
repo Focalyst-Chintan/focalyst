@@ -146,11 +146,14 @@ export async function POST(request: NextRequest) {
                 checkoutUrl: checkoutSession.url,
             })
         } catch (polarError: any) {
-            return NextResponse.json({ error: polarError.message || "Failed to create Polar session" }, { status: 500 })
+            const correlationId = crypto.randomUUID();
+            console.error(`[POLAR_ERROR] [${correlationId}]`, polarError);
+            return NextResponse.json({ error: "Failed to create Polar session", correlationId }, { status: 500 })
         }
 
     } catch (error: any) {
-        console.error('Checkout error:', error)
-        return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 })
+        const correlationId = crypto.randomUUID();
+        console.error(`[CHECKOUT_ERROR] [${correlationId}]`, error);
+        return NextResponse.json({ error: "Internal server error", correlationId }, { status: 500 })
     }
 }

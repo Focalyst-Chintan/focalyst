@@ -1,20 +1,50 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import CountdownForm from '@/components/focus/CountdownForm'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
+export default function NewCountdownPage() {
+    const supabase = createClient()
+    const { user } = useAuth()
 
-export default async function NewCountdownPage() {
-    const supabase = await createServerSupabaseClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const [userPlan, setUserPlan] = useState('free')
+    const [userId, setUserId] = useState('')
+    const [loading, setLoading] = useState(true)
 
-    if (!session) redirect('/login')
+    useEffect(() => {
+        if (!user) return
 
-    const { data: user } = await supabase.from('users').select('plan').eq('id', session.user.id).single()
+        async function fetchProfile() {
+            if (!user) return
+            setUserId(user.id)
+
+            const { data: userProfile } = await supabase
+                .from('users')
+                .select('plan')
+                .eq('id', user.id)
+                .single()
+
+            if (userProfile) {
+                setUserPlan(userProfile.plan || 'free')
+            }
+            setLoading(false)
+        }
+        fetchProfile()
+    }, [supabase, user])
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-page-bg">
+                <div className="w-8 h-8 rounded-full border-2 border-navy border-t-transparent animate-spin" />
+            </div>
+        )
+    }
 
     return (
         <div className="min-h-screen bg-page-bg">
-            <CountdownForm userPlan={user?.plan || 'free'} userId={session.user.id} />
+            <CountdownForm userPlan={userPlan} userId={userId} />
         </div>
     )
 }

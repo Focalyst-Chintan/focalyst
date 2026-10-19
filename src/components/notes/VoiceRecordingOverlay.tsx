@@ -1,199 +1,528 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
+// ─── iOS/WebKit global type augmentations ──────────────────────────────────────
 declare global {
     interface Window {
-        SpeechRecognition: any;
-        webkitSpeechRecognition: any;
+        SpeechRecognition: any
+        webkitSpeechRecognition: any
     }
 }
 
+// ─── Number of waveform bars ───────────────────────────────────────────────────
+const BAR_COUNT = 28
+
+// ─── Props ─────────────────────────────────────────────────────────────────────
 interface VoiceRecordingOverlayProps {
-    isOpen: boolean;
-    onClose: () => void;
-    onRecordingComplete: (transcript: string, durationSeconds: number) => void;
+    isOpen: boolean
+    onClose: () => void
+    onRecordingComplete: (transcript: string, durationSeconds: number) => void
 }
 
-export const VoiceRecordingOverlay = ({ isOpen, onClose, onRecordingComplete }: VoiceRecordingOverlayProps) => {
+// ─── Helpers ───────────────────────────────────────────────────────────────────
+function formatTime(seconds: number): string {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+}
+
+// ─── Component ─────────────────────────────────────────────────────────────────
+export const VoiceRecordingOverlay = ({
+    isOpen,
+    onClose,
+    onRecordingComplete,
+}: VoiceRecordingOverlayProps) => {
+
+    // ── Recording state ─────────────────────────────────────────────────────
     const [isRecording, setIsRecording] = useState(false)
+    const [isPaused, setIsPaused] = useState(false)
     const [duration, setDuration] = useState(0)
     const [transcript, setTranscript] = useState('')
     const [error, setError] = useState<string | null>(null)
+    const [permissionState, setPermissionState] = useState<'pending' | 'granted' | 'denied'>('pending')
 
-    // Use an array to store all finalized transcripts because interim results can overwrite
-    const finalTranscriptsRef = useRef<string[]>([])
+    // ── Waveform bars (0–1 amplitudes) ──────────────────────────────────────
+    const [bars, setBars] = useState<number[]>(() => Array(BAR_COUNT).fill(0.15))
 
-    const recognitionRef = useRef<any>(null)
-    const timerRef = useRef<NodeJS.Timeout | null>(null)
+    // ── Refs ────────────────────────────────────────────────────────────────
+    const timerRef         = useRef<ReturnType<typeof setInterval> | null>(null)
+    const animFrameRef     = useRef<number | null>(null)
+    const streamRef        = useRef<MediaStream | null>(null)
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+    const audioCtxRef      = useRef<AudioContext | null>(null)
+    const analyserRef      = useRef<AnalyserNode | null>(null)
+    const chunksRef        = useRef<Blob[]>([])
+    const recognitionRef   = useRef<any>(null)
+    const finalTxRef       = useRef<string[]>([])
+    // Capture latest transcript in a ref so handleStop can read it synchronously
+    const transcriptRef    = useRef('')
 
-    useEffect(() => {
-        if (!isOpen) return;
+    // Keep transcriptRef in sync with state
+    useEffect(() => { transcriptRef.current = transcript }, [transcript])
 
-        // Reset state on open
-        setIsRecording(false)
-        setDuration(0)
-        setTranscript('')
-        setError(null)
-        finalTranscriptsRef.current = []
+    // ─── Waveform animation loop (Web Audio AnalyserNode) ──────────────────
+    const startWaveform = useCallback((stream: MediaStream) => {
+        try {
+            // AudioContext must be created after a user gesture on iOS WebKit
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)()
+            audioCtxRef.current = ctx
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const analyser = ctx.createAnalyser()
+            analyser.fftSize = 64  // small FFT = 32 frequency bins, fast update
+            analyserRef.current = analyser
 
-        if (!SpeechRecognition) {
-            setError("Voice recording is not supported in this browser. Please try Chrome or Edge.")
-            return;
+            ctx.createMediaStreamSource(stream).connect(analyser)
+
+            const dataArray = new Uint8Array(analyser.frequencyBinCount)
+
+            const tick = () => {
+                analyser.getByteFrequencyData(dataArray)
+                // Map analyser bins → BAR_COUNT bars, normalize 0→1
+                const step = Math.floor(dataArray.length / BAR_COUNT)
+                const next = Array.from({ length: BAR_COUNT }, (_, i) => {
+                    const raw = dataArray[i * step] / 255
+                    // Add a small idle baseline so bars are always visible
+                    return Math.max(0.08, raw)
+                })
+                setBars(next)
+                animFrameRef.current = requestAnimationFrame(tick)
+            }
+            animFrameRef.current = requestAnimationFrame(tick)
+        } catch (e) {
+            console.warn('[VoiceRecorder] Web Audio API unavailable, using idle bars:', e)
         }
+    }, [])
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = 'en-US';
-
-        recognition.onstart = () => {
-            setIsRecording(true);
-            timerRef.current = setInterval(() => {
-                setDuration(prev => prev + 1)
-            }, 1000)
+    const stopWaveform = useCallback(() => {
+        if (animFrameRef.current) {
+            cancelAnimationFrame(animFrameRef.current)
+            animFrameRef.current = null
         }
+        if (audioCtxRef.current) {
+            try { audioCtxRef.current.close() } catch (_) {}
+            audioCtxRef.current = null
+        }
+        analyserRef.current = null
+        setBars(Array(BAR_COUNT).fill(0.08))
+    }, [])
+
+    // ─── Speech recognition setup ───────────────────────────────────────────
+    const startRecognition = useCallback(() => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+        if (!SR) return
+
+        const recognition = new SR()
+        recognition.continuous    = true
+        recognition.interimResults = true
+        recognition.lang           = 'en-US'
 
         recognition.onresult = (event: any) => {
-            let interimTranscript = '';
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
+            let interim = ''
+            for (let i = event.resultIndex; i < event.results.length; i++) {
                 if (event.results[i].isFinal) {
-                    finalTranscriptsRef.current.push(event.results[i][0].transcript);
+                    finalTxRef.current.push(event.results[i][0].transcript)
                 } else {
-                    interimTranscript += event.results[i][0].transcript;
+                    interim += event.results[i][0].transcript
                 }
             }
-            // Display finalized + interim to user
-            setTranscript(finalTranscriptsRef.current.join(' ') + ' ' + interimTranscript)
+            const combined = finalTxRef.current.join(' ') + (interim ? ' ' + interim : '')
+            setTranscript(combined.trim())
         }
 
         recognition.onerror = (event: any) => {
-            if (event.error === 'not-allowed') {
-                setError("Microphone access denied. Please allow microphone access to record voice notes.")
-            } else if (event.error !== 'no-speech') {
-                console.error("Speech recognition error:", event.error)
+            // 'no-speech' is benign — continuous mode fires this on silence
+            if (event.error !== 'no-speech') {
+                console.warn('[VoiceRecorder] Speech recognition error:', event.error)
             }
         }
 
+        // Re-start on unexpected end (iOS WebKit stops recognition on silence)
         recognition.onend = () => {
-            // Because continuous=true, it shouldn't end unless stopped, but it might on silence
-            // We can restart or just treat as stopped. Let's restart if still supposedly recording.
-            // Simplified: Native API sometimes stops automatically, we handle manual stop below.
+            if (isRecording && !isPaused) {
+                try { recognition.start() } catch (_) {}
+            }
         }
 
-        recognitionRef.current = recognition;
+        try { recognition.start() } catch (e) {
+            console.warn('[VoiceRecorder] Could not start speech recognition:', e)
+        }
 
+        recognitionRef.current = recognition
+    }, [isRecording, isPaused])
+
+    const stopRecognition = useCallback(() => {
+        if (recognitionRef.current) {
+            try { recognitionRef.current.onend = null; recognitionRef.current.stop() } catch (_) {}
+            recognitionRef.current = null
+        }
+    }, [])
+
+    // ─── Main start/stop logic ──────────────────────────────────────────────
+    const startRecording = useCallback(async () => {
+        setError(null)
+        setPermissionState('pending')
+        finalTxRef.current = []
+        chunksRef.current  = []
+        setTranscript('')
+        setDuration(0)
+        setIsPaused(false)
+
+        let stream: MediaStream
         try {
-            recognition.start();
-        } catch (e: any) {
-            setError(e.message || "Failed to start recording.")
+            // Capacitor/WebKit: getUserMedia triggers the native iOS permission dialog
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100,
+                },
+            })
+            streamRef.current = stream
+            setPermissionState('granted')
+        } catch (err: any) {
+            const msg = err?.name === 'NotAllowedError'
+                ? 'Microphone access denied. Go to Settings → Focalyst → Microphone and enable it.'
+                : `Could not access microphone: ${err?.message || err}`
+            setError(msg)
+            setPermissionState('denied')
+            console.error('[VoiceRecorder] getUserMedia error:', err)
+            return
         }
+
+        // MediaRecorder — record the raw audio blob for potential upload
+        try {
+            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? 'audio/webm;codecs=opus'
+                : MediaRecorder.isTypeSupported('audio/mp4')
+                    ? 'audio/mp4'
+                    : ''
+            const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+            mr.start(250)  // collect chunks every 250ms
+            mediaRecorderRef.current = mr
+        } catch (e) {
+            console.warn('[VoiceRecorder] MediaRecorder unavailable:', e)
+        }
+
+        // Web Audio waveform
+        startWaveform(stream)
+
+        // Speech recognition transcript
+        startRecognition()
+
+        // Timer
+        setIsRecording(true)
+        timerRef.current = setInterval(() => {
+            setDuration(prev => prev + 1)
+        }, 1000)
+    }, [startWaveform, startRecognition])
+
+    const stopAll = useCallback(() => {
+        // Timer
+        if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+        // Speech recognition
+        stopRecognition()
+        // Waveform
+        stopWaveform()
+        // MediaRecorder
+        if (mediaRecorderRef.current) {
+            try { mediaRecorderRef.current.stop() } catch (_) {}
+            mediaRecorderRef.current = null
+        }
+        // Media stream tracks
+        streamRef.current?.getTracks().forEach(t => t.stop())
+        streamRef.current = null
+        setIsRecording(false)
+        setIsPaused(false)
+    }, [stopRecognition, stopWaveform])
+
+    // ─── Mount: request permission and start on open ────────────────────────
+    useEffect(() => {
+        if (!isOpen) return
+
+        // Small timeout lets the overlay render before triggering the native
+        // iOS permission dialog (prevents WKWebView permission denial edge case)
+        const t = setTimeout(() => { startRecording() }, 200)
 
         return () => {
-            if (recognitionRef.current) {
-                try { recognitionRef.current.stop(); } catch (e) { }
-            }
-            if (timerRef.current) {
-                clearInterval(timerRef.current);
-            }
+            clearTimeout(t)
+            stopAll()
         }
-    }, [isOpen]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen])
 
-    const handleStop = () => {
-        if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch (e) { }
-        }
-        if (timerRef.current) {
-            clearInterval(timerRef.current);
-        }
-        setIsRecording(false);
-        // Clean trailing spaces
-        const finalContent = transcript.trim();
-        if (finalContent.length > 0) {
-            onRecordingComplete(finalContent, duration);
+    // ─── Pause / Resume ─────────────────────────────────────────────────────
+    const handlePause = useCallback(() => {
+        if (!isRecording) return
+
+        if (!isPaused) {
+            // ── Pause ──
+            if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+            if (mediaRecorderRef.current?.state === 'recording') {
+                try { mediaRecorderRef.current.pause() } catch (_) {}
+            }
+            stopRecognition()
+            // Freeze waveform at idle
+            if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = null }
+            setBars(Array(BAR_COUNT).fill(0.08))
+            setIsPaused(true)
         } else {
-            onClose(); // Just close if nothing recorded
+            // ── Resume ──
+            timerRef.current = setInterval(() => setDuration(prev => prev + 1), 1000)
+            if (mediaRecorderRef.current?.state === 'paused') {
+                try { mediaRecorderRef.current.resume() } catch (_) {}
+            }
+            // Re-start waveform animation on existing stream
+            if (streamRef.current) startWaveform(streamRef.current)
+            startRecognition()
+            setIsPaused(false)
         }
-    }
+    }, [isRecording, isPaused, stopRecognition, startWaveform, startRecognition])
 
-    if (!isOpen) return null;
+    // ─── Stop & finalize ────────────────────────────────────────────────────
+    const handleStop = useCallback(() => {
+        const finalText = transcriptRef.current.trim()
+        const finalDuration = duration
+        stopAll()
 
-    const formatTime = (seconds: number) => {
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-    }
+        if (finalText.length > 0) {
+            onRecordingComplete(finalText, finalDuration)
+        } else {
+            onClose()
+        }
+    }, [duration, stopAll, onRecordingComplete, onClose])
+
+    // ─── Discard ─────────────────────────────────────────────────────────────
+    const handleDiscard = useCallback(() => {
+        stopAll()
+        onClose()
+    }, [stopAll, onClose])
+
+    if (!isOpen) return null
+
+    // ─── Bar heights: map 0–1 amplitude → pixel height range 6–80 ───────────
+    const minH = 6
+    const maxH = 80
 
     return (
-        <div className="fixed inset-0 z-[100] bg-navy/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 sm:p-8 pb-[100px] animate-in fade-in duration-200">
-            {/* Header / Timer */}
-            <div className="absolute top-16 w-full flex flex-col items-center gap-2">
-                {!error && (
-                    <div className="flex items-center justify-center gap-3 bg-white/10 px-6 py-3 rounded-full backdrop-blur-md">
-                        <div className={`w-3 h-3 rounded-full bg-red-500 ${isRecording ? 'animate-pulse' : ''}`} />
-                        <span className="text-white text-xl font-medium tracking-wider">{formatTime(duration)}</span>
+        <div
+            className="fixed inset-0 h-screen z-[100] flex flex-col bg-white dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-800"
+            style={{ touchAction: 'manipulation' }}
+        >
+            {/* ── HEADER ─────────────────────────────────────────────────── */}
+            <div className="flex items-center justify-between px-5 pt-safe-top pb-3 pt-12 border-b border-slate-100 dark:border-slate-700/50">
+                {/* Back arrow */}
+                <button
+                    onClick={handleDiscard}
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    aria-label="Go back"
+                >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                        style={{ width: '22px', height: '22px', display: 'block' }}>
+                        <path d="M15 18L9 12L15 6" stroke="#E53E3E" strokeWidth="2.5"
+                            strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                </button>
+
+                {/* Center: recording dot + title */}
+                <div className="flex items-center gap-2">
+                    <div
+                        className={`w-2.5 h-2.5 rounded-full bg-red-500 ${isRecording && !isPaused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ flexShrink: 0 }}
+                    />
+                    <span className="text-[15px] font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
+                        {isPaused ? 'Paused' : 'Recording Voice Note'}
+                    </span>
+                </div>
+
+                {/* Settings gear */}
+                <button
+                    className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    aria-label="Settings"
+                >
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                        className="text-slate-500 dark:text-slate-400"
+                        style={{ width: '20px', height: '20px', display: 'block' }}>
+                        <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
+                    </svg>
+                </button>
+            </div>
+
+            {/* ── MAIN CONTENT ─────────────────────────────────────────────── */}
+            <div className="flex-1 overflow-y-auto pb-32 flex flex-col items-center justify-center px-6 gap-10">
+
+                {/* Error state */}
+                {error ? (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 p-6 rounded-2xl max-w-sm text-center w-full">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+                            className="mx-auto mb-3 text-red-500"
+                            style={{ width: '36px', height: '36px', display: 'block' }}>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.8" />
+                            <line x1="12" y1="8" x2="12" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                            <line x1="12" y1="16" x2="12.01" y2="16" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                        </svg>
+                        <p className="text-red-700 dark:text-red-300 text-[14px] font-medium mb-5 leading-relaxed">{error}</p>
+                        <button
+                            onClick={onClose}
+                            className="bg-red-600 text-white px-8 py-2.5 rounded-full font-semibold text-[14px] hover:bg-red-700 transition-colors"
+                        >
+                            Close
+                        </button>
                     </div>
+                ) : (
+                    <>
+                        {/* ── TIMER ─────────────────────────────────────────── */}
+                        <div className="flex flex-col items-center gap-1.5">
+                            <span className="text-[56px] font-bold leading-none tracking-tight text-slate-900 dark:text-white tabular-nums">
+                                {formatTime(duration)}
+                            </span>
+                            <span className="text-[11px] font-semibold tracking-[0.22em] uppercase text-slate-400 dark:text-slate-400">
+                                {isPaused ? 'PAUSED' : 'Active Capture'}
+                            </span>
+                        </div>
+
+                        {/* ── WAVEFORM VISUALIZER ────────────────────────────── */}
+                        <div
+                            className="flex items-center justify-center gap-[3px] w-full max-w-[280px]"
+                            aria-hidden="true"
+                            style={{ height: `${maxH + 8}px` }}
+                        >
+                            {bars.map((amp, i) => {
+                                const h = minH + amp * (maxH - minH)
+                                // Center bars are taller (bell curve shape multiplier)
+                                const center = BAR_COUNT / 2
+                                const distFromCenter = Math.abs(i - center) / center
+                                const shapedH = Math.max(minH, h * (1 - distFromCenter * 0.35))
+                                const isActive = isRecording && !isPaused
+
+                                return (
+                                    <div
+                                        key={i}
+                                        className={`rounded-full flex-shrink-0 transition-all ${
+                                            isActive
+                                                ? 'bg-navy dark:bg-slate-300'
+                                                : isPaused
+                                                    ? 'bg-slate-300 dark:bg-slate-600'
+                                                    : 'bg-slate-200 dark:bg-slate-700'
+                                        }`}
+                                        style={{
+                                            width: '5px',
+                                            height: `${Math.round(shapedH)}px`,
+                                            // Stagger the CSS animation delay for idle wave effect
+                                            animationDelay: `${(i * 40) % 400}ms`,
+                                            ...(isActive && amp < 0.2 ? { animation: 'voiceBarIdle 1.2s ease-in-out infinite alternate' } : {}),
+                                        }}
+                                    />
+                                )
+                            })}
+                        </div>
+
+                        {/* ── STATUS TEXT ───────────────────────────────────── */}
+                        <div className="flex flex-col items-center gap-1 text-center">
+                            <p className="text-[15px] font-bold text-slate-800 dark:text-slate-100">
+                                Interview Recording
+                            </p>
+                            <p className="text-[13px] text-slate-500 dark:text-slate-400">
+                                {permissionState === 'pending'
+                                    ? 'Requesting microphone...'
+                                    : isPaused
+                                        ? 'Recording paused'
+                                        : 'High Accuracy Status'}
+                            </p>
+                        </div>
+
+                        {/* ── LIVE TRANSCRIPT (subtle, scrollable) ──────────── */}
+                        {transcript.length > 0 && (
+                            <div
+                                className="w-full max-w-sm max-h-[80px] overflow-y-auto text-center"
+                                style={{ scrollbarWidth: 'none' }}
+                            >
+                                <p className="text-[13px] text-slate-400 dark:text-slate-500 leading-relaxed italic">
+                                    {transcript}
+                                </p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
-            {/* Error Message */}
-            {error ? (
-                <div className="bg-red-500/10 border border-red-500/50 p-6 rounded-2xl max-w-sm text-center">
-                    <p className="text-white mb-6 text-[15px]">{error}</p>
+            {/* ── FOOTER CONTROLS ────────────────────────────────────────────── */}
+            {!error && (
+                <div className="absolute bottom-0 left-0 w-full bg-white dark:bg-slate-900 pb-8 pt-4 flex justify-center items-center gap-8 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+
+                    {/* Left: Discard */}
                     <button
-                        onClick={onClose}
-                        className="bg-white text-navy px-8 py-3 rounded-full font-semibold outline-none hover:bg-white/90 transition-colors"
+                        onClick={handleDiscard}
+                        className="flex flex-col items-center gap-1.5 group"
+                        aria-label="Discard recording"
                     >
-                        Close
+                        <div className="w-12 h-12 flex items-center justify-center rounded-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+                            {/* Trash icon */}
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"
+                                stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"
+                                className="text-slate-500 dark:text-slate-400 group-hover:text-red-500 transition-colors"
+                                style={{ width: '22px', height: '22px', display: 'block' }}>
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                            </svg>
+                        </div>
+                        <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-red-500 transition-colors">
+                            Discard
+                        </span>
+                    </button>
+
+                    {/* Center: Stop button */}
+                    <button
+                        onClick={handleStop}
+                        disabled={!isRecording && duration === 0}
+                        className="flex flex-col items-center gap-1.5 disabled:opacity-40"
+                        aria-label="Stop recording"
+                    >
+                        <div className="w-20 h-20 bg-red-600 rounded-full flex items-center justify-center shadow-xl shadow-red-600/30 active:scale-95 transition-transform">
+                            {/* Square stop icon */}
+                            <div
+                                className="bg-white rounded-[4px]"
+                                style={{ width: '26px', height: '26px' }}
+                            />
+                        </div>
+                    </button>
+
+                    {/* Right: Pause */}
+                    <button
+                        onClick={handlePause}
+                        disabled={!isRecording}
+                        className="flex flex-col items-center gap-1.5 group disabled:opacity-40"
+                        aria-label={isPaused ? 'Resume recording' : 'Pause recording'}
+                    >
+                        <div className="w-12 h-12 flex items-center justify-center rounded-full border-2 border-slate-300 dark:border-slate-600 hover:border-slate-400 dark:hover:border-slate-500 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            {isPaused ? (
+                                // Play icon when paused
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"
+                                    className="text-slate-600 dark:text-slate-300 ml-0.5"
+                                    style={{ width: '18px', height: '18px', display: 'block' }}>
+                                    <polygon points="5 3 19 12 5 21 5 3" />
+                                </svg>
+                            ) : (
+                                // Pause bars icon
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                                    stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
+                                    className="text-slate-600 dark:text-slate-300"
+                                    style={{ width: '18px', height: '18px', display: 'block' }}>
+                                    <line x1="8" y1="5" x2="8" y2="19" />
+                                    <line x1="16" y1="5" x2="16" y2="19" />
+                                </svg>
+                            )}
+                        </div>
+                        <span className="text-[12px] font-medium text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
+                            {isPaused ? 'Resume' : 'Pause'}
+                        </span>
                     </button>
                 </div>
-            ) : (
-                <>
-                    {/* Live Transcript Display */}
-                    <div className="flex-1 w-full max-w-xl mx-auto flex flex-col justify-center items-center my-24 overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                        <p className="text-white/80 text-xl sm:text-2xl font-light text-center leading-relaxed">
-                            {transcript || (isRecording ? "Listening..." : "Preparing...")}
-                        </p>
-                    </div>
-
-                    {/* Microphone Pulse Animation */}
-                    <div className="absolute bottom-[240px]">
-                        <div className="relative flex items-center justify-center">
-                            {isRecording && (
-                                <>
-                                    <div className="absolute w-32 h-32 bg-accent/30 rounded-full animate-ping" style={{ animationDuration: '2s' }} />
-                                    <div className="absolute w-24 h-24 bg-accent/40 rounded-full animate-pulse" />
-                                </>
-                            )}
-                            <div className="w-20 h-20 bg-accent rounded-full flex items-center justify-center z-10 shadow-lg">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2C10.3431 2 9 3.34315 9 5V11C9 12.6569 10.3431 14 12 14C13.6569 14 15 12.6569 15 11V5C15 3.34315 13.6569 2 12 2Z" fill="white" />
-                                    <path d="M19 10V11C19 14.866 15.866 18 12 18C8.13401 18 5 14.866 5 11V10" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                                    <path d="M12 18V22" stroke="white" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Controls */}
-                    <div className="absolute bottom-[140px] w-full flex justify-center gap-4 px-4 pb-safe">
-                        <button
-                            onClick={onClose}
-                            className="bg-red-500/20 text-red-400 border border-red-500/30 px-6 py-3.5 rounded-full font-semibold hover:bg-red-500/30 transition-colors backdrop-blur-md"
-                        >
-                            Discard
-                        </button>
-                        <button
-                            onClick={handleStop}
-                            disabled={!isRecording || duration === 0}
-                            className="bg-emerald-500 text-white px-6 py-3.5 rounded-full font-semibold disabled:opacity-50 transition-colors hover:bg-emerald-600 shadow-lg shadow-emerald-500/30"
-                        >
-                            Send & Transcribe
-                        </button>
-                    </div>
-                </>
             )}
         </div>
     )

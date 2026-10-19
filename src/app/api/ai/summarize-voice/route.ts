@@ -1,6 +1,17 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+import { FREE_TIER_LIMITS } from '@/lib/featureGates'
+import { rateLimit } from '@/lib/rate-limit'
+
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 
 // Initialize Gemini
 let genAI: GoogleGenerativeAI | null = null;
@@ -10,6 +21,11 @@ if (process.env.GEMINI_API_KEY) {
 
 export async function POST(req: Request) {
     try {
+        const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
+        if (!rateLimit(ip, 10, 60000)) {
+            return NextResponse.json({ error: 'Too many requests. Please wait a minute.' }, { status: 429 });
+        }
+
         const { transcript, durationSeconds } = await req.json()
 
         if (!transcript) {
@@ -24,12 +40,29 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const { data: profile } = await supabase
+            .from('users')
+            .select('plan')
+            .eq('id', user.id)
+            .single()
+
+        if (profile?.plan === 'free') {
+            const { count } = await supabase
+                .from('notes')
+                .select('id', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+
+            if (count !== null && count >= FREE_TIER_LIMITS.notes) {
+                return NextResponse.json({ error: 'Note limit reached' }, { status: 402 })
+            }
+        }
+
         let summary = "No summary generated."
         let title = "Voice Note"
 
         if (genAI) {
             try {
-                const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const model = genAI.getGenerativeModel({ model: "gemini-3.8-flash" });
                 const prompt = `
 You are an expert transcriber and note-taking assistant.
 I am providing you with a raw transcript from a voice recording.
@@ -64,10 +97,10 @@ Here is the transcript:
                 summary = text;
             } catch (e: any) {
                 console.error("Gemini API Error:", e);
-                summary = `<p>Error generating summary: ${e.message}</p>`;
+                summary = `<p>Error generating summary: ${escapeHtml(e?.message || 'Unknown error')}</p>`;
             }
         } else {
-            summary = `<p>Gemini API key not configured. Displaying raw transcript:</p><p>${transcript}</p>`;
+            summary = `<p>Gemini API key not configured. Displaying raw transcript:</p><p>${escapeHtml(transcript)}</p>`;
         }
 
         const { data, error } = await supabase
@@ -87,7 +120,8 @@ Here is the transcript:
 
         return NextResponse.json(data)
     } catch (error: any) {
-        console.error('Summarize Voice Note error:', error)
-        return NextResponse.json({ error: error.message || 'Internal Server Error' }, { status: 500 })
+        const correlationId = crypto.randomUUID();
+        console.error(`[SUMMARIZE_VOICE_ERROR] [${correlationId}]`, error);
+        return NextResponse.json({ error: 'Internal Server Error', correlationId }, { status: 500 })
     }
 }

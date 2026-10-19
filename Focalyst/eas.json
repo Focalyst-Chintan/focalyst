@@ -1,0 +1,36 @@
+{
+  "cli": {
+    "version": ">= 20.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "ios": {
+        "autoIncrement": true
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "6774425442"
+      }
+    }
+  }
+}

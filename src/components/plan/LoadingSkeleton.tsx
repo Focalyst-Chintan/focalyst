@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslation } from 'react-i18next'
+
 interface LoadingSkeletonProps {
     rows?: number
     type?: 'task' | 'habit'
@@ -38,6 +40,7 @@ export default function LoadingSkeleton({ rows = 3, type = 'task' }: LoadingSkel
 }
 
 export function ErrorCard({ message, onRetry }: { message: string; onRetry?: () => void }) {
+    const { t } = useTranslation()
     return (
         <div className="bg-error-light border border-error/20 rounded-xl px-4 py-3 flex items-center gap-3">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
@@ -51,7 +54,7 @@ export function ErrorCard({ message, onRetry }: { message: string; onRetry?: () 
                     onClick={onRetry}
                     className="text-xs font-semibold text-navy bg-white px-3 py-1.5 rounded-lg hover:bg-card-bg transition-colors"
                 >
-                    Retry
+                    {t('plan.retry')}
                 </button>
             )}
         </div>

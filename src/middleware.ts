@@ -105,7 +105,8 @@ export async function middleware(request: NextRequest) {
     const region = country === 'IN' ? 'IN' : 'INT'
     supabaseResponse.cookies.set('user-region', region, {
         path: '/',
-        httpOnly: false, // readable by client JS
+        httpOnly: false, // readable by client JS for region-based pricing
+        secure: true,    // only transmit over HTTPS
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 30, // 30 days
     })
@@ -116,12 +117,20 @@ export async function middleware(request: NextRequest) {
 export const config = {
     matcher: [
         /*
-         * Match all request paths except for the ones starting with:
+         * Match all request paths EXCEPT:
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
          * - public files (images, etc.)
+         * - /api/* routes — these handle their own auth via Bearer token.
+         *   The middleware MUST NOT intercept API routes because:
+         *   (a) Capacitor WKWebView strips cookies on native fetch calls, so
+         *       supabase.auth.getUser() returns null and the middleware would
+         *       redirect the request to /login (an HTML page), which the frontend
+         *       receives instead of a JSON/stream → the '[FRONTEND CRASH]: Received
+         *       HTML response instead of AI stream' error.
          */
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|api/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
+

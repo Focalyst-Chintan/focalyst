@@ -8,7 +8,7 @@ export function useAutoSave<T>(
     delay: number = 30000 // default 30 seconds
 ) {
     const [status, setStatus] = useState<SaveStatus>('idle');
-    const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dataRef = useRef(dataToSave);
     const isFirstRender = useRef(true);
 

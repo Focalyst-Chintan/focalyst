@@ -1,8 +1,10 @@
 import { TimerIcon } from '@/components/icons/TimerIcon'
+import { useTranslation } from 'react-i18next'
 
 export function FocusTimeCard({ minutes, trend }: { minutes: number, trend: number }) {
     const hours = Math.floor(minutes / 60)
     const mins = Math.floor(minutes % 60)
+    const { t } = useTranslation()
 
     return (
         <div className="bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between">
@@ -20,7 +22,7 @@ export function FocusTimeCard({ minutes, trend }: { minutes: number, trend: numb
                 <h3 className="text-[24px] font-bold text-navy tracking-tight">
                     {hours}h {mins}m
                 </h3>
-                <p className="text-[12px] text-blue-muted font-medium mt-1">Total Focus Time</p>
+                <p className="text-[12px] text-blue-muted font-medium mt-1">{t('insights.totalFocus')}</p>
             </div>
         </div>
     )

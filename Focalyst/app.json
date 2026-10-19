@@ -1,0 +1,102 @@
+{
+  "expo": {
+    "name": "Focalyst",
+    "slug": "Focalyst",
+    "version": "1.1.0",
+    "orientation": "default",
+    "icon": "./assets/images/app-icon.png",
+    "scheme": "online.focalyst",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "online.focalyst",
+      "supportsTablet": false,
+      "buildNumber": "45",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat.",
+        "NSPhotoLibraryUsageDescription": "Focalyst requires access to the photo library to allow users to personalize their profile avatars and attach reference images to their tasks.",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLSchemes": [
+              "com.googleusercontent.apps.1084227702891-b1e8erh6bqpjclur38t02p3gcoo1j979"
+            ]
+          }
+        ]
+      }
+    },
+    "android": {
+      "package": "online.focalyst",
+      "versionCode": 4,
+      "version": "1.1.0",
+      "edgeToEdgeEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/app-icon.png",
+        "backgroundColor": "#2E5478"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-center.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#0F2E54"
+        }
+      ],
+      "expo-sharing",
+      "expo-apple-authentication",
+      "expo-notifications",
+      "@react-native-community/datetimepicker",
+      "expo-video",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Allow Focalyst to use the microphone for voice input.",
+          "speechRecognitionPermission": "Allow Focalyst to use speech recognition.",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox"
+          ]
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat."
+        }
+      ],
+      "expo-asset",
+      "expo-web-browser",
+      "expo-font",
+      "expo-status-bar",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod\n-keepclassmembers class * {\n  @com.facebook.react.uimanager.annotations.ReactProp <methods>;\n  @com.facebook.react.uimanager.annotations.ReactPropGroup <methods>;\n}\n-keep class com.facebook.react.bridge.JavaScriptModule { *; }\n-keep class com.facebook.react.bridge.NativeModule { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-dontwarn com.facebook.react.**\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**"
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1ed8f19c-1e10-4ec1-a390-7c4d4c6211a3"
+      }
+    }
+  }
+}

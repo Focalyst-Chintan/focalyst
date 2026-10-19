@@ -34,12 +34,13 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify webhook signature
-        const secret = process.env.POLAR_WEBHOOK_SECRET!
-        if (secret !== 'REPLACE_ME_FROM_POLAR_DASHBOARD') {
-            const isValid = verifyWebhookSignature(body, signature, secret)
-            if (!isValid) {
-                return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
-            }
+        const secret = process.env.POLAR_WEBHOOK_SECRET
+        if (!secret) {
+            return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 })
+        }
+        const isValid = verifyWebhookSignature(body, signature, secret)
+        if (!isValid) {
+            return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
         }
 
         const event = JSON.parse(body)

@@ -1,0 +1,51 @@
+PODS:
+  - Capacitor (8.4.0):
+    - CapacitorCordova
+  - CapacitorCordova (8.4.0)
+  - CapacitorLocalNotifications (8.2.0):
+    - Capacitor
+  - CapacitorPreferences (8.0.1):
+    - Capacitor
+  - PurchasesHybridCommon (18.9.1):
+    - RevenueCat (= 5.75.0)
+  - RevenueCat (5.75.0)
+  - RevenuecatPurchasesCapacitor (13.1.4):
+    - Capacitor
+    - PurchasesHybridCommon (= 18.9.1)
+
+DEPENDENCIES:
+  - "Capacitor (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorCordova (from `../../node_modules/@capacitor/ios`)"
+  - "CapacitorLocalNotifications (from `../../node_modules/@capacitor/local-notifications`)"
+  - "CapacitorPreferences (from `../../node_modules/@capacitor/preferences`)"
+  - "RevenuecatPurchasesCapacitor (from `../../node_modules/@revenuecat/purchases-capacitor`)"
+
+SPEC REPOS:
+  trunk:
+    - PurchasesHybridCommon
+    - RevenueCat
+
+EXTERNAL SOURCES:
+  Capacitor:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorCordova:
+    :path: "../../node_modules/@capacitor/ios"
+  CapacitorLocalNotifications:
+    :path: "../../node_modules/@capacitor/local-notifications"
+  CapacitorPreferences:
+    :path: "../../node_modules/@capacitor/preferences"
+  RevenuecatPurchasesCapacitor:
+    :path: "../../node_modules/@revenuecat/purchases-capacitor"
+
+SPEC CHECKSUMS:
+  Capacitor: 75bd117ba037a51bb0f19ded32c67f4b3bc16600
+  CapacitorCordova: 71d81f350e6c30bf2a846593b5c480fbd68e9bac
+  CapacitorLocalNotifications: 2615aa008f608b95d3921a778ee1988abf1e6148
+  CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
+  PurchasesHybridCommon: 508a37f190953e332c0cf79f2cd514bad75b887b
+  RevenueCat: a187c44f51c900a08204b13ee62c8ec10925c1c0
+  RevenuecatPurchasesCapacitor: be132cce670667c8061717511dcac2f307db08f5
+
+PODFILE CHECKSUM: 43b23a6752efbcd684e3331847c33a9ec7140abb
+
+COCOAPODS: 1.16.2

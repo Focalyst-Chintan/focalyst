@@ -21,7 +21,7 @@ interface NotesListProps {
 
 export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParsed }: NotesListProps) => {
     const router = useRouter()
-    const { notes, loading, error, hasMore, fetchNotes, deleteNote, toggleFavourite, updateNote } = useNotes(userId)
+    const { notes, loading, error, hasMore, fetchNotes, deleteNote, toggleFavourite, togglePin, updateNote } = useNotes(userId)
     const [page, setPage] = useState(1)
     const [folderModalNote, setFolderModalNote] = useState<Note | null>(null)
 
@@ -66,7 +66,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             );
 
             if (blankNotes.length > 0) {
-                console.log('Cleaning up blank notes:', blankNotes.length);
+
                 blankNotes.forEach(bn => deleteNote(bn.id));
             }
             setHasCleanedUp(true);
@@ -83,11 +83,15 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
     }, [notes.length, onNotesCountParsed])
 
     const handleEdit = (note: Note) => {
-        router.push(`/notes/${note.id}`)
+        router.push(`/notes/edit?id=${note.id}`)
     }
 
     const handleToggleFavourite = (note: Note) => {
         toggleFavourite(note.id, note.is_favourite)
+    }
+
+    const handleTogglePin = (note: Note) => {
+        togglePin(note.id, note.is_pinned)
     }
 
     const handleAddToFolder = (note: Note) => {
@@ -110,7 +114,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
     }
 
     const handleDelete = async (note: Note) => {
-        console.log('handleDelete called for note:', note.id, note.title);
+
         if (window.confirm('Delete this note? This cannot be undone.')) {
             // Optimistic update
             setPage(1); // Reset page to avoid issues with lists shifting 
@@ -220,6 +224,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                                         notes={folderNotes}
                                         onEdit={handleEdit}
                                         onToggleFavourite={handleToggleFavourite}
+                                        onTogglePin={handleTogglePin}
                                         onAddToFolder={handleAddToFolder}
                                         onDownload={handleDownload}
                                         onDelete={handleDelete}
@@ -231,6 +236,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                                         notes={unfiled}
                                         onEdit={handleEdit}
                                         onToggleFavourite={handleToggleFavourite}
+                                        onTogglePin={handleTogglePin}
                                         onAddToFolder={handleAddToFolder}
                                         onDownload={handleDownload}
                                         onDelete={handleDelete}
@@ -249,6 +255,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                             note={note}
                             onEdit={handleEdit}
                             onToggleFavourite={handleToggleFavourite}
+                            onTogglePin={handleTogglePin}
                             onAddToFolder={handleAddToFolder}
                             onDownload={handleDownload}
                             onDelete={handleDelete}

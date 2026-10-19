@@ -32,7 +32,7 @@ Focalyst is a productivity web application offering task management, habit track
 
 **3.4** You agree to provide accurate, complete, and current information during registration and to keep your account information updated.
 
-**3.5** You must notify us immediately at admin@chintan.shop if you suspect unauthorised access to your account.
+**3.5** You must notify us immediately at contactfocalyst@gmail.com if you suspect unauthorised access to your account.
 
 **3.6** We reserve the right to suspend or terminate accounts that provide false information or violate these Terms.
 
@@ -75,7 +75,7 @@ For monthly and yearly plans, your subscription renews automatically at the end 
 You may cancel your subscription at any time through Profile → Manage Plan. Cancellation takes effect at the end of your current billing period. You will retain Pro access until that date.
 
 **5.5 Refund Policy**
-All payments are non-refundable except where required by applicable Indian consumer protection law. If you experience a technical issue that prevents you from using a paid feature you subscribed for, contact us at admin@chintan.shop within 7 days and we will review your case.
+All payments are non-refundable except where required by applicable Indian consumer protection law. If you experience a technical issue that prevents you from using a paid feature you subscribed for, contact us at contactfocalyst@gmail.com within 7 days and we will review your case.
 
 **5.6 Price Changes**
 We reserve the right to change subscription prices. We will notify existing subscribers at least 30 days before any price change takes effect. Your continued subscription after the notice period constitutes acceptance of the new price.
@@ -170,7 +170,7 @@ Our total liability to you for any claim arising from your use of Focalyst shall
 
 These Terms are governed by the laws of India. Any disputes arising from these Terms or your use of Focalyst shall be subject to the exclusive jurisdiction of the courts in India.
 
-Before initiating any legal action, you agree to contact us at admin@chintan.shop and give us a reasonable opportunity (not less than 30 days) to resolve the dispute informally.
+Before initiating any legal action, you agree to contact us at contactfocalyst@gmail.com and give us a reasonable opportunity (not less than 30 days) to resolve the dispute informally.
 
 ---
 
@@ -186,5 +186,5 @@ If you do not agree to the updated Terms, you must stop using Focalyst and may d
 
 For questions about these Terms:
 
-**Email:** admin@chintan.shop
+**Email:** contactfocalyst@gmail.com
 **Response time:** Within 5 business days

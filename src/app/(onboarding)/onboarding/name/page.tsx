@@ -34,7 +34,7 @@ export default function NamePage() {
             }).eq('id', user.id)
         }
 
-        console.log('[Supabase] Saved name:', name.trim())
+        // Name saved to Supabase (PII not logged)
         router.push('/onboarding/profile-type')
     }
 

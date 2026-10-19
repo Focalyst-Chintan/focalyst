@@ -34,3 +34,11 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## ⚠️ Security Notice & Secret Rotation Warning
+
+> [!WARNING]
+> **ROTATE HARDCODED SECRETS IMMEDIATELY**: Any secret key, token, credential, or API key previously committed or stored in git history must be rotated immediately in their respective provider dashboards (Supabase, Google Gemini, Polar, Razorpay, etc.). 
+> 
+> Removing secrets from current code files does **not** erase them from past Git commits. Ensure all production secrets are rotated and configured strictly via environment variables. Refer to `.env.example` for the list of required environment variables.
+

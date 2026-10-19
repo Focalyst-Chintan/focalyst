@@ -1,310 +1,904 @@
 'use client'
 
-import { useState } from 'react'
-import { usePlan, Reminder } from '@/context/PlanContext'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
+import {
+    ChevronLeft,
+    ChevronRight,
+    ChevronDown,
+    Plus,
+    Star,
+    Edit2,
+    Trash2,
+    Check,
+    Clock,
+    X,
+    Calendar as CalendarIcon
+} from 'lucide-react'
 
-interface CalendarViewProps {
-    onDateSelect?: (date: Date) => void
-}
-
-function getDaysInMonth(year: number, month: number): number {
-    return new Date(year, month + 1, 0).getDate()
-}
-
-function getFirstDayOfMonth(year: number, month: number): number {
-    const day = new Date(year, month, 1).getDay()
-    return day === 0 ? 6 : day - 1
-}
-
-function toDateStr(year: number, month: number, day: number): string {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+export interface ReminderItem {
+    id: string
+    user_id?: string
+    title: string
+    description?: string | null
+    date: string        // YYYY-MM-DD
+    start_time: string  // HH:mm
+    end_time: string    // HH:mm
+    all_day: boolean
+    repeat: string      // 'never' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+    custom_interval?: number
+    custom_frequency?: 'day' | 'week' | 'month' | 'year'
+    category?: 'Health' | 'Work' | 'Urgent' | 'Study' | 'Personal'
+    color?: string
+    is_completed?: boolean
+    is_starred?: boolean
 }
 
 const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
 ]
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 const DAY_HEADERS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 
-export default function CalendarView({ onDateSelect }: CalendarViewProps) {
+const CATEGORIES: { label: ReminderItem['category']; color: string; bgLight: string; bgDark: string }[] = [
+    { label: 'Health', color: '#10B981', bgLight: 'rgba(16, 185, 129, 0.12)', bgDark: 'rgba(16, 185, 129, 0.20)' },
+    { label: 'Work', color: '#2B6BFF', bgLight: 'rgba(43, 107, 255, 0.12)', bgDark: 'rgba(43, 107, 255, 0.20)' },
+    { label: 'Urgent', color: '#EF4444', bgLight: 'rgba(239, 68, 68, 0.12)', bgDark: 'rgba(239, 68, 68, 0.20)' },
+    { label: 'Study', color: '#8B5CF6', bgLight: 'rgba(139, 92, 246, 0.12)', bgDark: 'rgba(139, 92, 246, 0.20)' },
+    { label: 'Personal', color: '#F97316', bgLight: 'rgba(249, 115, 22, 0.12)', bgDark: 'rgba(249, 115, 22, 0.20)' },
+]
+
+const COLOR_SWATCHES = ['#10B981', '#2B6BFF', '#EF4444', '#8B5CF6', '#F97316', '#06B6D4']
+
+const REPEAT_OPTIONS = [
+    { label: 'Never', value: 'never' },
+    { label: 'Every Day', value: 'daily' },
+    { label: 'Every Week', value: 'weekly' },
+    { label: 'Every Month', value: 'monthly' },
+    { label: 'Every Year', value: 'yearly' },
+    { label: 'Custom', value: 'custom' },
+]
+
+function formatTime12(timeStr: string): string {
+    if (!timeStr) return ''
+    const [hStr, mStr] = timeStr.split(':')
+    let h = parseInt(hStr || '0', 10)
+    const m = mStr || '00'
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    h = h % 12 || 12
+    return `${h}:${m} ${ampm}`
+}
+
+export function doesReminderOccurOnDate(rem: ReminderItem, targetYMD: string): boolean {
+    const baseDateStr = rem.date ? String(rem.date).slice(0, 10) : targetYMD
+    if (targetYMD < baseDateStr) return false
+
+    const repeatNorm = (rem.repeat || 'never').toLowerCase()
+
+    if (repeatNorm === 'never') {
+        return targetYMD === baseDateStr
+    }
+
+    if (repeatNorm === 'daily' || repeatNorm === 'every day') {
+        return true
+    }
+
+    const targetDate = parseYMDToLocalNoon(targetYMD)
+    const baseDate = parseYMDToLocalNoon(baseDateStr)
+
+    if (repeatNorm === 'weekly' || repeatNorm === 'every week') {
+        return targetDate.getDay() === baseDate.getDay()
+    }
+
+    if (repeatNorm === 'monthly' || repeatNorm === 'every month') {
+        return targetDate.getDate() === baseDate.getDate()
+    }
+
+    if (repeatNorm === 'yearly' || repeatNorm === 'every year') {
+        return targetDate.getMonth() === baseDate.getMonth() && targetDate.getDate() === baseDate.getDate()
+    }
+
+    if (repeatNorm === 'custom') {
+        const interval = Math.max(1, rem.custom_interval || 1)
+        const freq = rem.custom_frequency || 'day'
+        const diffDays = Math.round((targetDate.getTime() - baseDate.getTime()) / (1000 * 60 * 60 * 24))
+
+        if (freq === 'day') {
+            return diffDays % interval === 0
+        }
+        if (freq === 'week') {
+            return targetDate.getDay() === baseDate.getDay() && (Math.floor(diffDays / 7) % interval === 0)
+        }
+        if (freq === 'month') {
+            const monthsDiff = (targetDate.getFullYear() - baseDate.getFullYear()) * 12 + (targetDate.getMonth() - baseDate.getMonth())
+            return targetDate.getDate() === baseDate.getDate() && monthsDiff % interval === 0
+        }
+        if (freq === 'year') {
+            const yearsDiff = targetDate.getFullYear() - baseDate.getFullYear()
+            return targetDate.getMonth() === baseDate.getMonth() && targetDate.getDate() === baseDate.getDate() && yearsDiff % interval === 0
+        }
+    }
+
+    return targetYMD === baseDateStr
+}
+
+function schedule3StageNotifications(title: string, dateYMD: string, startTime: string) {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission !== 'granted') {
+        Notification.requestPermission()
+    }
+
+    const [h, m] = (startTime || '09:00').split(':').map(Number)
+    const startDate = parseYMDToLocalNoon(dateYMD)
+    startDate.setHours(h, m, 0, 0)
+    const startMs = startDate.getTime()
+
+    const stages = [
+        { label: '3 days before', time: startMs - 72 * 60 * 60 * 1000, body: `Upcoming in 3 days: ${title}` },
+        { label: '24 hours before', time: startMs - 24 * 60 * 60 * 1000, body: `Reminder tomorrow: ${title}` },
+        { label: 'At start time', time: startMs, body: `Starting now: ${title}` },
+    ]
+
+    stages.forEach(stage => {
+        const delay = stage.time - Date.now()
+        // Only schedule if in future within 24h of active browser session
+        if (delay > 0 && delay < 24 * 60 * 60 * 1000) {
+            setTimeout(() => {
+                if (Notification.permission === 'granted') {
+                    new Notification(`Focalyst Reminder: ${title}`, {
+                        body: stage.body,
+                        icon: '/favicon.ico',
+                    })
+                }
+            }, delay)
+        }
+    })
+}
+
+export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: Date) => void }) {
+    const supabase = createClient()
     const today = new Date()
-    const { getRemindersForDate, addReminder, updateReminder, deleteReminder } = usePlan()
 
     const [viewYear, setViewYear] = useState(today.getFullYear())
     const [viewMonth, setViewMonth] = useState(today.getMonth())
     const [selectedDate, setSelectedDate] = useState<number>(today.getDate())
+    const [reminders, setReminders] = useState<ReminderItem[]>([])
+    const [loading, setLoading] = useState(true)
 
-    // Reminder form state
-    const [showAddForm, setShowAddForm] = useState(false)
-    const [editingReminder, setEditingReminder] = useState<Reminder | null>(null)
+    // Quick Jump Modal (Step 1: Year, Step 2: Month)
+    const [showQuickJump, setShowQuickJump] = useState(false)
+    const [jumpStep, setJumpStep] = useState<1 | 2>(1)
+    const [tempYear, setTempYear] = useState(today.getFullYear())
+
+    // Form Modal (New / Edit)
+    const [showFormModal, setShowFormModal] = useState(false)
+    const [editingReminder, setEditingReminder] = useState<ReminderItem | null>(null)
     const [formTitle, setFormTitle] = useState('')
-    const [formStartTime, setFormStartTime] = useState('08:00')
-    const [formEndTime, setFormEndTime] = useState('09:00')
+    const [formDescription, setFormDescription] = useState('')
+    const [formCategory, setFormCategory] = useState<ReminderItem['category']>('Work')
+    const [formColor, setFormColor] = useState('#2B6BFF')
     const [formAllDay, setFormAllDay] = useState(false)
-    const [formRepeat, setFormRepeat] = useState<Reminder['repeat']>('never')
+    const [formStartTime, setFormStartTime] = useState('09:00')
+    const [formEndTime, setFormEndTime] = useState('10:00')
+    const [formRepeat, setFormRepeat] = useState('never')
+    const [formCustomInterval, setFormCustomInterval] = useState(1)
+    const [formCustomFreq, setFormCustomFreq] = useState<'day' | 'week' | 'month' | 'year'>('week')
     const [formError, setFormError] = useState('')
+    const [formSaving, setFormSaving] = useState(false)
 
-    const daysInMonth = getDaysInMonth(viewYear, viewMonth)
-    const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
+    // Fetch all user reminders with user_id to satisfy RLS
+    const fetchUserReminders = useCallback(async () => {
+        try {
+            setLoading(true)
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) {
+                setLoading(false)
+                return
+            }
 
-    const prevMonthDays = getDaysInMonth(viewYear, viewMonth - 1)
+            const { data, error } = await supabase
+                .from('reminders')
+                .select('*')
+                .eq('user_id', user.id)
+
+            if (!error && data) {
+                setReminders(data as ReminderItem[])
+            }
+        } catch (err) {
+            console.error('Error fetching user reminders:', err)
+        } finally {
+            setLoading(false)
+        }
+    }, [supabase])
+
+    useEffect(() => {
+        fetchUserReminders()
+    }, [fetchUserReminders])
+
+    // Days in current month grid
+    const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
+    const firstDayIndex = (() => {
+        const d = new Date(viewYear, viewMonth, 1).getDay()
+        return d === 0 ? 6 : d - 1 // Monday is 0
+    })()
+
+    const prevMonthDays = new Date(viewYear, viewMonth, 0).getDate()
     const prevDays: number[] = []
-    for (let i = firstDay - 1; i >= 0; i--) {
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
         prevDays.push(prevMonthDays - i)
     }
-    const currentDays: number[] = Array.from({ length: daysInMonth }, (_, i) => i + 1)
+
+    const currentDays = Array.from({ length: daysInMonth }, (_, i) => i + 1)
     const totalCells = prevDays.length + currentDays.length
     const nextDaysCount = totalCells <= 35 ? 35 - totalCells : 42 - totalCells
-    const nextDays: number[] = Array.from({ length: nextDaysCount }, (_, i) => i + 1)
+    const nextDays = Array.from({ length: nextDaysCount }, (_, i) => i + 1)
 
-    const selectedDateStr = toDateStr(viewYear, viewMonth, selectedDate)
-    const dateReminders = getRemindersForDate(selectedDateStr)
+    const selectedYMD = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`
+
+    // Reminders occurring on the selected date
+    const selectedDateReminders = useMemo(() => {
+        return reminders.filter(r => doesReminderOccurOnDate(r, selectedYMD))
+    }, [reminders, selectedYMD])
+
+    // Reminders map for each day of current month to render multi-color dots
+    const monthDotsMap = useMemo(() => {
+        const map: Record<number, string[]> = {}
+        for (let day = 1; day <= daysInMonth; day++) {
+            const ymd = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+            const matching = reminders.filter(r => doesReminderOccurOnDate(r, ymd))
+            map[day] = matching.map(r => r.color || '#2B6BFF').slice(0, 3)
+        }
+        return map
+    }, [reminders, viewYear, viewMonth, daysInMonth])
 
     const goToPrevMonth = () => {
-        if (viewMonth === 0) { setViewMonth(11); setViewYear(viewYear - 1) }
-        else setViewMonth(viewMonth - 1)
+        if (viewMonth === 0) {
+            setViewMonth(11)
+            setViewYear(v => v - 1)
+        } else {
+            setViewMonth(v => v - 1)
+        }
         setSelectedDate(1)
     }
 
     const goToNextMonth = () => {
-        if (viewMonth === 11) { setViewMonth(0); setViewYear(viewYear + 1) }
-        else setViewMonth(viewMonth + 1)
+        if (viewMonth === 11) {
+            setViewMonth(0)
+            setViewYear(v => v + 1)
+        } else {
+            setViewMonth(v => v + 1)
+        }
         setSelectedDate(1)
     }
 
-    const handleSelect = (day: number) => {
+    const handleSelectDay = (day: number) => {
         setSelectedDate(day)
-        if (onDateSelect) onDateSelect(new Date(viewYear, viewMonth, day))
+        onDateSelect?.(new Date(viewYear, viewMonth, day))
     }
 
-    const isToday = (day: number) =>
-        day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
+    // Toggle reminder completion optimistically & persist
+    const handleToggleComplete = async (rem: ReminderItem) => {
+        const nextCompleted = !rem.is_completed
+        setReminders(prev => prev.map(r => r.id === rem.id ? { ...r, is_completed: nextCompleted } : r))
 
-    const hasReminders = (day: number) => {
-        return getRemindersForDate(toDateStr(viewYear, viewMonth, day)).length > 0
-    }
-
-    // ── Form handlers ──
-    const resetForm = () => {
-        setFormTitle('')
-        setFormStartTime('08:00')
-        setFormEndTime('09:00')
-        setFormAllDay(false)
-        setFormRepeat('never')
-        setFormError('')
-        setShowAddForm(false)
-        setEditingReminder(null)
-    }
-
-    const openAddForm = () => {
-        resetForm()
-        setShowAddForm(true)
-    }
-
-    const openEditForm = (r: Reminder) => {
-        setEditingReminder(r)
-        setFormTitle(r.title)
-        setFormStartTime(r.start_time)
-        setFormEndTime(r.end_time)
-        setFormAllDay(r.all_day)
-        setFormRepeat(r.repeat)
-        setShowAddForm(true)
-        setFormError('')
-    }
-
-    const handleSaveReminder = () => {
-        const trimmed = formTitle.trim()
-        if (!trimmed) { setFormError('Title is required'); return }
-        if (trimmed.length > 100) { setFormError('Title must be under 100 characters'); return }
-
-        if (editingReminder) {
-            updateReminder(editingReminder.id, {
-                title: trimmed,
-                start_time: formStartTime,
-                end_time: formEndTime,
-                all_day: formAllDay,
-                repeat: formRepeat,
-            })
-        } else {
-            addReminder({
-                title: trimmed,
-                date: selectedDateStr,
-                start_time: formStartTime,
-                end_time: formEndTime,
-                all_day: formAllDay,
-                repeat: formRepeat,
-            })
+        try {
+            await supabase.from('reminders').update({ is_completed: nextCompleted }).eq('id', rem.id)
+        } catch (err) {
+            console.error('Failed to toggle reminder completion:', err)
         }
-        resetForm()
+    }
+
+    // Toggle star
+    const handleToggleStar = async (rem: ReminderItem) => {
+        const nextStarred = !rem.is_starred
+        setReminders(prev => prev.map(r => r.id === rem.id ? { ...r, is_starred: nextStarred } : r))
+
+        try {
+            await supabase.from('reminders').update({ is_starred: nextStarred }).eq('id', rem.id)
+        } catch (err) {
+            console.error('Failed to toggle star:', err)
+        }
+    }
+
+    // Delete reminder
+    const handleDeleteReminder = async (rem: ReminderItem) => {
+        if (!confirm(`Delete reminder "${rem.title}"?`)) return
+        setReminders(prev => prev.filter(r => r.id !== rem.id))
+
+        try {
+            await supabase.from('reminders').delete().eq('id', rem.id)
+        } catch (err) {
+            console.error('Failed to delete reminder:', err)
+        }
+    }
+
+    // Open Form
+    const openNewForm = () => {
+        setEditingReminder(null)
+        setFormTitle('')
+        setFormDescription('')
+        setFormCategory('Work')
+        setFormColor('#2B6BFF')
+        setFormAllDay(false)
+        setFormStartTime('09:00')
+        setFormEndTime('10:00')
+        setFormRepeat('never')
+        setFormCustomInterval(1)
+        setFormCustomFreq('week')
+        setFormError('')
+        setShowFormModal(true)
+    }
+
+    const openEditForm = (rem: ReminderItem) => {
+        setEditingReminder(rem)
+        setFormTitle(rem.title)
+        setFormDescription(rem.description || '')
+        setFormCategory(rem.category || 'Work')
+        setFormColor(rem.color || '#2B6BFF')
+        setFormAllDay(rem.all_day || false)
+        setFormStartTime(rem.start_time || '09:00')
+        setFormEndTime(rem.end_time || '10:00')
+        setFormRepeat(rem.repeat || 'never')
+        setFormCustomInterval(rem.custom_interval || 1)
+        setFormCustomFreq(rem.custom_frequency || 'week')
+        setFormError('')
+        setShowFormModal(true)
+    }
+
+    // Save reminder
+    const handleSaveReminder = async () => {
+        const trimmed = formTitle.trim()
+        if (!trimmed) {
+            setFormError('Title is required')
+            return
+        }
+
+        setFormSaving(true)
+        setFormError('')
+
+        try {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) throw new Error('Please sign in to save reminders.')
+
+            const payload: any = {
+                user_id: user.id,
+                title: trimmed,
+                description: formDescription.trim() || null,
+                date: selectedYMD,
+                start_time: formStartTime,
+                end_time: formEndTime,
+                all_day: formAllDay,
+                repeat: formRepeat,
+                custom_interval: formRepeat === 'custom' ? formCustomInterval : null,
+                custom_frequency: formRepeat === 'custom' ? formCustomFreq : null,
+                category: formCategory,
+                color: formColor,
+            }
+
+            if (editingReminder) {
+                const { data, error } = await supabase
+                    .from('reminders')
+                    .update(payload)
+                    .eq('id', editingReminder.id)
+                    .select()
+                    .single()
+
+                if (error) throw error
+
+                setReminders(prev => prev.map(r => r.id === editingReminder.id ? (data as ReminderItem) : r))
+            } else {
+                payload.is_completed = false
+                payload.is_starred = false
+
+                const { data, error } = await supabase
+                    .from('reminders')
+                    .insert(payload)
+                    .select()
+                    .single()
+
+                if (error) throw error
+
+                setReminders(prev => [...prev, data as ReminderItem])
+            }
+
+            // Schedule 3-stage notifications
+            schedule3StageNotifications(trimmed, selectedYMD, formStartTime)
+
+            setShowFormModal(false)
+        } catch (err: any) {
+            console.error('Failed to save reminder:', err)
+            setFormError(err?.message || 'Failed to save reminder.')
+        } finally {
+            setFormSaving(false)
+        }
+    }
+
+    const isToday = (day: number) => {
+        return day === today.getDate() && viewMonth === today.getMonth() && viewYear === today.getFullYear()
     }
 
     return (
-        <div>
-            {/* Month/Year header */}
-            <div className="flex items-center justify-between mb-4">
-                <button onClick={goToPrevMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-card-bg" aria-label="Previous month">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 14L6 9L11 4" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </button>
-                <h3 className="text-navy font-semibold text-base">{MONTH_NAMES[viewMonth]} {viewYear}</h3>
-                <button onClick={goToNextMonth} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-card-bg" aria-label="Next month">
-                    <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M7 4L12 9L7 14" stroke="#4A6C8C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </button>
-            </div>
+        <div className="w-full space-y-5">
+            {/* Calendar Card Container */}
+            <div className="bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-5 shadow-sm">
+                {/* Header: Clickable Month/Year Quick-Jump Picker */}
+                <div className="flex items-center justify-between mb-4">
+                    <button
+                        onClick={goToPrevMonth}
+                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-600 dark:text-slate-300 transition-colors"
+                        aria-label="Previous month"
+                    >
+                        <ChevronLeft className="w-5 h-5" />
+                    </button>
 
-            {/* Day headers */}
-            <div className="grid grid-cols-7 mb-1">
-                {DAY_HEADERS.map((dh) => (
-                    <div key={dh} className="text-center text-blue-muted text-xs font-medium py-1">{dh}</div>
-                ))}
-            </div>
+                    <button
+                        onClick={() => {
+                            setTempYear(viewYear)
+                            setJumpStep(1)
+                            setShowQuickJump(true)
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors text-slate-900 dark:text-white font-bold text-base"
+                    >
+                        <span>{MONTH_NAMES[viewMonth]} {viewYear}</span>
+                        <ChevronDown className="w-4 h-4 text-slate-400" />
+                    </button>
 
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-y-1">
-                {prevDays.map((d) => (
-                    <div key={`prev-${d}`} className="text-center py-2"><span className="text-blue-muted/40 text-sm">{d}</span></div>
-                ))}
-                {currentDays.map((d) => {
-                    const isSel = d === selectedDate
-                    const isTd = isToday(d)
-                    const hasR = hasReminders(d)
-                    return (
-                        <button key={`cur-${d}`} onClick={() => handleSelect(d)} className="flex flex-col items-center py-1">
-                            <span className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-medium transition-all ${isSel && isTd ? 'bg-accent text-white'
-                                    : isSel ? 'bg-navy text-white'
-                                        : isTd ? 'bg-accent/15 text-accent font-bold'
-                                            : 'text-navy hover:bg-card-bg'
-                                }`}>{d}</span>
-                            {hasR && <div className="w-1.5 h-1.5 rounded-full bg-accent mt-0.5" />}
-                        </button>
-                    )
-                })}
-                {nextDays.map((d) => (
-                    <div key={`next-${d}`} className="text-center py-2"><span className="text-blue-muted/40 text-sm">{d}</span></div>
-                ))}
-            </div>
+                    <button
+                        onClick={goToNextMonth}
+                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-600 dark:text-slate-300 transition-colors"
+                        aria-label="Next month"
+                    >
+                        <ChevronRight className="w-5 h-5" />
+                    </button>
+                </div>
 
-            {/* Reminders section */}
-            <div className="mt-4 pt-4 border-t border-card-bg">
-                {dateReminders.length === 0 ? (
-                    <p className="text-blue-muted text-sm">No reminders</p>
-                ) : (
-                    <div className="flex flex-col gap-2">
-                        {dateReminders.map((r) => (
-                            <div key={r.id} className="flex items-center gap-3 bg-card-bg rounded-xl px-3 py-2.5">
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-navy text-sm font-medium truncate">{r.title}</p>
-                                    <p className="text-blue-muted text-xs">
-                                        {r.all_day ? 'All day' : `${r.start_time} - ${r.end_time}`}
-                                        {r.repeat !== 'never' && ` · ${r.repeat}`}
-                                    </p>
+                {/* Day of Week Headers */}
+                <div className="grid grid-cols-7 mb-2 text-center">
+                    {DAY_HEADERS.map((h, i) => (
+                        <span key={i} className="text-xs font-semibold text-slate-400 dark:text-slate-500 py-1">
+                            {h}
+                        </span>
+                    ))}
+                </div>
+
+                {/* Month Grid */}
+                <div className="grid grid-cols-7 gap-y-2 text-center select-none">
+                    {/* Previous month days */}
+                    {prevDays.map((d) => (
+                        <div key={`prev-${d}`} className="h-11 flex flex-col items-center justify-center text-xs text-slate-300 dark:text-slate-700">
+                            {d}
+                        </div>
+                    ))}
+
+                    {/* Current month days */}
+                    {currentDays.map((day) => {
+                        const isSelected = day === selectedDate
+                        const isCurrentDay = isToday(day)
+                        const dots = monthDotsMap[day] || []
+
+                        return (
+                            <button
+                                key={`cur-${day}`}
+                                onClick={() => handleSelectDay(day)}
+                                className="h-11 flex flex-col items-center justify-center relative transition-all group"
+                            >
+                                <div
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
+                                        isSelected
+                                            ? 'bg-[#2B6BFF] text-white shadow-md scale-105'
+                                            : isCurrentDay
+                                            ? 'bg-blue-50 dark:bg-blue-500/10 text-[#2B6BFF] font-bold'
+                                            : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#0B1021]'
+                                    }`}
+                                >
+                                    {day}
                                 </div>
-                                <div className="flex items-center gap-1">
+
+                                {/* Multi-Color Small Dots (Max 3) */}
+                                {dots.length > 0 && (
+                                    <div className="flex gap-0.5 justify-center mt-0.5">
+                                        {dots.map((dotColor, idx) => (
+                                            <span
+                                                key={idx}
+                                                style={{ backgroundColor: isSelected ? '#FFFFFF' : dotColor }}
+                                                className="w-1.5 h-1.5 rounded-full"
+                                            />
+                                        ))}
+                                    </div>
+                                )}
+                            </button>
+                        )
+                    })}
+
+                    {/* Next month days */}
+                    {nextDays.map((d) => (
+                        <div key={`next-${d}`} className="h-11 flex flex-col items-center justify-center text-xs text-slate-300 dark:text-slate-700">
+                            {d}
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Selected Date Reminders Section */}
+            <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                    <div>
+                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                            {MONTH_NAMES[viewMonth]} {selectedDate}, {viewYear}
+                        </h3>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {selectedDateReminders.length === 0 ? 'No reminders' : `${selectedDateReminders.length} reminder${selectedDateReminders.length > 1 ? 's' : ''}`}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={openNewForm}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2B6BFF] hover:bg-blue-600 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+                    >
+                        <Plus className="w-4 h-4" />
+                        <span>Add Reminder</span>
+                    </button>
+                </div>
+
+                {/* Reminder Cards List */}
+                <div className="space-y-2.5">
+                    {selectedDateReminders.map((rem) => {
+                        const isDone = !!rem.is_completed
+                        const accent = rem.color || '#2B6BFF'
+                        const catObj = CATEGORIES.find(c => c.label === rem.category) || CATEGORIES[1]
+
+                        return (
+                            <div
+                                key={rem.id}
+                                className="flex items-center gap-3 p-3.5 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-700 relative overflow-hidden"
+                            >
+                                {/* Left Inset Color Bar */}
+                                <div
+                                    style={{ backgroundColor: accent }}
+                                    className="w-1.5 self-stretch rounded-full shrink-0"
+                                />
+
+                                {/* Circular Checkbox */}
+                                <button
+                                    onClick={() => handleToggleComplete(rem)}
+                                    style={isDone ? { backgroundColor: accent, borderColor: accent } : undefined}
+                                    className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                                        isDone ? '' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-[#0B1021]'
+                                    }`}
+                                    aria-label="Toggle completed"
+                                >
+                                    {isDone && <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />}
+                                </button>
+
+                                {/* Title, Description, and Metadata Row */}
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-sm font-semibold truncate ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+                                            {rem.title}
+                                        </span>
+                                    </div>
+
+                                    {rem.description && (
+                                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                                            {rem.description}
+                                        </p>
+                                    )}
+
+                                    {/* Single-line flex-nowrap metadata row */}
+                                    <div className="flex items-center gap-2 mt-1.5 flex-nowrap overflow-x-auto scrollbar-hide text-[11px]">
+                                        {/* Tinted Category Pill */}
+                                        <span
+                                            style={{ color: catObj.color, backgroundColor: `${catObj.color}1F` }}
+                                            className="px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0"
+                                        >
+                                            {rem.category || 'General'}
+                                        </span>
+
+                                        {/* Time Range */}
+                                        <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                                            <Clock className="w-3 h-3" />
+                                            {rem.all_day ? 'All-day' : `${formatTime12(rem.start_time)} - ${formatTime12(rem.end_time)}`}
+                                        </span>
+
+                                        {/* Recurrence Pill */}
+                                        {rem.repeat && rem.repeat !== 'never' && (
+                                            <span className="text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 capitalize">
+                                                • {rem.repeat}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/* Right Actions: Star, Edit, Delete */}
+                                <div className="flex items-center gap-1 shrink-0">
                                     <button
-                                        onClick={() => openEditForm(r)}
-                                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-white/50"
+                                        onClick={() => handleToggleStar(rem)}
+                                        className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 transition-colors"
+                                        aria-label="Star reminder"
+                                    >
+                                        <Star className={`w-4 h-4 ${rem.is_starred ? 'fill-amber-400 text-amber-400' : ''}`} />
+                                    </button>
+
+                                    <button
+                                        onClick={() => openEditForm(rem)}
+                                        className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors"
                                         aria-label="Edit reminder"
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <path d="M2 10.5V12H3.5L10.2 5.3L8.7 3.8L2 10.5Z" fill="#4A6C8C" />
-                                            <path d="M11.4 3.1L10.9 2.6C10.5 2.2 9.9 2.2 9.5 2.6L8.5 3.6L10.5 5.6L11.4 4.7C11.8 4.3 11.8 3.5 11.4 3.1Z" fill="#4A6C8C" />
-                                        </svg>
+                                        <Edit2 className="w-4 h-4" />
                                     </button>
+
                                     <button
-                                        onClick={() => deleteReminder(r.id)}
-                                        className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-red-50"
+                                        onClick={() => handleDeleteReminder(rem)}
+                                        className="p-1.5 rounded-full hover:bg-red-50 dark:hover:bg-red-500/10 text-slate-400 hover:text-red-500 transition-colors"
                                         aria-label="Delete reminder"
                                     >
-                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <path d="M3 4H11L10.3 12H3.7L3 4Z" stroke="#ef4444" strokeWidth="1.2" />
-                                            <path d="M2 4H12" stroke="#ef4444" strokeWidth="1.2" strokeLinecap="round" />
-                                            <path d="M5 4V2.5C5 2.2 5.2 2 5.5 2H8.5C8.8 2 9 2.2 9 2.5V4" stroke="#ef4444" strokeWidth="1.2" />
-                                        </svg>
+                                        <Trash2 className="w-4 h-4" />
                                     </button>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                )}
+                        )
+                    })}
+                </div>
+            </div>
 
-                {/* Add reminder button */}
-                {!showAddForm && (
-                    <button onClick={openAddForm} className="text-accent text-sm font-medium mt-2 hover:underline">
-                        + Add reminder
-                    </button>
-                )}
-
-                {/* Add/Edit reminder form */}
-                {showAddForm && (
-                    <div className="mt-3 bg-card-bg rounded-xl p-4">
-                        <h4 className="text-navy text-sm font-semibold mb-3">
-                            {editingReminder ? 'Edit reminder' : 'New reminder'}
-                        </h4>
-
-                        <input
-                            type="text"
-                            value={formTitle}
-                            onChange={(e) => { setFormTitle(e.target.value); setFormError('') }}
-                            placeholder="Reminder title"
-                            className="w-full h-10 bg-white rounded-lg px-3 text-sm text-navy placeholder:text-blue-muted outline-none focus:ring-2 focus:ring-navy/30 mb-2"
-                            autoFocus
-                            maxLength={100}
-                        />
-
-                        {/* All day toggle */}
-                        <div className="flex items-center justify-between mb-2">
-                            <span className="text-blue-muted text-xs">All-day</span>
+            {/* Quick-Jump Modal: Step 1 (Year) -> Step 2 (Month) */}
+            {showQuickJump && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className="w-full max-w-sm bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-5 shadow-2xl">
+                        <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                                {jumpStep === 1 ? 'Select Year' : `Select Month (${tempYear})`}
+                            </h4>
                             <button
-                                onClick={() => setFormAllDay(!formAllDay)}
-                                className={`w-10 h-6 rounded-full p-0.5 transition-colors ${formAllDay ? 'bg-navy' : 'bg-white'}`}
+                                onClick={() => setShowQuickJump(false)}
+                                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400"
                             >
-                                <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${formAllDay ? 'translate-x-4' : 'translate-x-0'}`} />
+                                <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        {/* Time pickers */}
-                        {!formAllDay && (
-                            <div className="flex gap-2 mb-2">
-                                <div className="flex-1">
-                                    <label className="text-blue-muted text-[10px] block mb-0.5">Starts</label>
-                                    <input type="time" value={formStartTime} onChange={(e) => setFormStartTime(e.target.value)}
-                                        className="w-full h-9 bg-white rounded-lg px-2 text-xs text-navy outline-none focus:ring-2 focus:ring-navy/30" />
-                                </div>
-                                <div className="flex-1">
-                                    <label className="text-blue-muted text-[10px] block mb-0.5">Ends</label>
-                                    <input type="time" value={formEndTime} onChange={(e) => setFormEndTime(e.target.value)}
-                                        className="w-full h-9 bg-white rounded-lg px-2 text-xs text-navy outline-none focus:ring-2 focus:ring-navy/30" />
-                                </div>
+                        {jumpStep === 1 ? (
+                            <div className="grid grid-cols-3 gap-2.5">
+                                {[2024, 2025, 2026, 2027, 2028, 2029, 2030, 2031, 2032, 2033, 2034, 2035].map((y) => (
+                                    <button
+                                        key={y}
+                                        onClick={() => {
+                                            setTempYear(y)
+                                            setJumpStep(2)
+                                        }}
+                                        className={`h-11 rounded-2xl text-sm font-bold transition-all ${
+                                            y === viewYear
+                                                ? 'bg-[#2B6BFF] text-white shadow-md'
+                                                : 'bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {y}
+                                    </button>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-3 gap-2.5">
+                                {SHORT_MONTHS.map((m, idx) => (
+                                    <button
+                                        key={m}
+                                        onClick={() => {
+                                            setViewYear(tempYear)
+                                            setViewMonth(idx)
+                                            setSelectedDate(1)
+                                            setShowQuickJump(false)
+                                        }}
+                                        className={`h-11 rounded-2xl text-sm font-bold transition-all ${
+                                            idx === viewMonth && tempYear === viewYear
+                                                ? 'bg-[#2B6BFF] text-white shadow-md'
+                                                : 'bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                                        }`}
+                                    >
+                                        {m}
+                                    </button>
+                                ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
 
-                        {/* Repeat */}
-                        <div className="flex items-center justify-between mb-3">
-                            <span className="text-blue-muted text-xs">Repeat</span>
-                            <select
-                                value={formRepeat}
-                                onChange={(e) => setFormRepeat(e.target.value as Reminder['repeat'])}
-                                className="h-8 bg-white rounded-lg px-2 text-xs text-navy outline-none border-none"
+            {/* Upgraded Dark-Mode-Native New/Edit Reminder Modal */}
+            {showFormModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className="w-full max-w-lg bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#222A41]">
+                            <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                                {editingReminder ? 'Edit Reminder' : 'New Reminder'}
+                            </h4>
+                            <button
+                                onClick={() => setShowFormModal(false)}
+                                className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400"
                             >
-                                <option value="never">Never</option>
-                                <option value="daily">Daily</option>
-                                <option value="weekly">Weekly</option>
-                                <option value="monthly">Monthly</option>
-                            </select>
+                                <X className="w-5 h-5" />
+                            </button>
                         </div>
 
-                        {formError && <p className="text-red-500 text-xs mb-2">{formError}</p>}
+                        {/* Title */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase tracking-wider">Title</label>
+                            <input
+                                type="text"
+                                value={formTitle}
+                                onChange={(e) => { setFormTitle(e.target.value); setFormError('') }}
+                                placeholder="e.g. Doctor's Appointment"
+                                className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-4 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                autoFocus
+                            />
+                        </div>
 
-                        <div className="flex gap-2">
-                            <button onClick={resetForm} className="flex-1 h-9 bg-white text-navy text-xs font-semibold rounded-lg">
+                        {/* Description */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase tracking-wider">Description (Optional)</label>
+                            <textarea
+                                value={formDescription}
+                                onChange={(e) => setFormDescription(e.target.value)}
+                                placeholder="Add notes or location details..."
+                                rows={2}
+                                className="w-full bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl p-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40 resize-none"
+                            />
+                        </div>
+
+                        {/* Category Tag Pills */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wider">Category Tag</label>
+                            <div className="flex gap-2 flex-wrap">
+                                {CATEGORIES.map((cat) => (
+                                    <button
+                                        key={cat.label}
+                                        type="button"
+                                        onClick={() => {
+                                            setFormCategory(cat.label)
+                                            setFormColor(cat.color)
+                                        }}
+                                        style={{
+                                            borderColor: formCategory === cat.label ? cat.color : undefined,
+                                            backgroundColor: formCategory === cat.label ? `${cat.color}22` : undefined,
+                                            color: formCategory === cat.label ? cat.color : undefined,
+                                        }}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                                            formCategory === cat.label
+                                                ? 'shadow-sm'
+                                                : 'border-slate-200 dark:border-[#222A41] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#0B1021]'
+                                        }`}
+                                    >
+                                        {cat.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Color Accent Circular Swatches */}
+                        <div>
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wider">Color Accent</label>
+                            <div className="flex gap-2.5 items-center">
+                                {COLOR_SWATCHES.map((swatch) => (
+                                    <button
+                                        key={swatch}
+                                        type="button"
+                                        onClick={() => setFormColor(swatch)}
+                                        style={{ backgroundColor: swatch }}
+                                        className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${
+                                            formColor === swatch ? 'ring-2 ring-offset-2 ring-[#2B6BFF] dark:ring-offset-[#151B2E]' : ''
+                                        }`}
+                                    >
+                                        {formColor === swatch && <Check className="w-4 h-4 text-white stroke-[2.5]" />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* All-Day Switch & Time Pickers */}
+                        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#222A41]">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-slate-900 dark:text-white">All-day event</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setFormAllDay(!formAllDay)}
+                                    className={`w-12 h-7 rounded-full p-0.5 transition-colors ${formAllDay ? 'bg-[#2B6BFF]' : 'bg-slate-300 dark:bg-slate-700'}`}
+                                >
+                                    <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${formAllDay ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+
+                            {!formAllDay && (
+                                <div className="grid grid-cols-2 gap-3 animate-fadeIn">
+                                    <div>
+                                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">Starts</span>
+                                        <input
+                                            type="time"
+                                            value={formStartTime}
+                                            onChange={(e) => setFormStartTime(e.target.value)}
+                                            className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                        />
+                                    </div>
+                                    <div>
+                                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">Ends</span>
+                                        <input
+                                            type="time"
+                                            value={formEndTime}
+                                            onChange={(e) => setFormEndTime(e.target.value)}
+                                            className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Repeat Selector */}
+                        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#222A41]">
+                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">Repeat</label>
+                            <select
+                                value={formRepeat}
+                                onChange={(e) => setFormRepeat(e.target.value)}
+                                className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                            >
+                                {REPEAT_OPTIONS.map((opt) => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                            </select>
+
+                            {formRepeat === 'custom' && (
+                                <div className="flex items-center gap-2 animate-fadeIn">
+                                    <span className="text-xs text-slate-500">Every</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={30}
+                                        value={formCustomInterval}
+                                        onChange={(e) => setFormCustomInterval(Math.max(1, parseInt(e.target.value || '1', 10)))}
+                                        className="w-16 h-10 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-2 text-center text-sm font-bold text-slate-900 dark:text-white"
+                                    />
+                                    <select
+                                        value={formCustomFreq}
+                                        onChange={(e: any) => setFormCustomFreq(e.target.value)}
+                                        className="h-10 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white outline-none"
+                                    >
+                                        <option value="day">Day(s)</option>
+                                        <option value="week">Week(s)</option>
+                                        <option value="month">Month(s)</option>
+                                        <option value="year">Year(s)</option>
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 3-Stage Notifications Alert Caption */}
+                        <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl text-xs text-[#2B6BFF] leading-relaxed">
+                            🔔 <span className="font-semibold">Alerts scheduled:</span> 3 days before, 24h before, and at start time (if time permits).
+                        </div>
+
+                        {formError && (
+                            <p className="text-xs text-red-500 font-semibold">{formError}</p>
+                        )}
+
+                        {/* Save Button */}
+                        <div className="flex gap-3 pt-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowFormModal(false)}
+                                className="flex-1 h-12 bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 font-bold rounded-2xl transition-all"
+                            >
                                 Cancel
                             </button>
-                            <button onClick={handleSaveReminder} className="flex-1 h-9 bg-accent text-white text-xs font-semibold rounded-lg">
-                                {editingReminder ? 'Save' : 'Add'}
+                            <button
+                                type="button"
+                                onClick={handleSaveReminder}
+                                disabled={formSaving}
+                                className="flex-1 h-12 bg-[#2B6BFF] hover:bg-blue-600 text-white font-bold rounded-2xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                            >
+                                {formSaving ? 'Saving...' : 'Save Reminder'}
                             </button>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     )
 }

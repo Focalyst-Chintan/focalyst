@@ -179,7 +179,7 @@ export async function middleware(req) {
 | Setting | Value |
 |---|---|
 | AI provider | **Google Gemini** |
-| Model | **gemini-1.5-flash** (free tier) |
+| Model | **gemini-3.8-flash** (free tier) |
 | SDK | **@google/generative-ai** |
 | API calls | Server-side only (Next.js API route) |
 

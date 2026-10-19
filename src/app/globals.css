@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme inline {
   /* Brand Colors */
   --color-white: #FFFFFF;
@@ -23,6 +25,25 @@
   --font-inter: var(--font-inter-var), -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+.dark {
+  --color-white: #1E293B; /* Slate 800 */
+  --color-navy: #94A3B8; /* Slate 400 */
+  --color-navy-dark: #CBD5E1; /* Slate 300 */
+  --color-navy-darker: #F8FAFC; /* Slate 50 */
+  --color-accent: #FF751F; /* Accent Orange */
+  --color-accent-dark: #FF8B3D;
+  --color-accent-light: #2D1C10; /* Dark Orange Tint */
+  --color-blue-muted: #64748B; /* Slate 500 */
+  --color-card-bg: #0F172A; /* Slate 900 */
+  --color-card-border: #334155; /* Slate 700 */
+  --color-page-bg: #020617; /* Slate 950 */
+  --color-success: #10B981;
+  --color-success-light: #064E3B;
+  --color-error: #EF4444;
+  --color-error-light: #7F1D1D;
+}
+
+
 body {
   background: var(--color-page-bg);
   color: var(--color-navy-darker);
@@ -43,8 +64,27 @@ textarea,
   -webkit-user-select: text !important;
 }
 
+/* iOS WebKit fix: Tiptap's ProseMirror contenteditable requires these
+   WebKit-specific properties to accept keyboard input on iOS Safari/WebKit.
+   -webkit-user-modify enables text editing; touch-action prevents 300ms delay. */
+.ProseMirror {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+  -webkit-user-modify: read-write !important;
+  touch-action: manipulation;
+  cursor: text;
+}
+
 html {
   overscroll-behavior-y: none;
+}
+
+/* ── Voice Note waveform idle animation ───────────────────────────────────── */
+/* Applied to individual bars when mic is active but amplitude is near-silent.
+   Produces a gentle breathing pulse so the waveform never looks frozen. */
+@keyframes voiceBarIdle {
+  0%   { transform: scaleY(0.6); opacity: 0.7; }
+  100% { transform: scaleY(1.0); opacity: 1.0; }
 }
 
 /* Skeleton shimmer animation */

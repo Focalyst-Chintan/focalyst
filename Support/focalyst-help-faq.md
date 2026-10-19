@@ -40,7 +40,7 @@ All your tasks, habits, notes, and history remain saved in your account. You sim
 Yes. Lifetime plan holders get all future features included at no extra cost, including the upcoming mobile app and App Blocker feature.
 
 **I was charged but my plan did not activate. What do I do?**
-Contact us at admin@chintan.shop with your payment receipt. We will resolve this within 24 hours.
+Contact us at contactfocalyst@gmail.com with your payment receipt. We will resolve this within 24 hours.
 
 ---
 
@@ -146,7 +146,7 @@ Go to Profile → scroll to the bottom → tap "Delete my account". You will be 
 Go to Profile → scroll to the very bottom → tap "Log out".
 
 **I forgot which email I used to sign up. What do I do?**
-If you signed up with Google, try signing in with "Continue with Google" — it will match your Google account automatically. If you used email, contact us at admin@chintan.shop.
+If you signed up with Google, try signing in with "Continue with Google" — it will match your Google account automatically. If you used email, contact us at contactfocalyst@gmail.com.
 
 ---
 
@@ -158,7 +158,7 @@ Try these steps in order:
 2. Clear your browser cache (Settings → Clear browsing data)
 3. Try a different browser (Chrome or Safari recommended)
 4. Check your internet connection
-5. If the issue persists, contact us at admin@chintan.shop
+5. If the issue persists, contact us at contactfocalyst@gmail.com
 
 **My data is not syncing across devices. What should I do?**
 Make sure you are logged in with the same account on both devices. All data syncs through Supabase in real time. If data is missing, try logging out and logging back in.
@@ -174,10 +174,10 @@ Currently, Focalyst requires an internet connection. An offline mode with local 
 ## Contact
 
 **How do I contact support?**
-Email us at **admin@chintan.shop**. We typically respond within 24 hours on business days.
+Email us at **contactfocalyst@gmail.com**. We typically respond within 24 hours on business days.
 
 **How do I report a bug?**
-Email admin@chintan.shop with the subject line "Bug Report" and describe what happened, which screen you were on, and what device and browser you were using. Screenshots are very helpful.
+Email contactfocalyst@gmail.com with the subject line "Bug Report" and describe what happened, which screen you were on, and what device and browser you were using. Screenshots are very helpful.
 
 **How do I request a feature?**
-We love hearing from users. Email admin@chintan.shop with the subject "Feature Request" and tell us what you would like to see in Focalyst.
+We love hearing from users. Email contactfocalyst@gmail.com with the subject "Feature Request" and tell us what you would like to see in Focalyst.

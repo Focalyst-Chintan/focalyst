@@ -10,10 +10,10 @@ export default function LoginPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [message, setMessage] = useState('')
     const router = useRouter()
+    const supabase = createClient()
 
     const handleGoogleLogin = async () => {
         try {
-            const supabase = createClient()
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
@@ -28,40 +28,87 @@ export default function LoginPage() {
         }
     }
 
-    const handleEmailAuth = async (action: 'login' | 'signup') => {
+    const handleAppleSignIn = async () => {
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: 'apple',
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+                },
+            })
+            if (error) {
+                console.error('Error logging in with Apple:', error.message)
+                setMessage(error.message)
+            }
+        } catch {
+            console.error('Failed to initiate Apple login')
+        }
+    }
+
+    const handleLogin = async (e: React.MouseEvent) => {
+        e.preventDefault()
         if (!email || !password) {
             setMessage('Please enter both email and password.')
             return
         }
         setIsLoading(true)
         setMessage('')
-        
         try {
-            const supabase = createClient()
-            let error;
-            if (action === 'signup') {
-                const res = await supabase.auth.signUp({
-                    email,
-                    password,
-                    options: {
-                        emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
-                    }
-                })
-                error = res.error
-                if (!error) setMessage('Check your email for the confirmation link.')
+            const { error } = await supabase.auth.signInWithPassword({ email, password })
+            if (error) {
+                setMessage(error.message)
+                console.error(error)
             } else {
-                const res = await supabase.auth.signInWithPassword({
-                    email,
-                    password,
-                })
-                error = res.error
-                if (!error) {
-                    router.push('/auth/callback?next=/onboarding/plans')
+                router.refresh()
+                const { data: { user } } = await supabase.auth.getUser()
+                if (user) {
+                    const { data: profile } = await supabase
+                        .from('users')
+                        .select('onboarding_done')
+                        .eq('id', user.id)
+                        .single()
+                    if (profile?.onboarding_done) {
+                        router.push('/plan')
+                    } else {
+                        router.push('/onboarding/plans')
+                    }
+                } else {
+                    router.push('/plan')
                 }
             }
-            if (error) setMessage(error.message)
         } catch (err: any) {
-            setMessage(err.message || 'Authentication failed.')
+            setMessage(err.message || 'Login failed.')
+            console.error(err)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleSignUp = async (e: React.MouseEvent) => {
+        e.preventDefault()
+        if (!email || !password) {
+            setMessage('Please enter both email and password.')
+            return
+        }
+        setIsLoading(true)
+        setMessage('')
+        try {
+            const { error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: {
+                    emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+                }
+            })
+            if (error) {
+                setMessage(error.message)
+                console.error(error)
+            } else {
+                setMessage('Check your email for the confirmation link.')
+            }
+        } catch (err: any) {
+            setMessage(err.message || 'Sign up failed.')
+            console.error(err)
         } finally {
             setIsLoading(false)
         }
@@ -95,6 +142,18 @@ export default function LoginPage() {
                     Continue with Google
                 </button>
 
+                {/* Apple Login Button */}
+                <button
+                    onClick={handleAppleSignIn}
+                    className="w-full h-12 bg-black border-[1.5px] border-black text-white text-[15px] font-semibold rounded-xl flex items-center justify-center gap-3 transition-all active:scale-[0.98] hover:bg-black/90"
+                >
+                    {/* Apple icon SVG */}
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-.1 3.81 1.5a5.22 5.22 0 0 1 3.23 4.83c-.02 2.87 2.33 3.88 2.36 3.9a10.42 10.42 0 0 1-2.8 4.02zM15.97 4.17A5.07 5.07 0 0 0 17.2 1c-1.32.05-2.92.88-3.87 2-1 1.12-1.6 2.73-1.31 4 1.46.1 2.97-.73 3.95-1.83z" />
+                    </svg>
+                    Continue with Apple
+                </button>
+
                 {/* Divider */}
                 <div className="flex items-center w-full gap-4">
                     <div className="flex-1 h-[1px] bg-card-bg"></div>
@@ -120,14 +179,14 @@ export default function LoginPage() {
                     />
                     <div className="flex gap-2 w-full mt-1">
                         <button
-                            onClick={() => handleEmailAuth('login')}
+                            onClick={handleLogin}
                             disabled={isLoading}
                             className="flex-1 h-12 bg-navy text-white text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-navy-dark disabled:opacity-50"
                         >
                             {isLoading ? 'Wait...' : 'Log In'}
                         </button>
                         <button
-                            onClick={() => handleEmailAuth('signup')}
+                            onClick={handleSignUp}
                             disabled={isLoading}
                             className="flex-1 h-12 border-[1.5px] border-navy text-navy text-[15px] font-semibold rounded-xl transition-all active:scale-[0.98] hover:bg-page-bg disabled:opacity-50"
                         >

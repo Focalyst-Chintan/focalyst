@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Note } from '@/types'
+import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
 export function useNotes(userId: string | undefined) {
     const [notes, setNotes] = useState<Note[]>([])
@@ -18,7 +19,7 @@ export function useNotes(userId: string | undefined) {
         try {
             let query = supabase
                 .from('notes')
-                .select('id, user_id, title, content, is_favourite, folder, created_at, updated_at', { count: 'exact' })
+                .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at', { count: 'exact' })
                 .eq('user_id', userId)
 
             if (folderFilter !== undefined) {
@@ -36,13 +37,10 @@ export function useNotes(userId: string | undefined) {
             if (noteTypeFilter && noteTypeFilter.length > 0) {
                 query = query.in('note_type', noteTypeFilter)
             } else if (noteTypeFilter) {
-                // if passed an empty array, it means we want types that are null or not set
-                // Supabase `.in` with empty array returns nothing, so we filter for null
                 query = query.is('note_type', null)
             }
 
             if (timeFilter) {
-                // Last 30 days
                 const thirtyDaysAgo = new Date()
                 thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
                 query = query.gte('updated_at', thirtyDaysAgo.toISOString())
@@ -54,17 +52,39 @@ export function useNotes(userId: string | undefined) {
             const from = (page - 1) * limit
             const to = from + limit - 1
 
-            const { data, error: fetchError, count } = await query.range(from, to)
+            let { data, error: fetchError, count } = await query.range(from, to)
+
+            // If error is due to optional columns (like is_pinned), retry with core columns
+            if (fetchError && fetchError.message?.toLowerCase().includes('column')) {
+                const fallbackQuery = supabase
+                    .from('notes')
+                    .select('id, user_id, title, content, is_favourite, folder, note_type, transcript, created_at, updated_at', { count: 'exact' })
+                    .eq('user_id', userId)
+                    .order('created_at', { ascending: false })
+                const res = await fallbackQuery.range(from, to)
+                data = res.data
+                fetchError = res.error
+                count = res.count
+            }
 
             if (fetchError) throw fetchError
 
-            if (page === 1) {
-                setNotes(data as Note[])
-            } else {
-                setNotes((prev) => [...prev, ...(data as Note[])])
+            const sortPinned = (list: Note[]) => {
+                return [...list].sort((a, b) => {
+                    if (a.is_pinned && !b.is_pinned) return -1
+                    if (!a.is_pinned && b.is_pinned) return 1
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                })
             }
 
-            setHasMore(count ? from + data.length < count : false)
+            const incoming = (data || []) as Note[]
+            if (page === 1) {
+                setNotes(sortPinned(incoming))
+            } else {
+                setNotes((prev) => sortPinned([...prev, ...incoming]))
+            }
+
+            setHasMore(count ? from + incoming.length < count : false)
         } catch (err: any) {
             console.error('Supabase error:', err?.message, err?.details, err?.hint)
             setError('Couldn\'t load notes. Try again.')
@@ -93,6 +113,23 @@ export function useNotes(userId: string | undefined) {
     const createNote = useCallback(async (title: string = 'Untitled document', content: string = '') => {
         if (!userId) return null
         try {
+            const { data: profile } = await supabase
+                .from('users')
+                .select('plan')
+                .eq('id', userId)
+                .single()
+
+            if (profile?.plan === 'free') {
+                const { count } = await supabase
+                    .from('notes')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('user_id', userId)
+
+                if (count !== null && count >= FREE_TIER_LIMITS.notes) {
+                    return null
+                }
+            }
+
             const { data, error } = await supabase
                 .from('notes')
                 .insert({
@@ -162,7 +199,7 @@ export function useNotes(userId: string | undefined) {
             return false
         }
 
-        console.log('Attempting to delete note:', id, 'for user:', userId);
+
         // Optimistic update
         setNotes((prev) => prev.filter((note) => note.id !== id))
 
@@ -180,7 +217,7 @@ export function useNotes(userId: string | undefined) {
                 }
                 throw error
             }
-            console.log('Delete successful in Supabase');
+
             return true
         } catch (err: any) {
             console.error('Supabase delete error:', err?.message, err?.details, err?.hint)
@@ -199,6 +236,23 @@ export function useNotes(userId: string | undefined) {
         }
     }, [updateNote])
 
+    const togglePin = useCallback(async (id: string, currentPinned?: boolean) => {
+        const nextPinned = !currentPinned
+        setNotes((prev) => {
+            const updated = prev.map((note) => note.id === id ? { ...note, is_pinned: nextPinned } : note)
+            return [...updated].sort((a, b) => {
+                if (a.is_pinned && !b.is_pinned) return -1
+                if (!a.is_pinned && b.is_pinned) return 1
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            })
+        })
+        try {
+            await supabase.from('notes').update({ is_pinned: nextPinned }).eq('id', id)
+        } catch (e) {
+            console.error('Failed to update pin in supabase:', e)
+        }
+    }, [supabase])
+
     return {
         notes,
         loading,
@@ -209,6 +263,7 @@ export function useNotes(userId: string | undefined) {
         createNote,
         updateNote,
         deleteNote,
-        toggleFavourite
+        toggleFavourite,
+        togglePin,
     }
 }

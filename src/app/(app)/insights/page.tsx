@@ -1,125 +1,175 @@
-import { createServerSupabaseClient } from '@/lib/supabase-server'
-import { redirect } from 'next/navigation'
+'use client'
 
+import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import { TasksCompletedCard } from '@/components/insights/TasksCompletedCard'
 import { ClientFocusInsights } from '@/components/insights/ClientFocusInsights'
 import { CurrentStreaksList } from '@/components/insights/CurrentStreaksList'
 import { AISummaryCard } from '@/components/insights/AISummaryCard'
 import { InsightsLevelWrapper } from '@/components/insights/InsightsLevelWrapper'
-import { getStartAndEndOfWeek, calculateTrend, calculateProductivityScore } from '@/lib/utils/insights'
+import { getStartAndEndOfWeek, calculateProductivityScore } from '@/lib/utils/insights'
+import { localDateStr } from '@/lib/utils/date'
+import WeeklyReportView from '@/components/insights/WeeklyReportView'
+import InsightsHeader from '@/components/insights/InsightsHeader'
+import HabitGroupLeaderboardSection from '@/components/insights/HabitGroupLeaderboardSection'
 
-export default async function InsightsPage() {
-    const supabase = await createServerSupabaseClient()
-    const { data: { user } } = await supabase.auth.getUser()
+export default function InsightsPage() {
+    const supabase = createClient()
+    const { user } = useAuth()
 
-    if (!user) {
-        redirect('/login')
+    const [loading, setLoading] = useState(true)
+    const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free')
+    const [isPaid, setIsPaid] = useState(false)
+    const [completedTasks, setCompletedTasks] = useState(0)
+    const [totalTasks, setTotalTasks] = useState(0)
+    const [totalFocusMinutes, setTotalFocusMinutes] = useState(0)
+    const [productivityScore, setProductivityScore] = useState(0)
+    const [habitsData, setHabitsData] = useState<any[]>([])
+    const [formattedDate, setFormattedDate] = useState('')
+
+    const fetchInsights = useCallback(async () => {
+        if (!user) return
+        const userId = user.id
+        const today = new Date()
+        setFormattedDate(today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
+
+        // 1. Fetch User Plan
+        const { data: userData } = await supabase
+            .from('users')
+            .select('plan')
+            .eq('id', userId)
+            .single()
+
+        const paid = userData?.plan !== 'free'
+        setIsPaid(paid)
+        setUserPlan(paid ? 'pro' : 'free')
+
+        // 2. Fetch Tasks (Pending + Completed Today)
+        const { data: pendingData } = await supabase
+            .from('tasks')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_completed', false)
+
+        const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+        const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString()
+
+        const { data: completedTodayData } = await supabase
+            .from('tasks')
+            .select('id')
+            .eq('user_id', userId)
+            .eq('is_completed', true)
+            .gte('completed_at', startOfToday)
+            .lte('completed_at', endOfToday)
+
+        const pendingCount = pendingData?.length || 0
+        const completed = completedTodayData?.length || 0
+        const total = pendingCount + completed
+        setCompletedTasks(completed)
+        setTotalTasks(total)
+
+        // 3. Fetch daily_focus_activity data using localDateStr to eliminate timezone drift
+        const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today)
+        const startOfWeekStr = localDateStr(startOfWeek)
+        const endOfWeekStr = localDateStr(endOfWeek)
+
+        const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000)
+        const lastWeekStartStr = localDateStr(lastWeekStart)
+        const lastWeekEndStr = startOfWeekStr
+
+        // Fetch records bounded by the active period
+        const { data: allActivities } = await supabase
+            .from('daily_focus_activity')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('date', lastWeekStartStr)
+            .lte('date', endOfWeekStr)
+
+        // Calculate focus time within window
+        const totalMin = allActivities?.reduce((acc: number, a: any) => acc + (a.focus_time_minutes || 0), 0) || 0
+        setTotalFocusMinutes(totalMin)
+
+        // current week
+        const currentWeekActivities = allActivities?.filter((a: any) => a.date >= startOfWeekStr && a.date <= endOfWeekStr) || []
+        const previousWeekActivities = allActivities?.filter((a: any) => a.date >= lastWeekStartStr && a.date < lastWeekEndStr) || []
+
+        const currentFocusMinutes = currentWeekActivities.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0)
+        const prevFocusMinutes = previousWeekActivities.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0)
+
+        // 4. Fetch Active Habits (Streaks)
+        const { data: habits } = await supabase
+            .from('habits')
+            .select('id, name, icon, current_streak, color')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('position')
+
+        setHabitsData(habits || [])
+
+        const activeHabitsCount = habits?.length || 0
+        const totalStreaksSum = habits?.reduce((acc: number, habit: any) => acc + habit.current_streak, 0) || 0
+
+        // 5. Calculate Productivity Score
+        const score = calculateProductivityScore(
+            completed,
+            total,
+            totalStreaksSum,
+            activeHabitsCount,
+            currentFocusMinutes,
+            prevFocusMinutes
+        )
+        setProductivityScore(score)
+        setLoading(false)
+    }, [supabase, user])
+
+    useEffect(() => {
+        fetchInsights()
+
+        const handleFocusUpdated = () => fetchInsights()
+        const handleHabitUpdated = () => fetchInsights()
+
+        window.addEventListener('focalyst:focus-updated', handleFocusUpdated)
+        window.addEventListener('focalyst:habit-updated', handleHabitUpdated)
+
+        return () => {
+            window.removeEventListener('focalyst:focus-updated', handleFocusUpdated)
+            window.removeEventListener('focalyst:habit-updated', handleHabitUpdated)
+        }
+    }, [fetchInsights])
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-screen bg-page-bg dark:bg-[#0B1021]">
+                <div className="w-8 h-8 rounded-full border-2 border-[#2B6BFF] border-t-transparent animate-spin" />
+            </div>
+        )
     }
 
-    const today = new Date()
-    const todayStr = today.toISOString().split('T')[0] // YYYY-MM-DD
-
-    // 1. Fetch User Plan
-    const { data: userData } = await supabase
-        .from('users')
-        .select('plan')
-        .eq('id', user.id)
-        .single()
-
-    const isPaid = userData?.plan !== 'free'
-
-    // 2. Fetch Tasks (Pending + Completed Today)
-    const { data: pendingData } = await supabase
-        .from('tasks')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_completed', false)
-
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
-    const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).toISOString()
-
-    const { data: completedTodayData } = await supabase
-        .from('tasks')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_completed', true)
-        .gte('completed_at', startOfToday)
-        .lte('completed_at', endOfToday)
-
-    const pendingCount = pendingData?.length || 0
-    const completedTasks = completedTodayData?.length || 0
-    const totalTasks = pendingCount + completedTasks
-
-    // 3. Fetch daily_focus_activity data
-    const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today)
-
-    // Fetch ALL records for the authenticated user
-    const { data: allActivities } = await supabase
-        .from('daily_focus_activity')
-        .select('*')
-        .eq('user_id', user.id)
-
-    // Calculate total cumulative focus time for level system
-    const totalFocusMinutes = allActivities?.reduce((acc, a) => acc + (a.focus_time_minutes || 0), 0) || 0
-
-    // current week
-    const startOfWeekStr = startOfWeek.toISOString().split('T')[0]
-    const endOfWeekStr = endOfWeek.toISOString().split('T')[0]
-
-    const currentWeekActivities = allActivities?.filter(a => a.date >= startOfWeekStr && a.date <= endOfWeekStr) || []
-
-    // previous week
-    const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const lastWeekEnd = new Date(startOfWeek.getTime() - 1)
-    const lastWeekStartStr = lastWeekStart.toISOString().split('T')[0]
-    const lastWeekEndStr = lastWeekEnd.toISOString().split('T')[0]
-
-    const previousWeekActivities = allActivities?.filter(a => a.date >= lastWeekStartStr && a.date <= lastWeekEndStr) || []
-
-    const currentFocusMinutes = currentWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
-    const prevFocusMinutes = previousWeekActivities.reduce((acc, curr) => acc + (curr.focus_time_minutes || 0), 0)
-
-    // 4. Fetch Active Habits (Streaks)
-    const { data: habitsData } = await supabase
-        .from('habits')
-        .select('id, name, icon, current_streak')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('position')
-
-    const activeHabitsCount = habitsData?.length || 0
-    const totalStreaksSum = habitsData?.reduce((acc, habit) => acc + habit.current_streak, 0) || 0
-
-    // 5. Calculate Productivity Score
-    const productivityScore = calculateProductivityScore(
-        completedTasks,
-        totalTasks,
-        totalStreaksSum,
-        activeHabitsCount,
-        currentFocusMinutes,
-        prevFocusMinutes
-    )
-
-    const formattedDate = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) // e.g. Oct 24
-
     return (
-        <main className="flex-1 p-4 md:p-8 w-full max-w-[800px] mx-auto overflow-x-hidden">
-            <div className="flex justify-between items-end mb-6">
-                <h1 className="text-[24px] font-bold text-navy">Insights</h1>
-                <span className="text-[13px] text-blue-muted">Today, {formattedDate}</span>
-            </div>
+        <main className="flex-1 p-4 md:p-8 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-5">
+            <InsightsHeader formattedDate={formattedDate} />
 
             <InsightsLevelWrapper totalFocusMinutes={totalFocusMinutes} />
 
             <div className="space-y-4">
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
-
                 <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore} />
             </div>
 
-            <CurrentStreaksList habits={habitsData || []} />
+            <CurrentStreaksList habits={habitsData} />
+
+            {/* Habit Group Leaderboard Section */}
+            <HabitGroupLeaderboardSection
+                activeHabits={habitsData}
+                userId={user?.id}
+                onRefreshInsights={fetchInsights}
+            />
 
             {isPaid && <AISummaryCard />}
+
+            {/* Weekly Productivity Report — fetches data client-side from the API */}
+            <WeeklyReportView userPlan={userPlan} />
         </main>
     )
 }

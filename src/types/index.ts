@@ -53,6 +53,7 @@ export interface Habit {
     user_id: string
     name: string
     icon: string
+    color?: string
     frequency: 'daily' | 'custom'
     custom_days: number[] | null
     reminder_time: string | null
@@ -93,9 +94,11 @@ export interface Note {
     title: string
     content: string | null
     is_favourite: boolean
+    is_pinned?: boolean
     folder: string | null
     note_type?: 'text' | 'voice'
     transcript?: string | null
+    audio_url?: string | null
     duration_seconds?: number | null
     created_at: string
     updated_at: string

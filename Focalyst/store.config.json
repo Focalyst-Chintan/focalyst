@@ -1,0 +1,100 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "version": "1.0",
+    "copyright": "©2026 Sohan Tamang",
+    "release": {
+      "automaticRelease": true
+    },
+    "info": {
+      "en-US": {
+        "description": "Focalyst is the ultimate all-in-one productivity ecosystem designed to help you organize your mind, build unbeatable routines, and maximize your daily output. By combining tactical time-management tools with a state-of-the-art AI coaching engine, Focalyst transforms raw data into a personalized road map for success.\n\nWhether you are a developer balancing deployments, a creator launching products, or a professional optimizing your workflow, Focalyst provides a seamless, distraction-free environment to get things done.\n\nCORE FEATURES & TOOLS:\n• Smart To-Do Lists & Task Management\nTake control of your day. Create detailed task lists, organize your priorities, and manage deadlines with ease. Never miss a target with native, customizable reminders that keep you accountable.\n• Intelligent Habit Tracking\nBuild routines that stick. Log your daily habits and review your consistency. Focalyst tracks your total completed days rather than breaking your momentum with punishing streak metrics, encouraging positive, sustainable behavior.\n• Pomodoro & Focus Hours Tracking\nEnter a state of deep work. Use customizable Pomodoro focus sessions and break intervals to maintain intense concentration without burning out. Every minute focused is logged to build your comprehensive data history.\n• Gamified 15-Tier Level System\nTurn productivity into a game. Watch your profile level up across 15 custom tiers—from Level 1 (Ignition) to Level 15 (Limitless)—based entirely on your accumulated native focus hours.\n• Integrated Note-Taking System\nCapture your thoughts instantly. Write down ideas, draft project blueprints, or log quick thoughts inside a clean, distraction-free editor right next to your planner.\n• Event Day Countdowns\nKeep your major goals in sight. Set visual, custom countdown timers for product launches, exams, or milestones to maintain long-term perspective and urgency.\n• Weekly Productivity Report & Catalyst AI Coach\nReceive a comprehensive, weekly breakdown of your metrics, showcasing a 0-100 productivity score, active habit metrics, and visual bar charts of your focus sessions. Upgrade to Pro to unlock Catalyst—an empathetic, premium AI coach powered by advanced models that analyzes your metrics, pairs them with behavioral science data, and writes customized strategies for your upcoming week.\n\nUPCOMING FEATURES (ON THE ROADMAP):\nWe are continuously expanding the hub! Coming very soon to your dashboard:\nVoice Notes: Record audio thoughts on the fly and let the app transcribe them into clean text documents.\nDistraction Blocker: Lock out attention-wasting apps and notifications while your focus timers are actively running.\n\nADDITIONAL DESIGN PERKS:\nNative language accessibility catering to global workforces.\n\nStop jumping between scattered apps for notes, timers, and planners. Download Focalyst today and unlock your premium focus era.",
+        "keywords": [
+          "pomodoro",
+          "timer",
+          "habit",
+          "tracker",
+          "daily",
+          "planner",
+          "focus",
+          "ai",
+          "coach",
+          "task",
+          "notes",
+          "countdown",
+          "blocker",
+          "voice",
+          "adhd"
+        ],
+        "marketingUrl": "https://focalyst.online",
+        "promoText": "Level up your life with an all-in-one AI productivity hub. Master your time with Pomodoro timers, habit cards, smart notes, custom countdowns, and an AI coach.",
+        "supportUrl": "https://www.chintan.store/emaillist",
+        "title": "Focalyst: AI Productivity Hub",
+        "subtitle": "Tasks, Habits, Notes, Pomodoro",
+        "privacyPolicyUrl": "https://focalyst.online/privacy",
+        "screenshots": {
+          "APP_IPAD_PRO_3GEN_129": [
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/1.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/2.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/3.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/4.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/5.png",
+            "store/apple/screenshot/en-US/APP_IPAD_PRO_3GEN_129/6.png"
+          ],
+          "APP_IPHONE_67": [
+            "store/apple/screenshot/en-US/APP_IPHONE_67/1.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/2.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/3.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/4.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/5.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/6.png",
+            "store/apple/screenshot/en-US/APP_IPHONE_67/7.png"
+          ]
+        }
+      }
+    },
+    "categories": [
+      "PRODUCTIVITY",
+      "UTILITIES"
+    ],
+    "advisory": {
+      "ageRatingOverride": "NONE",
+      "alcoholTobaccoOrDrugUseOrReferences": "NONE",
+      "contests": "NONE",
+      "gambling": false,
+      "gamblingSimulated": "NONE",
+      "horrorOrFearThemes": "NONE",
+      "kidsAgeBand": null,
+      "koreaAgeRatingOverride": "NONE",
+      "lootBox": false,
+      "matureOrSuggestiveThemes": "NONE",
+      "medicalOrTreatmentInformation": "NONE",
+      "profanityOrCrudeHumor": "NONE",
+      "sexualContentGraphicAndNudity": "NONE",
+      "sexualContentOrNudity": "NONE",
+      "unrestrictedWebAccess": false,
+      "violenceCartoonOrFantasy": "NONE",
+      "violenceRealistic": "NONE",
+      "violenceRealisticProlongedGraphicOrSadistic": "NONE",
+      "advertising": false,
+      "ageAssurance": false,
+      "ageRatingOverrideV2": "NONE",
+      "developerAgeRatingInfoUrl": null,
+      "gunsOrOtherWeapons": "NONE",
+      "healthOrWellnessTopics": false,
+      "messagingAndChat": false,
+      "parentalControls": false,
+      "userGeneratedContent": false
+    },
+    "review": {
+      "firstName": "Sohan",
+      "lastName": "Tamang",
+      "email": "ssrkgby2015@gmail.com",
+      "phone": "+918250608943",
+      "demoUsername": "outreach.chintan@gmail.com",
+      "demoPassword": "wevdab-vynqEz-6gekte",
+      "demoRequired": true,
+      "notes": "Hello Reviewer,\nThank you for reviewing Focalyst.\nThe login credentials provided belong to a standard Free Tier user account. This has been done intentionally so that you can easily test our standard features as well as the premium In-App Purchase (IAP) upgrade flow.\nHow to test In-App Purchases and Pro Features:\nTriggering the Paywall: Please navigate to the User Profile screen (by tapping the avatar icon) and tap the \"Manage Plan\" button.\nSandbox Purchase: This will open our subscription paywall. You can use your standard Apple Sandbox tester credentials to complete a mock purchase.\nUnlocking Premium Features: Once the sandbox purchase completes successfully, the account will instantly upgrade to \"Pro.\" You can then test our premium features, including unlimited interactions with our AI Coach (accessible via the \"Ask Focalyst AI\" chat overlay) and the locked data metrics inside the \"Insights\" tab.\nCore Workflow Engines to test on the Free Tier:\nCreating, modifying, or completing tasks in the Planner.\nLogging daily habits and adding Notes.\nRunning the custom Pomodoro focus timers and setting event countdowns.\nPlease let us know if you require any further information to complete your review.\nBest regards,\nSohan Tamang"
+    }
+  }
+}

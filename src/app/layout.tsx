@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { AuthProvider } from "@/context/AuthContext";
+import AuthInitializer from "@/components/AuthInitializer";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,6 +38,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -43,11 +47,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body suppressHydrationWarning className={`${inter.variable} antialiased font-[family-name:var(--font-inter)]`}>
-        {children}
-        <ServiceWorkerRegister />
+    <html lang="en" suppressHydrationWarning className="scroll-smooth">
+      <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)] bg-[#F4F7FA] text-[#2C4259] dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300`}>
+        <ThemeProvider>
+          <AuthProvider>
+            <AuthInitializer>
+              {children}
+            </AuthInitializer>
+            <ServiceWorkerRegister />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
 }
+
+

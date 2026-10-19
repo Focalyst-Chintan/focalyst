@@ -89,10 +89,28 @@ export function AIChatOverlay() {
         if (isFreeUser) setMessagesUsed(prev => prev + 1) // optimistic count
 
         try {
-            // Wait for context/tab if we need to pass it, skipping for now
+            // Forcefully retrieve a fresh session immediately before the fetch call
+            let { data: { session } } = await supabase.auth.getSession()
+            
+            // Attempt to refresh the session if access token is not immediately available
+            if (!session?.access_token) {
+                const { data: { session: refreshedSession } } = await supabase.auth.refreshSession()
+                if (refreshedSession) {
+                    session = refreshedSession
+                }
+            }
+
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json'
+            }
+
+            if (session?.access_token) {
+                headers['Authorization'] = `Bearer ${session.access_token}`
+            }
+
             const res = await fetch('/api/ai', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({ message: userMsg, tabContext: 'insights' }) // Replace context later
             })
 
