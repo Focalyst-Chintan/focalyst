@@ -4,7 +4,10 @@ import React, { useState, useRef, useEffect } from 'react';
 export interface PopoverProps {
   trigger: React.ReactNode;
   children: React.ReactNode | ((props: { close: () => void }) => React.ReactNode);
-  align?: 'left' | 'right' | 'center';
+  align?: 'left' | 'right' | 'center' | 'end';
+  side?: 'top' | 'bottom' | 'left' | 'right';
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   className?: string;
 }
 
@@ -12,9 +15,20 @@ export function Popover({
   trigger,
   children,
   align = 'left',
+  side = 'bottom',
+  open: controlledOpen,
+  onOpenChange,
   className = '',
 }: PopoverProps) {
-  const [open, setOpen] = useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : uncontrolledOpen;
+  const setOpen = (val: boolean | ((prev: boolean) => boolean)) => {
+    const nextVal = typeof val === 'function' ? val(open) : val;
+    if (!isControlled) setUncontrolledOpen(nextVal);
+    onOpenChange?.(nextVal);
+  };
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -39,8 +53,16 @@ export function Popover({
   const alignClasses = {
     left: 'left-0 origin-top-left',
     right: 'right-0 origin-top-right',
+    end: 'right-0 origin-top-right',
     center: 'left-1/2 -translate-x-1/2 origin-top',
   }[align];
+
+  const sideClasses = {
+    bottom: 'top-full mt-2',
+    top: 'bottom-full mb-2',
+    left: 'right-full mr-2 top-0',
+    right: 'left-full ml-2 top-0',
+  }[side];
 
   return (
     <div ref={containerRef} className="relative inline-block">
@@ -51,7 +73,7 @@ export function Popover({
       {open && (
         <div
           role="menu"
-          className={`absolute top-full mt-2 z-50 min-w-[200px] glass-strong rounded-[14px] p-1.5 shadow-[var(--shadow-glass)] animate-in fade-in zoom-in-95 duration-150 ${alignClasses} ${className}`}
+          className={`absolute z-50 min-w-[200px] glass-strong rounded-[14px] p-1.5 shadow-[var(--shadow-glass)] animate-in fade-in zoom-in-95 duration-150 ${sideClasses} ${alignClasses} ${className}`}
         >
           {typeof children === 'function' ? children({ close: () => setOpen(false) }) : children}
         </div>

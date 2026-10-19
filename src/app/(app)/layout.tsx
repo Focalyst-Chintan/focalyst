@@ -7,8 +7,11 @@ import { ChatProvider } from '@/context/ChatContext'
 import { I18nProvider } from '@/components/I18nProvider'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useMemo } from 'react'
+import { useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
+import { useIsDesktop } from '@/hooks/useIsDesktop'
+import { DesktopShell } from '@/components/desktop/DesktopShell'
+import { DesktopShellProvider } from '@/components/desktop/DesktopShellContext'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -22,6 +25,7 @@ export default function AppLayout({
 }) {
     const { user, isLoading } = useAuth()
     const router = useRouter()
+    const isDesktop = useIsDesktop()
 
     // Guard: fire the redirect exactly once when auth resolves to no-user.
     const didRedirect = useRef(false)
@@ -56,19 +60,31 @@ export default function AppLayout({
         <I18nProvider>
             <PlanProvider>
                 <ChatProvider>
-                    <div className="min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col relative text-navy-darker dark:text-slate-100 transition-colors duration-300">
-                        <Header />
-                        <main 
-                            style={{ paddingBottom: 'calc(80px + env(safe-area-inset-bottom))' }}
-                            className="flex-1 page-fade-in"
-                        >
-                            {children}
-                        </main>
-                        <BottomNav />
-                        <ChatUI />
-                    </div>
+                    <DesktopShellProvider>
+                        {/* Desktop Layout (>= 1024px) */}
+                        <div className="hidden lg:contents">
+                            <DesktopShell>
+                                {children}
+                            </DesktopShell>
+                        </div>
+
+                        {/* Mobile Layout (< 1024px) */}
+                        <div className="lg:hidden min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col relative text-navy-darker dark:text-slate-100 transition-colors duration-300">
+                            <div className="lg:hidden">
+                                <Header />
+                            </div>
+                            <main className="flex-1 page-fade-in pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-0">
+                                {children}
+                            </main>
+                            <div className="lg:hidden">
+                                <BottomNav />
+                            </div>
+                            {isDesktop === false && <ChatUI />}
+                        </div>
+                    </DesktopShellProvider>
                 </ChatProvider>
             </PlanProvider>
         </I18nProvider>
     )
 }
+

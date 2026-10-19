@@ -5,7 +5,7 @@ import Image from 'next/image';
 export interface AvatarProps {
   src?: string | null;
   name?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | number;
   className?: string;
 }
 
@@ -17,11 +17,18 @@ export function Avatar({
 }: AvatarProps) {
   const [imgError, setImgError] = useState(false);
 
-  const sizeClasses = {
-    sm: 'h-7 w-7 text-[11px]',
-    md: 'h-9 w-9 text-[13px]',
-    lg: 'h-11 w-11 text-[15px]',
-  }[size];
+  const isNumeric = typeof size === 'number';
+  const sizeClasses = !isNumeric
+    ? {
+        sm: 'h-7 w-7 text-[11px]',
+        md: 'h-9 w-9 text-[13px]',
+        lg: 'h-11 w-11 text-[15px]',
+      }[size]
+    : '';
+
+  const customStyle = isNumeric
+    ? { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.4)}px` }
+    : undefined;
 
   const getInitials = (n: string) => {
     if (!n) return 'F';
@@ -32,6 +39,7 @@ export function Avatar({
 
   return (
     <div
+      style={customStyle}
       className={`relative inline-flex shrink-0 items-center justify-center rounded-full overflow-hidden select-none font-semibold ${sizeClasses} ${
         src && !imgError
           ? 'bg-surface-2'

@@ -5,9 +5,11 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
+import { useAuth } from '@/context/AuthContext';
 
 export default function LandingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Preserve Capacitor native app redirect if running inside native shell
@@ -95,8 +97,8 @@ export default function LandingPage() {
 
           {/* Desktop Right Auth / App Actions */}
           <div className="hidden lg:flex items-center gap-4">
-            <Link className="text-[13.5px] font-medium text-snow/90 transition-colors hover:text-snow drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]" href="/login">
-              Log in
+            <Link className="text-[13.5px] font-medium text-snow/90 transition-colors hover:text-snow drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]" href={user ? '/today' : '/login'}>
+              {user ? 'Open app' : 'Log in'}
             </Link>
             <span className="h-4 w-[1.5px] bg-snow/50" />
             <a
@@ -223,7 +225,7 @@ export default function LandingPage() {
             <div className="hidden lg:flex items-center justify-center gap-4 mt-6">
               <Link
                 className="inline-flex h-[44px] min-w-[195px] items-center justify-center rounded-full border border-snow/80 bg-snow/20 px-6 text-[14px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.25)] transition-all duration-200 hover:-translate-y-0.5 hover:bg-snow hover:text-[#05070F]"
-                href="/login"
+                href="/today"
               >
                 Continue on Desktop
               </Link>
@@ -240,7 +242,7 @@ export default function LandingPage() {
           <div className="flex lg:hidden flex-col items-center gap-3.5 w-full max-w-[340px] mx-auto">
             <Link
               className="inline-flex h-[52px] w-full items-center justify-center rounded-full border border-snow/90 bg-snow/20 text-[16px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_28px_rgba(0,0,0,0.3)] transition-all hover:bg-snow hover:text-[#05070F]"
-              href="/login"
+              href="/today"
             >
               Continue on Desktop
             </Link>

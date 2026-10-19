@@ -1,8 +1,10 @@
 'use client';
 import React, { forwardRef } from 'react';
+import { Tooltip } from './Tooltip';
 
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  label: string;
+  label?: string;
+  tooltip?: string;
   variant?: 'ghost' | 'secondary' | 'glass' | 'primary';
   size?: 'sm' | 'md' | 'lg';
   pill?: boolean;
@@ -11,6 +13,7 @@ export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
   {
     label,
+    tooltip,
     variant = 'ghost',
     size = 'md',
     pill = false,
@@ -34,20 +37,28 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
   }[variant];
 
   const radiusClass = pill ? 'rounded-full' : size === 'sm' ? 'rounded-lg' : 'rounded-[10px]';
+  const effectiveLabel = label || tooltip || 'button';
 
-  return (
+  const buttonElement = (
     <button
       ref={ref}
       type="button"
-      title={label}
-      aria-label={label}
+      title={effectiveLabel}
+      aria-label={effectiveLabel}
       className={`inline-flex items-center justify-center shrink-0 transition-all duration-150 cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] ${sizeClasses} ${variantClasses} ${radiusClass} ${className}`}
       {...props}
     >
       {children}
     </button>
   );
+
+  if (tooltip) {
+    return <Tooltip content={tooltip}>{buttonElement}</Tooltip>;
+  }
+
+  return buttonElement;
 });
 
 IconButton.displayName = 'IconButton';
 export default IconButton;
+

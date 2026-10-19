@@ -31,6 +31,17 @@ function LoginContent() {
     }
   }, [searchParams]);
 
+  // If already authenticated on /login, redirect: desktop (min-width: 1024px) -> /today, mobile -> /plan
+  useEffect(() => {
+    supabase.auth.getUser().then((res: any) => {
+      const authUser = res?.data?.user;
+      if (authUser) {
+        const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
+        router.replace(isDesktop ? '/today' : '/plan');
+      }
+    });
+  }, [router, supabase]);
+
   const switchMode = (newMode: 'login' | 'signup') => {
     setMode(newMode);
     setMessage('');
