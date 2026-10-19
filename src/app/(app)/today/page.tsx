@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Play,
   ArrowUpRight,
+  ArrowRight,
   Flame,
-  Check,
   AlertCircle,
   Users,
 } from 'lucide-react';
@@ -26,9 +26,9 @@ import { localDateStr } from '@/lib/utils/date';
 import {
   getStartAndEndOfWeek,
   aggregateSessionsByDay,
-  calculateTrend,
 } from '@/lib/utils/insights';
 import { fetchMyGroupLeaderboard, GroupLeaderboardData } from '@/lib/services/habitGroupService';
+import { getDisplayName, getFirstName } from '@/lib/utils/name';
 
 // UI Kit components
 import { Button } from '@/components/desktop/ui/Button';
@@ -41,7 +41,7 @@ import { Avatar } from '@/components/desktop/ui/Avatar';
 import { IconButton } from '@/components/desktop/ui/IconButton';
 import { Kbd } from '@/components/desktop/ui/Kbd';
 
-// Analog Clock component specified in DESKTOP_DESIGN.md
+// 112px Analog Clock component specified in DESKTOP_DESIGN.md
 function AnalogClock() {
   const [now, setNow] = useState<Date | null>(null);
 
@@ -56,7 +56,7 @@ function AnalogClock() {
   const hr = now ? ((now.getHours() % 12) + now.getMinutes() / 60) * 30 : 0;
 
   return (
-    <svg viewBox="0 0 120 120" className="mx-auto h-[120px] w-[120px]">
+    <svg viewBox="0 0 120 120" className="mx-auto h-[112px] w-[112px]">
       <circle
         cx="60"
         cy="60"
@@ -121,7 +121,7 @@ function AnalogClock() {
 
 export default function TodayPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const {
     tasks,
     habits,
@@ -139,17 +139,31 @@ export default function TodayPage() {
   const [todaySessionsCount, setTodaySessionsCount] = useState(0);
   const [weeklyFocusActivities, setWeeklyFocusActivities] = useState<any[]>([]);
   const [weeklyFocusMinutes, setWeeklyFocusMinutes] = useState(0);
-  const [prevWeeklyFocusMinutes, setPrevWeeklyFocusMinutes] = useState(0);
+  const [lastWeekSamePeriodMinutes, setLastWeekSamePeriodMinutes] = useState(0);
 
   // Group data
   const [groupData, setGroupData] = useState<GroupLeaderboardData | null>(null);
   const [loadingGroup, setLoadingGroup] = useState(true);
   const [groupError, setGroupError] = useState(false);
 
-  // 20-week habit logs for heatmap
+  // Heatmap logs & dynamic week measurement
   const [habitLogs, setHabitLogs] = useState<{ completed_date: string; habit_id: string }[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(true);
   const [logsError, setLogsError] = useState(false);
+
+  const heatmapContainerRef = useRef<HTMLDivElement>(null);
+  const [heatmapWeeksCount, setHeatmapWeeksCount] = useState(20);
+
+  useEffect(() => {
+    const el = heatmapContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      const w = entry.contentRect.width - 32; // 32px weekday label column
+      setHeatmapWeeksCount(Math.max(12, Math.min(53, Math.floor((w + 4) / 20))));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Quick-add task input
   const [taskInput, setTaskInput] = useState('');
@@ -171,6 +185,10 @@ export default function TodayPage() {
       const lastWeekStart = new Date(startOfWeek.getTime() - 7 * 24 * 60 * 60 * 1000);
       const lastWeekStartStr = localDateStr(lastWeekStart);
 
+      // Last week's same weekday date:
+      const lastWeekSameDay = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastWeekSameDayStr = localDateStr(lastWeekSameDay);
+
       // Fetch daily_focus_activity for this week and last week
       const { data: activities, error: actError } = await supabase
         .from('daily_focus_activity')
@@ -183,10 +201,17 @@ export default function TodayPage() {
 
       const actList: any[] = activities || [];
       const currentWeekList = actList.filter((a: any) => a.date >= startOfWeekStr && a.date <= endOfWeekStr);
-      const prevWeekList = actList.filter((a: any) => a.date >= lastWeekStartStr && a.date < startOfWeekStr);
+
+      // Same days of last week (Mon..same weekday)
+      const lastWeekSamePeriodList = actList.filter(
+        (a: any) => a.date >= lastWeekStartStr && a.date <= lastWeekSameDayStr
+      );
 
       const curMin = currentWeekList.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0);
-      const prevMin = prevWeekList.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0);
+      const lastWeekSameMin = lastWeekSamePeriodList.reduce(
+        (acc: number, curr: any) => acc + (curr.focus_time_minutes || 0),
+        0
+      );
 
       const todayAct = actList.find((a: any) => a.date === todayStr);
       setTodayFocusMinutes(todayAct?.focus_time_minutes || 0);
@@ -194,7 +219,7 @@ export default function TodayPage() {
 
       setWeeklyFocusActivities(currentWeekList);
       setWeeklyFocusMinutes(curMin);
-      setPrevWeeklyFocusMinutes(prevMin);
+      setLastWeekSamePeriodMinutes(lastWeekSameMin);
     } catch (err) {
       console.error('Focus metrics error:', err);
       setFocusError(true);
@@ -203,15 +228,15 @@ export default function TodayPage() {
     }
   }, [user, supabase, todayStr]);
 
-  // Fetch habit logs for heatmap (20 weeks)
+  // Fetch habit logs for heatmap (53 weeks max)
   const fetchHabitHeatmapLogs = useCallback(async () => {
     if (!user) return;
     setLoadingLogs(true);
     setLogsError(false);
     try {
-      const twentyWeeksAgo = new Date();
-      twentyWeeksAgo.setDate(twentyWeeksAgo.getDate() - 140);
-      const startDateStr = localDateStr(twentyWeeksAgo);
+      const pastYear = new Date();
+      pastYear.setDate(pastYear.getDate() - 370);
+      const startDateStr = localDateStr(pastYear);
 
       const { data, error } = await supabase
         .from('habit_logs')
@@ -266,8 +291,8 @@ export default function TodayPage() {
     });
   }, []);
 
-  const firstName =
-    user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const displayName = useMemo(() => getDisplayName(profile, user), [profile, user]);
+  const firstName = useMemo(() => getFirstName(displayName), [displayName]);
 
   // Format focus time helper (e.g. 1h 24m or 45m)
   const formatFocusTime = (minutes: number) => {
@@ -278,11 +303,16 @@ export default function TodayPage() {
   };
 
   // Scheduled habits for today
+  // In our database / new-habit form: DAYS = ['M','T','W','T','F','S','S'] where Mon=0, Tue=1, ..., Sun=6
+  // JS getDay(): Sun=0, Mon=1, ..., Sat=6. Map JS getDay to repeat_days index:
   const scheduledHabits = useMemo(() => {
-    const todayDay = new Date().getDay(); // 0 is Sun, 6 is Sat
+    const jsDay = new Date().getDay();
+    const habitDayIndex = jsDay === 0 ? 6 : jsDay - 1; // Mon=0, Sun=6
+
     return (habits || []).filter((h) => {
       if (h.all_days) return true;
-      return (h.repeat_days || []).includes(todayDay);
+      if (!h.repeat_days || h.repeat_days.length === 0) return true;
+      return h.repeat_days.includes(habitDayIndex) || h.repeat_days.includes(jsDay);
     });
   }, [habits]);
 
@@ -350,23 +380,23 @@ export default function TodayPage() {
     return aggregateSessionsByDay(weeklyFocusActivities, startOfWeek, endOfWeek);
   }, [weeklyFocusActivities, startOfWeek, endOfWeek]);
 
-  const weeklyTrend = useMemo(() => {
-    return calculateTrend(weeklyFocusMinutes, prevWeeklyFocusMinutes);
-  }, [weeklyFocusMinutes, prevWeeklyFocusMinutes]);
+  // Delta chip comparison against same days of last week
+  const deltaVsLastWeek = useMemo(() => {
+    if (lastWeekSamePeriodMinutes === 0) return null;
+    const diff = weeklyFocusMinutes - lastWeekSamePeriodMinutes;
+    const pct = Math.round((diff / lastWeekSamePeriodMinutes) * 100);
+    return pct;
+  }, [weeklyFocusMinutes, lastWeekSamePeriodMinutes]);
 
-  // Heatmap: 20-week calculation (20 columns x 7 days)
+  // Heatmap: dynamic calendar-aligned calculation ending with current week
   const heatmapWeeks = useMemo(() => {
     const now = new Date();
     const currentDay = now.getDay();
     const mondayDiff = currentDay === 0 ? -6 : 1 - currentDay;
 
-    // End of current week's Sunday
-    const currentSunday = new Date(now);
-    currentSunday.setDate(now.getDate() + (mondayDiff + 6));
-
-    // Start Monday 19 weeks prior
+    // Start Monday (heatmapWeeksCount - 1) weeks ago
     const startMonday = new Date(now);
-    startMonday.setDate(now.getDate() + mondayDiff - 19 * 7);
+    startMonday.setDate(now.getDate() + mondayDiff - (heatmapWeeksCount - 1) * 7);
 
     // Group logs by date
     const logsByDate = new Map<string, number>();
@@ -378,7 +408,7 @@ export default function TodayPage() {
     const weeks: { dateStr: string; ratio: number; dayOfWeek: number; monthName?: string }[][] = [];
 
     let currentCursor = new Date(startMonday);
-    for (let w = 0; w < 20; w++) {
+    for (let w = 0; w < heatmapWeeksCount; w++) {
       const daysInWeek = [];
       for (let d = 0; d < 7; d++) {
         const dStr = localDateStr(currentCursor);
@@ -402,7 +432,42 @@ export default function TodayPage() {
       weeks.push(daysInWeek);
     }
     return weeks;
-  }, [habitLogs, habits.length]);
+  }, [habitLogs, habits.length, heatmapWeeksCount]);
+
+  // Deduplicated group members & user rank
+  const { dedupedMembers, myRank, totalMembers, myMemberRecord, isCurrentUserInTop3 } =
+    useMemo(() => {
+      if (!groupData || !groupData.members) {
+        return {
+          dedupedMembers: [],
+          myRank: null,
+          totalMembers: 0,
+          myMemberRecord: null,
+          isCurrentUserInTop3: false,
+        };
+      }
+
+      const map = new Map<string, any>();
+      groupData.members.forEach((m) => {
+        if (!map.has(m.user_id) || (m.streak || 0) > (map.get(m.user_id)?.streak || 0)) {
+          map.set(m.user_id, m);
+        }
+      });
+
+      const unique = Array.from(map.values()).sort((a, b) => (b.streak || 0) - (a.streak || 0));
+      const myIndex = unique.findIndex((m) => m.user_id === user?.id || m.is_me);
+      const myRecord = myIndex !== -1 ? unique[myIndex] : null;
+
+      return {
+        dedupedMembers: unique,
+        myRank: myIndex !== -1 ? myIndex + 1 : null,
+        totalMembers: unique.length,
+        myMemberRecord: myRecord,
+        isCurrentUserInTop3: myIndex !== -1 && myIndex < 3,
+      };
+    }, [groupData, user?.id]);
+
+  const focusProgress = Math.min(100, Math.round((todayFocusMinutes / 180) * 100));
 
   return (
     <div className="w-full flex flex-col gap-7">
@@ -469,16 +534,20 @@ export default function TodayPage() {
               <ProgressRing
                 size={96}
                 strokeWidth={8}
-                progress={Math.min(100, (todayFocusMinutes / 180) * 100)}
+                progress={focusProgress}
                 trackColor="rgba(242, 245, 255, 0.15)"
                 color="#F2F5FF"
-              />
+              >
+                <span className="text-[13px] font-semibold tabular-nums text-snow/85">
+                  {focusProgress}%
+                </span>
+              </ProgressRing>
             </div>
 
             {/* Bottom Row */}
             <div className="mt-6 flex items-center justify-between relative z-10">
               <Button
-                variant="glass"
+                variant="onDark"
                 size="sm"
                 onClick={() => router.push('/focus')}
               >
@@ -514,11 +583,17 @@ export default function TodayPage() {
               </div>
             </div>
 
-            {/* Habit List */}
+            {/* Habit List & Empty States */}
             <div className="flex-1 flex flex-col justify-center gap-1 my-2">
-              {scheduledHabits.length === 0 ? (
+              {habits.length === 0 ? (
+                <EmptyState
+                  title="Build your first habit."
+                  actionLabel="Create habit"
+                  onAction={() => router.push('/plan/new-habit')}
+                />
+              ) : scheduledHabits.length === 0 ? (
                 <p className="text-[13px] text-ink-3 text-center py-4">
-                  No habits scheduled for today.
+                  Nothing scheduled today.
                 </p>
               ) : (
                 scheduledHabits.slice(0, 6).map((habit) => (
@@ -584,7 +659,8 @@ export default function TodayPage() {
           <Skeleton className="lg:col-span-1 xl:col-span-3 min-h-[240px] rounded-[20px]" />
         ) : (
           <Card className="lg:col-span-1 xl:col-span-3 min-h-[240px] flex flex-col justify-between p-6">
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-between">
+              <h3 className="text-[16px] font-semibold text-ink">Up next</h3>
               <IconButton
                 size="sm"
                 variant="ghost"
@@ -595,16 +671,13 @@ export default function TodayPage() {
               </IconButton>
             </div>
 
-            {/* Analog Clock */}
-            <div className="my-auto">
+            {/* Centered 112px Analog Clock */}
+            <div className="my-2">
               <AnalogClock />
             </div>
 
-            {/* Upcoming items */}
+            {/* Next 2 scheduled items */}
             <div>
-              <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3 block mb-1.5">
-                UP NEXT
-              </span>
               {upcomingSchedule.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   {upcomingSchedule.map((item, idx) => (
@@ -623,7 +696,7 @@ export default function TodayPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-3">Nothing scheduled. Enjoy the space.</p>
+                <p className="text-[13px] text-ink-3 text-center">Nothing scheduled. Enjoy the space.</p>
               )}
             </div>
           </Card>
@@ -643,7 +716,7 @@ export default function TodayPage() {
             </Button>
           </Card>
         ) : (
-          <Card className="lg:col-span-2 xl:col-span-8 min-h-[320px] p-6 flex flex-col justify-between">
+          <Card className="lg:col-span-2 xl:col-span-8 min-h-[320px] p-6 flex flex-col justify-between relative">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-baseline">
@@ -651,15 +724,17 @@ export default function TodayPage() {
                 <span className="text-[28px] font-semibold tabular-nums text-ink ml-3 tracking-tight">
                   {formatFocusTime(weeklyFocusMinutes)}
                 </span>
-                <span
-                  className={`ml-2.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${
-                    weeklyTrend >= 0
-                      ? 'bg-success/15 text-success'
-                      : 'bg-danger/15 text-danger'
-                  }`}
-                >
-                  {weeklyTrend >= 0 ? `+${weeklyTrend}%` : `${weeklyTrend}%`}
-                </span>
+                {deltaVsLastWeek !== null && (
+                  <span
+                    className={`ml-2.5 rounded-full px-2 py-0.5 text-[12px] font-semibold tabular-nums ${
+                      deltaVsLastWeek >= 0
+                        ? 'bg-success/15 text-success'
+                        : 'bg-danger/15 text-danger'
+                    }`}
+                  >
+                    {deltaVsLastWeek >= 0 ? `+${deltaVsLastWeek}%` : `${deltaVsLastWeek}%`} vs last week
+                  </span>
+                )}
               </div>
 
               <IconButton
@@ -672,8 +747,17 @@ export default function TodayPage() {
               </IconButton>
             </div>
 
-            {/* Recharts Bar Chart */}
-            <div className="w-full h-[220px]">
+            {/* Recharts Bar Chart / Empty Overlay */}
+            <div className="w-full h-[220px] relative">
+              {weeklyFocusMinutes === 0 && (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/40 dark:bg-surface-2/40 backdrop-blur-[2px] rounded-xl gap-2">
+                  <p className="text-[14px] text-ink-2">No focus sessions yet this week.</p>
+                  <Button variant="ghost" size="sm" onClick={() => router.push('/focus')}>
+                    Start one
+                  </Button>
+                </div>
+              )}
+
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <defs>
@@ -838,11 +922,11 @@ export default function TodayPage() {
 
         {/* ================= ROW 3 ================= */}
 
-        {/* Card 6: HABIT CONSISTENCY (xl:col-span-8) */}
+        {/* Card 6: HABIT CONSISTENCY (xl:col-span-8, auto height) */}
         {loadingLogs ? (
-          <Skeleton className="lg:col-span-2 xl:col-span-8 min-h-[280px] rounded-[20px]" />
+          <Skeleton className="lg:col-span-2 xl:col-span-8 min-h-[260px] rounded-[20px]" />
         ) : logsError ? (
-          <Card className="lg:col-span-2 xl:col-span-8 min-h-[280px] flex flex-col items-center justify-center p-6 text-center">
+          <Card className="lg:col-span-2 xl:col-span-8 p-6 flex flex-col items-center justify-center text-center">
             <AlertCircle className="w-8 h-8 text-danger mb-2" />
             <p className="text-[14px] text-ink mb-3">Couldn't load this.</p>
             <Button variant="secondary" size="sm" onClick={fetchHabitHeatmapLogs}>
@@ -850,7 +934,7 @@ export default function TodayPage() {
             </Button>
           </Card>
         ) : (
-          <Card className="lg:col-span-2 xl:col-span-8 min-h-[280px] p-6 flex flex-col justify-between">
+          <Card className="lg:col-span-2 xl:col-span-8 p-6 flex flex-col justify-between">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[16px] font-semibold text-ink">Habit consistency</h3>
@@ -864,37 +948,60 @@ export default function TodayPage() {
               </IconButton>
             </div>
 
-            {/* 20-Week Calendar Heatmap */}
-            <div className="overflow-x-auto pb-2">
-              <div className="min-w-[420px] flex flex-col gap-1.5">
-                {/* Month labels header */}
-                <div className="grid grid-flow-col auto-cols-[14px] gap-1 h-4">
-                  {heatmapWeeks.map((week, idx) => (
-                    <div key={idx} className="text-[11px] text-ink-3 leading-none">
-                      {week[0].monthName || ''}
-                    </div>
-                  ))}
+            {/* Full width Heatmap Container with ResizeObserver */}
+            <div ref={heatmapContainerRef} className="w-full overflow-hidden pb-1">
+              <div className="flex gap-2">
+                {/* Weekday labels column: Mon, Wed, Fri (32px wide) */}
+                <div className="w-8 shrink-0 flex flex-col pt-5 text-[11px] text-ink-3">
+                  <div className="h-4 flex items-center">Mon</div>
+                  <div className="h-4" />
+                  <div className="h-4 flex items-center">Wed</div>
+                  <div className="h-4" />
+                  <div className="h-4 flex items-center">Fri</div>
+                  <div className="h-4" />
+                  <div className="h-4" />
                 </div>
 
-                {/* 7 rows for days Mon..Sun */}
-                <div className="grid grid-flow-col auto-cols-[14px] grid-rows-7 gap-1">
-                  {heatmapWeeks.map((week) =>
-                    week.map((day) => {
-                      let colorClass = 'bg-surface-2';
-                      if (day.ratio > 0.75) colorClass = 'bg-primary';
-                      else if (day.ratio > 0.5) colorClass = 'bg-primary/70';
-                      else if (day.ratio > 0.25) colorClass = 'bg-primary/45';
-                      else if (day.ratio > 0) colorClass = 'bg-primary/20';
+                {/* Weeks Grid */}
+                <div className="flex-1 flex flex-col gap-1 overflow-hidden">
+                  {/* Month labels row */}
+                  <div
+                    className="grid grid-flow-col gap-1 h-4"
+                    style={{ gridTemplateColumns: `repeat(${heatmapWeeksCount}, 16px)` }}
+                  >
+                    {heatmapWeeks.map((week, idx) => (
+                      <div key={idx} className="text-[11px] text-ink-3 leading-none truncate">
+                        {week[0]?.monthName || ''}
+                      </div>
+                    ))}
+                  </div>
 
-                      return (
-                        <div
-                          key={day.dateStr}
-                          title={`${day.dateStr}: ${Math.round(day.ratio * 100)}%`}
-                          className={`h-3.5 w-3.5 rounded-[3px] ${colorClass} transition-colors`}
-                        />
-                      );
-                    })
-                  )}
+                  {/* 7 rows x weeks columns of 16px cells */}
+                  <div
+                    className="grid grid-flow-col gap-1"
+                    style={{
+                      gridTemplateRows: 'repeat(7, 16px)',
+                      gridTemplateColumns: `repeat(${heatmapWeeksCount}, 16px)`,
+                    }}
+                  >
+                    {heatmapWeeks.map((week) =>
+                      week.map((day) => {
+                        let colorClass = 'bg-surface-2';
+                        if (day.ratio > 0.75) colorClass = 'bg-primary';
+                        else if (day.ratio > 0.5) colorClass = 'bg-primary/70';
+                        else if (day.ratio > 0.25) colorClass = 'bg-primary/45';
+                        else if (day.ratio > 0) colorClass = 'bg-primary/20';
+
+                        return (
+                          <div
+                            key={day.dateStr}
+                            title={`${day.dateStr}: ${Math.round(day.ratio * 100)}%`}
+                            className={`h-4 w-4 rounded-[3px] ${colorClass} transition-colors`}
+                          />
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -929,9 +1036,9 @@ export default function TodayPage() {
             <div>
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-[16px] font-semibold text-ink">Your Group</h3>
-                  <p className="text-[13px] text-ink-2 mt-0.5">
-                    {groupData.members.length} members
+                  <h3 className="text-[16px] font-semibold text-ink">Your group</h3>
+                  <p className="text-[13px] text-ink-3 mt-0.5">
+                    {totalMembers} {totalMembers === 1 ? 'member' : 'members'}
                   </p>
                 </div>
                 <IconButton
@@ -944,37 +1051,71 @@ export default function TodayPage() {
                 </IconButton>
               </div>
 
-              {/* Members leaderboard */}
-              <div className="flex flex-col gap-2 mt-4">
-                {groupData.members.slice(0, 3).map((m, idx) => (
-                  <div
-                    key={m.user_id}
-                    className="flex items-center justify-between p-2 rounded-[10px] bg-surface-2/60"
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <span className="text-[13px] tabular-nums font-semibold text-ink-3 w-4">
-                        #{idx + 1}
-                      </span>
-                      <Avatar size={28} name={m.display_name} />
-                      <span className="text-[14px] text-ink truncate font-medium">
-                        {m.display_name}
+              {/* Sub-header: You're #N of M */}
+              {myRank && (
+                <p className="text-[13px] text-ink-2 mt-2 font-medium">
+                  You&apos;re #{myRank} of {totalMembers}
+                </p>
+              )}
+
+              {/* Top 3 Members leaderboard */}
+              <div className="flex flex-col gap-2 mt-3">
+                {dedupedMembers.slice(0, 3).map((m, idx) => {
+                  const isMe = m.user_id === user?.id || m.is_me;
+                  return (
+                    <div
+                      key={m.user_id}
+                      className={`flex items-center justify-between p-2 rounded-[10px] ${
+                        isMe ? 'bg-primary-soft text-primary-text' : 'bg-surface-2/60 text-ink'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <span className="text-[13px] tabular-nums font-semibold opacity-70 w-4">
+                          #{idx + 1}
+                        </span>
+                        <Avatar size={28} name={m.display_name} />
+                        <span className={`text-[14px] truncate font-medium ${isMe ? 'text-primary-text' : 'text-ink'}`}>
+                          {m.display_name} {isMe && '(You)'}
+                        </span>
+                      </div>
+                      <span className="text-[13px] tabular-nums font-medium">
+                        {m.streak}d streak
                       </span>
                     </div>
-                    <span className="text-[13px] tabular-nums font-medium text-ink">
-                      {m.streak}d streak
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
+
+                {/* 4th row for current user if not in top 3 */}
+                {!isCurrentUserInTop3 && myMemberRecord && (
+                  <>
+                    <div className="h-px bg-line my-1" />
+                    <div className="flex items-center justify-between p-2 rounded-[10px] bg-primary-soft text-primary-text">
+                      <div className="flex items-center gap-2.5 truncate">
+                        <span className="text-[13px] tabular-nums font-semibold opacity-70 w-4">
+                          #{myRank}
+                        </span>
+                        <Avatar size={28} name={myMemberRecord.display_name} />
+                        <span className="text-[14px] truncate font-medium text-primary-text">
+                          {myMemberRecord.display_name} (You)
+                        </span>
+                      </div>
+                      <span className="text-[13px] tabular-nums font-medium">
+                        {myMemberRecord.streak}d streak
+                      </span>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
 
             <Button
-              variant="ghost"
+              variant="secondary"
               size="sm"
               onClick={() => router.push('/groups')}
-              className="w-full mt-4"
+              className="w-full mt-4 gap-1.5"
             >
-              Open
+              <span>Open group</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Button>
           </Card>
         ) : (

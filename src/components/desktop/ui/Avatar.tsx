@@ -1,6 +1,7 @@
 'use client';
 import React, { useState } from 'react';
 import Image from 'next/image';
+import { getInitials } from '@/lib/utils/name';
 
 export interface AvatarProps {
   src?: string | null;
@@ -29,13 +30,6 @@ export function Avatar({
   const customStyle = isNumeric
     ? { width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.4)}px` }
     : undefined;
-
-  const getInitials = (n: string) => {
-    if (!n) return 'F';
-    const parts = n.trim().split(/\s+/);
-    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
 
   return (
     <div

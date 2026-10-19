@@ -3,7 +3,7 @@ import React, { forwardRef } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'glass' | 'danger';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'glass' | 'danger' | 'onDark';
   size?: 'sm' | 'md' | 'lg';
   pill?: boolean;
   loading?: boolean;
@@ -36,6 +36,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     ghost: 'bg-transparent text-ink hover:bg-surface-2',
     glass: 'glass liquid text-snow hover:opacity-95',
     danger: 'bg-danger text-snow hover:opacity-90',
+    onDark: 'bg-snow/15 border border-snow/25 text-snow backdrop-blur-md hover:bg-snow/25 active:bg-snow/30',
   }[variant];
 
   const radiusClass = pill ? 'rounded-full' : 'rounded-[14px]';

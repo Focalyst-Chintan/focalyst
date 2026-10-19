@@ -56,7 +56,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning className={`scroll-smooth ${instrument.variable}`}>
-      <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)] bg-[#F4F7FA] text-[#2C4259] dark:bg-slate-950 dark:text-slate-100 transition-colors duration-300`}>
+      <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)] bg-[#F4F7FA] text-[#2C4259] dark:bg-slate-950 dark:text-slate-100 lg:bg-transparent transition-colors duration-300`}>
         <ThemeProvider>
           <AuthProvider>
             <AuthInitializer>

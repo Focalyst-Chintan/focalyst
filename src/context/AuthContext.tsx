@@ -5,9 +5,15 @@ import { createClient } from '@/lib/supabase'
 import { UserPlan } from '@/lib/featureGates'
 import { User, Session } from '@supabase/supabase-js'
 
+interface UserProfile {
+    full_name?: string | null;
+    name?: string | null;
+}
+
 interface AuthContextType {
     user: User | null
     session: Session | null
+    profile: UserProfile | null
     isLoading: boolean
     plan: UserPlan
     aiMessageCount: number
@@ -19,6 +25,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
+    profile: null,
     isLoading: true,
     plan: 'free',
     aiMessageCount: 0,
@@ -35,6 +42,7 @@ const supabase = createClient()
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [session, setSession] = useState<Session | null>(null)
+    const [profile, setProfile] = useState<UserProfile | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [plan, setPlan] = useState<UserPlan>('free')
     const [aiMessageCount, setAiMessageCount] = useState(0)
@@ -46,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const refreshUserProfile = async () => {
         const currentUser = user || session?.user
         if (!currentUser) {
+            setProfile(null)
             setPlan('free')
             setAiMessageCount(0)
             setLastMessageDate(null)
@@ -54,15 +63,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data, error } = await supabase
             .from('users')
-            .select('plan, ai_message_count, last_message_date')
+            .select('plan, ai_message_count, last_message_date, full_name, name')
             .eq('id', currentUser.id)
             .single()
 
         if (error) {
+            // Retry selecting without name if name column does not exist
+            const fallback = await supabase
+                .from('users')
+                .select('plan, ai_message_count, last_message_date, full_name')
+                .eq('id', currentUser.id)
+                .single()
+            if (!fallback.error && fallback.data) {
+                setProfile({ full_name: fallback.data.full_name })
+                setPlan(fallback.data.plan || 'free')
+                setAiMessageCount(fallback.data.ai_message_count || 0)
+                setLastMessageDate(fallback.data.last_message_date || null)
+                return
+            }
             console.error('Failed to fetch user profile:', error)
             return
         }
 
+        setProfile({ full_name: data?.full_name, name: data?.name })
         setPlan(data?.plan || 'free')
         setAiMessageCount(data?.ai_message_count || 0)
         setLastMessageDate(data?.last_message_date || null)
@@ -145,6 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await supabase.auth.signOut()
             setUser(null)
             setSession(null)
+            setProfile(null)
             setPlan('free')
             setAiMessageCount(0)
             setLastMessageDate(null)
@@ -156,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, session, isLoading, plan, aiMessageCount, lastMessageDate, refreshUserProfile, signOut }}>
+        <AuthContext.Provider value={{ user, session, profile, isLoading, plan, aiMessageCount, lastMessageDate, refreshUserProfile, signOut }}>
             {children}
         </AuthContext.Provider>
     )

@@ -1,7 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
 
-export default function AmbientBackground({ strong = false }: { strong?: boolean }) {
+export default function AmbientBackground({
+  strong = false,
+  className = 'fixed inset-0 z-0 overflow-hidden bg-canvas',
+}: {
+  strong?: boolean;
+  className?: string;
+}) {
   const [paused, setPaused] = useState(false);
   const o = strong ? 1.4 : 1;
 
@@ -15,7 +21,7 @@ export default function AmbientBackground({ strong = false }: { strong?: boolean
   const playState = paused ? 'paused' : 'running';
 
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-canvas">
+    <div aria-hidden className={`pointer-events-none ${className}`}>
       <div
         className="ambient-blob"
         style={{

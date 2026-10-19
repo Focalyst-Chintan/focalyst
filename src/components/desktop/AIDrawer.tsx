@@ -7,6 +7,7 @@ import { IconButton } from '@/components/desktop/ui/IconButton';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { createClient } from '@/lib/supabase';
+import { getDisplayName, getFirstName } from '@/lib/utils/name';
 
 interface AIDrawerProps {
   open: boolean;
@@ -14,7 +15,7 @@ interface AIDrawerProps {
 }
 
 export function AIDrawer({ open, onClose }: AIDrawerProps) {
-  const { user, plan, refreshUserProfile } = useAuth();
+  const { user, profile, plan, refreshUserProfile } = useAuth();
   const { refreshData } = usePlan();
   const [messages, setMessages] = useState<any[]>([]);
   const [inputValue, setInputValue] = useState('');
@@ -25,7 +26,8 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
   const supabase = createClient();
 
   const isPro = plan !== 'free';
-  const firstName = user?.user_metadata?.full_name?.split(' ')[0] || user?.email?.split('@')[0] || 'there';
+  const displayName = getDisplayName(profile, user);
+  const firstName = getFirstName(displayName);
 
   // Auto focus input when opened
   useEffect(() => {
