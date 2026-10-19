@@ -41,6 +41,7 @@ import { useDesktopShortcuts } from '@/hooks/useDesktopShortcuts';
 import { useTheme } from 'next-themes';
 import { getDisplayName } from '@/lib/utils/name';
 import { CreateProvider, useCreate } from '@/components/desktop/create/CreateProvider';
+import { DesktopErrorBoundary } from './DesktopErrorBoundary';
 
 const BRAND_LOGO = '/small-logo.png';
 
@@ -799,7 +800,7 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
           {/* Page Content Container & Optional Context Panel */}
           <div className="flex flex-1 w-full gap-6 pb-8 items-start">
             <main className="mx-auto w-full max-w-[1440px] pt-3 flex-1 min-w-0">
-              {children}
+              <DesktopErrorBoundary>{children}</DesktopErrorBoundary>
             </main>
 
             {/* Context Panel slot (340px) */}

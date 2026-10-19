@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { DesktopShell } from '@/components/desktop/DesktopShell'
 import { DesktopShellProvider } from '@/components/desktop/DesktopShellContext'
+import { CreateProvider } from '@/components/desktop/create/CreateProvider'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -61,26 +62,28 @@ export default function AppLayout({
             <PlanProvider>
                 <ChatProvider>
                     <DesktopShellProvider>
-                        {/* Desktop Layout (>= 1024px) */}
-                        <div className="hidden lg:contents">
-                            <DesktopShell>
-                                {children}
-                            </DesktopShell>
-                        </div>
+                        <CreateProvider>
+                            {/* Desktop Layout (>= 1024px) */}
+                            <div className="hidden lg:contents">
+                                <DesktopShell>
+                                    {children}
+                                </DesktopShell>
+                            </div>
 
-                        {/* Mobile Layout (< 1024px) */}
-                        <div className="lg:hidden min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col relative text-navy-darker dark:text-slate-100 transition-colors duration-300">
-                            <div className="lg:hidden">
-                                <Header />
+                            {/* Mobile Layout (< 1024px) */}
+                            <div className="lg:hidden min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col relative text-navy-darker dark:text-slate-100 transition-colors duration-300">
+                                <div className="lg:hidden">
+                                    <Header />
+                                </div>
+                                <main className="flex-1 page-fade-in pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-0">
+                                    {children}
+                                </main>
+                                <div className="lg:hidden">
+                                    <BottomNav />
+                                </div>
+                                {isDesktop === false && <ChatUI />}
                             </div>
-                            <main className="flex-1 page-fade-in pb-[calc(80px+env(safe-area-inset-bottom))] lg:pb-0">
-                                {children}
-                            </main>
-                            <div className="lg:hidden">
-                                <BottomNav />
-                            </div>
-                            {isDesktop === false && <ChatUI />}
-                        </div>
+                        </CreateProvider>
                     </DesktopShellProvider>
                 </ChatProvider>
             </PlanProvider>

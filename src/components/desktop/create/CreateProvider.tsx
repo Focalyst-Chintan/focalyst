@@ -10,11 +10,8 @@ type Opts = { date?: string; initialData?: any };
 
 const Ctx = createContext<{ open: (k: CreateKind, o?: Opts) => void } | null>(null);
 
-export const useCreate = () => {
-  const c = useContext(Ctx);
-  if (!c) throw new Error('useCreate outside CreateProvider');
-  return c;
-};
+const noop = { open: () => {} };
+export const useCreate = () => useContext(Ctx) ?? noop;
 
 export function CreateProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<{ kind: CreateKind; opts?: Opts } | null>(null);

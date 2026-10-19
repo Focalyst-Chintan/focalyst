@@ -525,15 +525,18 @@ export default function TodayPage() {
     const today = new Date();
     const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
 
-    return countdowns
+    return (countdowns ?? [])
       .map((c) => {
+        if (!c) return null;
         const parts = (c.target_date || '').split('-');
         let targetMidnight = 0;
         if (parts.length === 3) {
           targetMidnight = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).getTime();
-        } else {
+        } else if (c.target_date) {
           const d = new Date(c.target_date);
           targetMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+        } else {
+          return null;
         }
         const daysLeft = Math.ceil((targetMidnight - todayMidnight) / 86400000);
         return {
@@ -542,7 +545,7 @@ export default function TodayPage() {
           isPast: daysLeft < 0,
         };
       })
-      .filter((c) => !c.isPast)
+      .filter((c): c is any => Boolean(c) && !c.isPast)
       .sort((a, b) => a.daysLeft - b.daysLeft)
       .slice(0, 3);
   }, [countdowns]);

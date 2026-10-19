@@ -34,6 +34,15 @@ import { Countdown } from '@/types';
 
 type PomodoroPhase = 'focus' | 'short_break' | 'long_break';
 
+function safeRandomId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    try {
+      return crypto.randomUUID();
+    } catch {}
+  }
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
 export function DesktopFocusPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -87,7 +96,7 @@ export function DesktopFocusPage() {
   const [blockerActive, setBlockerActive] = useState(false);
 
   // Unique session ID for partial saving
-  const currentSessionIdRef = useRef<string>(crypto.randomUUID());
+  const currentSessionIdRef = useRef<string>(safeRandomId());
   const sessionStartTimeRef = useRef<number>(Date.now());
   const savedRef = useRef<boolean>(false);
 
@@ -238,7 +247,7 @@ export function DesktopFocusPage() {
       setIsActive(true);
       sessionStartTimeRef.current = Date.now();
       savedRef.current = false;
-      currentSessionIdRef.current = crypto.randomUUID();
+      currentSessionIdRef.current = safeRandomId();
     }
   }, [searchParams]);
 
@@ -274,7 +283,7 @@ export function DesktopFocusPage() {
       setIsActive(false);
       savedRef.current = false;
       sessionStartTimeRef.current = Date.now();
-      currentSessionIdRef.current = crypto.randomUUID();
+      currentSessionIdRef.current = safeRandomId();
     }
     return () => {
       if (interval) clearInterval(interval);
@@ -298,7 +307,7 @@ export function DesktopFocusPage() {
     setTimeLeft(currentPhaseTotalSeconds);
     savedRef.current = false;
     sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = crypto.randomUUID();
+    currentSessionIdRef.current = safeRandomId();
   };
 
   // Skip block
@@ -324,7 +333,7 @@ export function DesktopFocusPage() {
     }
     savedRef.current = false;
     sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = crypto.randomUUID();
+    currentSessionIdRef.current = safeRandomId();
   };
 
   // Phase switch
@@ -335,7 +344,7 @@ export function DesktopFocusPage() {
     setIsActive(false);
     savedRef.current = false;
     sessionStartTimeRef.current = Date.now();
-    currentSessionIdRef.current = crypto.randomUUID();
+    currentSessionIdRef.current = safeRandomId();
 
     if (newPhase === 'focus') setTimeLeft(focusMins * 60);
     else if (newPhase === 'short_break') setTimeLeft(shortBreakMins * 60);
@@ -350,7 +359,7 @@ export function DesktopFocusPage() {
       }
       sessionStartTimeRef.current = Date.now();
       savedRef.current = false;
-      currentSessionIdRef.current = crypto.randomUUID();
+      currentSessionIdRef.current = safeRandomId();
       setIsActive(true);
     } else {
       setIsActive(false);
