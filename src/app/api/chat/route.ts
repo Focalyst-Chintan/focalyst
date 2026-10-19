@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { z } from 'zod';
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates';
 import { rateLimit } from '@/lib/rate-limit';
+import { FOCALYST_AI_PERSONA } from '@/constants/focalystPersona';
 
 // CRITICAL: Set Edge Runtime to allow streaming in Vercel production
 export const runtime = 'edge';
@@ -167,9 +168,10 @@ export async function POST(req: Request) {
             ]);
         }
 
-        // Prepare System Instructions
+        // Prepare System Instructions with full ai_persona.md specification
         const systemInstruction = 
-            "You are the Focalyst AI, an elite productivity coach and behavioral scientist. \n" +
+            `${FOCALYST_AI_PERSONA}\n\n` +
+            "## Tool Execution Rules\n" +
             "**Rule 1 - Analysis:** Use the `readStats` tool to analyze the user's focus time and task completion when they ask about their progress. \n" +
             "**Rule 2 - Notes:** Use the `readNotes` tool to look up details about their projects, thoughts, or summaries when relevant. \n" +
             "**Rule 3 - Science:** Quote behavioral psychology and frameworks (e.g., Deep Work, Atomic Habits) to explain advice. \n" +

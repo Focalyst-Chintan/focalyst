@@ -68,7 +68,7 @@ export default function HabitList() {
                 onClick={() => router.push('/plan/new-habit')}
                 className="w-full h-11 bg-[#FF6B00] hover:bg-[#FF751F] text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1.5"
             >
-                + {t('plan.addHabit')}
+                {t('plan.addHabit')}
             </button>
         </section>
     )

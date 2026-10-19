@@ -183,7 +183,7 @@ export default function TodoList() {
                 onClick={() => router.push('/plan/new-task')}
                 className="w-full h-11 bg-[#2B6BFF] hover:bg-blue-600 text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1.5"
             >
-                + {t('plan.addTask')}
+                {t('plan.addTask')}
             </button>
         </section>
     )

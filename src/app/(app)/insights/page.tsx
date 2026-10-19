@@ -28,22 +28,25 @@ export default function InsightsPage() {
     const [habitsData, setHabitsData] = useState<any[]>([])
     const [formattedDate, setFormattedDate] = useState('')
 
+    const [totalXP, setTotalXP] = useState(0)
+
     const fetchInsights = useCallback(async () => {
         if (!user) return
         const userId = user.id
         const today = new Date()
         setFormattedDate(today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }))
 
-        // 1. Fetch User Plan
+        // 1. Fetch User Plan & XP
         const { data: userData } = await supabase
             .from('users')
-            .select('plan')
+            .select('plan, total_xp')
             .eq('id', userId)
             .single()
 
         const paid = userData?.plan !== 'free'
         setIsPaid(paid)
         setUserPlan(paid ? 'pro' : 'free')
+        setTotalXP(userData?.total_xp || 0)
 
         // 2. Fetch Tasks (Pending + Completed Today)
         const { data: pendingData } = await supabase
@@ -150,7 +153,7 @@ export default function InsightsPage() {
         <main className="flex-1 p-4 md:p-8 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-5">
             <InsightsHeader formattedDate={formattedDate} />
 
-            <InsightsLevelWrapper totalFocusMinutes={totalFocusMinutes} />
+            <InsightsLevelWrapper totalXP={totalXP} />
 
             <div className="space-y-4">
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />

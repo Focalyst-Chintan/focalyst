@@ -29,6 +29,7 @@ export interface ReminderItem {
     repeat: string      // 'never' | 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
     custom_interval?: number
     custom_frequency?: 'day' | 'week' | 'month' | 'year'
+    tag?: 'Health' | 'Work' | 'Urgent' | 'Study' | 'Personal'
     category?: 'Health' | 'Work' | 'Urgent' | 'Study' | 'Personal'
     color?: string
     is_completed?: boolean
@@ -335,7 +336,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
         setEditingReminder(rem)
         setFormTitle(rem.title)
         setFormDescription(rem.description || '')
-        setFormCategory(rem.category || 'Work')
+        setFormCategory(rem.tag || rem.category || 'Work')
         setFormColor(rem.color || '#2B6BFF')
         setFormAllDay(rem.all_day || false)
         setFormStartTime(rem.start_time || '09:00')
@@ -373,7 +374,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                 repeat: formRepeat,
                 custom_interval: formRepeat === 'custom' ? formCustomInterval : null,
                 custom_frequency: formRepeat === 'custom' ? formCustomFreq : null,
-                category: formCategory,
+                tag: formCategory,
                 color: formColor,
             }
 
@@ -547,7 +548,8 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                     {selectedDateReminders.map((rem) => {
                         const isDone = !!rem.is_completed
                         const accent = rem.color || '#2B6BFF'
-                        const catObj = CATEGORIES.find(c => c.label === rem.category) || CATEGORIES[1]
+                        const remTag = rem.tag || rem.category
+                        const catObj = CATEGORIES.find(c => c.label === remTag) || CATEGORIES[1]
 
                         return (
                             <div
@@ -593,7 +595,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                             style={{ color: catObj.color, backgroundColor: `${catObj.color}1F` }}
                                             className="px-2 py-0.5 rounded-full font-semibold whitespace-nowrap shrink-0"
                                         >
-                                            {rem.category || 'General'}
+                                            {remTag || 'General'}
                                         </span>
 
                                         {/* Time Range */}
@@ -707,7 +709,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             {/* Upgraded Dark-Mode-Native New/Edit Reminder Modal */}
             {showFormModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-lg bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto space-y-5">
+                    <div className="w-full max-w-lg bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto pb-10 space-y-5">
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#222A41]">
                             <h4 className="text-lg font-bold text-slate-900 dark:text-white">
                                 {editingReminder ? 'Edit Reminder' : 'New Reminder'}

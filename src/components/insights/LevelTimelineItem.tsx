@@ -1,120 +1,101 @@
 'use client'
 
 import { LevelProgressBar } from './LevelProgressBar'
-import { type LevelDefinition } from '@/lib/utils/levels'
-import { formatFocusTime, formatThresholdHours } from '@/lib/utils/levels'
-
-type ItemState = 'completed' | 'current' | 'future'
+import { type LevelBenchmark } from '@/lib/utils/levels'
+import { Check, Lock } from 'lucide-react'
 
 export function LevelTimelineItem({
-    levelDef,
-    state,
-    currentMinutes,
-    nextLevel,
-    animationDelay,
+    benchmark,
+    isCompleted,
+    isCurrent,
+    isLocked,
+    totalXP,
+    nextBenchmark,
+    progress,
+    xpRemaining,
     isLast
 }: {
-    levelDef: LevelDefinition
-    state: ItemState
-    currentMinutes: number
-    nextLevel: LevelDefinition | null
-    animationDelay: number
+    benchmark: LevelBenchmark
+    isCompleted: boolean
+    isCurrent: boolean
+    isLocked: boolean
+    totalXP: number
+    nextBenchmark: LevelBenchmark
+    progress: number
+    xpRemaining: number
     isLast: boolean
 }) {
-    const progress = state === 'current' && nextLevel
-        ? Math.min(Math.round(((currentMinutes - levelDef.thresholdMinutes) / (nextLevel.thresholdMinutes - levelDef.thresholdMinutes)) * 100), 100)
-        : 0
-
     return (
-        <div
-            className="timeline-item-enter flex items-start gap-3 relative"
-            style={{ animationDelay: `${animationDelay}ms` }}
-        >
+        <div className="flex items-start gap-3.5 relative">
             {/* Connecting line */}
             {!isLast && (
                 <div
                     className="absolute left-[17px] top-[36px] w-[2px] bottom-0"
                     style={{
-                        backgroundColor: state === 'completed' ? levelDef.color : state === 'current' ? levelDef.color : '#E5E7EB'
+                        backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#FF6B00' : '#E2E8F0'
                     }}
                 />
             )}
 
-            {/* Badge circle */}
+            {/* Indicator Badge Column */}
             <div className="flex-shrink-0 relative z-10">
-                {state === 'completed' ? (
+                {isCompleted ? (
+                    <div className="w-[36px] h-[36px] rounded-full bg-emerald-500 flex items-center justify-center shadow-sm">
+                        <Check className="w-4 h-4 text-white stroke-[3]" />
+                    </div>
+                ) : isCurrent ? (
                     <div
-                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center"
+                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-black text-[14px] text-white"
                         style={{
-                            backgroundColor: levelDef.color,
-                            boxShadow: `0 2px 8px ${levelDef.color}40`
+                            backgroundColor: '#FF6B00',
+                            boxShadow: '0 0 0 3px rgba(255, 107, 0, 0.25), 0 2px 10px rgba(255, 107, 0, 0.4)'
                         }}
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                    </div>
-                ) : state === 'current' ? (
-                    <div
-                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center level-pulse"
-                        style={{
-                            '--level-color': levelDef.color,
-                            backgroundColor: levelDef.color,
-                            boxShadow: `0 0 0 3px ${levelDef.colorLight}, 0 2px 12px ${levelDef.color}50`
-                        } as React.CSSProperties}
-                    >
-                        <span className="text-[13px] font-black text-white">{levelDef.level}</span>
+                        {benchmark.level}
                     </div>
                 ) : (
-                    <div
-                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center border-2"
-                        style={{
-                            backgroundColor: '#F9FAFB',
-                            borderColor: '#E5E7EB'
-                        }}
-                    >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                        </svg>
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center border-2 border-slate-200 dark:border-[#222A41] bg-slate-50 dark:bg-[#0B1021]">
+                        <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                     </div>
                 )}
             </div>
 
-            {/* Content */}
-            <div className={`flex-1 pb-6 ${state === 'future' ? 'opacity-45' : ''}`}>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <span
-                                className={`text-[14px] font-bold ${state === 'current' ? '' : state === 'completed' ? 'text-navy' : 'text-gray-400'}`}
-                                style={state === 'current' ? { color: levelDef.color } : undefined}
-                            >
-                                Level {levelDef.level}
-                            </span>
-                            <span className={`text-[13px] font-semibold ${state === 'completed' ? 'text-navy-dark' : state === 'current' ? 'text-navy' : 'text-gray-400'}`}>
-                                {levelDef.name}
-                            </span>
-                        </div>
-                        <span className={`text-[12px] ${state === 'future' ? 'text-gray-400' : 'text-blue-muted'}`}>
-                            {formatThresholdHours(levelDef.thresholdMinutes)}
-                        </span>
-                    </div>
+            {/* Level Info Column */}
+            <div className={`flex-1 pb-6 ${isLocked ? 'opacity-55' : ''}`}>
+                <div className="flex items-baseline justify-between">
+                    <h4
+                        className={`text-[14px] font-bold ${
+                            isCurrent
+                                ? 'text-[#FF6B00]'
+                                : isCompleted
+                                ? 'text-slate-900 dark:text-white'
+                                : 'text-slate-500 dark:text-slate-400'
+                        }`}
+                    >
+                        Level {benchmark.level} — {benchmark.title}
+                    </h4>
                 </div>
 
-                {/* Current level progress bar */}
-                {state === 'current' && nextLevel && (
-                    <div className="mt-2.5">
-                        <LevelProgressBar
-                            progress={progress}
-                            color={levelDef.color}
-                            height={5}
-                            className="mb-1.5"
-                        />
-                        <p className="text-[11px] text-blue-muted font-medium">
-                            {formatFocusTime(currentMinutes)} / {formatThresholdHours(nextLevel.thresholdMinutes)} to Level {nextLevel.level}
+                {/* Sub-info: Active Progress Box vs XP Required label */}
+                {isCurrent ? (
+                    <div className="mt-2.5 p-3 rounded-2xl bg-orange-50/70 dark:bg-[#0B1021] border border-[#FF6B00] shadow-sm space-y-2">
+                        <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                            {totalXP} XP / {nextBenchmark.xp} XP base
+                        </p>
+                        <div className="w-full bg-orange-100 dark:bg-orange-950/40 rounded-full overflow-hidden h-2">
+                            <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{ width: `${Math.max(progress, 2)}%`, backgroundColor: '#FF6B00' }}
+                            />
+                        </div>
+                        <p className="text-[11.5px] font-bold text-[#FF6B00]">
+                            {Math.max(0, xpRemaining)} XP remaining to Level {nextBenchmark.level}
                         </p>
                     </div>
+                ) : (
+                    <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                        {benchmark.xp} XP required
+                    </p>
                 )}
             </div>
         </div>

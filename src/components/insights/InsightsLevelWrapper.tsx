@@ -4,16 +4,16 @@ import { useState, useEffect, useRef } from 'react'
 import { FocusLevelCard } from './FocusLevelCard'
 import { LevelDropdownTimeline } from './LevelDropdownTimeline'
 import { LevelUpModal } from './LevelUpModal'
-import { getLevelFromMinutes } from '@/lib/utils/levels'
+import { getLevelFromXP } from '@/lib/utils/levels'
 
-const LEVEL_STORAGE_KEY = 'focalyst_last_known_level'
+const LEVEL_STORAGE_KEY = 'focalyst_last_known_xp_level'
 
-export function InsightsLevelWrapper({ totalFocusMinutes }: { totalFocusMinutes: number }) {
+export function InsightsLevelWrapper({ totalXP }: { totalXP: number }) {
     const [isTimelineOpen, setIsTimelineOpen] = useState(false)
     const [showLevelUpModal, setShowLevelUpModal] = useState(false)
     const hasCheckedRef = useRef(false)
 
-    const levelState = getLevelFromMinutes(totalFocusMinutes)
+    const levelState = getLevelFromXP(totalXP)
 
     // Detect level-up on mount
     useEffect(() => {
