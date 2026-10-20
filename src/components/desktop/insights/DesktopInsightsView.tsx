@@ -1004,10 +1004,10 @@ export default function DesktopInsightsView() {
             <div className="mt-6">
               <div className="flex items-baseline gap-1">
                 <span className="text-[28px] font-semibold tabular-nums text-snow leading-none">
-                  {totalXP.toLocaleString()}
+                  {totalXP.toLocaleString()} XP
                 </span>
                 <span className="text-[14px] text-snow/60">
-                  / {levelInfo.nextXp.toLocaleString()} XP
+                  / {levelInfo.nextXp.toLocaleString()} XP base
                 </span>
               </div>
 
@@ -1026,7 +1026,7 @@ export default function DesktopInsightsView() {
               <div className="text-[13px] text-snow/75 mt-2">
                 {levelInfo.level === 15
                   ? 'Limitless reached · Max Level'
-                  : `${levelInfo.remaining.toLocaleString()} XP to Level ${levelInfo.nextLevel} · ${levelInfo.nextTitle}`}
+                  : `${levelInfo.remaining.toLocaleString()} XP remaining to Level ${levelInfo.nextLevel}`}
               </div>
             </div>
 
@@ -1358,12 +1358,12 @@ export default function DesktopInsightsView() {
         isOpen={isLevelsModalOpen}
         onClose={() => setIsLevelsModalOpen(false)}
         size="lg"
-        title="Level roadmap"
+        title="Focus Level Roadmap"
         subtitle="Earn XP from focus, habits and tasks."
       >
         <div className="relative py-4 max-h-[70vh] overflow-y-auto px-2">
-          {/* Vertical timeline 2px rail at left 19px */}
-          <div className="absolute left-[19px] top-6 bottom-6 w-[2px] bg-line" />
+          {/* Vertical timeline 2px rail at left 13px */}
+          <div className="absolute left-[13px] top-6 bottom-6 w-[2px] bg-line" />
 
           <div className="space-y-4">
             {LEVELS.map((lvl) => {
@@ -1378,26 +1378,23 @@ export default function DesktopInsightsView() {
                     ref={currentLevelRowRef}
                     className="relative flex items-start gap-4 min-h-[64px]"
                   >
-                    {/* Current 40px circle */}
+                    {/* Current 28px circle */}
                     <div
-                      className="relative z-10 w-10 h-10 rounded-full ring-2 ring-primary bg-primary-soft text-primary-text flex items-center justify-center font-bold text-[15px] shrink-0"
-                      style={{
-                        boxShadow: '0 0 0 6px rgba(55,129,252,0.15)',
-                      }}
+                      className="relative z-10 w-7 h-7 rounded-full bg-primary text-snow flex items-center justify-center font-bold text-[13px] shrink-0 ring-4 ring-primary/20"
                     >
                       {lvl.level}
                     </div>
 
-                    <div className="flex-1 pt-1">
+                    <div className="flex-1 pt-0.5">
                       <div className="text-[15px] font-semibold text-primary-text">
                         Level {lvl.level} · {lvl.title}
                       </div>
 
                       {/* Inner box */}
-                      <div className="rounded-[14px] border border-primary/40 bg-surface-2 p-3 mt-2">
+                      <div className="rounded-[14px] border border-primary/30 bg-surface-2 p-3.5 mt-2">
                         <div className="flex justify-between items-baseline">
                           <span className="text-[13px] tabular-nums font-semibold text-ink">
-                            {totalXP.toLocaleString()} / {levelInfo.nextXp.toLocaleString()} XP
+                            {totalXP.toLocaleString()} XP / {levelInfo.nextXp.toLocaleString()} XP base
                           </span>
                           <span className="text-[12px] font-medium text-primary-text">
                             {Math.round(levelInfo.progress * 100)}%
@@ -1415,7 +1412,7 @@ export default function DesktopInsightsView() {
                         <div className="text-[12px] text-primary-text font-medium mt-2">
                           {lvl.level === 15
                             ? 'Limitless reached'
-                            : `${levelInfo.remaining.toLocaleString()} XP to Level ${levelInfo.nextLevel}`}
+                            : `${levelInfo.remaining.toLocaleString()} XP remaining to Level ${lvl.level + 1}`}
                         </div>
                       </div>
                     </div>
@@ -1427,19 +1424,19 @@ export default function DesktopInsightsView() {
                 return (
                   <div
                     key={lvl.level}
-                    className="relative flex items-start gap-4 min-h-[64px]"
+                    className="relative flex items-start gap-4 min-h-[52px]"
                   >
-                    {/* Completed 40px circle */}
-                    <div className="relative z-10 w-10 h-10 rounded-full bg-primary text-snow flex items-center justify-center shrink-0">
-                      <Check size={18} strokeWidth={2.5} />
+                    {/* Completed 28px circle */}
+                    <div className="relative z-10 w-7 h-7 rounded-full bg-success text-snow flex items-center justify-center shrink-0">
+                      <Check size={14} strokeWidth={2.5} />
                     </div>
 
-                    <div className="flex-1 pt-1">
+                    <div className="flex-1 pt-0.5">
                       <div className="text-[15px] font-semibold text-ink">
                         Level {lvl.level} · {lvl.title}
                       </div>
                       <div className="text-[13px] text-ink-3 tabular-nums mt-0.5">
-                        {lvl.xp.toLocaleString()} XP
+                        {lvl.xp.toLocaleString()} XP required
                       </div>
                     </div>
                   </div>
@@ -1450,18 +1447,18 @@ export default function DesktopInsightsView() {
               return (
                 <div
                   key={lvl.level}
-                  className="relative flex items-start gap-4 min-h-[64px]"
+                  className="relative flex items-start gap-4 min-h-[52px]"
                 >
-                  {/* Locked 40px circle */}
-                  <div className="relative z-10 w-10 h-10 rounded-full bg-surface-2 text-ink-3 flex items-center justify-center shrink-0">
-                    <Lock size={16} />
+                  {/* Locked 28px circle */}
+                  <div className="relative z-10 w-7 h-7 rounded-full bg-surface-2 border border-line text-ink-3 flex items-center justify-center shrink-0">
+                    <Lock size={13} />
                   </div>
 
-                  <div className="flex-1 pt-1">
-                    <div className="text-[15px] font-medium text-ink-3">
+                  <div className="flex-1 pt-0.5">
+                    <div className="text-[15px] font-semibold text-ink-2">
                       Level {lvl.level} · {lvl.title}
                     </div>
-                    <div className="text-[12px] text-ink-3 tabular-nums mt-0.5">
+                    <div className="text-[13px] text-ink-3 tabular-nums mt-0.5">
                       {lvl.xp.toLocaleString()} XP required
                     </div>
                   </div>

@@ -43,6 +43,7 @@ import { Checkbox } from '@/components/desktop/ui/Checkbox';
 import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { EmptyState } from '@/components/desktop/ui/EmptyState';
 import { Avatar } from '@/components/desktop/ui/Avatar';
+import { MemberAvatar } from '@/components/desktop/ui/MemberAvatar';
 import { IconButton } from '@/components/desktop/ui/IconButton';
 import { Kbd } from '@/components/desktop/ui/Kbd';
 
@@ -1232,9 +1233,9 @@ export default function TodayPage() {
                 <IconButton
                   size="sm"
                   variant="ghost"
-                  tooltip="Open Groups"
+                  tooltip="Open Accountability"
                   className="self-start"
-                  onClick={() => router.push('/groups')}
+                  onClick={() => router.push('/plan?view=habits#accountability')}
                 >
                   <ArrowUpRight className="w-4 h-4 text-ink-3" />
                 </IconButton>
@@ -1262,7 +1263,7 @@ export default function TodayPage() {
                         <span className="text-[13px] tabular-nums font-semibold opacity-70 w-4">
                           #{idx + 1}
                         </span>
-                        <Avatar size={28} name={m.display_name} />
+                        <MemberAvatar size={28} ring userId={m.user_id} name={m.display_name} />
                         <span className={`text-[14px] truncate font-medium ${isMe ? 'text-primary-text' : 'text-ink'}`}>
                           {m.display_name} {isMe && '(You)'}
                         </span>
@@ -1283,7 +1284,7 @@ export default function TodayPage() {
                         <span className="text-[13px] tabular-nums font-semibold opacity-70 w-4">
                           #{myRank}
                         </span>
-                        <Avatar size={28} name={myMemberRecord.display_name} />
+                        <MemberAvatar size={28} ring userId={myMemberRecord.user_id} name={myMemberRecord.display_name} />
                         <span className="text-[14px] truncate font-medium text-primary-text">
                           {myMemberRecord.display_name} (You)
                         </span>
@@ -1300,7 +1301,7 @@ export default function TodayPage() {
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push('/groups')}
+              onClick={() => router.push('/plan?view=habits#accountability')}
               className="w-full mt-4 gap-1.5"
             >
               <span>Open group</span>
@@ -1314,7 +1315,7 @@ export default function TodayPage() {
               title="Stay accountable"
               description="Join a group to track consistency with friends."
               actionLabel="Find a group"
-              onAction={() => router.push('/groups')}
+              onAction={() => router.push('/plan?view=habits#accountability')}
             />
           </Card>
         )}

@@ -503,10 +503,10 @@ export default function AppLandingPage() {
                                     AI Assistant
                                 </h3>
                                 <p className="text-[#A3ADC8] text-[11.5px] md:hidden mt-1">
-                                    Gemini powered
+                                    OpenRouter powered
                                 </p>
                                 <p className="text-[#A3ADC8] hidden md:block text-[14px] leading-relaxed mt-1.5">
-                                    Chat with your Gemini-powered co-pilot.
+                                    Chat with your AI-powered co-pilot.
                                 </p>
                             </div>
                         </div>
@@ -574,7 +574,7 @@ export default function AppLandingPage() {
                         
                         {/* Body */}
                         <p className="text-[#A3ADC8] text-[15.5px] md:text-[16.5px] leading-[1.7] font-normal mt-[16px] max-w-[420px]">
-                            Your entire life, perfectly organized. Manage daily tasks, build unbreakable habit streaks, and track your biggest deadlines with visual countdown goals—all in one elegant dashboard.
+                            Your entire life, perfectly organized. Manage daily tasks, build unbreakable habit streaks, and track your biggest deadlines with visual countdown goals, all in one elegant dashboard.
                         </p>
                         
                         {/* Feature Bullets */}
@@ -787,7 +787,7 @@ export default function AppLandingPage() {
                         
                         {/* Body */}
                         <p className="text-[#A3ADC8] text-[15.5px] md:text-[16.5px] leading-[1.7] font-normal mt-4 max-w-[420px]">
-                            Powered by Gemini, your Focalyst AI assistant helps you manage tasks effortlessly. Pair that with rich, weekly productivity analytics that break down exactly when you work best, where you get distracted, and how to improve.
+                            Powered by OpenRouter, your Focalyst AI assistant helps you manage tasks effortlessly. Pair that with rich, weekly productivity analytics that break down exactly when you work best, where you get distracted, and how to improve.
                         </p>
                         
                         {/* Feature Bullets */}
@@ -812,11 +812,11 @@ export default function AppLandingPage() {
                             </div>
                         </div>
 
-                        {/* Gemini Badge (Desktop only) */}
+                        {/* OpenRouter Badge (Desktop only) */}
                         <div className="hidden md:flex items-center gap-2 mt-8 px-4 py-1.5 border border-white/15 bg-white/5 rounded-full">
                             <Sparkles className="w-3.5 h-3.5 text-[#6FA4FF]" />
                             <span className="text-snow/80 text-[12px] font-medium leading-none">
-                                Powered by Gemini
+                                Powered by OpenRouter
                             </span>
                         </div>
                     </div>

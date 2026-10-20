@@ -1,4 +1,4 @@
-export type DataKind = 'task' | 'habit' | 'reminder' | 'countdown' | 'focus' | 'note';
+export type DataKind = 'task' | 'habit' | 'reminder' | 'countdown' | 'focus' | 'note' | 'user';
 
 export const emitDataChanged = (kind: DataKind) => {
   if (typeof window !== 'undefined') {

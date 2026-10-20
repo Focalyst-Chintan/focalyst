@@ -8,12 +8,25 @@ type Status = 'idle' | 'loading' | 'success' | 'error';
 export default function KitWaitlist({
   defaultEmail = '',
   firstName,
+  buttonLabel = 'Join the waitlist',
 }: {
   defaultEmail?: string;
   firstName?: string;
+  buttonLabel?: string;
 }) {
   const [email, setEmail] = useState(defaultEmail);
-  const [status, setStatus] = useState<Status>('idle');
+  const [status, setStatus] = useState<Status>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        if (localStorage.getItem('fx-mcp-joined') === '1') {
+          return 'success';
+        }
+      } catch {
+        // ignore
+      }
+    }
+    return 'idle';
+  });
   const [error, setError] = useState('');
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -38,6 +51,9 @@ export default function KitWaitlist({
         headers: { Accept: 'application/json' },
       });
     } catch {
+      try {
+        localStorage.setItem('fx-mcp-joined', '1');
+      } catch {}
       form.submit();
       setStatus('success');
       return;
@@ -48,6 +64,10 @@ export default function KitWaitlist({
       setStatus('error');
       return;
     }
+
+    try {
+      localStorage.setItem('fx-mcp-joined', '1');
+    } catch {}
     setStatus('success');
   }
 
@@ -57,7 +77,7 @@ export default function KitWaitlist({
         <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-snow">
           <Check className="h-4 w-4" strokeWidth={2.25} />
         </span>
-        You&apos;re on the list. We&apos;ll email you first.
+        You are on the list. We will email you first.
       </div>
     );
   }
@@ -93,7 +113,7 @@ export default function KitWaitlist({
           className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-primary px-6 text-[15px] font-semibold text-snow transition-colors duration-150 hover:bg-primary-hover disabled:opacity-70 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)]"
         >
           {status === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Join the waitlist
+          {buttonLabel}
         </button>
       </form>
       {status === 'error' && error ? (

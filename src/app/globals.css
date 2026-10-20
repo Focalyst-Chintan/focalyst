@@ -556,38 +556,91 @@ body.distraction-free nav {
 /* ==========================================================================
    Notes Folders styling (Kintsugi reference)
    ========================================================================== */
-:root {
-  --folder-back: #DDE4EF;
-  --folder-paper: #FFFFFF;
-  --folder-front: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(236,241,248,0.97));
-  --folder-front-border: rgba(255,255,255,0.95);
+.fx-folder {
+  --f-back-top: #F2F4F8;
+  --f-back-bot: #DEE3EA;
+  --f-paper: #FFFFFF;
+  --f-paper-2: #F6F7FA;
+  --f-front: linear-gradient(180deg, rgba(255,255,255,0.78) 0%, rgba(241,244,248,0.94) 38%, #E4E8EF 100%);
+  --f-ink: #0A1022;
+  --f-ink-2: #4B5675;
+  --f-ink-3: #8A93AB;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.8) inset, 0 12px 28px -16px rgba(3,25,91,0.35);
 }
-.dark {
-  --folder-back: #1A2340;
-  --folder-paper: #26324F;
-  --folder-front: linear-gradient(180deg, rgba(31,42,74,0.94), rgba(17,24,48,0.97));
-  --folder-front-border: rgba(255,255,255,0.08);
+.fx-folder[data-active="true"],
+.fx-folder:hover {
+  --f-back-top: #D9E7FF;
+  --f-back-bot: #A9C8FF;
+  --f-front: linear-gradient(180deg, rgba(170,203,255,0.92) 0%, #7FAEFF 45%, #5B93F8 100%);
+  --f-ink: #FFFFFF;
+  --f-ink-2: rgba(255,255,255,0.88);
+  --f-ink-3: rgba(255,255,255,0.75);
 }
-.fx-folder-front {
-  background: var(--folder-front);
-  border: 1px solid var(--folder-front-border);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 10px 24px -14px rgba(3,25,91,0.35);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+.dark .fx-folder {
+  filter: brightness(0.9) saturate(0.95);
 }
-.dark .fx-folder-front {
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 24px -14px rgba(0,0,0,0.7);
+.fx-folder .fx-folder-front {
+  background: var(--f-front);
+  border-top: 1px solid rgba(255,255,255,0.95);
+  box-shadow: inset 0 1px 0 #fff, 0 -8px 18px -12px rgba(3,25,91,0.22);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
-.fx-folder[data-active="true"] .fx-folder-front,
-.fx-folder:hover .fx-folder-front {
-  background: linear-gradient(180deg, #7FB0FF 0%, #3781FC 45%, #1951FC 100%);
-  border-color: rgba(255,255,255,0.35);
+
+/* ==========================================================================
+   Article & Legal Prose (.fx-article)
+   ========================================================================== */
+.fx-article {
+  font-size: 16px;
+  line-height: 28px;
+  color: var(--ink-2);
 }
-.fx-folder[data-active="true"] .fx-folder-back,
-.fx-folder:hover .fx-folder-back {
-  fill: #9CC0FF;
+.fx-article p {
+  margin-top: 14px;
 }
-.dark .fx-folder[data-active="true"] .fx-folder-back,
-.dark .fx-folder:hover .fx-folder-back {
-  fill: #1D3A8A;
+.fx-article h2 {
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 34px;
+  font-weight: 400;
+  color: var(--ink);
+  margin-top: 56px;
+  margin-bottom: 12px;
+  scroll-margin-top: 112px;
+}
+.fx-article h3 {
+  font-family: var(--font-ui);
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 28px;
+  margin-bottom: 8px;
+}
+.fx-article ul {
+  list-style-type: disc;
+  padding-left: 22px;
+  margin-top: 12px;
+}
+.fx-article li {
+  margin-bottom: 8px;
+}
+.fx-article a {
+  color: var(--primary-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+@media print {
+  body {
+    background: #FFFFFF !important;
+    color: #000000 !important;
+  }
+  .fx-article, .fx-article h2, .fx-article h3, .fx-article p, .fx-article li {
+    color: #000000 !important;
+  }
+}
+
+/* Reduce motion override */
+.fx-reduce-motion .ambient-blob {
+  animation: none !important;
 }

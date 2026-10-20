@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import DesktopGroupsView from '@/components/desktop/groups/DesktopGroupsView';
 import HabitGroupLeaderboardSection from '@/components/insights/HabitGroupLeaderboardSection';
@@ -10,8 +11,15 @@ import { Skeleton } from '@/components/desktop/ui/Skeleton';
 
 export default function GroupsPage() {
   const isDesktop = useIsDesktop();
+  const router = useRouter();
   const { habits } = usePlan();
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (isDesktop) {
+      router.replace('/plan?view=habits#accountability');
+    }
+  }, [isDesktop, router]);
 
   if (isDesktop === null) {
     return (
@@ -23,22 +31,10 @@ export default function GroupsPage() {
 
   if (isDesktop) {
     return (
-      <React.Suspense
-        fallback={
-          <div className="grid grid-cols-[320px_1fr] gap-5 items-start max-w-[1280px] mx-auto">
-            <div className="frost rounded-[20px] p-4 space-y-3">
-              <Skeleton className="h-9 w-full rounded-[10px]" />
-              <Skeleton className="h-20 w-full rounded-[16px]" />
-            </div>
-            <div className="frost rounded-[28px] p-7 space-y-6">
-              <Skeleton className="h-10 w-64 rounded-[12px]" />
-              <Skeleton className="h-44 w-full rounded-[20px]" />
-            </div>
-          </div>
-        }
-      >
-        <DesktopGroupsView />
-      </React.Suspense>
+      <div className="p-6 max-w-[1280px] mx-auto space-y-6">
+        <Skeleton className="h-10 w-64 rounded-[12px]" />
+        <Skeleton className="h-64 w-full rounded-[24px]" />
+      </div>
     );
   }
 

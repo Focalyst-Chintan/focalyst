@@ -169,7 +169,7 @@ export function AIChatOverlay() {
                 <div className="px-6 pb-4 flex justify-between items-start border-b border-page-bg">
                     <div>
                         <h2 className="text-[20px] font-semibold text-navy tracking-tight">Ask Focalyst AI</h2>
-                        <p className="text-[11px] text-blue-muted">Powered by Gemini</p>
+                        <p className="text-[11px] text-blue-muted">Powered by OpenRouter</p>
                     </div>
                     <button onClick={closeChat} className="p-1 -mr-1" aria-label="Close Chat">
                         <CloseIcon size={24} color="#95A7B5" />

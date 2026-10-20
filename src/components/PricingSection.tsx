@@ -293,7 +293,7 @@ export default function PricingSection() {
 
                 {/* Footer Trust Text */}
                 <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-12 font-medium">
-                    All prices inclusive of GST · Payments secured by Razorpay & Polar · Cancel anytime
+                    All prices inclusive of GST · Payments secured by Polar · Cancel anytime
                 </p>
             </div>
         </section>

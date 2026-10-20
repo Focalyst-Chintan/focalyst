@@ -31,6 +31,7 @@ import { Avatar } from '@/components/desktop/ui/Avatar';
 import { Button } from '@/components/desktop/ui/Button';
 import { Popover } from '@/components/desktop/ui/Popover';
 import { ThemeSwitch } from '@/components/desktop/ui/ThemeSwitch';
+import { GlobalToastContainer } from '@/components/desktop/ui/Toast';
 import { Kbd } from '@/components/desktop/ui/Kbd';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { CommandPalette } from './CommandPalette';
@@ -285,7 +286,6 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
     { label: 'Focus', href: '/focus', icon: Timer },
     { label: 'Notes', href: '/notes', icon: NotebookPen },
     { label: 'Insights', href: '/insights', icon: ChartColumn },
-    { label: 'Groups', href: '/groups', icon: Users },
   ];
 
   const isPlanActive = pathname.startsWith('/plan');
@@ -315,9 +315,8 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/focus')) return 'Focus';
     if (pathname.startsWith('/notes')) return 'Notes';
     if (pathname.startsWith('/insights')) return 'Insights';
-    if (pathname.startsWith('/groups')) return 'Groups';
     if (pathname.startsWith('/mcp')) return 'MCP';
-    if (pathname.startsWith('/account')) return 'Settings';
+    if (pathname.startsWith('/account') || pathname.startsWith('/settings')) return 'Settings';
     return 'Dashboard';
   };
 
@@ -503,10 +502,10 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
 
             {/* 3) Settings Row */}
             <SidebarItem
-              href="/account"
+              href="/settings"
               icon={Settings}
               label="Settings"
-              active={pathname.startsWith('/account')}
+              active={pathname.startsWith('/settings') || pathname.startsWith('/account')}
               collapsed={sidebarCollapsed}
             />
 
@@ -895,6 +894,8 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
         reminderToEdit={editingReminder}
         prefillDate={reminderPrefillDate}
       />
+
+      <GlobalToastContainer />
     </div>
   );
 }

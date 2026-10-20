@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
@@ -24,7 +25,7 @@ export default function LandingPage() {
   }, [router]);
 
   return (
-    <div className="dark min-h-screen w-full bg-[#05070F] text-[#F2F5FF] font-ui selection:bg-[#1951FC] selection:text-white overflow-x-hidden">
+    <div className="dark min-h-screen w-full bg-[#05070F] text-[#F2F5FF] font-ui selection:bg-[#1951FC] selection:text-snow overflow-x-hidden">
       {/* ================= HERO SECTION (100vh with hero.png) ================= */}
       <section
         className="relative isolate flex min-h-screen w-full flex-col justify-between overflow-hidden bg-[#05070F]"
@@ -63,36 +64,18 @@ export default function LandingPage() {
 
           {/* Desktop Center Links */}
           <nav className="hidden lg:flex items-center gap-7 text-[13.5px] font-medium text-snow/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
-            <a
-              href="https://focalyst.online/app"
-              className="transition-colors hover:text-snow"
-            >
+            <Link href="/app" className="transition-colors hover:text-snow">
               Features
-            </a>
-            <a href="#mcp" className="transition-colors hover:text-snow">
+            </Link>
+            <Link href="/blog" className="transition-colors hover:text-snow">
+              Blog
+            </Link>
+            <Link href="/mcp-preview" className="transition-colors hover:text-snow">
               MCP
-            </a>
-            <a
-              href="https://focalyst.online/app"
-              className="transition-colors hover:text-snow"
-            >
+            </Link>
+            <Link href="/about" className="transition-colors hover:text-snow">
               About
-            </a>
-            <Link className="transition-colors hover:text-snow" href="/help">
-              Help &amp; FAQ
             </Link>
-            <Link className="transition-colors hover:text-snow" href="/privacy">
-              Privacy Policy
-            </Link>
-            <Link className="transition-colors hover:text-snow" href="/terms">
-              Terms of Service
-            </Link>
-            <a
-              href="mailto:support@focalyst.online"
-              className="transition-colors hover:text-snow"
-            >
-              Contact Us
-            </a>
           </nav>
 
           {/* Desktop Right Auth / App Actions */}
@@ -123,68 +106,47 @@ export default function LandingPage() {
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 flex flex-col bg-[#05070F]/95 backdrop-blur-2xl px-6 py-6 lg:hidden">
-            <div className="flex items-center justify-between pb-6 border-b border-white/10">
+            <div className="flex items-center justify-between pb-6 border-b border-snow/10">
               <span className="text-[20px] font-semibold text-snow">Focalyst</span>
               <button
                 type="button"
                 onClick={() => setMobileMenuOpen(false)}
                 aria-label="Close Navigation Menu"
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-snow"
+                className="flex h-10 w-10 items-center justify-center rounded-full bg-snow/10 text-snow"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
             <nav className="flex flex-col gap-5 pt-8 text-[16px] font-medium text-snow/90">
-              <a
-                href="https://focalyst.online/app"
+              <Link
+                href="/app"
                 onClick={() => setMobileMenuOpen(false)}
                 className="hover:text-snow"
               >
                 Features
-              </a>
-              <a
-                href="#mcp"
+              </Link>
+              <Link
+                href="/blog"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-snow"
+              >
+                Blog
+              </Link>
+              <Link
+                href="/mcp-preview"
                 onClick={() => setMobileMenuOpen(false)}
                 className="hover:text-snow"
               >
                 MCP
-              </a>
-              <a
-                href="https://focalyst.online/app"
+              </Link>
+              <Link
+                href="/about"
                 onClick={() => setMobileMenuOpen(false)}
                 className="hover:text-snow"
               >
                 About
-              </a>
-              <Link
-                href="/help"
-                onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-snow"
-              >
-                Help &amp; FAQ
               </Link>
-              <Link
-                href="/privacy"
-                onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-snow"
-              >
-                Privacy Policy
-              </Link>
-              <Link
-                href="/terms"
-                onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-snow"
-              >
-                Terms of Service
-              </Link>
-              <a
-                href="mailto:support@focalyst.online"
-                onClick={() => setMobileMenuOpen(false)}
-                className="hover:text-snow"
-              >
-                Contact Us
-              </a>
-              <div className="pt-6 border-t border-white/10 flex flex-col gap-3">
+              <div className="pt-6 border-t border-snow/10 flex flex-col gap-3">
                 <Link
                   href="/login"
                   onClick={() => setMobileMenuOpen(false)}
@@ -195,7 +157,7 @@ export default function LandingPage() {
                 <a
                   href="https://focalyst.online/app"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex h-12 items-center justify-center rounded-full border border-white/20 bg-white/10 text-snow font-semibold"
+                  className="flex h-12 items-center justify-center rounded-full border border-snow/20 bg-snow/10 text-snow font-semibold"
                 >
                   Download the App
                 </a>
@@ -259,6 +221,20 @@ export default function LandingPage() {
         <div className="hidden lg:block relative z-10 h-10" />
       </section>
 
+      {/* ================= APP PREVIEW / FEATURES ================= */}
+      <section id="features" className="relative z-10 mx-auto max-w-[1240px] px-6 -mt-6 lg:-mt-10 mb-20">
+        <div className="glass-strong liquid rounded-[28px] p-3 sm:p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] border border-snow/15 overflow-hidden">
+          <Image
+            src="/landing/app-preview.png"
+            alt="Focalyst app preview"
+            width={1600}
+            height={950}
+            className="w-full h-auto rounded-[20px] object-cover"
+            priority
+          />
+        </div>
+      </section>
+
       {/* ================= FOCALYST MCP WAITLIST & FOOTER ================= */}
       <section
         id="mcp"
@@ -269,7 +245,7 @@ export default function LandingPage() {
         }}
       >
         {/* Waitlist Card */}
-        <div className="mx-auto max-w-[880px] rounded-[28px] border border-white/10 bg-[#0B1020]/75 p-8 sm:p-14 text-center backdrop-blur-2xl shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)]">
+        <div className="mx-auto max-w-[880px] rounded-[28px] border border-snow/10 bg-[#0B1020]/75 p-8 sm:p-14 text-center backdrop-blur-2xl shadow-[0_24px_60px_-20px_rgba(0,0,0,0.75)]">
           <div className="inline-flex items-center justify-center rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF]">
             FOCALYST MCP
           </div>
@@ -288,49 +264,48 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Footer */}
-        <footer className="mx-auto mt-20 max-w-[1280px] border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-[13px] text-[#6B7591]">
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <span className="font-semibold text-snow">Focalyst</span>
-            <a
-              href="https://focalyst.online/app"
-              className="hover:text-snow transition-colors"
-            >
-              Features
-            </a>
-            <a href="#mcp" className="hover:text-snow transition-colors">
-              MCP
-            </a>
-            <a
-              href="https://focalyst.online/app"
-              className="hover:text-snow transition-colors"
-            >
-              About
-            </a>
-            <Link className="hover:text-snow transition-colors" href="/privacy">
-              Privacy Policy
-            </Link>
-            <Link className="hover:text-snow transition-colors" href="/terms">
-              Terms of Service
-            </Link>
-            <Link className="hover:text-snow transition-colors" href="/help">
-              Help &amp; FAQ
-            </Link>
-            <a
-              href="mailto:support@focalyst.online"
-              className="hover:text-snow transition-colors"
-            >
-              Contact Us
-            </a>
-            <a
-              href="https://focalyst.online/app"
-              className="hover:text-snow transition-colors"
-            >
-              Download the App
-            </a>
+        {/* Shared 4-Column Footer */}
+        <footer className="mx-auto mt-24 max-w-[1200px] border-t border-snow/10 pt-16 text-snow">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+            <div>
+              <div className="flex items-center gap-2.5 text-[13px] font-semibold tracking-[0.32em] text-snow">
+                <Image src="/small-logo.png" alt="Focalyst" width={22} height={22} className="h-[22px] w-[22px] rounded-[5px]" />
+                <span>FOCALYST</span>
+              </div>
+              <p className="mt-3 font-display text-[22px] text-snow">Own your time.</p>
+              <p className="mt-1 text-[13px] text-snow/60">Focalyst by Chintan · Kolkata, India</p>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/60">Product</div>
+              <ul className="mt-3 space-y-2.5 text-[14px] text-snow/80">
+                <li><Link href="/app" className="hover:text-snow">Features</Link></li>
+                <li><Link href="/mcp-preview" className="hover:text-snow">MCP</Link></li>
+                <li><Link href="/blog" className="hover:text-snow">Blog</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/60">Company</div>
+              <ul className="mt-3 space-y-2.5 text-[14px] text-snow/80">
+                <li><Link href="/about" className="hover:text-snow">About</Link></li>
+                <li><Link href="/contact" className="hover:text-snow">Contact</Link></li>
+              </ul>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/60">Support</div>
+              <ul className="mt-3 space-y-2.5 text-[14px] text-snow/80">
+                <li><Link href="/help" className="hover:text-snow">Help and FAQ</Link></li>
+                <li><Link href="/privacy" className="hover:text-snow">Privacy Policy</Link></li>
+                <li><Link href="/terms" className="hover:text-snow">Terms of Service</Link></li>
+              </ul>
+            </div>
           </div>
 
-          <p>© 2026 Focalyst. All rights reserved.</p>
+          <div className="mt-12 border-t border-snow/10 pt-6 text-[13px] text-snow/60">
+            © 2026 Focalyst by Chintan. All rights reserved.
+          </div>
         </footer>
       </section>
     </div>

@@ -13,6 +13,7 @@ import { localDateStr, addDaysYMD } from '@/lib/utils/date';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { onDataChanged } from '@/lib/events';
+import { AccountabilitySection } from './AccountabilitySection';
 
 export function HabitsView() {
   const { habits, updateHabit, deleteHabit } = usePlan();
@@ -263,13 +264,16 @@ export function HabitsView() {
 
   if (!habits || habits.length === 0) {
     return (
-      <div className="py-12">
-        <EmptyState
-          title="No habits yet."
-          description="Small, repeatable actions build the life you want."
-          actionLabel="Create your first habit"
-          onAction={() => openCreate('habit')}
-        />
+      <div className="flex flex-col gap-6 w-full">
+        <div className="py-12">
+          <EmptyState
+            title="No habits yet."
+            description="Small, repeatable actions build the life you want."
+            actionLabel="Create your first habit"
+            onAction={() => openCreate('habit')}
+          />
+        </div>
+        <AccountabilitySection />
       </div>
     );
   }
@@ -392,6 +396,9 @@ export function HabitsView() {
           </div>
         );
       })}
+
+      {/* Accountability Section */}
+      <AccountabilitySection />
 
       {/* Delete Confirmation Modal */}
       <Modal

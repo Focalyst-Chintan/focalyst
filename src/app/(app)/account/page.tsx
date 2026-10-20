@@ -21,9 +21,12 @@ import {
     DiamondIcon,
     UserAccountIcon
 } from '@/components/icons'
-import { User } from '@/types'
+import { User } from '@/types';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
+import DesktopSettingsView from '@/components/desktop/settings/DesktopSettingsView';
 
 export default function AccountPage() {
+    const isDesktop = useIsDesktop();
     const router = useRouter()
     const supabase = createClient()
     const { user: authUser, isLoading: authLoading } = useAuth()
@@ -32,6 +35,10 @@ export default function AccountPage() {
     const [loading, setLoading] = useState(true)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [deleteConfirmText, setDeleteConfirmText] = useState('')
+
+    if (isDesktop) {
+        return <DesktopSettingsView />;
+    }
 
     const [isEditing, setIsEditing] = useState(false)
     const [editFullName, setEditFullName] = useState('')

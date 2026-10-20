@@ -18,3 +18,4 @@ export * from './Toast';
 export * from './ProgressRing';
 export * from './Heatmap';
 export * from './Avatar';
+export * from './MemberAvatar';

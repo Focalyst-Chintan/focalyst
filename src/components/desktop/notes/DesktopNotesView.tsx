@@ -481,33 +481,35 @@ export default function DesktopNotesView() {
           </button>
 
           {/* Indented Folders Tree */}
-          <div className="mt-2 ml-3 border-l border-line-strong pl-2.5 space-y-1 overflow-y-auto flex-1">
-            {existingFolders.map((f) => {
-              const count = notes.filter((n) => n.folder === f).length;
-              const isSelected = selectedFolder === f && activeFilter !== 'folders';
-              return (
-                <button
-                  key={f}
-                  type="button"
-                  onClick={() => selectFolder(f)}
-                  className={`w-full h-8 rounded-[10px] px-2.5 flex items-center justify-between text-[13px] transition-colors truncate text-left ${
-                    isSelected
-                      ? 'bg-primary-soft text-primary-text font-medium'
-                      : 'text-ink-2 hover:text-ink hover:bg-surface-2'
-                  }`}
-                >
-                  <span className="truncate">{f}</span>
-                  <span className="text-[11px] tabular-nums text-ink-3 ml-1 shrink-0">{count}</span>
-                </button>
-              );
-            })}
-          </div>
+          {existingFolders.length > 0 && (
+            <div className="mt-2 ml-3 border-l border-line-strong pl-2.5 space-y-1 overflow-y-auto max-h-[360px]">
+              {existingFolders.map((f) => {
+                const count = notes.filter((n) => n.folder === f).length;
+                const isSelected = selectedFolder === f && activeFilter !== 'folders';
+                return (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => selectFolder(f)}
+                    className={`w-full h-8 rounded-[10px] px-2.5 flex items-center justify-between text-[13px] transition-colors truncate text-left ${
+                      isSelected
+                        ? 'bg-primary-soft text-primary-text font-medium'
+                        : 'text-ink-2 hover:text-ink hover:bg-surface-2'
+                    }`}
+                  >
+                    <span className="truncate">{f}</span>
+                    <span className="text-[11px] tabular-nums text-ink-3 ml-1 shrink-0">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Ghost + New Folder Button */}
           <button
             type="button"
             onClick={() => setIsNewFolderModalOpen(true)}
-            className="mt-2 w-full h-8 px-2 flex items-center gap-2 text-[12px] font-medium text-ink-3 hover:text-ink hover:bg-surface-2 rounded-[10px] transition-colors"
+            className="mt-auto w-full h-8 px-2 flex items-center gap-2 text-[12px] font-medium text-ink-3 hover:text-ink hover:bg-surface-2 rounded-[10px] transition-colors"
           >
             <FolderPlus size={14} />
             <span>New folder</span>

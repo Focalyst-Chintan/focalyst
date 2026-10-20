@@ -21,19 +21,38 @@ const instrument = Instrument_Serif({
 });
 
 export const metadata: Metadata = {
-  title: "Focalyst — Own your time",
+  metadataBase: new URL('https://focalyst.online'),
+  title: {
+    default: 'Focalyst · Own your time',
+    template: '%s | Focalyst',
+  },
   description:
-    "Your all-in-one AI productivity hub. Plan tasks, focus deeply, capture ideas, and review your progress.",
-  manifest: "/manifest.json",
+    'A calm, all-in-one productivity hub. Plan your days, focus deeply, capture ideas and see how you grow.',
+  manifest: '/manifest.json',
+  openGraph: {
+    title: 'Focalyst · Own your time',
+    description:
+      'A calm, all-in-one productivity hub. Plan your days, focus deeply, capture ideas and see how you grow.',
+    url: 'https://focalyst.online',
+    siteName: 'Focalyst',
+    images: [{ url: '/landing/hero.png', width: 1200, height: 630 }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Focalyst · Own your time',
+    description:
+      'A calm, all-in-one productivity hub. Plan your days, focus deeply, capture ideas and see how you grow.',
+    images: ['/landing/hero.png'],
+  },
   icons: {
-    icon: "/logo.png",
-    shortcut: "/logo.png",
-    apple: "/logo.png",
+    icon: '/small-logo.png',
+    apple: '/small-logo.png',
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
-    title: "Focalyst",
+    statusBarStyle: 'default',
+    title: 'Focalyst',
   },
   formatDetection: {
     telephone: false,
