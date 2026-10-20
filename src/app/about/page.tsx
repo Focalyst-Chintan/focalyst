@@ -73,7 +73,7 @@ export default function AboutPage() {
     <PublicLayout>
       <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         {/* Hero */}
-        <section className="mx-auto max-w-[760px] pt-14 text-center">
+        <section className="fx-reveal mx-auto max-w-[760px] pt-14 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
             About Focalyst
           </div>
@@ -86,7 +86,10 @@ export default function AboutPage() {
         </section>
 
         {/* Why Focalyst exists */}
-        <section className="mx-auto mt-20 max-w-[720px]">
+        <section
+          className="fx-reveal mx-auto mt-20 max-w-[720px]"
+          style={{ ['--fx-delay' as string]: '80ms' }}
+        >
           <h2 className="font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
             Why Focalyst exists
           </h2>
@@ -96,7 +99,10 @@ export default function AboutPage() {
         </section>
 
         {/* What we believe */}
-        <section className="mx-auto mt-20 max-w-[960px]">
+        <section
+          className="fx-reveal mx-auto mt-20 max-w-[960px]"
+          style={{ ['--fx-delay' as string]: '160ms' }}
+        >
           <h2 className="text-center font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
             What we believe
           </h2>
@@ -116,7 +122,10 @@ export default function AboutPage() {
         </section>
 
         {/* Everything in one place */}
-        <section className="mx-auto mt-20 max-w-[1040px]">
+        <section
+          className="fx-reveal mx-auto mt-20 max-w-[1040px]"
+          style={{ ['--fx-delay' as string]: '240ms' }}
+        >
           <h2 className="text-center font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
             Everything in one place
           </h2>
@@ -142,7 +151,10 @@ export default function AboutPage() {
         </section>
 
         {/* Who we are */}
-        <section className="mx-auto mt-20 max-w-[960px]">
+        <section
+          className="fx-reveal mx-auto mt-20 max-w-[960px]"
+          style={{ ['--fx-delay' as string]: '320ms' }}
+        >
           <div className="frost grid grid-cols-1 items-center gap-8 rounded-[28px] p-6 md:grid-cols-[1.2fr_1fr] md:p-8">
             <div>
               <h2 className="font-display text-[28px] leading-[34px] text-ink">
@@ -160,15 +172,18 @@ export default function AboutPage() {
               <span className="font-display text-[56px] italic leading-none text-snow">
                 Chintan
               </span>
-              <span className="mt-2 text-[14px] text-snow/75">
-                Thoughtful reflection.
+              <span className="mt-2 text-[14px] font-medium text-snow/90">
+                Productivity and Mindful Living
+              </span>
+              <span className="mt-1 text-[12px] text-snow/75">
+                Sohan Tamang, Founder and CEO
               </span>
             </div>
           </div>
         </section>
 
         {/* CTA band */}
-        <section className="glass liquid mx-auto mt-20 max-w-[820px] rounded-[28px] p-10 text-center">
+        <section className="fx-reveal glass liquid mx-auto mt-20 max-w-[820px] rounded-[28px] p-10 text-center">
           <h2 className="font-display text-[32px] leading-tight text-ink sm:text-[40px]">
             Start owning your time.
           </h2>

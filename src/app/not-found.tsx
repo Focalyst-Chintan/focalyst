@@ -5,7 +5,7 @@ export default function NotFound() {
   return (
     <PublicLayout>
       <div className="mx-auto w-full max-w-[1200px] px-4 py-16 sm:px-6">
-        <div className="frost mx-auto my-12 max-w-[520px] rounded-[28px] p-10 text-center">
+        <div className="fx-reveal frost mx-auto my-12 max-w-[520px] rounded-[28px] p-10 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
             404
           </div>

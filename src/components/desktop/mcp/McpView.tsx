@@ -98,7 +98,7 @@ export default function McpView({
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
       {/* Top Hero */}
-      <section className="mx-auto max-w-[760px] pt-10 text-center">
+      <section className="fx-reveal mx-auto max-w-[760px] pt-10 text-center">
         <div className="flex flex-wrap items-center justify-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
             Focalyst Labs
@@ -128,7 +128,10 @@ export default function McpView({
       </section>
 
       {/* Generic advice vs Context */}
-      <section className="mx-auto mt-20 max-w-[720px] text-center">
+      <section
+        className="fx-reveal mx-auto mt-20 max-w-[720px] text-center"
+        style={{ ['--fx-delay' as string]: '80ms' }}
+      >
         <h2 className="font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
           Generic advice, or advice built on your week?
         </h2>
@@ -138,7 +141,10 @@ export default function McpView({
       </section>
 
       {/* Comparison Card */}
-      <section className="mx-auto mt-10 max-w-[960px]">
+      <section
+        className="fx-reveal mx-auto mt-10 max-w-[960px]"
+        style={{ ['--fx-delay' as string]: '160ms' }}
+      >
         <div className="flex justify-center">
           <div className="frost rounded-full px-4 py-1.5 text-[13px] font-medium text-ink">
             &ldquo;How do I stay consistent this month?&rdquo;
@@ -173,7 +179,10 @@ export default function McpView({
       </section>
 
       {/* Capability Grid */}
-      <section className="mx-auto mt-20 max-w-[1040px]">
+      <section
+        className="fx-reveal mx-auto mt-20 max-w-[1040px]"
+        style={{ ['--fx-delay' as string]: '240ms' }}
+      >
         <h2 className="text-center font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
           What your coach can do
         </h2>
@@ -199,7 +208,10 @@ export default function McpView({
       </section>
 
       {/* Why this matters */}
-      <section className="mx-auto mt-20 max-w-[720px]">
+      <section
+        className="fx-reveal mx-auto mt-20 max-w-[720px]"
+        style={{ ['--fx-delay' as string]: '320ms' }}
+      >
         <h2 className="font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
           Why this matters
         </h2>
@@ -212,7 +224,7 @@ export default function McpView({
       </section>
 
       {/* How it will work */}
-      <section className="mx-auto mt-20 max-w-[960px]">
+      <section className="fx-reveal mx-auto mt-20 max-w-[960px]">
         <h2 className="text-center font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
           How it will work
         </h2>

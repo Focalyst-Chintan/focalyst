@@ -11,6 +11,7 @@ Business facts (use everywhere they apply):
 - Payments: Polar (polar.sh). Razorpay is not used anywhere.
 - AI: OpenRouter for Focalyst AI chat, summaries and reports. Speech to text: Whisper Large v3 Turbo.
 - No analytics or advertising tools are used.
+- Chintan's tagline is Productivity and Mindful Living.
 
 ---------------------------------------------------------------------
 ## A. BUILD SPEC

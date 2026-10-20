@@ -58,13 +58,16 @@ export default function HelpPage() {
 
       <div className="mx-auto max-w-[840px] px-6 pt-12 pb-24">
         {/* Header Hero */}
-        <div className="text-center">
+        <div className="fx-reveal text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
             HELP CENTRE
           </div>
           <h1 className="font-display text-[clamp(40px,5vw,56px)] leading-[1.08] text-ink mt-2">
             How can we help?
           </h1>
+          <p className="mt-3 text-[16px] leading-[26px] text-ink-2 max-w-[620px] mx-auto">
+            Find answers to questions about your account, plans, focus timers, habits, notes and Focalyst AI.
+          </p>
 
           {/* Search bar */}
           <div className="relative max-w-[520px] mx-auto mt-6">
@@ -79,14 +82,15 @@ export default function HelpPage() {
           </div>
         </div>
 
-        {/* Sticky category chip bar under the nav */}
+        {/* Category chip bar under the nav */}
         {!searchQuery && (
-          <div className="sticky top-20 z-30 py-3 mt-8 -mx-6 px-6 bg-canvas/80 backdrop-blur-md overflow-x-auto no-scrollbar">
-            <div className="flex items-center gap-2 min-w-max">
+          <div className="mt-8">
+            {/* Desktop: flex flex-wrap justify-center gap-2; Below lg: horizontal row overflow-x-auto fx-no-scrollbar */}
+            <div className="flex overflow-x-auto fx-no-scrollbar lg:flex-wrap lg:justify-center items-center gap-2 py-2">
               <button
                 type="button"
                 onClick={() => setActiveCategory('all')}
-                className={`h-8 px-3.5 rounded-full text-[13px] font-medium transition-all ${
+                className={`h-8 px-3.5 shrink-0 rounded-full text-[13px] font-medium transition-all ${
                   activeCategory === 'all'
                     ? 'bg-primary text-snow shadow-sm'
                     : 'bg-surface-2 text-ink-2 hover:text-ink hover:bg-surface-3'
@@ -99,7 +103,7 @@ export default function HelpPage() {
                   key={cat.id}
                   type="button"
                   onClick={() => setActiveCategory(cat.id)}
-                  className={`h-8 px-3.5 rounded-full text-[13px] font-medium transition-all ${
+                  className={`h-8 px-3.5 shrink-0 rounded-full text-[13px] font-medium transition-all ${
                     activeCategory === cat.id
                       ? 'bg-primary text-snow shadow-sm'
                       : 'bg-surface-2 text-ink-2 hover:text-ink hover:bg-surface-3'

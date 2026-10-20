@@ -23,7 +23,7 @@ export default function ContactClient() {
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
       {/* Hero */}
-      <section className="mx-auto max-w-[720px] pt-14 text-center">
+      <section className="fx-reveal mx-auto max-w-[720px] pt-14 text-center">
         <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
           Contact
         </div>
@@ -36,7 +36,10 @@ export default function ContactClient() {
       </section>
 
       {/* Primary Email Card */}
-      <section className="glass liquid mx-auto mt-10 max-w-[720px] rounded-[28px] p-8 text-center">
+      <section
+        className="fx-reveal glass liquid mx-auto mt-10 max-w-[720px] rounded-[28px] p-8 text-center"
+        style={{ ['--fx-delay' as string]: '80ms' }}
+      >
         <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
           Email us
         </div>
@@ -68,7 +71,10 @@ export default function ContactClient() {
       </section>
 
       {/* Topic Cards */}
-      <section className="mx-auto mt-12 grid max-w-[920px] grid-cols-1 gap-5 md:grid-cols-2">
+      <section
+        className="fx-reveal mx-auto mt-12 grid max-w-[920px] grid-cols-1 gap-5 md:grid-cols-2"
+        style={{ ['--fx-delay' as string]: '160ms' }}
+      >
         <div className="frost rounded-[20px] p-6">
           <div className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-primary-soft text-primary-text">
             <Headphones className="h-5 w-5" />

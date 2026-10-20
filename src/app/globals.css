@@ -644,3 +644,25 @@ body.distraction-free nav {
 .fx-reduce-motion .ambient-blob {
   animation: none !important;
 }
+
+/* ==========================================================================
+   CSS-only entrance animation (.fx-reveal)
+   ========================================================================== */
+@keyframes fx-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  html:not(.fx-reduce-motion) .fx-reveal {
+    animation: fx-reveal 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+    animation-delay: var(--fx-delay, 0ms);
+  }
+}
+
+/* Hidden scrollbar utility */
+.fx-no-scrollbar {
+  scrollbar-width: none;
+}
+.fx-no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

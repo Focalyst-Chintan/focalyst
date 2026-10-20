@@ -21,7 +21,7 @@ export default function BlogPage() {
     <PublicLayout>
       <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         {/* Hero */}
-        <section className="mx-auto max-w-[760px] pt-14 text-center">
+        <section className="fx-reveal mx-auto max-w-[760px] pt-14 text-center">
           <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
             The Focalyst Journal
           </div>
@@ -35,7 +35,10 @@ export default function BlogPage() {
         </section>
 
         {/* Empty State Glass Card */}
-        <section className="glass liquid mx-auto mt-12 max-w-[680px] rounded-[28px] p-8 text-center md:p-12">
+        <section
+          className="fx-reveal glass liquid mx-auto mt-12 max-w-[680px] rounded-[28px] p-8 text-center md:p-12"
+          style={{ ['--fx-delay' as string]: '80ms' }}
+        >
           <h2 className="font-display text-[32px] leading-tight text-ink">
             First posts are on the way.
           </h2>
@@ -48,7 +51,10 @@ export default function BlogPage() {
         </section>
 
         {/* Topics Row */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+        <div
+          className="fx-reveal mt-8 flex flex-wrap items-center justify-center gap-2"
+          style={{ ['--fx-delay' as string]: '160ms' }}
+        >
           <span className="mr-2 text-[12px] text-ink-3">Topics coming soon</span>
           {TOPICS.map((topic) => (
             <span

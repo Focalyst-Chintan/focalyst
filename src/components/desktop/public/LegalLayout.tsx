@@ -60,9 +60,9 @@ export default function LegalLayout({
 
   return (
     <PublicLayout>
-      <div className="mx-auto max-w-[1040px] px-6 pt-10 pb-20">
-        {/* Header */}
-        <div className="max-w-[760px]">
+      <div className="mx-auto max-w-6xl px-6 pt-10 pb-20">
+        {/* Hero at top, centred to content column */}
+        <div className="fx-reveal text-center max-w-[760px] mx-auto mb-12">
           <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
             LEGAL
           </div>
@@ -70,56 +70,16 @@ export default function LegalLayout({
             {title}
           </h1>
           <p className="mt-2 text-[14px] text-ink-3">Last updated {lastUpdated}</p>
-
-          {/* The short version card */}
-          {shortVersion && shortVersion.length > 0 && (
-            <div className="glass liquid rounded-[20px] p-6 max-w-[760px] mt-8">
-              <div className="text-[13px] font-semibold text-ink mb-3">
-                The short version
-              </div>
-              <ul className="space-y-3">
-                {shortVersion.map((item, idx) => (
-                  <li key={idx} className="flex items-start gap-3 text-[14px] leading-[22px] text-ink-2">
-                    <span className="bg-primary-soft text-primary-text rounded-full p-1 shrink-0 mt-0.5">
-                      <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </span>
-                    <span>{item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
-        {/* Mobile collapsible TOC */}
-        <div className="lg:hidden mt-8 print:hidden">
-          <details className="frost rounded-[16px] p-4 group">
-            <summary className="cursor-pointer text-[14px] font-semibold text-ink select-none list-none flex items-center justify-between">
-              <span>On this page</span>
-              <span className="text-xs text-ink-3 group-open:rotate-180 transition-transform">▼</span>
-            </summary>
-            <nav className="mt-4 flex flex-col space-y-2 border-t border-line pt-3">
-              {toc.map((item) => (
-                <a
-                  key={item.id}
-                  href={`#${item.id}`}
-                  className="text-[13px] text-ink-2 hover:text-ink transition-colors py-1"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </nav>
-          </details>
-        </div>
-
-        {/* Desktop Body: [240px | minmax(0,720px)] */}
-        <div className="mt-12 grid grid-cols-1 lg:grid-cols-[240px_minmax(0,720px)] gap-12 items-start">
-          {/* Left TOC */}
-          <aside className="hidden lg:block sticky top-24 print:hidden">
+        {/* Below hero, on lg and up, a two-column grid */}
+        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
+          {/* Aside sticky contents list on lg */}
+          <aside className="hidden lg:block lg:sticky lg:top-28 lg:self-start print:hidden">
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 mb-3">
               Contents
             </div>
-            <nav className="flex flex-col space-y-1">
+            <nav className="flex flex-col space-y-1 max-h-[calc(100vh-140px)] overflow-y-auto fx-no-scrollbar">
               {toc.map((item) => {
                 const isActive = activeId === item.id;
                 return (
@@ -139,9 +99,50 @@ export default function LegalLayout({
             </nav>
           </aside>
 
-          {/* Right Article Content */}
-          <div>
-            <article className="fx-article">{children}</article>
+          {/* Article */}
+          <article className="min-w-0 max-w-[720px]">
+            {/* The short version card */}
+            {shortVersion && shortVersion.length > 0 && (
+              <div className="fx-reveal glass liquid rounded-[20px] p-6 mb-8">
+                <div className="text-[13px] font-semibold text-ink mb-3">
+                  The short version
+                </div>
+                <ul className="space-y-3">
+                  {shortVersion.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-3 text-[14px] leading-[22px] text-ink-2">
+                      <span className="bg-primary-soft text-primary-text rounded-full p-1 shrink-0 mt-0.5">
+                        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Below lg: collapsible On this page box above article sections */}
+            <div className="lg:hidden mb-8 print:hidden">
+              <details className="frost rounded-[16px] p-4 group">
+                <summary className="cursor-pointer text-[14px] font-semibold text-ink select-none list-none flex items-center justify-between">
+                  <span>On this page</span>
+                  <span className="text-xs text-ink-3 group-open:rotate-180 transition-transform">▼</span>
+                </summary>
+                <nav className="mt-4 flex flex-col space-y-2 border-t border-line pt-3">
+                  {toc.map((item) => (
+                    <a
+                      key={item.id}
+                      href={`#${item.id}`}
+                      className="text-[13px] text-ink-2 hover:text-ink transition-colors py-1"
+                    >
+                      {item.label}
+                    </a>
+                  ))}
+                </nav>
+              </details>
+            </div>
+
+            {/* Numbered sections */}
+            <div className="fx-article">{children}</div>
 
             {/* Questions bottom card */}
             <div className="mt-14 p-5 rounded-[16px] frost flex flex-wrap items-center justify-between gap-4 print:hidden">
@@ -153,7 +154,7 @@ export default function LegalLayout({
                 Copy email
               </Button>
             </div>
-          </div>
+          </article>
         </div>
       </div>
 
