@@ -60,22 +60,22 @@ export default function LegalLayout({
 
   return (
     <PublicLayout>
-      <div className="mx-auto max-w-6xl px-6 pt-10 pb-20">
-        {/* Hero at top, centred to content column */}
-        <div className="fx-reveal text-center max-w-[760px] mx-auto mb-12">
-          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-            LEGAL
-          </div>
-          <h1 className="font-display text-[clamp(40px,5vw,56px)] leading-[1.08] text-ink mt-2">
-            {title}
-          </h1>
-          <p className="mt-2 text-[14px] text-ink-3">Last updated {lastUpdated}</p>
-        </div>
-
-        {/* Below hero, on lg and up, a two-column grid */}
+      <div className="mx-auto w-full max-w-6xl px-6 pt-10 pb-20">
+        {/* On lg and up use one grid for everything */}
         <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-14">
-          {/* Aside sticky contents list on lg */}
-          <aside className="hidden lg:block lg:sticky lg:top-28 lg:self-start print:hidden">
+          {/* Hero: in right column on lg, left-aligned with content; below lg centered */}
+          <div className="fx-reveal text-center lg:text-left lg:col-start-2 max-w-[720px] mb-8 lg:mb-10">
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-3">
+              LEGAL
+            </div>
+            <h1 className="font-display text-[clamp(40px,5vw,56px)] leading-[1.08] text-ink mt-2">
+              {title}
+            </h1>
+            <p className="mt-2 text-[14px] text-ink-3">Last updated {lastUpdated}</p>
+          </div>
+
+          {/* Aside sticky contents list on lg: left column starting at same height as short version card */}
+          <aside className="hidden lg:block lg:col-start-1 lg:row-start-2 lg:sticky lg:top-28 lg:self-start print:hidden">
             <div className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-3 mb-3">
               Contents
             </div>
@@ -99,8 +99,8 @@ export default function LegalLayout({
             </nav>
           </aside>
 
-          {/* Article */}
-          <article className="min-w-0 max-w-[720px]">
+          {/* Article column in right column */}
+          <article className="min-w-0 max-w-[720px] lg:col-start-2 lg:row-start-2">
             {/* The short version card */}
             {shortVersion && shortVersion.length > 0 && (
               <div className="fx-reveal glass liquid rounded-[20px] p-6 mb-8">

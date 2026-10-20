@@ -39,7 +39,11 @@ export default function PublicLayout({
   }, []);
 
   return (
-    <div className="min-h-screen flex flex-col font-ui text-ink selection:bg-primary selection:text-snow print:bg-snow print:text-black">
+    <div
+      className="dark min-h-dvh flex flex-col font-ui bg-[var(--canvas)] text-[var(--ink)] selection:bg-primary selection:text-snow print:bg-snow print:text-black"
+      data-theme="dark"
+      style={{ colorScheme: 'dark' }}
+    >
       <div className="print:hidden">
         <AmbientBackground strong={strongAmbient} />
       </div>

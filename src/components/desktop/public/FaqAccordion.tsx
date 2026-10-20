@@ -86,13 +86,13 @@ export default function FaqAccordion({
           <div
             key={item.id}
             id={item.id}
-            className="frost rounded-[16px] overflow-hidden border border-line transition-all duration-150 scroll-mt-28"
+            className="glass liquid rounded-2xl overflow-hidden transition-all duration-150 scroll-mt-28"
           >
             <button
               type="button"
               onClick={() => toggle(item.id)}
               aria-expanded={isOpen}
-              className="min-h-[56px] w-full px-5 py-3.5 flex items-center justify-between gap-4 text-left text-[15px] font-medium text-ink transition-colors hover:text-primary-text"
+              className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left text-[16px] font-medium text-[var(--ink)] transition-colors hover:text-primary-text"
             >
               <span>{highlightText(item.question, searchQuery)}</span>
               <span
@@ -105,7 +105,7 @@ export default function FaqAccordion({
             </button>
 
             {isOpen && (
-              <div className="text-[15px] leading-[26px] text-ink-2 px-5 pb-4 pt-1 border-t border-line/60">
+              <div className="text-[15px] leading-7 text-[var(--ink-2)] px-5 pb-5 pt-1 border-t border-line/60">
                 <p>{highlightText(item.answer, searchQuery)}</p>
               </div>
             )}

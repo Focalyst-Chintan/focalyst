@@ -28,6 +28,10 @@ export default function HelpPage() {
     })).filter((cat) => cat.items.length > 0);
   }, [searchQuery, activeCategory]);
 
+  const totalQuestionsCount = useMemo(() => {
+    return filteredCategories.reduce((sum, cat) => sum + cat.items.length, 0);
+  }, [filteredCategories]);
+
   // JSON-LD structured data for FAQPage
   const faqJsonLd = useMemo(() => {
     const mainEntity = FAQ_CATEGORIES.flatMap((cat) =>
@@ -80,55 +84,59 @@ export default function HelpPage() {
               className="w-full h-12 pl-11 pr-4 rounded-[16px] frost border border-line text-[15px] text-ink outline-none transition-all placeholder:text-ink-3 focus:border-primary focus:shadow-[0_0_0_3px_var(--primary-soft)]"
             />
           </div>
+
+          {/* Search count */}
+          {searchQuery.trim() && (
+            <p className="mt-3 text-[14px] text-[var(--ink-3)]">
+              {totalQuestionsCount} {totalQuestionsCount === 1 ? 'result' : 'results'} for &ldquo;{searchQuery.trim()}&rdquo;
+            </p>
+          )}
         </div>
 
         {/* Category chip bar under the nav */}
-        {!searchQuery && (
-          <div className="mt-8">
-            {/* Desktop: flex flex-wrap justify-center gap-2; Below lg: horizontal row overflow-x-auto fx-no-scrollbar */}
-            <div className="flex overflow-x-auto fx-no-scrollbar lg:flex-wrap lg:justify-center items-center gap-2 py-2">
+        <div className="mt-8">
+          {/* Desktop: flex flex-wrap justify-center gap-2; Below lg: horizontal row overflow-x-auto fx-no-scrollbar */}
+          <div className="flex overflow-x-auto fx-no-scrollbar lg:flex-wrap lg:justify-center items-center gap-2 py-2">
+            <button
+              type="button"
+              onClick={() => setActiveCategory('all')}
+              className={`h-8 px-3.5 shrink-0 rounded-full text-[13px] font-medium transition-all ${
+                activeCategory === 'all'
+                  ? 'bg-primary text-snow shadow-sm'
+                  : 'bg-surface-2 text-ink-2 hover:text-ink hover:bg-surface-3'
+              }`}
+            >
+              All questions
+            </button>
+            {FAQ_CATEGORIES.map((cat) => (
               <button
+                key={cat.id}
                 type="button"
-                onClick={() => setActiveCategory('all')}
+                onClick={() => setActiveCategory(cat.id)}
                 className={`h-8 px-3.5 shrink-0 rounded-full text-[13px] font-medium transition-all ${
-                  activeCategory === 'all'
+                  activeCategory === cat.id
                     ? 'bg-primary text-snow shadow-sm'
                     : 'bg-surface-2 text-ink-2 hover:text-ink hover:bg-surface-3'
                 }`}
               >
-                All questions
+                {cat.name}
               </button>
-              {FAQ_CATEGORIES.map((cat) => (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setActiveCategory(cat.id)}
-                  className={`h-8 px-3.5 shrink-0 rounded-full text-[13px] font-medium transition-all ${
-                    activeCategory === cat.id
-                      ? 'bg-primary text-snow shadow-sm'
-                      : 'bg-surface-2 text-ink-2 hover:text-ink hover:bg-surface-3'
-                  }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
-        )}
+        </div>
 
-        {/* Categories and Accordions */}
-        <div className="mt-10 space-y-12">
+        {/* Categories and Accordions - max-w-3xl, centered, gap-3 */}
+        <div className="mx-auto mt-10 max-w-3xl space-y-10">
           {filteredCategories.length === 0 ? (
-            <div className="frost rounded-[20px] p-10 text-center">
-              <p className="text-[16px] font-semibold text-ink">No questions found</p>
-              <p className="text-[14px] text-ink-3 mt-1">
-                Try searching with different keywords or email our team.
+            <div className="py-12 text-center">
+              <p className="text-[16px] leading-7 text-[var(--ink-2)]">
+                No questions match &ldquo;{searchQuery.trim()}&rdquo;. Try another word, or email contactfocalyst@gmail.com.
               </p>
             </div>
           ) : (
             filteredCategories.map((cat) => (
               <section key={cat.id} id={cat.id} className="scroll-mt-36">
-                <h2 className="font-display text-[28px] leading-[34px] text-ink mb-4">
+                <h2 className="font-display text-[24px] leading-[32px] text-ink mb-4">
                   {cat.name}
                 </h2>
                 <FaqAccordion items={cat.items} searchQuery={searchQuery} />

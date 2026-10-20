@@ -11,23 +11,24 @@ export default function AuthInitializer({ children }: { children: React.ReactNod
         setMounted(true)
     }, [])
 
-    if (!mounted || isLoading) {
-        return (
-            <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#FAF8F5]">
-                <div className="flex flex-col items-center space-y-5">
-                    {/* Branded dark brown minimalist spinner */}
-                    <div
-                        className="w-12 h-12 rounded-full border-4 border-[#EAE3D9] border-t-[#3D2E20] animate-spin"
-                    />
-                    <span
-                        className="text-[#3D2E20] font-bold tracking-[0.25em] text-sm animate-pulse"
-                    >
-                        FOCALYST
-                    </span>
+    return (
+        <>
+            {(!mounted || isLoading) && (
+                <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#FAF8F5]">
+                    <div className="flex flex-col items-center space-y-5">
+                        {/* Branded dark brown minimalist spinner */}
+                        <div
+                            className="w-12 h-12 rounded-full border-4 border-[#EAE3D9] border-t-[#3D2E20] animate-spin"
+                        />
+                        <span
+                            className="text-[#3D2E20] font-bold tracking-[0.25em] text-sm animate-pulse"
+                        >
+                            FOCALYST
+                        </span>
+                    </div>
                 </div>
-            </div>
-        )
-    }
-
-    return <>{children}</>
+            )}
+            {children}
+        </>
+    )
 }
