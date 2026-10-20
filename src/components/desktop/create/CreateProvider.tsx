@@ -22,31 +22,18 @@ export function CreateProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     if (kind === 'note') {
-      if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-        import('@/lib/supabase').then(async ({ createClient }) => {
-          const supabase = createClient();
-          const { data: { user } } = await supabase.auth.getUser();
-          if (user) {
-            const { data } = await supabase
-              .from('notes')
-              .insert({
-                user_id: user.id,
-                title: '',
-                content: '',
-              })
-              .select()
-              .single();
-            if (data) {
-              const { emitDataChanged } = await import('@/lib/events');
-              emitDataChanged('note');
-              window.location.assign(`/notes?id=${data.id}`);
-              return;
-            }
+      if (typeof window !== 'undefined') {
+        if (window.innerWidth >= 1024) {
+          if (window.location.pathname.startsWith('/notes')) {
+            window.dispatchEvent(new CustomEvent('fx:create-note'));
+            return;
           }
-          window.location.assign('/notes');
-        });
-      } else {
-        window.location.assign('/notes/new');
+          window.location.assign('/notes?new=1');
+          return;
+        } else {
+          window.location.assign('/notes/new');
+          return;
+        }
       }
       return;
     }

@@ -158,7 +158,9 @@ export default function LegalLayout({
       </div>
 
       {toastMessage && (
-        <Toast message={toastMessage} onClose={() => setToastMessage(null)} />
+        <div className="fixed bottom-6 right-6 z-50">
+          <Toast id="copy-email" message={toastMessage} onDismiss={() => setToastMessage(null)} />
+        </div>
       )}
     </PublicLayout>
   );

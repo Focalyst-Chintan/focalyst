@@ -657,7 +657,7 @@ export default function DesktopSettingsView() {
 
       {/* Delete Account Modal */}
       <Modal
-        open={deleteModalOpen}
+        isOpen={deleteModalOpen}
         onClose={() => setDeleteModalOpen(false)}
         title="Delete account"
       >

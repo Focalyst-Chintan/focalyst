@@ -33,6 +33,8 @@ import { Modal } from '@/components/desktop/ui/Modal';
 import { EmptyState } from '@/components/desktop/ui/EmptyState';
 import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { Kbd } from '@/components/desktop/ui/Kbd';
+import { Tooltip } from '@/components/desktop/ui/Tooltip';
+import { useToast } from '@/components/desktop/ui/Toast';
 
 type FilterTab = 'all' | 'pinned' | 'favourites' | 'voice' | 'folders';
 type SortOption = 'updated' | 'created' | 'title';
@@ -52,12 +54,32 @@ function formatRelativeDate(dateStr?: string | null): string {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 }
 
+function noteHasText(content: unknown): boolean {
+  if (!content) return false;
+  if (typeof content === 'string') {
+    const s = content.trim();
+    if (s.startsWith('{') || s.startsWith('[')) { try { return noteHasText(JSON.parse(s)); } catch {} }
+    return s.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().length > 0;
+  }
+  if (Array.isArray(content)) return content.some(noteHasText);
+  if (typeof content === 'object') {
+    const o = content as Record<string, unknown>;
+    if (typeof o.text === 'string' && o.text.trim()) return true;
+    return Object.values(o).some((v) => typeof v === 'object' && v !== null && noteHasText(v));
+  }
+  return false;
+}
+
 export default function DesktopNotesView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
   const supabase = createClient();
   const create = useCreate();
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
+  const createdThisSession = useRef(new Set<string>());
+  const prevSelected = useRef<string | null>(null);
 
   const noteIdParam = searchParams.get('id');
   const filterParam = (searchParams.get('filter') as FilterTab) || 'all';
@@ -222,6 +244,22 @@ export default function DesktopNotesView() {
     return null;
   }, [notes, noteIdParam, activeFilter, filteredNotes]);
 
+  const selectedNoteId = currentNote?.id ?? noteIdParam ?? null;
+
+  useEffect(() => {
+    const prev = prevSelected.current;
+    prevSelected.current = selectedNoteId;
+    if (!prev || prev === selectedNoteId || !createdThisSession.current.has(prev)) return;
+    setTimeout(async () => {
+      const { data } = await supabase.from('notes').select('title, content').eq('id', prev).maybeSingle();
+      if (data && !String(data.title ?? '').trim() && !noteHasText(data.content)) {
+        await supabase.from('notes').delete().eq('id', prev);
+        createdThisSession.current.delete(prev);
+        emitDataChanged('notes');
+      }
+    }, 2000);
+  }, [selectedNoteId]);
+
   const selectNote = useCallback(
     (id: string) => {
       const params = new URLSearchParams(searchParams.toString());
@@ -265,8 +303,9 @@ export default function DesktopNotesView() {
     [router, searchParams, notes]
   );
 
-  const handleCreateNewNote = async () => {
-    if (!user) return;
+  const handleCreateNewNote = useCallback(async () => {
+    if (!user || creating) return;
+    setCreating(true);
     try {
       const { data, error } = await supabase
         .from('notes')
@@ -280,14 +319,44 @@ export default function DesktopNotesView() {
         .single();
 
       if (error) throw error;
-      emitDataChanged('note');
       if (data) {
-        router.push(`/notes?id=${data.id}${selectedFolder ? `&folder=${encodeURIComponent(selectedFolder)}` : ''}`);
+        createdThisSession.current.add(data.id);
+        selectNote(data.id);
+        emitDataChanged('notes');
+        setTimeout(() => {
+          const el = (document.getElementById('note-title-input') ||
+            document.querySelector('textarea[placeholder="Untitled"]')) as HTMLTextAreaElement | null;
+          if (el) {
+            el.focus();
+            el.setSelectionRange(el.value.length, el.value.length);
+          }
+        }, 50);
       }
-    } catch (err) {
-      console.error('Failed to create note:', err);
+    } catch (error) {
+      console.error('[notes] create failed', error);
+      toast.show('Could not create a note. Please try again.', 'error');
+    } finally {
+      setCreating(false);
     }
-  };
+  }, [user, creating, selectedFolder, selectNote, supabase, toast]);
+
+  useEffect(() => {
+    const handleCreateEvent = () => {
+      handleCreateNewNote();
+    };
+    window.addEventListener('fx:create-note', handleCreateEvent);
+    return () => window.removeEventListener('fx:create-note', handleCreateEvent);
+  }, [handleCreateNewNote]);
+
+  useEffect(() => {
+    if (searchParams.get('new') === '1' || searchParams.get('create') === '1') {
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('new');
+      params.delete('create');
+      router.replace(`/notes${params.toString() ? `?${params.toString()}` : ''}`);
+      handleCreateNewNote();
+    }
+  }, [searchParams, router, handleCreateNewNote]);
 
   const handleDeleteNote = async (id: string) => {
     await deleteNote(id);
@@ -389,6 +458,7 @@ export default function DesktopNotesView() {
           size="md"
           className="w-full justify-center shadow-md mb-4"
           onClick={handleCreateNewNote}
+          disabled={creating}
         >
           <Plus size={16} />
           <span>New note</span>
@@ -717,8 +787,8 @@ export default function DesktopNotesView() {
           /* Kintsugi Folder Overview (pane 3 when filter=folders or no note is selected) */
           <div className="flex-1 p-8 overflow-y-auto">
             {/* Header row: breadcrumb "Notes / Folders" 13 (ink-3 / ink), right: search Input w-64 "Search folders", secondary sm "Sort" menu, primary sm "New folder" */}
-            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-line mb-6">
-              <div className="flex items-center gap-1.5 text-[13px]">
+            <div className="flex items-center justify-between gap-4 pb-6 border-b border-line mb-6">
+              <div className="flex items-center gap-1.5 text-[13px] shrink-0">
                 <button
                   type="button"
                   onClick={() => selectFilter('all')}
@@ -730,21 +800,26 @@ export default function DesktopNotesView() {
                 <span className="text-ink font-semibold">Folders</span>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <Input
-                  placeholder="Search folders"
-                  value={folderSearchQuery}
-                  onChange={(e) => setFolderSearchQuery(e.target.value)}
-                  className="w-64 h-9 text-[13px]"
-                />
-
+              <div className="flex items-center gap-3 flex-1 max-w-xl justify-end">
+                <label className="relative flex-1 min-w-0">
+                  <Search className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-[var(--ink-3)]" aria-hidden />
+                  <input
+                    type="search"
+                    placeholder="Search folders"
+                    value={folderSearchQuery}
+                    onChange={(e) => setFolderSearchQuery(e.target.value)}
+                    className="h-10 w-full rounded-[14px] border border-[var(--line)] bg-[var(--surface-2)] pl-10 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                  />
+                </label>
                 <Popover
                   align="end"
                   trigger={
-                    <Button variant="secondary" size="sm" className="gap-1.5">
-                      <ArrowUpDown size={13} />
-                      <span>Sort</span>
-                    </Button>
+                    <button
+                      type="button"
+                      className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] border border-[var(--line)] bg-[var(--surface-2)] px-3.5 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-3)]"
+                    >
+                      <ArrowUpDown className="size-4" aria-hidden /> Sort
+                    </button>
                   }
                 >
                   <div className="w-40 p-1 flex flex-col gap-0.5">
@@ -768,16 +843,17 @@ export default function DesktopNotesView() {
                     ))}
                   </div>
                 </Popover>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  onClick={() => setIsNewFolderModalOpen(true)}
-                  className="gap-1.5"
-                >
-                  <Plus size={14} />
-                  <span>New folder</span>
-                </Button>
+                <Tooltip content="New folder">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewFolderModalOpen(true)}
+                    aria-label="New folder"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] bg-[var(--primary)] px-4 text-sm font-medium text-snow shadow-sm hover:brightness-110 active:scale-[0.98] transition"
+                  >
+                    <Plus className="size-4" strokeWidth={2.25} aria-hidden />
+                    <span className="hidden xl:inline">New folder</span>
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

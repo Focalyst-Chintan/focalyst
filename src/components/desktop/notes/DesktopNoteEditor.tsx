@@ -585,6 +585,7 @@ export default function DesktopNoteEditor({
 
         {/* Note Title */}
         <textarea
+          id="note-title-input"
           ref={titleTextareaRef}
           rows={1}
           value={title}

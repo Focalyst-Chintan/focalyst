@@ -30,7 +30,7 @@ export default function PublicLayout({
   useEffect(() => {
     try {
       const supabase = createClient();
-      supabase.auth.getSession().then(({ data }) => {
+      supabase.auth.getSession().then(({ data }: any) => {
         setSignedIn(Boolean(data?.session));
       });
     } catch {

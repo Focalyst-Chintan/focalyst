@@ -141,7 +141,7 @@ export function AccountabilitySection() {
     const list = Array.from(map.values());
     list.sort((a, b) => {
       if (b.streak !== a.streak) return b.streak - a.streak;
-      return (a.name || '').localeCompare(b.name || '');
+      return (a.display_name || '').localeCompare(b.display_name || '');
     });
 
     return list.map((m, idx) => ({
@@ -270,7 +270,7 @@ export function AccountabilitySection() {
         <div className="flex items-center gap-2.5">
           {allGroups.length >= 2 && allGroups.length <= 3 && (
             <SegmentedControl
-              options={allGroups.map((g) => ({ id: g.id, label: g.name }))}
+              options={allGroups.map((g) => ({ value: g.id, label: g.name }))}
               value={activeGroupId}
               onChange={(val) => setActiveGroupId(val)}
               size="sm"
@@ -377,13 +377,13 @@ export function AccountabilitySection() {
                   <div key={member.user_id} className="flex-1 max-w-[104px] flex flex-col items-center">
                     <MemberAvatar
                       userId={member.user_id}
-                      name={member.name}
-                      avatarUrl={member.avatar_url}
+                      name={member.display_name}
+                      avatarUrl={(member as any).avatar_url}
                       size={44}
                       ring
                     />
                     <div className="text-[13px] font-semibold text-ink truncate max-w-full mt-1.5 text-center">
-                      {member.name || 'Member'}
+                      {member.display_name || 'Member'}
                     </div>
                     <div className="text-[12px] text-ink-2 tabular-nums">
                       {member.streak}d
@@ -407,24 +407,26 @@ export function AccountabilitySection() {
               <div className="bg-surface-2 rounded-[10px] px-2.5 h-8 flex items-center gap-2 font-mono text-[12px] tracking-[0.12em] text-ink">
                 <span>{leaderboardData.invite_code || '------'}</span>
                 <IconButton
-                  icon={Copy}
                   label="Copy code"
                   size="sm"
                   variant="ghost"
                   onClick={handleCopyCode}
                   className="h-6 w-6"
-                />
+                >
+                  <Copy size={13} />
+                </IconButton>
               </div>
 
               <div className="relative">
                 <IconButton
-                  icon={MoreHorizontal}
                   label="Group options"
                   size="sm"
                   variant="ghost"
                   onClick={() => setMenuOpen((v) => !v)}
                   className="h-8 w-8"
-                />
+                >
+                  <MoreHorizontal size={15} />
+                </IconButton>
                 {menuOpen && (
                   <div
                     className="glass-strong liquid absolute right-0 bottom-full mb-1.5 w-44 rounded-[14px] p-1 shadow-lg z-30"
@@ -474,14 +476,14 @@ export function AccountabilitySection() {
                   </span>
                   <MemberAvatar
                     userId={member.user_id}
-                    name={member.name}
-                    avatarUrl={member.avatar_url}
+                    name={member.display_name}
+                    avatarUrl={(member as any).avatar_url}
                     size={28}
                     ring
                   />
                   <div className="truncate text-[13px] font-medium text-ink flex items-center gap-1.5">
                     <span className={member.is_me ? 'text-primary-text font-semibold' : ''}>
-                      {member.name || 'Member'}
+                      {member.display_name || 'Member'}
                     </span>
                     {member.is_me && (
                       <span className="text-[12px] text-primary-text font-semibold">(You)</span>
@@ -614,7 +616,6 @@ export function AccountabilitySection() {
         size="sm"
         title="Leave group?"
         confirmLabel="Leave"
-        confirmVariant="danger"
         onConfirm={handleLeaveGroup}
       >
         <p className="text-[14px] text-ink-2 leading-relaxed">
@@ -624,10 +625,13 @@ export function AccountabilitySection() {
 
       {/* Toast */}
       {toastMessage && (
-        <Toast
-          message={toastMessage}
-          onClose={() => setToastMessage(null)}
-        />
+        <div className="fixed bottom-6 right-6 z-50">
+          <Toast
+            id="accountability-toast"
+            message={toastMessage}
+            onDismiss={() => setToastMessage(null)}
+          />
+        </div>
       )}
     </section>
   );

@@ -255,7 +255,7 @@ export default function PricingSection() {
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
                                 <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {isIndia ? '₹2,999' : '$79.99'}
+                                    {isIndia ? '₹2,999' : '$99.99'}
                                 </span>
                                 <span className="text-[14px] md:text-[15px] text-[#A3ADC8] font-medium">
                                     one-time
