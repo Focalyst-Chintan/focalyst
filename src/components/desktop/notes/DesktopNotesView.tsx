@@ -808,7 +808,7 @@ export default function DesktopNotesView() {
                     placeholder="Search folders"
                     value={folderSearchQuery}
                     onChange={(e) => setFolderSearchQuery(e.target.value)}
-                    className="h-10 w-full rounded-[14px] border border-[var(--line)] bg-[var(--surface-2)] pl-10 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
+                    className="h-10 w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] pl-10 pr-3 text-sm text-[var(--ink)] placeholder:text-[var(--ink-3)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--primary)]"
                   />
                 </label>
                 <Popover
@@ -816,7 +816,7 @@ export default function DesktopNotesView() {
                   trigger={
                     <button
                       type="button"
-                      className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] border border-[var(--line)] bg-[var(--surface-2)] px-3.5 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-3)]"
+                      className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3.5 text-sm font-medium text-[var(--ink)] hover:bg-[var(--surface-3)]"
                     >
                       <ArrowUpDown className="size-4" aria-hidden /> Sort
                     </button>
@@ -848,7 +848,7 @@ export default function DesktopNotesView() {
                     type="button"
                     onClick={() => setIsNewFolderModalOpen(true)}
                     aria-label="New folder"
-                    className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-[14px] bg-[var(--primary)] px-4 text-sm font-medium text-snow shadow-sm hover:brightness-110 active:scale-[0.98] transition"
+                    className="inline-flex h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl bg-[var(--primary)] px-4 text-sm font-medium text-snow shadow-sm hover:brightness-110 active:scale-[0.98] transition"
                   >
                     <Plus className="size-4" strokeWidth={2.25} aria-hidden />
                     <span className="hidden xl:inline">New folder</span>
