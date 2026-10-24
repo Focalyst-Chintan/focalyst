@@ -26,6 +26,7 @@ import { useUser } from '../../src/utils/UserContext';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { awardXP } from '../../src/utils/xpService';
+import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 import { queryCache } from '../../src/utils/queryCache';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { SeamlessRadialTimerDial } from '../../components/focus/SeamlessRadialTimerDial';
@@ -375,6 +376,7 @@ export default function FocusTab() {
       // Award XP with idempotency key for completed focus sessions
       if (wasCompleted) {
         await awardXP(10, 'Focus Session Complete', `focus_${logEntryId}`);
+        void recordMilestoneForReview('focus');
       }
     } catch (e) {
       console.warn('Error logging pomodoro session:', e);

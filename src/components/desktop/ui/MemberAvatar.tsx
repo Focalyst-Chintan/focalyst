@@ -18,35 +18,61 @@ export function getInitials(name?: string | null): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-export function MemberAvatar({
-  userId,
-  name,
-  avatarUrl,
-  size = 28,
-  ring = false,
-  className = '',
-}: {
-  userId: string;
+export interface MemberAvatarProps {
+  member?: {
+    userId?: string;
+    user_id?: string;
+    name?: string | null;
+    display_name?: string | null;
+    avatarUrl?: string | null;
+    avatar_url?: string | null;
+  };
+  userId?: string;
   name?: string | null;
   avatarUrl?: string | null;
   size?: 28 | 32 | 44 | 56 | 72;
   ring?: boolean;
   className?: string;
-}) {
-  const bg = getAvatarColor(userId || name || 'user');
-  const fontClass = size >= 44 ? 'text-[15px] font-semibold' : 'text-[11px] font-semibold';
+}
+
+export function MemberAvatar({
+  member,
+  userId: directUserId,
+  name: directName,
+  avatarUrl: directAvatarUrl,
+  size,
+  ring = false,
+  className = '',
+}: MemberAvatarProps) {
+  const effectiveUserId = member?.userId || member?.user_id || directUserId || '';
+  const effectiveName = member?.name ?? member?.display_name ?? directName;
+  const effectiveAvatarUrl = member?.avatarUrl ?? member?.avatar_url ?? directAvatarUrl;
+
+  const bg = getAvatarColor(effectiveUserId || effectiveName || 'user');
+  const sizeClasses: Record<number, string> = {
+    28: 'size-7 text-[11px] font-semibold',
+    32: 'size-8 text-[11px] font-semibold',
+    44: 'size-11 text-sm font-semibold',
+    56: 'size-14 text-base font-semibold',
+    72: 'size-[72px] text-lg font-semibold',
+  };
+  const sizeClass = size ? sizeClasses[size] || '' : '';
+  const fontClass = size && size >= 44 ? 'text-[15px] font-semibold' : 'font-semibold';
   const ringClass = ring ? 'ring-2 ring-[var(--surface)]' : '';
 
   return (
     <div
-      style={{ width: size, height: size, backgroundColor: bg }}
-      className={`relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full text-snow ${fontClass} ${ringClass} ${className}`}
-      title={name || undefined}
+      style={{
+        ...(size ? { width: size, height: size } : {}),
+        backgroundColor: bg,
+      }}
+      className={`relative inline-flex shrink-0 select-none items-center justify-center overflow-hidden rounded-full text-snow ${sizeClass} ${fontClass} ${ringClass} ${className}`}
+      title={effectiveName || undefined}
     >
-      {avatarUrl ? (
-        <img src={avatarUrl} alt={name || 'Avatar'} className="h-full w-full object-cover" />
+      {effectiveAvatarUrl ? (
+        <img src={effectiveAvatarUrl} alt={effectiveName || 'Avatar'} className="h-full w-full object-cover" />
       ) : (
-        <span>{getInitials(name)}</span>
+        <span>{getInitials(effectiveName)}</span>
       )}
     </div>
   );

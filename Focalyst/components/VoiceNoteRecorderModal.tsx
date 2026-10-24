@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync } from 'expo-audio';
 import { transcribeAudioUri, processTranscriptWithAI } from '../services/voiceNoteAI';
+import { mutateWithOfflineQueue } from '../src/services/outageResilienceService';
 
 interface VoiceNoteRecorderModalProps {
   visible: boolean;
@@ -310,19 +311,42 @@ const VoiceNoteRecorderModalContent: React.FC<VoiceNoteRecorderModalProps> = ({
         updated_at: new Date().toISOString(),
       };
 
-      const { data, error } = await supabase
-        .from('notes')
-        .insert([notePayload])
-        .select()
-        .single();
+      let savedNote: any = null;
+      try {
+        const { data, error } = await supabase
+          .from('notes')
+          .insert([notePayload])
+          .select()
+          .single();
 
-      if (error) {
-        console.error('Supabase note insert error:', error);
-        throw error;
+        if (error) throw error;
+        savedNote = data;
+      } catch (insertErr: any) {
+        if (
+          insertErr?.status >= 500 ||
+          insertErr?.message?.includes('FetchError') ||
+          insertErr?.message?.includes('Network') ||
+          insertErr?.message?.includes('timeout') ||
+          insertErr?.message?.includes('Failed to fetch')
+        ) {
+          const offlineNote = {
+            ...notePayload,
+            id: `offline_${Date.now()}`,
+            created_at: new Date().toISOString(),
+          };
+          await mutateWithOfflineQueue(
+            { table: 'notes', action: 'insert', payload: notePayload },
+            'notes',
+            (existing) => [offlineNote, ...(Array.isArray(existing) ? existing : [])]
+          );
+          savedNote = offlineNote;
+        } else {
+          throw insertErr;
+        }
       }
 
       setIsProcessing(false);
-      onSaveSuccess(data);
+      onSaveSuccess(savedNote);
     } catch (err: any) {
       console.warn('Voice Note Save Warning:', err?.message);
       setIsProcessing(false);

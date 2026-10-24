@@ -24,6 +24,7 @@ import { FormGroupModal, EnterGroupModal } from './HabitGroupModals';
 import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService';
 import { getHabitColorShades, HabitColorShades } from '../../src/utils/habitColorHelper';
 import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
+import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 
 interface DayEntry {
   date: string;       // 'YYYY-MM-DD'
@@ -316,6 +317,7 @@ export default function HabitList({
 
         // Award XP for habit completion
         awardXP(5, 'Habit Logged');
+        void recordMilestoneForReview('habit');
       } else {
         const { error: logError } = await supabase
           .from('habit_logs')

@@ -15,6 +15,7 @@ import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 
 function getPriorityBadgeStyle(priority: string | undefined, isDark: boolean = false) {
   const normalized = (priority || 'medium').toLowerCase();
@@ -150,6 +151,7 @@ export default function TodoList({
           // Remove from local list after the delay completes
           setTasks(prev => prev.filter(t => t.id !== id));
           delete timeoutsRef.current[id];
+          void recordMilestoneForReview('todo');
         } catch (e) {
           console.error('Error completing task:', e);
           // Rollback local state on error

@@ -30,6 +30,9 @@ import { UserProvider } from '../src/utils/UserContext';
 import XpPopup from '../components/XpPopup';
 import * as Linking from 'expo-linking';
 import { supabase } from '../src/utils/supabase';
+import { initOutageResilience } from '../src/services/outageResilienceService';
+import { OutageStatusBanner } from '../components/OutageStatusBanner';
+import { AppReviewModal } from '../components/AppReviewModal';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -149,11 +152,18 @@ function RootLayoutNav() {
     return () => linkSubscription.remove();
   }, []);
 
+  // Initialize Outage Resilience Service (local cache snapshots, 30s auto-check & remote banner)
+  useEffect(() => {
+    initOutageResilience(supabase);
+  }, []);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <UserProvider>
+            <OutageStatusBanner />
+            <AppReviewModal />
             <XpPopup />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" options={{ headerShown: false }} />

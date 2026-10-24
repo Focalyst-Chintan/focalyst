@@ -34,6 +34,7 @@ import { isReportWindowOpen, isReportDismissedThisWeek, markReportDismissedThisW
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useTranslation } from 'react-i18next';
 import { awardXP } from '../../src/utils/xpService';
+import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { useUser } from '../../src/utils/UserContext';
 import { queryCache } from '../../src/utils/queryCache';
@@ -363,6 +364,7 @@ export default function PlanTab() {
           delete completionTimersRef.current[id];
         }, 800);
         awardXP(8, 'Task Completed');
+        void recordMilestoneForReview('todo');
       } else {
         if (userId) {
           queryCache.setSync(`user:${userId}:tasks`, (prev: any[] = []) =>

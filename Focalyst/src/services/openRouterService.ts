@@ -760,55 +760,67 @@ export async function executeChatCompletion({
       }
 
       const errText = await openRouterRes.text();
-      console.warn(
-        `[Focalyst AI] OpenRouter (${primaryModel}) returned ${openRouterRes.status}: ${errText}. Failing over to ${AI_MODELS.GEMINI_BACKUP}...`
-      );
+      if (__DEV__) {
+        console.warn(
+          `[Focalyst AI] OpenRouter (${primaryModel}) returned ${openRouterRes.status}: ${errText}. Failing over to ${AI_MODELS.GEMINI_BACKUP}...`
+        );
+      }
     } catch (openRouterErr) {
-      console.warn(
-        `[Focalyst AI] OpenRouter network error on ${primaryModel}. Failing over to ${AI_MODELS.GEMINI_BACKUP}:`,
-        openRouterErr
-      );
+      if (__DEV__) {
+        console.warn(
+          `[Focalyst AI] OpenRouter network error on ${primaryModel}. Failing over to ${AI_MODELS.GEMINI_BACKUP}:`,
+          openRouterErr
+        );
+      }
     }
   }
 
-  // 2. Automatic Zero-Cost Safety Backup: Google Gemini (`gemini-3.8-flash`)
-  // Uses Gemini's official OpenAI-compatible endpoint so tool_calls and choices[0].message.content match 100%!
+  // 2. Automatic Zero-Cost Safety Backup: Google Gemini
   if (geminiApiKey) {
-    try {
-      const geminiBody: Record<string, any> = {
-        model: AI_MODELS.GEMINI_BACKUP,
-        messages: safeMessages,
-        temperature,
-        max_tokens: mode === 'light' ? Math.min(max_tokens, 700) : Math.min(max_tokens, 1200),
-        reasoning_effort: 'low',
-      };
-      if (tools && tools.length > 0) geminiBody.tools = tools;
-      if (tool_choice) geminiBody.tool_choice = tool_choice;
-      if (response_format) geminiBody.response_format = response_format;
-
-      const geminiRes = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${geminiApiKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(geminiBody),
+    const geminiModels = [AI_MODELS.GEMINI_BACKUP, 'gemini-2.5-flash'];
+    for (const geminiModel of geminiModels) {
+      try {
+        const geminiBody: Record<string, any> = {
+          model: geminiModel,
+          messages: safeMessages,
+          temperature,
+          max_tokens: mode === 'light' ? Math.min(max_tokens, 700) : Math.min(max_tokens, 1200),
+        };
+        if (geminiModel === AI_MODELS.GEMINI_BACKUP) {
+          geminiBody.reasoning_effort = 'low';
         }
-      );
+        if (tools && tools.length > 0) geminiBody.tools = tools;
+        if (tool_choice) geminiBody.tool_choice = tool_choice;
+        if (response_format) geminiBody.response_format = response_format;
 
-      if (geminiRes.ok) {
-        const data = await geminiRes.json();
-        return { data, modelUsed: `google/${AI_MODELS.GEMINI_BACKUP}` };
+        const geminiRes = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${geminiApiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(geminiBody),
+          }
+        );
+
+        if (geminiRes.ok) {
+          const data = await geminiRes.json();
+          if (data?.choices?.[0]?.message) {
+            return { data, modelUsed: `google/${geminiModel}` };
+          }
+        } else {
+          const geminiErr = await geminiRes.text();
+          if (__DEV__) {
+            console.warn(`[Focalyst AI] Gemini backup (${geminiModel}) failed (${geminiRes.status}): ${geminiErr}`);
+          }
+        }
+      } catch (geminiNetworkErr) {
+        if (__DEV__) {
+          console.warn(`[Focalyst AI] Gemini backup (${geminiModel}) network error:`, geminiNetworkErr);
+        }
       }
-
-      const geminiErr = await geminiRes.text();
-      console.warn(
-        `[Focalyst AI] Gemini backup (${AI_MODELS.GEMINI_BACKUP}) failed (${geminiRes.status}): ${geminiErr}`
-      );
-    } catch (geminiNetworkErr) {
-      console.warn(`[Focalyst AI] Gemini backup network error:`, geminiNetworkErr);
     }
   }
 
@@ -1114,7 +1126,7 @@ export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
   const extMatch = audioUri.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);
   const audioFormat = extMatch ? extMatch[1] : 'm4a';
 
-  // 1. Primary: OpenRouter STT with Whisper Large V3 Turbo
+  // 1A. Primary: OpenRouter STT with Whisper Large V3 Turbo / V3
   if (openRouterKey) {
     const whisperModels = ['openai/whisper-large-v3-turbo', 'openai/whisper-large-v3'];
 
@@ -1145,52 +1157,112 @@ export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
           if (transcript) return transcript;
         } else {
           const errText = await response.text();
-          console.warn(`[OpenRouter STT] ${modelId} status ${response.status}:`, errText);
+          if (__DEV__) {
+            console.warn(`[OpenRouter STT] ${modelId} status ${response.status}:`, errText);
+          }
         }
       } catch (err) {
-        console.warn(`[OpenRouter STT] ${modelId} error:`, err);
+        if (__DEV__) {
+          console.warn(`[OpenRouter STT] ${modelId} error:`, err);
+        }
+      }
+    }
+
+    // 1B. OpenRouter Multimodal Chat Completions Audio Fallback (uses same OpenRouter key)
+    try {
+      const orChatAudioRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${openRouterKey}`,
+          'Content-Type': 'application/json',
+          'HTTP-Referer': 'https://focalyst.online',
+          'X-Title': 'Focalyst',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          temperature: 0,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: 'Transcribe the spoken words in this audio recording into clean text. Output ONLY what the speaker said. If silence, output an empty string.',
+                },
+                {
+                  type: 'input_audio',
+                  input_audio: {
+                    data: base64Audio,
+                    format: audioFormat,
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      });
+
+      if (orChatAudioRes.ok) {
+        const orData = await orChatAudioRes.json();
+        const transcript = sanitizeTranscriptText(
+          orData?.choices?.[0]?.message?.content || ''
+        );
+        if (transcript) return transcript;
+      }
+    } catch (orChatErr) {
+      if (__DEV__) {
+        console.warn('[OpenRouter Chat Audio Fallback] Error:', orChatErr);
       }
     }
   }
 
-  // 2. Backup: Gemini 3.8 Flash
+  // 2. Backup: Direct Google Gemini API (gemini-3.8-flash -> gemini-2.5-flash)
   if (geminiKey) {
-    try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [
-                  {
-                    text: 'Transcribe the spoken words in this audio recording into clean text. Output ONLY what the speaker said. If silence, output an empty string.',
+    const geminiModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+    for (const geminiModel of geminiModels) {
+      try {
+        const payload: Record<string, any> = {
+          contents: [
+            {
+              parts: [
+                {
+                  text: 'Transcribe the spoken words in this audio recording into clean text. Output ONLY what the speaker said. If silence, output an empty string.',
+                },
+                {
+                  inline_data: {
+                    mime_type: 'audio/mp4',
+                    data: base64Audio,
                   },
-                  {
-                    inline_data: {
-                      mime_type: 'audio/mp4',
-                      data: base64Audio,
-                    },
-                  },
-                ],
-              },
-            ],
-            generationConfig: {
-              thinkingConfig: { thinkingLevel: 'LOW' },
+                },
+              ],
             },
-          }),
+          ],
+        };
+        if (geminiModel === 'gemini-3.8-flash') {
+          payload.generationConfig = {
+            thinkingConfig: { thinkingLevel: 'LOW' },
+          };
         }
-      );
 
-      if (geminiRes.ok) {
-        const geminiData = await geminiRes.json();
-        const transcript = sanitizeTranscriptText(extractGemini38Text(geminiData));
-        if (transcript) return transcript;
+        const geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          }
+        );
+
+        if (geminiRes.ok) {
+          const geminiData = await geminiRes.json();
+          const transcript = sanitizeTranscriptText(extractGemini38Text(geminiData));
+          if (transcript) return transcript;
+        }
+      } catch (err) {
+        if (__DEV__) {
+          console.warn(`[Gemini ${geminiModel} STT Backup] Error:`, err);
+        }
       }
-    } catch (err) {
-      console.warn('[Gemini 3.8 Flash STT Backup] Error:', err);
     }
   }
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Crown, Flame, Copy, MoreHorizontal, UserPlus, LogOut, Check } from 'lucide-react';
+import { Crown, Flame, Copy, MoreHorizontal, UserPlus, LogOut, Plus } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { createClient } from '@/lib/supabase';
@@ -12,10 +12,31 @@ import {
   joinHabitGroupByCode,
   leaveCurrentHabitGroup,
   GroupLeaderboardData,
-  GroupLeaderboardMember,
 } from '@/lib/services/habitGroupService';
 import { Button, IconButton, Input, Modal, SegmentedControl, Toast } from '@/components/desktop/ui';
 import { MemberAvatar } from '@/components/desktop/ui/MemberAvatar';
+
+type Row = { userId: string; name: string; habit: string; streak: number; isYou: boolean };
+type Ranked = Row & { habits: string[] };
+
+function rankMembers(rows: Row[]): Ranked[] {
+  const byUser = new Map<string, Ranked>();
+  for (const r of rows) {
+    const cur = byUser.get(r.userId);
+    if (!cur) byUser.set(r.userId, { ...r, habits: [r.habit] });
+    else {
+      if (!cur.habits.includes(r.habit)) cur.habits.push(r.habit);
+      cur.streak = Math.max(cur.streak, r.streak);
+    }
+  }
+  return [...byUser.values()].sort((a, b) => b.streak - a.streak || a.name.localeCompare(b.name));
+}
+
+const PODIUM = [
+  { place: 2, idx: 1, block: 'h-20', avatar: 'size-11 text-sm' },
+  { place: 1, idx: 0, block: 'h-28', avatar: 'size-14 text-base' },
+  { place: 3, idx: 2, block: 'h-14', avatar: 'size-11 text-sm' },
+] as const;
 
 export function AccountabilitySection() {
   const { user } = useAuth();
@@ -41,7 +62,6 @@ export function AccountabilitySection() {
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const [showAllMembers, setShowAllMembers] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Set default habit
@@ -126,44 +146,32 @@ export function AccountabilitySection() {
     }
   }, []);
 
-  // Deduplicate and rank members
-  const deduplicatedMembers = useMemo(() => {
-    const map = new Map<string, GroupLeaderboardMember>();
-    (leaderboardData.members || []).forEach((m) => {
-      const existing = map.get(m.user_id);
-      if (!existing) {
-        map.set(m.user_id, m);
-      } else if (m.streak > existing.streak) {
-        map.set(m.user_id, m);
-      }
+  // Deduplicate and rank members using rankMembers
+  const rankedMembers = useMemo(() => {
+    const rawRows: Row[] = (leaderboardData.members || []).map((m) => {
+      const isYou = m.user_id === user?.id || m.is_me;
+      const cleanName = (m.display_name || '').replace(/\s*\(you\)/i, '').trim();
+      return {
+        userId: m.user_id,
+        name: cleanName || (isYou ? 'You' : 'Member'),
+        habit: m.habit_name || 'Active Habit',
+        streak: Number(m.streak || 0),
+        isYou,
+      };
     });
 
-    const list = Array.from(map.values());
-    list.sort((a, b) => {
-      if (b.streak !== a.streak) return b.streak - a.streak;
-      return (a.display_name || '').localeCompare(b.display_name || '');
-    });
-
-    return list.map((m, idx) => ({
-      ...m,
-      rank: idx + 1,
-      is_me: m.user_id === user?.id,
-    }));
+    return rankMembers(rawRows);
   }, [leaderboardData.members, user?.id]);
 
-  // Podium order: [2nd, 1st, 3rd]
-  const podiumMembers = useMemo(() => {
-    if (deduplicatedMembers.length === 0) return [];
-    const first = deduplicatedMembers[0];
-    const second = deduplicatedMembers[1];
-    const third = deduplicatedMembers[2];
-
-    const res: Array<{ member: GroupLeaderboardMember; place: number }> = [];
-    if (second) res.push({ member: second, place: 2 });
-    if (first) res.push({ member: first, place: 1 });
-    if (third) res.push({ member: third, place: 3 });
-    return res;
-  }, [deduplicatedMembers]);
+  // Standings list: top 50, always including current user's row
+  const standingsRows = useMemo(() => {
+    const top50 = rankedMembers.slice(0, 50);
+    const userRow = rankedMembers.find((m) => m.isYou);
+    if (userRow && !top50.some((m) => m.userId === userRow.userId)) {
+      return [...top50, userRow];
+    }
+    return top50;
+  }, [rankedMembers]);
 
   // Copy invite code
   const handleCopyCode = async () => {
@@ -171,7 +179,7 @@ export function AccountabilitySection() {
     if (!code) return;
     try {
       await navigator.clipboard.writeText(code);
-      setToastMessage('Code copied');
+      setToastMessage('Copied');
     } catch {}
   };
 
@@ -181,7 +189,7 @@ export function AccountabilitySection() {
     const shareText = `Join my Focalyst group with code ${code} at https://focalyst.online`;
     try {
       await navigator.clipboard.writeText(shareText);
-      setToastMessage('Invite copied');
+      setToastMessage('Copied');
     } catch {}
     setMenuOpen(false);
   };
@@ -254,167 +262,173 @@ export function AccountabilitySection() {
     }
   };
 
-  const visibleMembers = showAllMembers
-    ? deduplicatedMembers
-    : deduplicatedMembers.slice(0, 6);
+  const activeGroupName = allGroups.find((g) => g.id === activeGroupId)?.name || 'Habit Group';
+  const memberCount = rankedMembers.length;
+  const inviteCode = leaderboardData.invite_code || '------';
 
   return (
     <section id="accountability" className="mt-10 scroll-mt-24">
       {/* Header row */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-baseline">
-          <h2 className="font-display text-[28px] leading-[34px] text-ink">Accountability</h2>
-          <span className="text-[13px] text-ink-3 ml-3">Stay consistent together.</span>
+          <h2 className="font-display text-[28px] leading-[34px] text-[var(--ink)]">Accountability</h2>
+          <span className="text-[13px] text-[var(--ink-3)] ml-3">Stay consistent together.</span>
         </div>
 
         <div className="flex items-center gap-2.5">
-          {allGroups.length >= 2 && allGroups.length <= 3 && (
-            <SegmentedControl
-              options={allGroups.map((g) => ({ value: g.id, label: g.name }))}
-              value={activeGroupId}
-              onChange={(val) => setActiveGroupId(val)}
-              size="sm"
-            />
-          )}
-          {allGroups.length > 3 && (
-            <select
-              value={activeGroupId}
-              onChange={(e) => setActiveGroupId(e.target.value)}
-              aria-label="Active group"
-              className="h-8 px-2.5 rounded-[10px] bg-surface-2 border border-line text-[13px] text-ink outline-none"
-            >
-              {allGroups.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            type="button"
             onClick={() => {
               setActionError('');
               setIsJoinModalOpen(true);
             }}
+            className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] text-sm font-medium text-[var(--ink)] transition-colors hover:opacity-90 select-none cursor-pointer"
           >
             Join with code
-          </Button>
+          </button>
 
-          <Button
-            variant="secondary"
-            size="sm"
+          <button
+            type="button"
             onClick={() => {
               setActionError('');
               setIsCreateModalOpen(true);
             }}
+            className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] text-sm font-medium text-[var(--ink)] transition-colors hover:opacity-90 select-none cursor-pointer"
           >
             Create group
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Main Content: Empty State vs Active Group Card */}
-      {!leaderboardData.in_group || deduplicatedMembers.length === 0 ? (
+      {!leaderboardData.in_group || rankedMembers.length === 0 ? (
         <div className="frost rounded-[24px] p-8 text-center">
-          <h3 className="font-display text-[28px] leading-[34px] text-ink">Stay accountable together.</h3>
-          <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-[24px] text-ink-2">
+          <h3 className="font-display text-[28px] leading-[34px] text-[var(--ink)]">Stay accountable together.</h3>
+          <p className="mx-auto mt-2 max-w-[520px] text-[15px] leading-[24px] text-[var(--ink-2)]">
             Create a group or join one with a 6 character code. Members only see your name, your chosen habit and your streak.
           </p>
           <div className="mt-5 flex justify-center gap-3">
-            <Button
-              variant="primary"
-              size="sm"
+            <button
+              type="button"
               onClick={() => {
                 setActionError('');
                 setIsCreateModalOpen(true);
               }}
+              className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] text-sm font-medium text-[var(--ink)] transition-colors hover:opacity-90 select-none cursor-pointer"
             >
               Create group
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
+            </button>
+            <button
+              type="button"
               onClick={() => {
                 setActionError('');
                 setIsJoinModalOpen(true);
               }}
+              className="inline-flex items-center justify-center h-9 px-3.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] text-sm font-medium text-[var(--ink)] transition-colors hover:opacity-90 select-none cursor-pointer"
             >
               Join with code
-            </Button>
+            </button>
           </div>
         </div>
       ) : (
-        <div className="frost rounded-[24px] p-6 grid grid-cols-1 xl:grid-cols-[minmax(280px,340px)_1fr] gap-7 items-center">
-          {/* Left Column: Compact Podium + Invite Code Bar */}
-          <div className="flex flex-col items-center">
-            {/* Podium */}
-            <div className="flex items-end justify-center gap-3 w-full max-w-[320px]">
-              {podiumMembers.map(({ member, place }) => {
-                const isFirst = place === 1;
-                const isSecond = place === 2;
-                const isThird = place === 3;
-
-                const heightClass = isFirst
-                  ? 'h-[96px]'
-                  : isSecond
-                  ? 'h-[72px]'
-                  : 'h-[56px]';
-
-                const pedestalClass = isFirst
-                  ? 'bg-[radial-gradient(120%_120%_at_0%_100%,#1951FC_0%,#0B2CB1_45%,#03195B_100%)] text-snow relative overflow-hidden ambient-grain'
-                  : 'bg-surface-2 border border-line text-ink';
-
-                const numberText = `#${place}`;
-                const numberSizeClass = isFirst
-                  ? 'text-[24px]'
-                  : isSecond
-                  ? 'text-[20px]'
-                  : 'text-[18px]';
-
-                return (
-                  <div key={member.user_id} className="flex-1 max-w-[104px] flex flex-col items-center">
-                    <MemberAvatar
-                      userId={member.user_id}
-                      name={member.display_name}
-                      avatarUrl={(member as any).avatar_url}
-                      size={44}
-                      ring
+        <div className="frost rounded-[24px] p-6 grid grid-cols-1 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-10 items-start">
+          {/* Left Column: Group Header + Podium + Invite Code Bar */}
+          <div className="flex min-w-0 flex-col">
+            {/* Top of left column: group name, member count, optional switcher */}
+            <div className="mb-6 flex items-center justify-between gap-3">
+              <div className="min-w-0 flex items-baseline gap-2 truncate">
+                <span className="font-display text-[20px] text-[var(--ink)] truncate">{activeGroupName}</span>
+                <span className="text-[13px] text-[var(--ink-3)] shrink-0">
+                  {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                </span>
+              </div>
+              {allGroups.length > 1 && (
+                <div className="shrink-0">
+                  {allGroups.length <= 3 ? (
+                    <SegmentedControl
+                      options={allGroups.map((g) => ({ value: g.id, label: g.name }))}
+                      value={activeGroupId}
+                      onChange={(val) => setActiveGroupId(val)}
+                      size="sm"
                     />
-                    <div className="text-[13px] font-semibold text-ink truncate max-w-full mt-1.5 text-center">
-                      {member.display_name || 'Member'}
-                    </div>
-                    <div className="text-[12px] text-ink-2 tabular-nums">
-                      {member.streak}d
-                    </div>
-
-                    <div
-                      className={`mt-2 w-full rounded-t-[14px] flex flex-col items-center justify-center ${heightClass} ${pedestalClass}`}
+                  ) : (
+                    <select
+                      value={activeGroupId}
+                      onChange={(e) => setActiveGroupId(e.target.value)}
+                      aria-label="Active group"
+                      className="h-8 px-2.5 rounded-[10px] bg-[var(--surface-2)] border border-[var(--line)] text-[13px] text-[var(--ink)] outline-none"
                     >
-                      {isFirst && <Crown size={14} className="mb-1 text-snow/90" />}
-                      <span className={`font-display ${numberSizeClass} font-semibold leading-none`}>
-                        {numberText}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+                      {allGroups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* Below podium: Invite code chip + menu */}
-            <div className="mt-4 pt-3 border-t border-line flex items-center justify-between gap-2 w-full max-w-[320px]">
-              <div className="bg-surface-2 rounded-[10px] px-2.5 h-8 flex items-center gap-2 font-mono text-[12px] tracking-[0.12em] text-ink">
-                <span>{leaderboardData.invite_code || '------'}</span>
-                <IconButton
-                  label="Copy code"
-                  size="sm"
-                  variant="ghost"
-                  onClick={handleCopyCode}
-                  className="h-6 w-6"
-                >
-                  <Copy size={13} />
-                </IconButton>
+            {/* Podium */}
+            <div>
+              <div className="grid grid-cols-3 items-end gap-3">
+                {PODIUM.map(({ place, idx, block, avatar }) => {
+                  const m = rankedMembers[idx];
+                  return (
+                    <div key={place} className="flex min-w-0 flex-col items-center">
+                      {m ? (
+                        <>
+                          <MemberAvatar
+                            member={m}
+                            className={`${avatar} ${m.isYou ? 'ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--surface)]' : ''}`}
+                          />
+                          <p className="mt-2 max-w-full truncate text-sm font-medium text-[var(--ink)]">{m.isYou ? 'You' : m.name}</p>
+                          <p className="mb-2 flex items-center gap-1 text-xs text-[var(--ink-3)]">
+                            <span className={m.streak === 0 ? 'grayscale opacity-40' : ''} aria-hidden>🔥</span>
+                            {m.streak}d
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className={`${avatar} grid place-items-center rounded-full border border-dashed border-[var(--line)] text-[var(--ink-3)]`}>
+                            <Plus className="size-4" aria-hidden />
+                          </div>
+                          <p className="mt-2 text-xs text-[var(--ink-3)]">Invite a friend</p>
+                          <p className="invisible mb-2 text-xs">0d</p>
+                        </>
+                      )}
+                      <div
+                        className={`${block} grid w-full place-items-center rounded-t-2xl border border-b-0 font-display text-2xl ${
+                          place === 1
+                            ? 'border-transparent bg-[linear-gradient(180deg,#1951FC,#0B2CB1)] text-snow shadow-[0_8px_24px_-8px_rgba(25,81,252,0.6)]'
+                            : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-2)]'
+                        }`}
+                      >
+                        {place}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="h-px w-full bg-[var(--line)]" />
+            </div>
+
+            {/* Invite code row (under the podium, mt-5) */}
+            <div className="mt-5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-wider text-[var(--ink-3)]">Invite code</p>
+                <div className="mt-1 inline-flex items-center gap-2 rounded-lg bg-[var(--surface-2)] px-2.5 py-1.5">
+                  <span className="font-mono text-sm tracking-[0.2em] text-[var(--ink)]">{inviteCode}</span>
+                  <IconButton
+                    label="Copy invite code"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleCopyCode}
+                    className="h-6 w-6"
+                  >
+                    <Copy size={13} />
+                  </IconButton>
+                </div>
               </div>
 
               <div className="relative">
@@ -435,9 +449,9 @@ export function AccountabilitySection() {
                     <button
                       type="button"
                       onClick={handleShareInvite}
-                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-[10px] text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-[10px] text-[13px] text-[var(--ink)] hover:bg-[var(--surface-2)] transition-colors text-left"
                     >
-                      <UserPlus size={14} className="text-ink-3" />
+                      <UserPlus size={14} className="text-[var(--ink-3)]" />
                       <span>Share invite</span>
                     </button>
                     <button
@@ -446,7 +460,7 @@ export function AccountabilitySection() {
                         setMenuOpen(false);
                         setIsLeaveModalOpen(true);
                       }}
-                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-[10px] text-[13px] text-danger hover:bg-danger/10 transition-colors text-left"
+                      className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-[10px] text-[13px] text-[var(--danger)] hover:bg-[var(--danger)]/10 transition-colors text-left"
                     >
                       <LogOut size={14} />
                       <span>Leave group</span>
@@ -458,63 +472,60 @@ export function AccountabilitySection() {
           </div>
 
           {/* Right Column: Standings */}
-          <div>
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3 mb-2">
+          <div className="min-w-0">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--ink-3)] mb-2">
               STANDINGS
             </div>
 
             <div className="space-y-1">
-              {visibleMembers.map((member) => (
-                <div
-                  key={member.user_id}
-                  className={`h-[44px] px-3 rounded-[12px] flex items-center gap-3 transition-colors ${
-                    member.is_me ? 'bg-primary-soft' : 'hover:bg-surface-2/60'
-                  }`}
-                >
-                  <span className="w-7 text-[12px] tabular-nums text-ink-3">
-                    #{member.rank}
-                  </span>
-                  <MemberAvatar
-                    userId={member.user_id}
-                    name={member.display_name}
-                    avatarUrl={(member as any).avatar_url}
-                    size={28}
-                    ring
-                  />
-                  <div className="truncate text-[13px] font-medium text-ink flex items-center gap-1.5">
-                    <span className={member.is_me ? 'text-primary-text font-semibold' : ''}>
-                      {member.display_name || 'Member'}
-                    </span>
-                    {member.is_me && (
-                      <span className="text-[12px] text-primary-text font-semibold">(You)</span>
-                    )}
-                  </div>
-                  <span className="text-[12px] text-ink-3 truncate flex-1 ml-1">
-                    {member.habit_name}
-                  </span>
-                  <div className="flex items-center gap-1 shrink-0 ml-auto">
-                    <Flame size={14} className="text-warning fill-warning" />
-                    <span className="text-[13px] tabular-nums text-ink-2 font-medium">
-                      {member.streak}d
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+              {standingsRows.map((member) => {
+                const rankIndex = rankedMembers.findIndex((m) => m.userId === member.userId);
+                const rankNum = rankIndex >= 0 ? rankIndex + 1 : 1;
+                const rankColorClass = rankNum <= 3 ? 'text-[var(--ink)] font-semibold' : 'text-[var(--ink-3)]';
 
-            {deduplicatedMembers.length > 6 && (
-              <div className="mt-3 text-center">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowAllMembers((v) => !v)}
-                >
-                  {showAllMembers
-                    ? 'Show less'
-                    : `Show all ${deduplicatedMembers.length}`}
-                </Button>
-              </div>
-            )}
+                return (
+                  <div
+                    key={member.userId}
+                    className={`h-12 px-3 rounded-xl flex items-center gap-3 transition-colors hover:bg-[var(--surface-2)] ${
+                      member.isYou ? 'bg-[var(--primary-soft)]' : ''
+                    }`}
+                  >
+                    <span className={`w-7 text-[13px] tabular-nums ${rankColorClass}`}>
+                      #{rankNum}
+                    </span>
+                    <MemberAvatar
+                      member={member}
+                      className="size-8"
+                    />
+                    <div className="min-w-0 flex items-center gap-2 flex-1">
+                      <span className="truncate text-[13px] font-medium text-[var(--ink)]">
+                        {member.name}
+                      </span>
+                      {member.isYou && (
+                        <span className="shrink-0 rounded-md bg-[var(--primary-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--primary-text)]">
+                          You
+                        </span>
+                      )}
+                      <span className="truncate text-xs text-[var(--ink-3)]">
+                        {member.habits.join(', ')}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 ml-auto">
+                      <span className={member.streak === 0 ? 'grayscale opacity-40' : ''} aria-hidden>
+                        🔥
+                      </span>
+                      <span
+                        className={`text-[13px] tabular-nums font-medium ${
+                          member.streak === 0 ? 'text-[var(--ink-3)]' : 'text-[var(--ink-2)]'
+                        }`}
+                      >
+                        {member.streak}d
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </div>
       )}

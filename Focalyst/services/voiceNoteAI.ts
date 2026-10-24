@@ -93,7 +93,7 @@ Respond ONLY in valid JSON format:
     }
 
     try {
-      const geminiRes = await fetch(
+      let geminiRes = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
@@ -111,6 +111,28 @@ Respond ONLY in valid JSON format:
           }),
         }
       );
+
+      if (!geminiRes.ok) {
+        console.warn(`[Voice Note AI] Gemini 3.8 Flash returned ${geminiRes.status}. Retrying with gemini-2.5-flash...`);
+        geminiRes = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [
+                {
+                  parts: [{ text: `${systemPrompt}\n\nUser Spoken Transcript:\n${rawTranscript}` }],
+                },
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json',
+              },
+            }),
+          }
+        );
+      }
+
       const geminiData = await geminiRes.json();
       const parts = geminiData?.candidates?.[0]?.content?.parts;
       const text = Array.isArray(parts)
