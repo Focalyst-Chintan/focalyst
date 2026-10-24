@@ -6,6 +6,8 @@ export const dynamic = 'force-dynamic';
 
 export const POST = Webhooks({
   webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  onOrderCreated: async (p) => applyPolarEvent('order.created', p.data),
+  onOrderUpdated: async (p) => applyPolarEvent('order.updated', p.data),
   onOrderPaid: async (p) => applyPolarEvent('order.paid', p.data),
   onOrderRefunded: async (p) => applyPolarEvent('order.refunded', p.data),
   onSubscriptionActive: async (p) => applyPolarEvent('subscription.active', p.data),

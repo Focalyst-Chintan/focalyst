@@ -54,6 +54,7 @@ export default function DesktopSettingsView() {
   const [fullNameInput, setFullNameInput] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isRestoringPurchase, setIsRestoringPurchase] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -212,6 +213,25 @@ export default function DesktopSettingsView() {
       router.push('/login');
     } catch {
       router.push('/login');
+    }
+  };
+
+  const handleRestorePurchase = async () => {
+    setIsRestoringPurchase(true);
+    try {
+      const res = await fetch('/api/billing/sync-me', { method: 'POST' });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.plan && data.plan !== 'free') {
+        toast.show('Your Focalyst Pro is active.');
+        emitDataChanged('profile');
+        setUserData((prev) => (prev ? { ...prev, plan: data.plan } : null));
+      } else {
+        toast.show('We could not find a purchase for this account. Email contactfocalyst@gmail.com and we will sort it out.');
+      }
+    } catch {
+      toast.show('We could not find a purchase for this account. Email contactfocalyst@gmail.com and we will sort it out.');
+    } finally {
+      setIsRestoringPurchase(false);
     }
   };
 
@@ -609,6 +629,16 @@ export default function DesktopSettingsView() {
                         >
                           Upgrade to Pro
                         </Button>
+                        <div className="mt-3">
+                          <button
+                            type="button"
+                            onClick={handleRestorePurchase}
+                            disabled={isRestoringPurchase}
+                            className="text-[13px] text-snow/75 hover:text-snow underline underline-offset-4 transition-colors cursor-pointer disabled:opacity-60"
+                          >
+                            {isRestoringPurchase ? 'Checking your purchase' : 'Already paid? Restore purchase'}
+                          </button>
+                        </div>
                         <p className="mt-2 text-[12px] text-snow/60">
                           Final price and any taxes are shown at checkout.
                         </p>

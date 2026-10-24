@@ -18,7 +18,7 @@
     "@capacitor/preferences": "^8.0.1",
     "@google/generative-ai": "^0.24.1",
     "@polar-sh/nextjs": "^1.1.0",
-    "@polar-sh/sdk": "^0.47.0",
+    "@polar-sh/sdk": "^1.0.2",
     "@polar-sh/supabase": "^0.4.3",
     "@revenuecat/purchases-capacitor": "^13.1.2",
     "@sparticuz/chromium-min": "^143.0.4",

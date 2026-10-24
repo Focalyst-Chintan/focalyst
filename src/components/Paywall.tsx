@@ -38,7 +38,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
     const router = useRouter()
     const { plan: userPlan } = useAuth()
     const [billing, setBilling] = useState<BillingCycle>('yearly')
-    const [isLoading, setIsLoading] = useState(false)
+    const [pendingButton, setPendingButton] = useState<string | null>(null)
     const [isRestoring, setIsRestoring] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly')
     const { checkout, restore } = useCheckout()
@@ -51,6 +51,15 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
             setSelectedPlan(billing)
         }
     }, [billing, selectedPlan])
+
+    // Reset pending states when user navigates back via browser
+    useEffect(() => {
+        const onPageShow = () => {
+            setPendingButton(null)
+        }
+        window.addEventListener('pageshow', onPageShow)
+        return () => window.removeEventListener('pageshow', onPageShow)
+    }, [])
 
     // Price definitions
     const prices = cur ? PRICES[cur] : null
@@ -80,9 +89,10 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
         }
     }
 
-    const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
+    const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime', buttonId?: string) => {
+        const id = buttonId || planType
         if (isNativeApp()) {
-            setIsLoading(true)
+            setPendingButton(id)
             try {
                 const result = await checkout(planType)
                 if ((result as any)?.customerInfo) {
@@ -93,16 +103,16 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                 console.error('Native checkout failed:', error)
                 toast.show(error.message || 'Payment system error', 'error')
             } finally {
-                setIsLoading(false)
+                setPendingButton(null)
             }
             return
         }
 
-        setIsLoading(true)
+        setPendingButton(id)
         try {
             const result = await startCheckout(planType)
             if (!result.ok) {
-                setIsLoading(false)
+                setPendingButton(null)
                 if (result.code === 'already_pro') {
                     toast.show('You already have Focalyst Pro.', 'info', {
                         label: 'Manage plan',
@@ -113,7 +123,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                 }
             }
         } catch (error: any) {
-            setIsLoading(false)
+            setPendingButton(null)
             console.error('Checkout failed:', error)
             toast.show(error.message || 'Payment system error', 'error')
         }
@@ -344,11 +354,11 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
 
                     {/* CTA Button */}
                     <button
-                        onClick={() => handleCheckout(selectedPlan)}
-                        disabled={isLoading}
+                        onClick={() => handleCheckout(selectedPlan, 'main_cta')}
+                        disabled={pendingButton === 'main_cta'}
                         className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60 cursor-pointer"
                     >
-                        {isLoading ? (
+                        {pendingButton === 'main_cta' ? (
                             <span>Opening checkout</span>
                         ) : (
                             <>
@@ -363,11 +373,11 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     {/* Footer Links */}
                     <div className="flex items-center justify-between mt-4 px-1">
                         <button
-                            onClick={() => handleCheckout('yearly')}
-                            disabled={isLoading}
+                            onClick={() => handleCheckout('yearly', 'annual_link')}
+                            disabled={pendingButton === 'annual_link'}
                             className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors disabled:opacity-50"
                         >
-                            PROCEED WITH ANNUAL
+                            {pendingButton === 'annual_link' ? 'Opening checkout' : 'PROCEED WITH ANNUAL'}
                         </button>
                         <button
                             onClick={handleSkipOrBack}

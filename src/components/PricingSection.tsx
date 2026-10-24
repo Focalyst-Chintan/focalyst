@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
@@ -11,15 +11,24 @@ import { useToast } from '@/components/desktop/ui/Toast';
 export default function PricingSection() {
     const router = useRouter();
     const [isYearly, setIsYearly] = useState<boolean>(false);
-    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [pendingButton, setPendingButton] = useState<string | null>(null);
     const supabase = createClient();
     const cur = useCurrency();
     const toast = useToast();
 
     const prices = cur ? PRICES[cur] : null;
 
-    const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
-        setIsLoading(true);
+    useEffect(() => {
+        const onPageShow = () => {
+            setPendingButton(null);
+        };
+        window.addEventListener('pageshow', onPageShow);
+        return () => window.removeEventListener('pageshow', onPageShow);
+    }, []);
+
+    const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime', buttonId?: string) => {
+        const id = buttonId || planType;
+        setPendingButton(id);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
@@ -29,7 +38,7 @@ export default function PricingSection() {
 
             const result = await startCheckout(planType);
             if (!result.ok) {
-                setIsLoading(false);
+                setPendingButton(null);
                 if (result.code === 'already_pro') {
                     toast.show('You already have Focalyst Pro.', 'info', {
                         label: 'Manage plan',
@@ -40,7 +49,7 @@ export default function PricingSection() {
                 }
             }
         } catch (error: any) {
-            setIsLoading(false);
+            setPendingButton(null);
             console.error('Checkout failed:', error);
             toast.show(error.message || 'Payment system error', 'error');
         }
@@ -175,11 +184,11 @@ export default function PricingSection() {
                             </ul>
                         </div>
                         <button
-                            onClick={() => handleCheckout(isYearly ? 'yearly' : 'monthly')}
-                            disabled={isLoading}
+                            onClick={() => handleCheckout(isYearly ? 'yearly' : 'monthly', 'pro')}
+                            disabled={pendingButton === 'pro'}
                             className="w-full py-3.5 px-4 bg-snow hover:bg-snow/90 text-[#05070F] font-semibold rounded-full text-center block text-sm shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all disabled:opacity-60 cursor-pointer"
                         >
-                            {isLoading ? 'Opening checkout' : 'Get Pro Plan'}
+                            {pendingButton === 'pro' ? 'Opening checkout' : 'Get Pro Plan'}
                         </button>
                     </div>
 
@@ -221,11 +230,11 @@ export default function PricingSection() {
                             </ul>
                         </div>
                         <button
-                            onClick={() => handleCheckout('lifetime')}
-                            disabled={isLoading}
+                            onClick={() => handleCheckout('lifetime', 'lifetime')}
+                            disabled={pendingButton === 'lifetime'}
                             className="w-full py-3 px-4 border border-snow/60 bg-[#0B1020]/70 hover:bg-[#0B1020] text-snow font-semibold rounded-full text-center block text-sm transition-all shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md disabled:opacity-60 cursor-pointer"
                         >
-                            {isLoading ? 'Opening checkout' : 'Get Lifetime'}
+                            {pendingButton === 'lifetime' ? 'Opening checkout' : 'Get Lifetime'}
                         </button>
                     </div>
 

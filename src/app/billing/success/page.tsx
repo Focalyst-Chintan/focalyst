@@ -34,7 +34,23 @@ function SuccessContent() {
       if (Date.now() - started > 40000) { setStatus('slow'); return; }
       setTimeout(tick, 2000);
     };
-    tick();
+
+    // First call POST /api/billing/sync-me once, then start the existing polling
+    fetch('/api/billing/sync-me', { method: 'POST' })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (stopped) return;
+        if (data?.plan && data.plan !== 'free') {
+          setStatus('done');
+          emitDataChanged('profile');
+          return;
+        }
+        tick();
+      })
+      .catch((err) => {
+        console.warn('sync-me on load error:', err);
+        if (!stopped) tick();
+      });
 
     return () => {
       stopped = true;
