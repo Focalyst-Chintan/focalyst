@@ -21,8 +21,8 @@ interface PaywallProps {
 const PRO_FEATURES = [
     'Unlimited habit tracking',
     'Custom pomodoro timer',
-    'Unlimited day countdown',
-    'Unlimited AI chat',
+    'Up to 3 countdowns',
+    'More Focalyst AI messages every day',
     'AI productivity score',
     'Weekly + monthly insights',
     'Unlimited notes',
@@ -173,7 +173,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                         <span className="text-[#1D70F5]">productivity.</span>
                     </h1>
                     <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
-                        Join 10,000+ high-achievers using Focalyst to reclaim 2 hours of their day.
+                        Plan your days, focus deeply and see how you are growing, with everything Focalyst can do.
                     </p>
                 </div>
 

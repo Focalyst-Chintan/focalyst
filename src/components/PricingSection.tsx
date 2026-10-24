@@ -8,7 +8,17 @@ import { startCheckout, openBillingPortal } from '@/lib/billing/checkout';
 import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
 import { useToast } from '@/components/desktop/ui/Toast';
 
-export default function PricingSection() {
+export interface PricingSectionProps {
+    mode?: 'landing' | 'paywall' | 'onboarding';
+    onFree?: () => void;
+    currentPlan?: string | null;
+}
+
+export default function PricingSection({
+    mode = 'landing',
+    onFree,
+    currentPlan,
+}: PricingSectionProps = {}) {
     const router = useRouter();
     const [isYearly, setIsYearly] = useState<boolean>(false);
     const [pendingButton, setPendingButton] = useState<string | null>(null);
@@ -16,6 +26,7 @@ export default function PricingSection() {
     const cur = useCurrency();
     const toast = useToast();
 
+    const isLanding = mode === 'landing';
     const prices = cur ? PRICES[cur] : null;
 
     useEffect(() => {
@@ -55,28 +66,72 @@ export default function PricingSection() {
         }
     };
 
+    const isProCurrent = currentPlan === 'pro_monthly' || currentPlan === 'pro_yearly';
+    const isLifetimeCurrent = currentPlan === 'lifetime';
+
+    const freeButtonLabel =
+        mode === 'onboarding'
+            ? 'Continue with Free'
+            : mode === 'paywall'
+            ? 'Stay on Free'
+            : 'Start for Free';
+
+    const handleFreeClick = () => {
+        if (mode === 'landing') {
+            router.push('/login');
+        } else if (onFree) {
+            onFree();
+        }
+    };
+
+    const proButtonDisabled = pendingButton === 'pro' || isProCurrent || isLifetimeCurrent;
+    const proButtonLabel =
+        pendingButton === 'pro'
+            ? 'Opening checkout'
+            : isProCurrent
+            ? 'Current plan'
+            : 'Get Pro Plan';
+
+    const lifetimeButtonDisabled = pendingButton === 'lifetime' || isLifetimeCurrent;
+    const lifetimeButtonLabel =
+        pendingButton === 'lifetime'
+            ? 'Opening checkout'
+            : isLifetimeCurrent
+            ? 'Your plan'
+            : 'Get Lifetime';
+
+    const sectionClasses = isLanding
+        ? 'w-full bg-[#05070F] py-16 md:py-[100px] px-[28px] md:px-8 border-t border-white/5 relative'
+        : 'w-full relative';
+
     return (
-        <section id="pricing" className="w-full bg-[#05070F] py-16 md:py-[100px] px-[28px] md:px-8 border-t border-white/5 relative">
+        <section id={isLanding ? 'pricing' : undefined} className={sectionClasses}>
             <div className="max-w-[1100px] mx-auto flex flex-col items-center">
-                {/* Eyebrow */}
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF] mb-4">
-                    PRICING
-                </span>
+                {/* Landing Header Elements */}
+                {isLanding && (
+                    <>
+                        {/* Eyebrow */}
+                        <span className="inline-flex items-center gap-2 rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF] mb-4">
+                            PRICING
+                        </span>
 
-                {/* Headline */}
-                <h2 className="font-display text-[32px] md:text-[54px] font-normal text-center leading-[1.05] tracking-[-0.015em] text-snow mb-3">
-                    Plans that grow with you.
-                </h2>
+                        {/* Headline */}
+                        <h2 className="font-display text-[32px] md:text-[54px] font-normal text-center leading-[1.05] tracking-[-0.015em] text-snow mb-3">
+                            Plans that grow with you.
+                        </h2>
 
-                {/* Subheadline */}
-                <p className="font-ui text-[#A3ADC8] text-[15px] md:text-[18px] text-center mb-8 md:mb-12">
-                    Start free. Upgrade when you're ready.
-                </p>
+                        {/* Subheadline */}
+                        <p className="font-ui text-[#A3ADC8] text-[15px] md:text-[18px] text-center mb-8 md:mb-12">
+                            Start free. Upgrade when you're ready.
+                        </p>
+                    </>
+                )}
 
                 {/* Toggle Pill Container */}
                 <div className="relative mb-12 md:mb-16">
                     <div className="flex items-center bg-[#0B1020]/90 rounded-full p-1 w-[260px] md:w-[320px] h-10 md:h-[50px] mx-auto relative border border-white/10 backdrop-blur-md">
                         <button
+                            type="button"
                             onClick={() => setIsYearly(false)}
                             className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui cursor-pointer ${
                                 !isYearly ? 'bg-snow text-[#05070F] shadow-sm' : 'text-[#A3ADC8] hover:text-snow'
@@ -85,6 +140,7 @@ export default function PricingSection() {
                             Monthly
                         </button>
                         <button
+                            type="button"
                             onClick={() => setIsYearly(true)}
                             className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui cursor-pointer ${
                                 isYearly ? 'bg-snow text-[#05070F] shadow-sm' : 'text-[#A3ADC8] hover:text-snow'
@@ -134,10 +190,11 @@ export default function PricingSection() {
                             </ul>
                         </div>
                         <button
-                            onClick={() => router.push('/login')}
+                            type="button"
+                            onClick={handleFreeClick}
                             className="w-full py-3 px-4 border border-white/15 bg-white/5 hover:bg-white/10 text-snow font-semibold rounded-full text-center block text-sm transition-all cursor-pointer"
                         >
-                            Start for Free
+                            {freeButtonLabel}
                         </button>
                     </div>
 
@@ -168,10 +225,12 @@ export default function PricingSection() {
                             <ul className="space-y-3.5 mb-8">
                                 {[
                                     'Everything in Free',
-                                    'Unlimited habits and notes',
-                                    'Custom Pomodoro sessions',
-                                    'Unlimited AI chat',
+                                    'More habits, notes and voice notes',
+                                    'Custom focus timers and every preset',
+                                    'More Focalyst AI messages every day',
                                     'AI Productivity Score',
+                                    'Weekly Catalyst Report',
+                                    'Up to 3 countdowns',
                                     'App blocker (mobile)'
                                 ].map((feature) => (
                                     <li key={feature} className="flex items-start gap-3">
@@ -184,11 +243,12 @@ export default function PricingSection() {
                             </ul>
                         </div>
                         <button
+                            type="button"
                             onClick={() => handleCheckout(isYearly ? 'yearly' : 'monthly', 'pro')}
-                            disabled={pendingButton === 'pro'}
-                            className="w-full py-3.5 px-4 bg-snow hover:bg-snow/90 text-[#05070F] font-semibold rounded-full text-center block text-sm shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all disabled:opacity-60 cursor-pointer"
+                            disabled={proButtonDisabled}
+                            className="w-full py-3.5 px-4 bg-snow hover:bg-snow/90 text-[#05070F] font-semibold rounded-full text-center block text-sm shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                         >
-                            {pendingButton === 'pro' ? 'Opening checkout' : 'Get Pro Plan'}
+                            {proButtonLabel}
                         </button>
                     </div>
 
@@ -213,10 +273,12 @@ export default function PricingSection() {
                             <ul className="space-y-3.5 mb-8">
                                 {[
                                     'Everything in Free',
-                                    'Unlimited habits and notes',
-                                    'Custom Pomodoro sessions',
-                                    'Unlimited AI chat',
+                                    'More habits, notes and voice notes',
+                                    'Custom focus timers and every preset',
+                                    'More Focalyst AI messages every day',
                                     'AI Productivity Score',
+                                    'Weekly Catalyst Report',
+                                    'Up to 3 countdowns',
                                     'App blocker (mobile)',
                                     'All future updates included'
                                 ].map((feature) => (
@@ -229,13 +291,24 @@ export default function PricingSection() {
                                 ))}
                             </ul>
                         </div>
-                        <button
-                            onClick={() => handleCheckout('lifetime', 'lifetime')}
-                            disabled={pendingButton === 'lifetime'}
-                            className="w-full py-3 px-4 border border-snow/60 bg-[#0B1020]/70 hover:bg-[#0B1020] text-snow font-semibold rounded-full text-center block text-sm transition-all shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md disabled:opacity-60 cursor-pointer"
-                        >
-                            {pendingButton === 'lifetime' ? 'Opening checkout' : 'Get Lifetime'}
-                        </button>
+                        <div>
+                            <button
+                                type="button"
+                                onClick={() => handleCheckout('lifetime', 'lifetime')}
+                                disabled={lifetimeButtonDisabled}
+                                className="w-full py-3 px-4 border border-snow/60 bg-[#0B1020]/70 hover:bg-[#0B1020] text-snow font-semibold rounded-full text-center block text-sm transition-all shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
+                            >
+                                {lifetimeButtonLabel}
+                            </button>
+                            {isProCurrent && (
+                                <p
+                                    style={{ color: 'var(--ink-3)' }}
+                                    className="mt-2 text-center text-[13px]"
+                                >
+                                    Your current plan keeps renewing until you cancel it in Manage plan.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                 </div>
@@ -247,7 +320,7 @@ export default function PricingSection() {
 
                 {/* Footer Trust Text */}
                 <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-6 font-medium">
-                    All prices inclusive of GST · Payments secured by Polar · Cancel anytime
+                    Payments secured by Polar · Cancel monthly or yearly plans anytime
                 </p>
             </div>
         </section>

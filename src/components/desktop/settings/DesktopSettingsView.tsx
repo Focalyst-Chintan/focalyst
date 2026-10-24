@@ -23,6 +23,7 @@ import { Modal } from '@/components/desktop/ui/Modal';
 import { useToast } from '@/components/desktop/ui/Toast';
 import { openBillingPortal } from '@/lib/billing/checkout';
 import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
+import { useRestorePurchase } from '@/lib/billing/useRestorePurchase';
 
 type Tab = 'profile' | 'appearance' | 'notifications' | 'pro' | 'account';
 
@@ -54,7 +55,7 @@ export default function DesktopSettingsView() {
   const [fullNameInput, setFullNameInput] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isRestoringPurchase, setIsRestoringPurchase] = useState(false);
+  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
@@ -216,24 +217,13 @@ export default function DesktopSettingsView() {
     }
   };
 
-  const handleRestorePurchase = async () => {
-    setIsRestoringPurchase(true);
-    try {
-      const res = await fetch('/api/billing/sync-me', { method: 'POST' });
-      const data = await res.json().catch(() => null);
-      if (res.ok && data?.plan && data.plan !== 'free') {
-        toast.show('Your Focalyst Pro is active.');
+  const { restore: handleRestorePurchase, isRestoring: isRestoringPurchase } =
+    useRestorePurchase({
+      onSuccess: (newPlan) => {
         emitDataChanged('profile');
-        setUserData((prev) => (prev ? { ...prev, plan: data.plan } : null));
-      } else {
-        toast.show('We could not find a purchase for this account. Email contactfocalyst@gmail.com and we will sort it out.');
-      }
-    } catch {
-      toast.show('We could not find a purchase for this account. Email contactfocalyst@gmail.com and we will sort it out.');
-    } finally {
-      setIsRestoringPurchase(false);
-    }
-  };
+        setUserData((prev) => (prev ? { ...prev, plan: newPlan } : null));
+      },
+    });
 
   if (loading) {
     return (
@@ -556,25 +546,42 @@ export default function DesktopSettingsView() {
                           : 'Pro membership active'}
                       </p>
 
-                      <div className="mt-6 flex flex-wrap gap-3">
-                        <Button
-                          variant="secondary"
-                          onClick={async () => {
-                            if (userData?.billing_provider === 'apple') {
-                              toast.show('Your plan is managed in the App Store', 'info');
-                            } else if (userData?.billing_provider === 'google') {
-                              toast.show('Your plan is managed in Google Play', 'info');
-                            } else {
-                              const res = await openBillingPortal();
-                              if (!res.ok) {
-                                toast.show(res.message || 'Could not open billing portal', 'error');
+                      <div className="mt-6 flex flex-wrap items-center gap-3">
+                        {userData?.billing_provider === 'apple' ? (
+                          <span className="text-sm font-medium text-snow/90">
+                            Managed in the App Store
+                          </span>
+                        ) : userData?.billing_provider === 'google' ? (
+                          <span className="text-sm font-medium text-snow/90">
+                            Managed in Google Play
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isOpeningPortal}
+                            onClick={async () => {
+                              setIsOpeningPortal(true);
+                              try {
+                                const res = await openBillingPortal();
+                                if (!res.ok) {
+                                  toast.show(res.message || 'Could not open billing portal', 'error');
+                                }
+                              } catch {
+                                toast.show('Could not open billing portal', 'error');
+                              } finally {
+                                setIsOpeningPortal(false);
                               }
-                            }
-                          }}
-                          className="bg-snow/15 text-snow border-snow/30 hover:bg-snow/25"
-                        >
-                          Manage plan
-                        </Button>
+                            }}
+                            style={{ color: '#0B2CB1' }}
+                            className="h-10 rounded-xl px-4 text-sm font-semibold bg-snow text-[#0B2CB1] shadow-sm border border-snow/60 hover:bg-snow/90 hover:brightness-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed select-none"
+                          >
+                            {isOpeningPortal
+                              ? 'Opening'
+                              : userData?.plan === 'lifetime'
+                              ? 'Billing and receipts'
+                              : 'Manage plan'}
+                          </button>
+                        )}
                         {(userData?.plan === 'pro_monthly' || userData?.plan === 'pro_yearly') && (
                           <Button
                             variant="secondary"
