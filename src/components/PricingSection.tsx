@@ -1,117 +1,53 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import Script from 'next/script'
-import { Check } from 'lucide-react'
-import { createClient } from '@/lib/supabase'
-import { useCheckout } from '@/hooks/useCheckout'
-
-function getCookie(name: string): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
-    return match ? match[2] : null
-}
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { Check } from 'lucide-react';
+import { createClient } from '@/lib/supabase';
+import { startCheckout, openBillingPortal } from '@/lib/billing/checkout';
+import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
+import { useToast } from '@/components/desktop/ui/Toast';
 
 export default function PricingSection() {
-    const router = useRouter()
-    const [isYearly, setIsYearly] = useState<boolean>(false)
-    const [region, setRegion] = useState<'IN' | 'INT'>('INT')
-    const [isLoading, setIsLoading] = useState<boolean>(false)
-    const { checkout } = useCheckout()
-    const supabase = createClient()
+    const router = useRouter();
+    const [isYearly, setIsYearly] = useState<boolean>(false);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+    const supabase = createClient();
+    const cur = useCurrency();
+    const toast = useToast();
 
-    useEffect(() => {
-        const r = getCookie('user-region')
-        if (r === 'IN' || r === 'INT') {
-            setRegion(r)
-        } else {
-            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-            if (tz === 'Asia/Calcutta' || tz === 'Asia/Kolkata') {
-                setRegion('IN')
-            } else {
-                setRegion('INT')
-            }
-        }
-    }, [])
-
-    const isIndia = region === 'IN'
+    const prices = cur ? PRICES[cur] : null;
 
     const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
-        setIsLoading(true)
+        setIsLoading(true);
         try {
-            const { data: { user } } = await supabase.auth.getUser()
+            const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                router.push('/login?redirect=/app')
-                return
+                router.push('/login?next=/paywall');
+                return;
             }
 
-            const result = await checkout(planType, region, false)
-            if (result?.success) {
-                if (result.customerInfo) {
-                    router.push('/dashboard?payment=success')
-                    return
-                }
-
-                if (result.provider === 'polar' && result.url) {
-                    window.location.href = result.url
-                    return
-                }
-
-                if (result.provider === 'razorpay') {
-                    openRazorpayCheckout(result)
+            const result = await startCheckout(planType);
+            if (!result.ok) {
+                setIsLoading(false);
+                if (result.code === 'already_pro') {
+                    toast.show('You already have Focalyst Pro.', 'info', {
+                        label: 'Manage plan',
+                        onClick: () => { openBillingPortal(); },
+                    });
+                } else {
+                    toast.show(result.message || 'Could not open checkout.', 'error');
                 }
             }
         } catch (error: any) {
-            console.error('Checkout failed:', error)
-            alert(`Payment system error: ${error.message}`)
-            setIsLoading(false)
+            setIsLoading(false);
+            console.error('Checkout failed:', error);
+            toast.show(error.message || 'Payment system error', 'error');
         }
-    }
-
-    const openRazorpayCheckout = (data: {
-        type: string
-        orderId?: string
-        subscriptionId?: string
-        amount?: number
-        keyId: string
-    }) => {
-        if (typeof window === 'undefined' || !(window as any).Razorpay) {
-            console.error('Razorpay SDK not loaded')
-            setIsLoading(false)
-            return
-        }
-
-        const options: Record<string, unknown> = {
-            key: data.keyId,
-            name: 'Focalyst',
-            description: data.type === 'order' ? 'Lifetime Access' : 'Pro Subscription',
-            handler: () => {
-                router.push('/dashboard?payment=success')
-            },
-            modal: {
-                ondismiss: () => {
-                    setIsLoading(false)
-                },
-            },
-            theme: { color: '#ed6c4c' },
-        }
-
-        if (data.type === 'order') {
-            options.order_id = data.orderId
-            options.amount = data.amount
-            options.currency = 'INR'
-        } else {
-            options.subscription_id = data.subscriptionId
-        }
-
-        const rzp = new (window as any).Razorpay(options)
-        rzp.open()
-    }
+    };
 
     return (
         <section id="pricing" className="w-full bg-[#05070F] py-16 md:py-[100px] px-[28px] md:px-8 border-t border-white/5 relative">
-            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
             <div className="max-w-[1100px] mx-auto flex flex-col items-center">
                 {/* Eyebrow */}
                 <span className="inline-flex items-center gap-2 rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF] mb-4">
@@ -133,7 +69,7 @@ export default function PricingSection() {
                     <div className="flex items-center bg-[#0B1020]/90 rounded-full p-1 w-[260px] md:w-[320px] h-10 md:h-[50px] mx-auto relative border border-white/10 backdrop-blur-md">
                         <button
                             onClick={() => setIsYearly(false)}
-                            className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui ${
+                            className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui cursor-pointer ${
                                 !isYearly ? 'bg-snow text-[#05070F] shadow-sm' : 'text-[#A3ADC8] hover:text-snow'
                             }`}
                         >
@@ -141,7 +77,7 @@ export default function PricingSection() {
                         </button>
                         <button
                             onClick={() => setIsYearly(true)}
-                            className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui ${
+                            className={`flex-1 h-full rounded-full transition-all text-xs md:text-sm font-semibold font-ui cursor-pointer ${
                                 isYearly ? 'bg-snow text-[#05070F] shadow-sm' : 'text-[#A3ADC8] hover:text-snow'
                             }`}
                         >
@@ -165,7 +101,7 @@ export default function PricingSection() {
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
                                 <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {isIndia ? '₹0' : '$0'}
+                                    {cur === 'INR' ? '₹0' : '$0'}
                                 </span>
                                 <span className="text-[14px] md:text-[15px] text-[#A3ADC8] font-medium">
                                     forever
@@ -190,7 +126,7 @@ export default function PricingSection() {
                         </div>
                         <button
                             onClick={() => router.push('/login')}
-                            className="w-full py-3 px-4 border border-white/15 bg-white/5 hover:bg-white/10 text-snow font-semibold rounded-full text-center block text-sm transition-all"
+                            className="w-full py-3 px-4 border border-white/15 bg-white/5 hover:bg-white/10 text-snow font-semibold rounded-full text-center block text-sm transition-all cursor-pointer"
                         >
                             Start for Free
                         </button>
@@ -210,10 +146,10 @@ export default function PricingSection() {
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
                                 <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {isIndia ? (
-                                        isYearly ? '₹999' : '₹99'
+                                    {prices ? (
+                                        isYearly ? prices.yearly : prices.monthly
                                     ) : (
-                                        isYearly ? '$39.99' : '$4.99'
+                                        <span className="inline-block w-28 h-10 bg-white/10 rounded animate-pulse" />
                                     )}
                                 </span>
                                 <span className={`text-[14px] md:text-[15px] font-medium ${isYearly ? 'text-[#6FA4FF]' : 'text-[#A3ADC8]'}`}>
@@ -241,9 +177,9 @@ export default function PricingSection() {
                         <button
                             onClick={() => handleCheckout(isYearly ? 'yearly' : 'monthly')}
                             disabled={isLoading}
-                            className="w-full py-3.5 px-4 bg-snow hover:bg-snow/90 text-[#05070F] font-semibold rounded-full text-center block text-sm shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all disabled:opacity-60"
+                            className="w-full py-3.5 px-4 bg-snow hover:bg-snow/90 text-[#05070F] font-semibold rounded-full text-center block text-sm shadow-[0_8px_24px_rgba(0,0,0,0.3)] transition-all disabled:opacity-60 cursor-pointer"
                         >
-                            {isLoading ? 'Processing...' : 'Get Pro Plan'}
+                            {isLoading ? 'Opening checkout' : 'Get Pro Plan'}
                         </button>
                     </div>
 
@@ -255,7 +191,11 @@ export default function PricingSection() {
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
                                 <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {isIndia ? '₹2,999' : '$99.99'}
+                                    {prices ? (
+                                        prices.lifetime
+                                    ) : (
+                                        <span className="inline-block w-28 h-10 bg-white/10 rounded animate-pulse" />
+                                    )}
                                 </span>
                                 <span className="text-[14px] md:text-[15px] text-[#A3ADC8] font-medium">
                                     one-time
@@ -283,19 +223,24 @@ export default function PricingSection() {
                         <button
                             onClick={() => handleCheckout('lifetime')}
                             disabled={isLoading}
-                            className="w-full py-3 px-4 border border-snow/60 bg-[#0B1020]/70 hover:bg-[#0B1020] text-snow font-semibold rounded-full text-center block text-sm transition-all shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md disabled:opacity-60"
+                            className="w-full py-3 px-4 border border-snow/60 bg-[#0B1020]/70 hover:bg-[#0B1020] text-snow font-semibold rounded-full text-center block text-sm transition-all shadow-[0_8px_24px_rgba(0,0,0,0.25)] backdrop-blur-md disabled:opacity-60 cursor-pointer"
                         >
-                            {isLoading ? 'Processing...' : 'Get Lifetime'}
+                            {isLoading ? 'Opening checkout' : 'Get Lifetime'}
                         </button>
                     </div>
 
                 </div>
 
+                {/* Final price notice */}
+                <p className="text-center text-[13px] text-[#A3ADC8] mt-6">
+                    Final price and any taxes are shown at checkout.
+                </p>
+
                 {/* Footer Trust Text */}
-                <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-12 font-medium">
+                <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-6 font-medium">
                     All prices inclusive of GST · Payments secured by Polar · Cancel anytime
                 </p>
             </div>
         </section>
-    )
+    );
 }

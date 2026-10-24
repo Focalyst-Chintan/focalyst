@@ -21,6 +21,8 @@ import { Button } from '@/components/desktop/ui/Button';
 import { Input } from '@/components/desktop/ui/Input';
 import { Modal } from '@/components/desktop/ui/Modal';
 import { useToast } from '@/components/desktop/ui/Toast';
+import { openBillingPortal } from '@/lib/billing/checkout';
+import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
 
 type Tab = 'profile' | 'appearance' | 'notifications' | 'pro' | 'account';
 
@@ -30,6 +32,7 @@ interface UserData {
   full_name: string;
   plan: string;
   plan_expires_at?: string | null;
+  billing_provider?: string | null;
   timezone?: string | null;
   task_reminders_enabled?: boolean;
   habit_reminders_enabled?: boolean;
@@ -44,6 +47,7 @@ export default function DesktopSettingsView() {
 
   const { theme, setTheme } = useTheme();
   const toast = useToast();
+  const cur = useCurrency();
 
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +110,7 @@ export default function DesktopSettingsView() {
         const { data: profile } = await supabase
           .from('users')
           .select(
-            'id, full_name, plan, plan_expires_at, timezone, task_reminders_enabled, habit_reminders_enabled, pomodoro_alerts_enabled'
+            'id, full_name, plan, plan_expires_at, billing_provider, timezone, task_reminders_enabled, habit_reminders_enabled, pomodoro_alerts_enabled'
           )
           .eq('id', session.user.id)
           .maybeSingle();
@@ -117,6 +121,7 @@ export default function DesktopSettingsView() {
           full_name: profile?.full_name || '',
           plan: profile?.plan || 'free',
           plan_expires_at: profile?.plan_expires_at,
+          billing_provider: profile?.billing_provider,
           timezone:
             profile?.timezone ||
             Intl.DateTimeFormat().resolvedOptions().timeZone ||
@@ -531,15 +536,40 @@ export default function DesktopSettingsView() {
                           : 'Pro membership active'}
                       </p>
 
-                      <div className="mt-6">
+                      <div className="mt-6 flex flex-wrap gap-3">
                         <Button
                           variant="secondary"
-                          onClick={() => router.push('/paywall')}
+                          onClick={async () => {
+                            if (userData?.billing_provider === 'apple') {
+                              toast.show('Your plan is managed in the App Store', 'info');
+                            } else if (userData?.billing_provider === 'google') {
+                              toast.show('Your plan is managed in Google Play', 'info');
+                            } else {
+                              const res = await openBillingPortal();
+                              if (!res.ok) {
+                                toast.show(res.message || 'Could not open billing portal', 'error');
+                              }
+                            }
+                          }}
                           className="bg-snow/15 text-snow border-snow/30 hover:bg-snow/25"
                         >
-                          Manage subscription
+                          Manage plan
                         </Button>
+                        {(userData?.plan === 'pro_monthly' || userData?.plan === 'pro_yearly') && (
+                          <Button
+                            variant="secondary"
+                            onClick={() => router.push('/paywall')}
+                            className="bg-snow text-[#0B2CB1] hover:bg-snow/90 font-semibold"
+                          >
+                            Upgrade to Lifetime
+                          </Button>
+                        )}
                       </div>
+                      {(userData?.plan === 'pro_monthly' || userData?.plan === 'pro_yearly') && (
+                        <p style={{ color: 'var(--ink-3)', fontSize: '13px' }} className="mt-2 text-snow/75">
+                          Your current plan keeps renewing until you cancel it in Manage plan.
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <div>
@@ -564,7 +594,11 @@ export default function DesktopSettingsView() {
                       </div>
 
                       <div className="mt-4 text-[13px] text-snow/75">
-                        From $4.99 a month · ₹99 in India
+                        {cur ? (
+                          `From ${PRICES[cur].monthly} a month · ${PRICES[cur].lifetime} Lifetime`
+                        ) : (
+                          <span className="inline-block w-32 h-4 bg-snow/20 rounded animate-pulse" />
+                        )}
                       </div>
 
                       <div className="mt-6">
@@ -575,6 +609,9 @@ export default function DesktopSettingsView() {
                         >
                           Upgrade to Pro
                         </Button>
+                        <p className="mt-2 text-[12px] text-snow/60">
+                          Final price and any taxes are shown at checkout.
+                        </p>
                       </div>
                     </div>
                   )}

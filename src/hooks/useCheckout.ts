@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { createClient } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
+import { startCheckout } from '@/lib/billing/checkout';
 
 export type CheckoutPlan = 'monthly' | 'yearly' | 'lifetime';
 export type BillingRegion = 'IN' | 'INT';
@@ -149,24 +150,17 @@ export function useCheckout() {
 
   const checkout = async (
     planType: CheckoutPlan,
-    region: BillingRegion,
+    region?: BillingRegion,
     isOnboarding: boolean = false
   ) => {
     if (isNative) {
       return await handleNativePurchase(planType);
     } else {
-      // Browser: fetch existing checkout endpoint
-      const res = await fetch('/api/checkout/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planType, region, isOnboarding }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Server error creating checkout session');
+      const result = await startCheckout(planType);
+      if (!result.ok) {
+        throw new Error(result.message || 'Failed to start checkout');
       }
-      return { success: true, ...data };
+      return { success: true, result };
     }
   };
 

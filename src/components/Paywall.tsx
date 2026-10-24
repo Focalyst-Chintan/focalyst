@@ -2,46 +2,20 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Script from 'next/script'
 import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/context/AuthContext'
 import { useCheckout } from '@/hooks/useCheckout'
+import { startCheckout, openBillingPortal, isNativeApp } from '@/lib/billing/checkout'
+import { useCurrency, PRICES } from '@/lib/billing/useCurrency'
+import { useToast, GlobalToastContainer } from '@/components/desktop/ui/Toast'
 
 type BillingCycle = 'monthly' | 'yearly'
-type Region = 'IN' | 'INT'
 
 interface PaywallProps {
     /** When true, the "PROCEED WITH BASIC" button navigates to the onboarding next step */
     isOnboarding?: boolean
     /** Custom route for the "PROCEED WITH BASIC" / free tier action */
     onSkipRoute?: string
-}
-
-const PRICING = {
-    IN: {
-        symbol: 'INR',
-        monthly: 99,
-        yearly: 999,
-        lifetime: 2999,
-        monthlyLabel: '99',
-        yearlyLabel: '999',
-        yearlyMonthlyEquiv: '83',
-        lifetimeLabel: '2,999',
-    },
-    INT: {
-        symbol: '$',
-        monthly: 4.99,
-        yearly: 39.99,
-        lifetime: 99.00,
-        monthlyLabel: '4.99',
-        yearlyLabel: '39.99',
-        yearlyMonthlyEquiv: '3.33',
-        lifetimeLabel: '99.00',
-        ids: {
-            monthly: 'b3930493-c480-48b4-a9ba-429253d84deb',
-            yearly: '2a6f2130-f866-4b84-968e-3a097b20607c',
-            lifetime: '5c2d430b-908b-4b15-a2d6-01b655d73cfb',
-        }
-    },
 }
 
 const PRO_FEATURES = [
@@ -60,25 +34,16 @@ const LIFETIME_FEATURES = [
     'Priority Support Channel',
 ]
 
-function getCookie(name: string): string | null {
-    if (typeof document === 'undefined') return null
-    const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`))
-    return match ? match[2] : null
-}
-
 export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallProps) {
     const router = useRouter()
+    const { plan: userPlan } = useAuth()
     const [billing, setBilling] = useState<BillingCycle>('yearly')
-    const [region, setRegion] = useState<Region>('INT')
     const [isLoading, setIsLoading] = useState(false)
     const [isRestoring, setIsRestoring] = useState(false)
     const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly')
     const { checkout, restore } = useCheckout()
-
-    useEffect(() => {
-        const r = getCookie('user-region')
-        if (r === 'IN' || r === 'INT') setRegion(r)
-    }, [])
+    const cur = useCurrency()
+    const toast = useToast()
 
     // Update selected plan when billing toggle changes
     useEffect(() => {
@@ -87,15 +52,16 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
         }
     }, [billing, selectedPlan])
 
-    const price = PRICING[region]
+    // Price definitions
+    const prices = cur ? PRICES[cur] : null
+    const monthlyEquiv = cur === 'INR' ? '₹83' : '$3.33'
 
     // Determine the redirect after successful payment or skip
-    const successRedirect = isOnboarding ? '/onboarding/name' : '/dashboard?payment=success'
+    const successRedirect = isOnboarding ? '/onboarding/name' : '/billing/success'
     const skipRoute = onSkipRoute || (isOnboarding ? '/onboarding/name' : undefined)
 
     const handleSkipOrBack = async () => {
         if (isOnboarding && skipRoute) {
-            // In onboarding, set user to free plan and proceed
             try {
                 const supabase = createClient()
                 const { data: { user } } = await supabase.auth.getUser()
@@ -115,32 +81,41 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
     }
 
     const handleCheckout = async (planType: 'monthly' | 'yearly' | 'lifetime') => {
-        setIsLoading(true)
-
-        try {
-            const result = await checkout(planType, region, isOnboarding)
-            if (result.success) {
-                // If native purchase
-                if (result.customerInfo) {
+        if (isNativeApp()) {
+            setIsLoading(true)
+            try {
+                const result = await checkout(planType)
+                if ((result as any)?.customerInfo) {
                     router.push(successRedirect)
                     return
                 }
+            } catch (error: any) {
+                console.error('Native checkout failed:', error)
+                toast.show(error.message || 'Payment system error', 'error')
+            } finally {
+                setIsLoading(false)
+            }
+            return
+        }
 
-                // If web: Polar
-                if (result.provider === 'polar' && result.url) {
-                    window.location.href = result.url
-                    return
-                }
-
-                // If web: Razorpay
-                if (result.provider === 'razorpay') {
-                    openRazorpayCheckout(result)
+        setIsLoading(true)
+        try {
+            const result = await startCheckout(planType)
+            if (!result.ok) {
+                setIsLoading(false)
+                if (result.code === 'already_pro') {
+                    toast.show('You already have Focalyst Pro.', 'info', {
+                        label: 'Manage plan',
+                        onClick: () => { openBillingPortal() },
+                    })
+                } else {
+                    toast.show(result.message || 'Could not open checkout.', 'error')
                 }
             }
         } catch (error: any) {
-            console.error('Checkout failed:', error)
-            alert(`Payment system error: ${error.message}`)
             setIsLoading(false)
+            console.error('Checkout failed:', error)
+            toast.show(error.message || 'Payment system error', 'error')
         }
     }
 
@@ -151,59 +126,19 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
             if (result.success) {
                 router.push(successRedirect)
             } else {
-                alert((result as any).message || 'No active purchase found.')
+                toast.show((result as any).message || 'No active purchase found.', 'info')
             }
         } catch (error: any) {
             console.error('Restore failed:', error)
-            alert(error.message || 'Failed to restore subscription.')
+            toast.show(error.message || 'Failed to restore subscription.', 'error')
         } finally {
             setIsRestoring(false)
         }
     }
 
-    const openRazorpayCheckout = (data: {
-        type: string
-        orderId?: string
-        subscriptionId?: string
-        amount?: number
-        keyId: string
-    }) => {
-        if (typeof window === 'undefined' || !(window as any).Razorpay) {
-            console.error('Razorpay SDK not loaded')
-            setIsLoading(false)
-            return
-        }
-
-        const options: Record<string, unknown> = {
-            key: data.keyId,
-            name: 'Focalyst',
-            description: data.type === 'order' ? 'Lifetime Access' : 'Pro Subscription',
-            handler: () => {
-                router.push(successRedirect)
-            },
-            modal: {
-                ondismiss: () => {
-                    setIsLoading(false)
-                },
-            },
-            theme: { color: '#1D70F5' },
-        }
-
-        if (data.type === 'order') {
-            options.order_id = data.orderId
-            options.amount = data.amount
-            options.currency = 'INR'
-        } else {
-            options.subscription_id = data.subscriptionId
-        }
-
-        const rzp = new (window as any).Razorpay(options)
-        rzp.open()
-    }
-
     return (
         <main className="min-h-screen bg-white relative pb-[220px]">
-            <Script src="https://checkout.razorpay.com/v1/checkout.js" strategy="lazyOnload" />
+            <GlobalToastContainer />
             <div className="max-w-[420px] mx-auto px-5 pt-5">
                 {/* ─── Top Bar ──────────────────────────────── */}
                 <div className="flex items-center justify-between mb-8">
@@ -284,7 +219,11 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <div className="mb-5">
                         <div className="flex items-baseline gap-1.5">
                             <span className="text-[32px] font-extrabold text-[#0f172a]">
-                                {price.symbol} {billing === 'yearly' ? price.yearlyMonthlyEquiv : price.monthlyLabel}
+                                {prices ? (
+                                    billing === 'yearly' ? monthlyEquiv : prices.monthly
+                                ) : (
+                                    <span className="inline-block w-24 h-8 bg-blue-100 rounded animate-pulse" />
+                                )}
                             </span>
                             <span className="text-[15px] text-gray-400 font-medium">
                                 / month
@@ -292,7 +231,11 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                         </div>
                         {billing === 'yearly' && (
                             <p className="text-[13px] text-gray-400 mt-1">
-                                Billed annually at {price.symbol} {price.yearlyLabel}
+                                {prices ? (
+                                    `Billed annually at ${prices.yearly}`
+                                ) : (
+                                    <span className="inline-block w-36 h-4 bg-blue-100 rounded animate-pulse" />
+                                )}
                             </p>
                         )}
                     </div>
@@ -328,7 +271,11 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
 
                     <div className="flex items-baseline gap-1.5 mb-5">
                         <span className="text-[32px] font-extrabold text-[#0f172a]">
-                            {price.symbol} {price.lifetimeLabel}
+                            {prices ? (
+                                prices.lifetime
+                            ) : (
+                                <span className="inline-block w-24 h-8 bg-blue-100 rounded animate-pulse" />
+                            )}
                         </span>
                     </div>
 
@@ -344,10 +291,21 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                             </li>
                         ))}
                     </ul>
+
+                    {(userPlan === 'pro_monthly' || userPlan === 'pro_yearly') && (
+                        <p style={{ color: 'var(--ink-3, #64748b)', fontSize: '13px' }} className="mt-3">
+                            Your current plan keeps renewing until you cancel it in Manage plan.
+                        </p>
+                    )}
                 </div>
 
+                {/* ─── Plan Buttons Note ────────────────────── */}
+                <p className="text-center text-[12px] text-gray-500 mb-4">
+                    Final price and any taxes are shown at checkout.
+                </p>
+
                 {/* ─── Restore Purchase ───────────────────── */}
-                <div className="text-center mt-6">
+                <div className="text-center mt-4">
                     <button
                         onClick={restoreSubscription}
                         disabled={isRestoring}
@@ -366,7 +324,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                         {selectedPlan === 'lifetime' ? (
                             <>
                                 <p className="text-white text-[15px] font-semibold">
-                                    One-time payment of {price.symbol} {price.lifetimeLabel}
+                                    {prices ? `One-time payment of ${prices.lifetime}` : 'One-time payment'}
                                 </p>
                                 <p className="text-gray-400 text-[12px] mt-1">
                                     Lifetime access. No recurring charges.
@@ -375,7 +333,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                         ) : (
                             <>
                                 <p className="text-white text-[15px] font-semibold">
-                                    7 days free trial, then {price.symbol} {price.monthlyLabel}/month
+                                    {prices ? `7 days free trial, then ${prices.monthly}/month` : '7 days free trial'}
                                 </p>
                                 <p className="text-gray-400 text-[12px] mt-1">
                                     No payments today! Cancel anytime.
@@ -388,13 +346,12 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <button
                         onClick={() => handleCheckout(selectedPlan)}
                         disabled={isLoading}
-                        className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60"
+                        className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60 cursor-pointer"
                     >
                         {isLoading ? (
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            <span>Opening checkout</span>
                         ) : (
                             <>
-                                {/* Sparkle icon */}
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
                                     <path d="M12 2L14.09 8.26L20 9.27L15.55 13.97L16.91 20L12 16.9L7.09 20L8.45 13.97L4 9.27L9.91 8.26L12 2Z" fill="currentColor" />
                                 </svg>
@@ -407,7 +364,8 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <div className="flex items-center justify-between mt-4 px-1">
                         <button
                             onClick={() => handleCheckout('yearly')}
-                            className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors"
+                            disabled={isLoading}
+                            className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors disabled:opacity-50"
                         >
                             PROCEED WITH ANNUAL
                         </button>

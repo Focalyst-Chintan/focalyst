@@ -24,6 +24,8 @@ import {
 import { User } from '@/types';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import DesktopSettingsView from '@/components/desktop/settings/DesktopSettingsView';
+import { openBillingPortal } from '@/lib/billing/checkout';
+import { useToast, GlobalToastContainer } from '@/components/desktop/ui/Toast';
 
 export default function AccountPage() {
     const isDesktop = useIsDesktop();
@@ -31,6 +33,7 @@ export default function AccountPage() {
     const supabase = createClient()
     const { user: authUser, isLoading: authLoading } = useAuth()
     const { t, i18n } = useTranslation()
+    const toast = useToast()
     const [user, setUser] = useState<User | null>(null)
     const [loading, setLoading] = useState(true)
     const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -68,7 +71,7 @@ export default function AccountPage() {
             try {
                 const { data: profile, error } = await supabase
                     .from('users')
-                    .select('id, email, full_name, avatar_url, profile_type, plan, plan_expires_at, onboarding_done, created_at')
+                    .select('id, email, full_name, avatar_url, profile_type, plan, plan_expires_at, billing_provider, onboarding_done, created_at')
                     .eq('id', currentUserId)
                     .single()
 
@@ -313,10 +316,25 @@ export default function AccountPage() {
                         </p>
 
                         <button
-                            onClick={() => router.push('/paywall')}
-                            className="w-full bg-white text-navy text-[15px] font-semibold h-11 rounded-xl mt-5 hover:bg-white/90 transition-colors"
+                            onClick={async () => {
+                                if (!user?.plan || user.plan === 'free') {
+                                    router.push('/paywall');
+                                    return;
+                                }
+                                if ((user as any).billing_provider === 'apple') {
+                                    toast.show('Your plan is managed in the App Store', 'info');
+                                } else if ((user as any).billing_provider === 'google') {
+                                    toast.show('Your plan is managed in Google Play', 'info');
+                                } else {
+                                    const res = await openBillingPortal();
+                                    if (!res.ok) {
+                                        toast.show(res.message || 'Could not open billing portal', 'error');
+                                    }
+                                }
+                            }}
+                            className="w-full bg-white text-navy text-[15px] font-semibold h-11 rounded-xl mt-5 hover:bg-white/90 transition-colors cursor-pointer"
                         >
-                            {t('settings.manage')}
+                            {!user?.plan || user.plan === 'free' ? t('settings.upgrade', 'Upgrade to Pro') : t('settings.manage', 'Manage plan')}
                         </button>
                     </div>
                     {/* Background Decorative Icon */}
@@ -480,6 +498,7 @@ export default function AccountPage() {
                     </div>
                 </div>
             )}
+            <GlobalToastContainer />
         </main>
     )
 }
