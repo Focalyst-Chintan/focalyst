@@ -13,6 +13,7 @@ import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { DesktopShell } from '@/components/desktop/DesktopShell'
 import { DesktopShellProvider } from '@/components/desktop/DesktopShellContext'
 import { CreateProvider } from '@/components/desktop/create/CreateProvider'
+import CheckoutIntentRunner from '@/components/billing/CheckoutIntentRunner'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -63,6 +64,7 @@ export default function AppLayout({
                 <ChatProvider>
                     <DesktopShellProvider>
                         <CreateProvider>
+                            <CheckoutIntentRunner />
                             {/* Desktop Layout (>= 1024px) */}
                             <div className="hidden lg:contents">
                                 <DesktopShell>

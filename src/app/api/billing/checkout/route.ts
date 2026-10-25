@@ -8,7 +8,10 @@ import { PLAN_KEYS, productIdFor, PLAN_VALUE, FREE_VALUE } from '@/lib/billing/p
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const Body = z.object({ plan: z.enum(PLAN_KEYS) });
+const Body = z.object({
+  plan: z.enum(PLAN_KEYS),
+  returnPath: z.enum(['/paywall', '/pricing', '/onboarding/plans']).optional().default('/paywall'),
+});
 const FRIENDLY = 'Could not open checkout. Please try again, or email contactfocalyst@gmail.com.';
 
 export async function POST(req: NextRequest) {
@@ -19,7 +22,12 @@ export async function POST(req: NextRequest) {
   const { user, supabase } = auth;
 
   let plan: (typeof PLAN_KEYS)[number];
-  try { plan = Body.parse(await req.json()).plan; }
+  let returnPath: '/paywall' | '/pricing' | '/onboarding/plans';
+  try {
+    const parsed = Body.parse(await req.json());
+    plan = parsed.plan;
+    returnPath = parsed.returnPath;
+  }
   catch { return NextResponse.json({ error: 'Invalid request.' }, { status: 400 }); }
 
   // Do not sell a second plan to someone who already has Pro.
@@ -44,7 +52,7 @@ export async function POST(req: NextRequest) {
     products: [productIdFor(plan)],
     customer_ip_address: visitorIp,
     success_url: `${origin}/billing/success?checkout_id={CHECKOUT_ID}`,
-    return_url: `${origin}/paywall`,
+    return_url: `${origin}${returnPath}`,
     customer_email: user.email ?? undefined,
     metadata: { user_id: user.id, plan, source: 'web' },
     allow_discount_codes: true,

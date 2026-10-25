@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { FaqItem } from '@/data/faqData';
 
@@ -28,6 +29,38 @@ export function highlightText(text: string, query?: string) {
       )}
     </>
   );
+}
+
+function renderAnswer(text: string, query?: string) {
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  if (!linkRegex.test(text)) {
+    return <p>{highlightText(text, query)}</p>;
+  }
+
+  const elements: React.ReactNode[] = [];
+  let lastIndex = 0;
+  linkRegex.lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = linkRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      elements.push(highlightText(text.slice(lastIndex, match.index), query));
+    }
+    const label = match[1];
+    const href = match[2];
+    elements.push(
+      <Link key={match.index} href={href} className="text-primary-text underline hover:text-primary">
+        {highlightText(label, query)}
+      </Link>
+    );
+    lastIndex = match.index + match[0].length;
+  }
+
+  if (lastIndex < text.length) {
+    elements.push(highlightText(text.slice(lastIndex), query));
+  }
+
+  return <p>{elements}</p>;
 }
 
 export default function FaqAccordion({
@@ -60,7 +93,11 @@ export default function FaqAccordion({
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matches = items
-        .filter((it) => it.question.toLowerCase().includes(q) || it.answer.toLowerCase().includes(q))
+        .filter(
+          (it) =>
+            it.question.toLowerCase().includes(q) ||
+            (typeof it.answer === 'string' && it.answer.toLowerCase().includes(q))
+        )
         .map((it) => it.id);
       setOpenIds(new Set(matches));
     }
@@ -106,7 +143,7 @@ export default function FaqAccordion({
 
             {isOpen && (
               <div className="text-[15px] leading-7 text-[var(--ink-2)] px-5 pb-5 pt-1 border-t border-line/60">
-                <p>{highlightText(item.answer, searchQuery)}</p>
+                {renderAnswer(item.answer, searchQuery)}
               </div>
             )}
           </div>

@@ -11,6 +11,7 @@ import { GlobalToastContainer } from '@/components/desktop/ui/Toast';
 
 const NAV_LINKS = [
   { href: '/app', label: 'Features' },
+  { href: '/pricing', label: 'Pricing' },
   { href: '/blog', label: 'Blog' },
   { href: '/mcp-preview', label: 'MCP' },
   { href: '/about', label: 'About' },
@@ -179,6 +180,7 @@ export default function PublicLayout({
               <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">Product</div>
               <ul className="mt-3 space-y-2.5 text-[14px] text-ink-2">
                 <li><Link href="/app" className="hover:text-ink">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-ink">Pricing</Link></li>
                 <li><Link href="/mcp-preview" className="hover:text-ink">MCP</Link></li>
                 <li><Link href="/blog" className="hover:text-ink">Blog</Link></li>
               </ul>

@@ -27,11 +27,23 @@ async function post(path: string, body?: unknown): Promise<{ res: Response; data
   }
 }
 
-export async function startCheckout(plan: PlanKey): Promise<CheckoutResult> {
+export type ReturnPath = '/paywall' | '/pricing' | '/onboarding/plans';
+
+export async function startCheckout(
+  plan: PlanKey,
+  options?: { returnPath?: ReturnPath }
+): Promise<CheckoutResult> {
   if (isNativeApp()) return { ok: false, code: 'native' };
-  const r = await post('/api/billing/checkout', { plan });
+  const r = await post('/api/billing/checkout', {
+    plan,
+    returnPath: options?.returnPath,
+  });
   if (!r) return { ok: false, code: 'network', message: 'Could not reach Focalyst. Check your connection and try again.' };
-  if (r.res.status === 401) { window.location.assign(`/login?next=${encodeURIComponent('/paywall')}`); return { ok: false, code: 'auth' }; }
+  if (r.res.status === 401) {
+    const nextPath = options?.returnPath ?? '/paywall';
+    window.location.assign(`/login?next=${encodeURIComponent(nextPath)}`);
+    return { ok: false, code: 'auth' };
+  }
   if (r.res.status === 409) return { ok: false, code: 'already_pro', message: 'You already have Focalyst Pro.' };
   if (!r.res.ok || !r.data?.url) {
     console.error('[billing] checkout failed', r.res.status, r.data?.code);

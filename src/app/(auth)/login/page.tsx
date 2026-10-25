@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 import AppleIcon from '@/components/icons/AppleIcon';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
+import { saveCheckoutIntent, peekCheckoutIntent, IntentPlan } from '@/lib/billing/checkoutIntent';
 
 function LoginContent() {
   const router = useRouter();
@@ -23,6 +24,17 @@ function LoginContent() {
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [hasPlanIntent, setHasPlanIntent] = useState(false);
+
+  useEffect(() => {
+    const planParam = searchParams.get('plan') as IntentPlan | null;
+    if (planParam && ['monthly', 'yearly', 'lifetime'].includes(planParam)) {
+      saveCheckoutIntent(planParam);
+      setHasPlanIntent(true);
+    } else if (peekCheckoutIntent()) {
+      setHasPlanIntent(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const qMode = searchParams.get('mode');
@@ -196,6 +208,15 @@ function LoginContent() {
             </h1>
             <p className="text-blue-muted text-sm mt-1">Own your time.</p>
           </div>
+
+          {/* Checkout Intent Banner (Mobile) */}
+          {hasPlanIntent && (
+            <div className="w-full rounded-xl text-sm px-4 py-3 bg-[var(--primary-soft)] text-[var(--primary-text)] font-medium text-center">
+              {mode === 'signup'
+                ? 'Create your account to continue to Focalyst Pro. You will go to secure checkout next.'
+                : 'Sign in to continue to Focalyst Pro. You will go to secure checkout next.'}
+            </div>
+          )}
 
           {/* Google Login Button */}
           <button
@@ -384,6 +405,15 @@ function LoginContent() {
           {/* RIGHT PANEL */}
           <div className="p-12 sm:p-14 flex flex-col justify-center bg-surface/40">
             <div className="max-w-[380px] w-full mx-auto">
+              {/* Checkout Intent Banner (Desktop) */}
+              {hasPlanIntent && (
+                <div className="mb-6 rounded-xl text-sm px-4 py-3 bg-[var(--primary-soft)] text-[var(--primary-text)] font-medium text-center">
+                  {mode === 'signup'
+                    ? 'Create your account to continue to Focalyst Pro. You will go to secure checkout next.'
+                    : 'Sign in to continue to Focalyst Pro. You will go to secure checkout next.'}
+                </div>
+              )}
+
               {/* Form Title & Subtitle */}
               <h1 className="font-ui text-[26px]/[32px] font-semibold text-ink">
                 {mode === 'login' ? 'Welcome back' : 'Create your account'}

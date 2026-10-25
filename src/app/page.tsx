@@ -67,6 +67,9 @@ export default function LandingPage() {
             <Link href="/app" className="transition-colors hover:text-snow">
               Features
             </Link>
+            <Link href="/pricing" className="transition-colors hover:text-snow">
+              Pricing
+            </Link>
             <Link href="/blog" className="transition-colors hover:text-snow">
               Blog
             </Link>
@@ -124,6 +127,13 @@ export default function LandingPage() {
                 className="hover:text-snow"
               >
                 Features
+              </Link>
+              <Link
+                href="/pricing"
+                onClick={() => setMobileMenuOpen(false)}
+                className="hover:text-snow"
+              >
+                Pricing
               </Link>
               <Link
                 href="/blog"
@@ -280,6 +290,7 @@ export default function LandingPage() {
               <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/60">Product</div>
               <ul className="mt-3 space-y-2.5 text-[14px] text-snow/80">
                 <li><Link href="/app" className="hover:text-snow">Features</Link></li>
+                <li><Link href="/pricing" className="hover:text-snow">Pricing</Link></li>
                 <li><Link href="/mcp-preview" className="hover:text-snow">MCP</Link></li>
                 <li><Link href="/blog" className="hover:text-snow">Blog</Link></li>
               </ul>

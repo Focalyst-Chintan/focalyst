@@ -55,8 +55,22 @@ export default function DesktopSettingsView() {
   const [fullNameInput, setFullNameInput] = useState('');
   const [reduceMotion, setReduceMotion] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [isOpeningPortal, setIsOpeningPortal] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [, startTransition] = useTransition();
+
+  const handleManage = async () => {
+    setOpening(true);
+    try {
+      const res = await openBillingPortal();
+      if (!res.ok) {
+        toast.show(res.message || 'Could not open billing portal', 'error');
+      }
+    } catch {
+      toast.show('Could not open billing portal', 'error');
+    } finally {
+      setOpening(false);
+    }
+  };
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') as Tab;
@@ -234,6 +248,8 @@ export default function DesktopSettingsView() {
   }
 
   const isPro = userData?.plan && userData.plan !== 'free';
+  const plan = userData?.plan;
+  const label = plan === 'lifetime' ? 'Billing and receipts' : 'Manage plan';
   const proPlanName =
     userData?.plan === 'lifetime'
       ? 'Lifetime'
@@ -548,38 +564,22 @@ export default function DesktopSettingsView() {
 
                       <div className="mt-6 flex flex-wrap items-center gap-3">
                         {userData?.billing_provider === 'apple' ? (
-                          <span className="text-sm font-medium text-snow/90">
+                          <span className="text-sm font-medium text-snow/80">
                             Managed in the App Store
                           </span>
                         ) : userData?.billing_provider === 'google' ? (
-                          <span className="text-sm font-medium text-snow/90">
+                          <span className="text-sm font-medium text-snow/80">
                             Managed in Google Play
                           </span>
                         ) : (
                           <button
                             type="button"
-                            disabled={isOpeningPortal}
-                            onClick={async () => {
-                              setIsOpeningPortal(true);
-                              try {
-                                const res = await openBillingPortal();
-                                if (!res.ok) {
-                                  toast.show(res.message || 'Could not open billing portal', 'error');
-                                }
-                              } catch {
-                                toast.show('Could not open billing portal', 'error');
-                              } finally {
-                                setIsOpeningPortal(false);
-                              }
-                            }}
-                            style={{ color: '#0B2CB1' }}
-                            className="h-10 rounded-xl px-4 text-sm font-semibold bg-snow text-[#0B2CB1] shadow-sm border border-snow/60 hover:bg-snow/90 hover:brightness-95 transition-all cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed select-none"
+                            onClick={handleManage}
+                            disabled={opening}
+                            className="inline-flex h-10 items-center justify-center rounded-xl px-4 text-sm font-medium shadow-sm transition hover:brightness-95 disabled:opacity-70"
+                            style={{ backgroundColor: '#FFFFFF', color: '#0B2CB1' }}
                           >
-                            {isOpeningPortal
-                              ? 'Opening'
-                              : userData?.plan === 'lifetime'
-                              ? 'Billing and receipts'
-                              : 'Manage plan'}
+                            {opening ? 'Opening' : label}
                           </button>
                         )}
                         {(userData?.plan === 'pro_monthly' || userData?.plan === 'pro_yearly') && (

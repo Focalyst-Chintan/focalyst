@@ -10,6 +10,7 @@ import { Check, Loader2 } from 'lucide-react';
 function SuccessContent() {
   const [status, setStatus] = useState<'checking' | 'done' | 'slow'>('checking');
   const [elapsed, setElapsed] = useState(0);
+  const [onboardingDone, setOnboardingDone] = useState(true);
   const supabase = createClient();
 
   function isPro(data: { plan?: string | null; plan_expires_at?: string | null }) {
@@ -29,8 +30,19 @@ function SuccessContent() {
       if (stopped) return;
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data } = await supabase.from('users').select('plan, plan_expires_at').eq('id', user.id).maybeSingle();
-      if (data && isPro(data)) { setStatus('done'); emitDataChanged('profile'); return; }
+      const { data } = await supabase
+        .from('users')
+        .select('plan, plan_expires_at, onboarding_done')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (data?.onboarding_done !== undefined) {
+        setOnboardingDone(Boolean(data.onboarding_done));
+      }
+      if (data && isPro(data)) {
+        setStatus('done');
+        emitDataChanged('profile');
+        return;
+      }
       if (Date.now() - started > 40000) { setStatus('slow'); return; }
       setTimeout(tick, 2000);
     };
@@ -38,9 +50,20 @@ function SuccessContent() {
     // First call POST /api/billing/sync-me once, then start the existing polling
     fetch('/api/billing/sync-me', { method: 'POST' })
       .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+      .then(async (data) => {
         if (stopped) return;
         if (data?.plan && data.plan !== 'free') {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            const { data: u } = await supabase
+              .from('users')
+              .select('onboarding_done')
+              .eq('id', user.id)
+              .maybeSingle();
+            if (u?.onboarding_done !== undefined) {
+              setOnboardingDone(Boolean(u.onboarding_done));
+            }
+          }
           setStatus('done');
           emitDataChanged('profile');
           return;
@@ -102,10 +125,10 @@ function SuccessContent() {
               Your Pro membership is now active. All limits unlocked.
             </p>
             <Link
-              href="/today"
+              href={!onboardingDone ? '/onboarding/name' : '/today'}
               className="mt-8 inline-flex h-12 px-8 items-center justify-center rounded-[14px] bg-primary hover:bg-primary-hover text-snow font-medium text-[15px] transition-all shadow-[var(--shadow-1)] cursor-pointer active:scale-[0.98]"
             >
-              Start using Pro
+              {!onboardingDone ? 'Finish setting up' : 'Start using Pro'}
             </Link>
           </div>
         )}

@@ -8,8 +8,10 @@ import { startCheckout, openBillingPortal } from '@/lib/billing/checkout';
 import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
 import { useToast } from '@/components/desktop/ui/Toast';
 
+import { saveCheckoutIntent } from '@/lib/billing/checkoutIntent';
+
 export interface PricingSectionProps {
-    mode?: 'landing' | 'paywall' | 'onboarding';
+    mode?: 'landing' | 'paywall' | 'onboarding' | 'pricing';
     onFree?: () => void;
     currentPlan?: string | null;
 }
@@ -43,11 +45,19 @@ export default function PricingSection({
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
+                if (mode === 'landing' || mode === 'pricing') {
+                    saveCheckoutIntent(planType);
+                    router.push(`/login?mode=signup&plan=${planType}`);
+                    return;
+                }
                 router.push('/login?next=/paywall');
                 return;
             }
 
-            const result = await startCheckout(planType);
+            const result = await startCheckout(
+                planType,
+                mode === 'pricing' ? { returnPath: '/pricing' } : undefined
+            );
             if (!result.ok) {
                 setPendingButton(null);
                 if (result.code === 'already_pro') {
@@ -77,7 +87,7 @@ export default function PricingSection({
             : 'Start for Free';
 
     const handleFreeClick = () => {
-        if (mode === 'landing') {
+        if (mode === 'landing' || mode === 'pricing') {
             router.push('/login');
         } else if (onFree) {
             onFree();
@@ -102,6 +112,8 @@ export default function PricingSection({
 
     const sectionClasses = isLanding
         ? 'w-full bg-[#05070F] py-16 md:py-[100px] px-[28px] md:px-8 border-t border-white/5 relative'
+        : mode === 'pricing'
+        ? 'w-full py-8 md:py-12 px-4 md:px-8 relative'
         : 'w-full relative';
 
     return (
