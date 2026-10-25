@@ -114,33 +114,75 @@ export function useCheckout() {
         throw new Error('User must be logged in to restore purchases.');
       }
 
-      await Purchases.logIn({ appUserID: user.id });
-      const { customerInfo } = await Purchases.restorePurchases();
-      const activeEntitlements = Object.values(customerInfo.entitlements.active);
-      const hasActiveEntitlement = activeEntitlements.length > 0;
+      let storeActive = false;
+      let planName = 'pro_yearly';
 
-      if (hasActiveEntitlement) {
-        // Determine the plan based on entitlement identifier or default to pro_yearly
-        const activeEntId = activeEntitlements[0].identifier;
-        let planName = 'pro_yearly';
-        if (activeEntId.includes('lifetime')) planName = 'lifetime';
-        else if (activeEntId.includes('monthly')) planName = 'pro_monthly';
+      try {
+        const { customerInfo } = await Purchases.restorePurchases();
+        const activeEntitlements = Object.values(customerInfo.entitlements.active);
+        if (activeEntitlements.length > 0) {
+          storeActive = true;
+          const activeEntId = activeEntitlements[0].identifier;
+          if (activeEntId.includes('lifetime')) planName = 'lifetime';
+          else if (activeEntId.includes('monthly')) planName = 'pro_monthly';
 
-        const { error } = await supabase
-          .from('users')
-          .update({
-            plan: planName,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id);
-
-        if (error) {
-          console.error('Failed to update database after restore:', error);
+          await supabase
+            .from('users')
+            .update({
+              plan: planName,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', user.id);
         }
+      } catch (storeError) {
+        console.warn('RevenueCat restore failed, checking server sync:', storeError);
+      }
 
-        return { success: true, plan: planName };
+      // If store finds nothing, call our server
+      if (!storeActive) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.access_token) {
+            await fetch('https://focalyst.online/api/billing/sync-me', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${data.session.access_token}` },
+            });
+          }
+        } catch (serverErr) {
+          console.warn('sync-me call error:', serverErr);
+        }
+      }
+
+      // Reload the profile
+      const { data: userRow } = await supabase
+        .from('users')
+        .select('plan, plan_expires_at')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const { hasPro } = await import('@/lib/billing/proStatus');
+      const isProActive = hasPro(userRow, storeActive);
+
+      if (isProActive) {
+        return {
+          success: true,
+          plan: userRow?.plan || planName,
+          title: 'Focalyst Pro is active',
+          message: 'Your purchase is restored.',
+        };
       } else {
-        return { success: false, message: 'No active purchases found to restore.' };
+        const { Capacitor } = await import('@capacitor/core');
+        const platform = Capacitor.getPlatform();
+        const message =
+          platform === 'ios'
+            ? 'We could not find a purchase for this Apple ID or Focalyst account. If you bought Pro on the website, sign in with the same account you used there.'
+            : 'We could not find a purchase for this Google Play account or Focalyst account. If you bought Pro on the website, sign in with the same account you used there.';
+
+        return {
+          success: false,
+          title: 'No purchases found',
+          message,
+        };
       }
     } catch (error: any) {
       console.error('Native restore failed:', error);

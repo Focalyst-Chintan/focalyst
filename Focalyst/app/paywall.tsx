@@ -79,25 +79,34 @@ export default function PaywallScreen() {
   };
 
   useEffect(() => {
-    async function checkOnboarding() {
+    async function checkProAndOnboarding() {
       try {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           const { data: profile } = await supabase
             .from('users')
-            .select('onboarding_done')
+            .select('plan, plan_expires_at, onboarding_done')
             .eq('id', user.id)
             .single();
-          if (profile && !profile.onboarding_done) {
-            setIsOnboarding(true);
+
+          if (profile) {
+            const isPaid = profile.plan && profile.plan !== 'free' && (!profile.plan_expires_at || new Date(profile.plan_expires_at) >= new Date());
+            if (isPaid) {
+              // User already has Pro by users.plan: native paywall never shows
+              router.replace('/(tabs)/plan' as any);
+              return;
+            }
+            if (!profile.onboarding_done) {
+              setIsOnboarding(true);
+            }
           }
         }
       } catch (e) {
-        console.warn('Error checking onboarding status in paywall:', e);
+        console.warn('Error checking pro and onboarding status in paywall:', e);
       }
     }
-    checkOnboarding();
-  }, []);
+    checkProAndOnboarding();
+  }, [router]);
 
   useEffect(() => {
     let purchaseUpdateSub: { remove: () => void } | undefined;
@@ -249,46 +258,77 @@ export default function PaywallScreen() {
   const handleRestore = async () => {
     setIsRestoreLoading(true);
     try {
-      const purchases = await getAvailablePurchases();
-      const hasProPurchase = purchases.some((purchase) =>
-        [MONTHLY_SKU, YEARLY_SKU, LIFETIME_SKU, 'pro-monthly-base', 'pro-yearly-base', 'pro-lifetime-base'].includes(purchase.productId)
-      );
+      let storeFound = false;
+      try {
+        const purchases = await getAvailablePurchases();
+        const hasProPurchase = purchases.some((purchase) =>
+          [MONTHLY_SKU, YEARLY_SKU, LIFETIME_SKU, 'pro-monthly-base', 'pro-yearly-base', 'pro-lifetime-base'].includes(purchase.productId)
+        );
 
-      if (hasProPurchase) {
-        // Determine best plan from available purchases
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          let restoredPlan = 'pro_monthly';
-          if (purchases.some(p => p.productId === LIFETIME_SKU || p.productId === 'pro-lifetime-base')) restoredPlan = 'lifetime';
-          else if (purchases.some(p => p.productId === YEARLY_SKU || p.productId === 'pro-yearly-base')) restoredPlan = 'pro_yearly';
+        if (hasProPurchase) {
+          storeFound = true;
+          // Determine best plan from available purchases
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user) {
+            let restoredPlan = 'pro_monthly';
+            if (purchases.some(p => p.productId === LIFETIME_SKU || p.productId === 'pro-lifetime-base')) restoredPlan = 'lifetime';
+            else if (purchases.some(p => p.productId === YEARLY_SKU || p.productId === 'pro-yearly-base')) restoredPlan = 'pro_yearly';
 
-          const planExpiry = restoredPlan === 'lifetime' ? null
-            : restoredPlan === 'pro_yearly'
-              ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-              : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            const planExpiry = restoredPlan === 'lifetime' ? null
+              : restoredPlan === 'pro_yearly'
+                ? new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+                : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-          await supabase.from('users').update({
-            plan: restoredPlan,
-            plan_expires_at: planExpiry,
-          }).eq('id', user.id);
+            await supabase.from('users').update({
+              plan: restoredPlan,
+              plan_expires_at: planExpiry,
+            }).eq('id', user.id);
 
-          await refreshProfile();
+            await refreshProfile();
+          }
         }
+      } catch (storeError) {
+        console.warn('Store restore error:', storeError);
+      }
+
+      // If the store finds nothing, call our server
+      if (!storeFound) {
+        try {
+          const { data } = await supabase.auth.getSession();
+          if (data.session?.access_token) {
+            await fetch('https://focalyst.online/api/billing/sync-me', {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${data.session.access_token}` },
+            });
+          }
+        } catch (serverErr) {
+          console.warn('sync-me call error:', serverErr);
+        }
+      }
+
+      // Reload the profile
+      const updatedProfile = await refreshProfile();
+      const isPaid = updatedProfile?.plan && updatedProfile.plan !== 'free' && (!updatedProfile.plan_expires_at || new Date(updatedProfile.plan_expires_at) >= new Date());
+
+      if (isPaid || storeFound) {
         Alert.alert(
-          'Success',
-          'Your purchases have been successfully restored.',
+          'Focalyst Pro is active',
+          'Your purchase is restored.',
           [{ text: 'OK', onPress: () => router.back() }]
         );
       } else {
+        const isIOS = Platform.OS === 'ios';
         Alert.alert(
-          'No Purchases Found',
-          'We couldn\'t find any active subscriptions tied to your Apple ID.'
+          'No purchases found',
+          isIOS
+            ? 'We could not find a purchase for this Apple ID or Focalyst account. If you bought Pro on the website, sign in with the same account you used there.'
+            : 'We could not find a purchase for this Google Play account or Focalyst account. If you bought Pro on the website, sign in with the same account you used there.'
         );
       }
     } catch (error: any) {
       Alert.alert(
         'Restore Failed',
-        'There was an issue connecting to the App Store. Please try again.'
+        'There was an issue connecting to the store. Please try again.'
       );
     } finally {
       setIsRestoreLoading(false);

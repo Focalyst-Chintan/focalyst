@@ -1,6 +1,7 @@
 import 'server-only';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { planForProduct, PLAN_VALUE, FREE_VALUE, PlanKey } from '@/lib/billing/plans';
+import { rcGrant, rcRevoke } from '@/lib/billing/revenuecat';
 
 export type Ev =
   | 'order.created' | 'order.updated' | 'order.paid' | 'order.refunded'
@@ -85,6 +86,9 @@ export async function applyGrantedPurchase({
     console.error('[polar] error updating users table:', userErr);
     throw userErr;
   }
+
+  // Unlock promotional entitlement in RevenueCat if configured
+  await rcGrant(userId, plan, expiresAt);
 
   // 2. Maintain subscriptions table (idempotent)
   try {
@@ -269,6 +273,9 @@ export async function applyPolarEvent(type: Ev, d: any) {
         console.error('[polar] error revoking users table:', revokeErr);
         throw revokeErr;
       }
+
+      // Revoke promotional entitlement in RevenueCat if configured
+      await rcRevoke(userId);
 
       try {
         if (type === 'order.refunded' && plan === 'lifetime') {

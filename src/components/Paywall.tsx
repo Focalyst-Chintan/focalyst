@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { useCheckout } from '@/hooks/useCheckout'
 import { startCheckout, openBillingPortal, isNativeApp } from '@/lib/billing/checkout'
+import { hasPro } from '@/lib/billing/proStatus'
 import { useCurrency, PRICES } from '@/lib/billing/useCurrency'
 import { useToast, GlobalToastContainer } from '@/components/desktop/ui/Toast'
 
@@ -129,14 +130,46 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
         }
     }
 
+    // If the user already has Pro by users.plan, bypass the paywall automatically
+    useEffect(() => {
+        let active = true
+        const checkExistingPro = async () => {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data } = await supabase
+                    .from('users')
+                    .select('plan, plan_expires_at')
+                    .eq('id', user.id)
+                    .maybeSingle()
+                if (active && hasPro(data, false)) {
+                    router.replace(successRedirect)
+                }
+            }
+        }
+        checkExistingPro()
+        return () => { active = false }
+    }, [router, successRedirect])
+
     const restoreSubscription = async () => {
         setIsRestoring(true)
         try {
             const result = await restore()
             if (result.success) {
+                if (isNativeApp()) {
+                    alert(`${(result as any).title || 'Focalyst Pro is active'}\n\n${(result as any).message || 'Your purchase is restored.'}`)
+                } else {
+                    toast.show('Your purchase is restored.', 'success')
+                }
                 router.push(successRedirect)
             } else {
-                toast.show((result as any).message || 'No active purchase found.', 'info')
+                if (isNativeApp()) {
+                    const title = (result as any).title || 'No purchases found'
+                    const msg = (result as any).message || 'We could not find any active purchases.'
+                    alert(`${title}\n\n${msg}`)
+                } else {
+                    toast.show((result as any).message || 'No active purchase found.', 'info')
+                }
             }
         } catch (error: any) {
             console.error('Restore failed:', error)

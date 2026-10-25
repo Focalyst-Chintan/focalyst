@@ -4,6 +4,7 @@ import { polar, PolarError } from '@/lib/billing/polar';
 import { planForProduct, PLAN_VALUE } from '@/lib/billing/plans';
 import { createAdminClient } from '@/lib/supabase-admin';
 import { applyGrantedPurchase } from '@/lib/billing/sync';
+import { rcGrant } from '@/lib/billing/revenuecat';
 
 export interface ReconcileResult {
   changed: boolean;

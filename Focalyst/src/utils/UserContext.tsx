@@ -9,6 +9,7 @@ export interface UserProfile {
   email: string | null;
   full_name: string | null;
   plan: string;
+  plan_expires_at: string | null;
   isPro: boolean;
   ai_message_count: number;
   last_message_date: string | null;
@@ -76,19 +77,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, full_name, plan, ai_message_count, last_message_date, onboarding_done, total_xp, current_level, current_title')
+        .select('id, email, full_name, plan, plan_expires_at, ai_message_count, last_message_date, onboarding_done, total_xp, current_level, current_title')
         .eq('id', userId)
         .abortSignal(controller.signal)
         .maybeSingle();
 
       if (!error && data) {
         const rawPlan = data.plan || 'free';
+        const isPlanActive = rawPlan !== 'free' && (!data.plan_expires_at || new Date(data.plan_expires_at) >= new Date());
         const uProfile: UserProfile = {
           id: data.id,
           email: data.email || '',
           full_name: data.full_name,
           plan: rawPlan,
-          isPro: rawPlan !== 'free',
+          plan_expires_at: data.plan_expires_at || null,
+          isPro: isPlanActive,
           ai_message_count: data.ai_message_count || 0,
           last_message_date: data.last_message_date || null,
           onboarding_done: data.onboarding_done || false,

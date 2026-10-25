@@ -30,6 +30,9 @@ export async function requireUser(req: NextRequest): Promise<{ user: User; supab
 export function originAllowed(req: NextRequest): boolean {
   const origin = req.headers.get('origin');
   if (!origin) return true;
+  if (origin === 'capacitor://localhost' || origin === 'https://localhost' || origin === 'http://localhost') {
+    return true;
+  }
   try {
     return new URL(origin).host === req.nextUrl.host || /^(www\.)?focalyst\.online$/.test(new URL(origin).host)
       || (process.env.NODE_ENV !== 'production' && new URL(origin).hostname === 'localhost');

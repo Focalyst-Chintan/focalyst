@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data, error } = await supabase
             .from('users')
-            .select('plan, ai_message_count, last_message_date, full_name, total_xp, current_level, current_title')
+            .select('plan, plan_expires_at, ai_message_count, last_message_date, full_name, total_xp, current_level, current_title')
             .eq('id', currentUser.id)
             .single()
 
@@ -158,6 +158,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (user) {
             refreshUserProfile()
+        }
+
+        const handleVisibilityOrFocus = () => {
+            if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+                refreshUserProfile()
+            }
+        }
+        if (typeof window !== 'undefined') {
+            window.addEventListener('visibilitychange', handleVisibilityOrFocus)
+            window.addEventListener('focus', handleVisibilityOrFocus)
+        }
+
+        let appStateCleanup: (() => void) | undefined
+        const cap = typeof window !== 'undefined' ? (window as any).Capacitor : null
+        if (cap?.Plugins?.App?.addListener) {
+            cap.Plugins.App.addListener('appStateChange', (state: { isActive: boolean }) => {
+                if (state.isActive) {
+                    refreshUserProfile()
+                }
+            }).then((listener: any) => {
+                appStateCleanup = () => listener?.remove?.()
+            }).catch(() => {})
+        }
+
+        return () => {
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+                window.removeEventListener('focus', handleVisibilityOrFocus)
+            }
+            if (appStateCleanup) appStateCleanup()
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id])

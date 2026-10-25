@@ -20,7 +20,6 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
-import * as Google from 'expo-auth-session/providers/google';
 
 // Required for web browser behavior in auth session
 WebBrowser.maybeCompleteAuthSession();
@@ -41,45 +40,67 @@ export default function AuthScreen() {
   const [message, setMessage] = useState('');
   const router = useRouter();
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    iosClientId: '819771235285-q3so983f528rb7qd314cbhlkqrgnjo4c.apps.googleusercontent.com',
-    androidClientId: '819771235285-ek4hhvh3r49effb4bjqqd3k0a8urtg99.apps.googleusercontent.com',
-  });
-
-  useEffect(() => {
-    if (response?.type === 'success') {
-      const { id_token } = response.params;
-      // Pass the token natively to Supabase
-      supabase.auth.signInWithIdToken({
-        provider: 'google',
-        token: id_token,
-      }).then(async ({ error, data }) => {
-        if (error) {
-          console.error('Supabase auth error:', error);
-          setMessage(error.message);
-          setIsGoogleLoading(false);
-        } else if (data?.user) {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('onboarding_done')
-            .eq('id', data.user.id)
-            .single();
-
-          if (profile?.onboarding_done) {
-            router.replace('/(tabs)/plan' as any);
-          } else {
-            router.replace('/paywall' as any);
-          }
-        }
-      });
-    } else if (response?.type === 'cancel' || response?.type === 'dismiss') {
-       setIsGoogleLoading(false);
-    }
-  }, [response]);
-
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
-    promptAsync();
+    setMessage('');
+    try {
+      const redirectTo = Linking.createURL('auth/callback');
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+          queryParams: {
+            prompt: 'select_account',
+          },
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.url) {
+        const res = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+        if (res.type === 'success' && res.url) {
+          // 1. Handle PKCE code parameter
+          const params = Linking.parse(res.url).queryParams;
+          if (params?.code && typeof params.code === 'string') {
+            await supabase.auth.exchangeCodeForSession(params.code);
+          }
+          // 2. Handle implicit hash tokens fallback
+          const hash = res.url.split('#')[1];
+          if (hash) {
+            const hashParams = new URLSearchParams(hash);
+            const access_token = hashParams.get('access_token');
+            const refresh_token = hashParams.get('refresh_token');
+            if (access_token && refresh_token) {
+              await supabase.auth.setSession({ access_token, refresh_token });
+            }
+          }
+
+          // Verify session and route to authenticated screen
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user) {
+            const { data: profile } = await supabase
+              .from('users')
+              .select('onboarding_done')
+              .eq('id', userData.user.id)
+              .single();
+
+            if (profile?.onboarding_done) {
+              router.replace('/(tabs)/plan' as any);
+            } else {
+              router.replace('/paywall' as any);
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[auth] google sign in error:', err);
+      setMessage(err?.message || 'Google sign in failed.');
+    } finally {
+      setIsGoogleLoading(false);
+    }
   };
 
   const handleLogin = async () => {

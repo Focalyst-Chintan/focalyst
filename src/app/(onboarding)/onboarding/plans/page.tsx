@@ -7,7 +7,7 @@ import { DesktopPaywall } from '@/components/desktop/billing/DesktopPaywall';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { isNativeApp } from '@/lib/billing/checkout';
 import { useAuth } from '@/context/AuthContext';
-import { isPaidPlan } from '@/lib/featureGates';
+import { hasPro } from '@/lib/billing/proStatus';
 import { createClient } from '@/lib/supabase';
 
 export default function PlansPage() {
@@ -18,7 +18,7 @@ export default function PlansPage() {
     useEffect(() => {
         let active = true;
         const checkPlan = async () => {
-            if (user && isPaidPlan(plan)) {
+            if (user && hasPro({ plan }, false)) {
                 router.replace('/onboarding/name');
                 return;
             }
@@ -29,7 +29,7 @@ export default function PlansPage() {
                     .select('plan, plan_expires_at')
                     .eq('id', user.id)
                     .maybeSingle();
-                if (active && data && isPaidPlan(data.plan, data.plan_expires_at)) {
+                if (active && data && hasPro(data, false)) {
                     router.replace('/onboarding/name');
                 }
             }
@@ -42,7 +42,7 @@ export default function PlansPage() {
         };
     }, [isLoading, user, plan, router]);
 
-    if (isDesktop === null || isLoading || (user && isPaidPlan(plan))) {
+    if (isDesktop === null || isLoading || (user && hasPro({ plan }, false))) {
         return null;
     }
 
