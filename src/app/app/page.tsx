@@ -1,9 +1,11 @@
 'use client'
 
 import React, { useState } from 'react'
+import Image from 'next/image'
 import { CheckSquare, Clock, FileText, Activity, Flame, CalendarDays, Hourglass, Shield, Mic, Sparkles, LineChart, Menu, X } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
 import AppleIcon from '@/components/icons/AppleIcon'
+import GooglePlayLogo from '@/components/icons/GooglePlayLogo'
 
 export default function AppLandingPage() {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -156,14 +158,12 @@ export default function AppLandingPage() {
                                     href="https://play.google.com/store/apps/details?id=online.focalyst"
                                     target="_blank"
                                     rel="noopener noreferrer"
+                                    aria-label="Get Focalyst on the Play Store"
                                     className="h-[52px] rounded-full border border-snow/60 bg-[#0B1020]/70 text-snow hover:bg-[#0B1020] backdrop-blur-md flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] shadow-[0_8px_24px_rgba(0,0,0,0.25)] px-8 md:px-10 font-semibold"
                                 >
-                                    {/* Google Play Logo SVG */}
-                                    <svg className="w-5 h-5 fill-current flex-shrink-0" viewBox="0 0 24 24">
-                                        <path d="M3 5.27v13.46c0 .87.72 1.42 1.47 1.05l14.4-7.2c.75-.38.75-1.46 0-1.83L4.47 4.22c-.75-.37-1.47.18-1.47 1.05z" />
-                                    </svg>
+                                    <GooglePlayLogo size={20} className="flex-shrink-0" />
                                     <span className="text-[14px] md:text-[15px] font-semibold whitespace-nowrap">
-                                        Get it on Google Play
+                                        Get it on Play Store
                                     </span>
                                 </a>
                             </div>
@@ -179,10 +179,14 @@ export default function AppLandingPage() {
                     <div className="flex justify-center items-center py-6">
                         <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[350px] animate-float-mobile md:animate-float-desktop drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)]">
                             {/* Screen Image */}
-                            <img 
-                                src="/plan-tab.png" 
+                            <Image 
+                                src="/landing/app/plan.jpg" 
                                 alt="Focalyst Plan Tab Mockup" 
-                                className="w-full h-auto object-contain select-none rounded-[2.5rem]"
+                                width={827}
+                                height={1800}
+                                sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
+                                className="h-full w-full object-cover object-top select-none rounded-[2.5rem]"
+                                priority
                             />
                         </div>
                     </div>
@@ -398,7 +402,7 @@ export default function AppLandingPage() {
                                     Daily streaks
                                 </p>
                                 <p className="text-[#A3ADC8] hidden md:block text-[14px] leading-relaxed mt-1.5">
-                                    Build routines with daily streak tracking.
+                                    Build routines with daily streaks, and stay consistent with friends in accountability groups.
                                 </p>
                             </div>
                         </div>
@@ -503,7 +507,7 @@ export default function AppLandingPage() {
                                     AI Assistant
                                 </h3>
                                 <p className="text-[#A3ADC8] text-[11.5px] md:hidden mt-1">
-                                    OpenRouter powered
+                                    AI-powered co-pilot
                                 </p>
                                 <p className="text-[#A3ADC8] hidden md:block text-[14px] leading-relaxed mt-1.5">
                                     Chat with your AI-powered co-pilot.
@@ -594,6 +598,12 @@ export default function AppLandingPage() {
                             <div className="flex items-start gap-2.5">
                                 <span className="w-[7px] h-[7px] rounded-full bg-[#3781FC] flex-shrink-0 mt-[7px]" />
                                 <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
+                                    Accountability groups with a live streak podium
+                                </span>
+                            </div>
+                            <div className="flex items-start gap-2.5">
+                                <span className="w-[7px] h-[7px] rounded-full bg-[#3781FC] flex-shrink-0 mt-[7px]" />
+                                <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
                                     Countdowns: Visual trackers for upcoming goals
                                 </span>
                             </div>
@@ -610,10 +620,13 @@ export default function AppLandingPage() {
                                 className="absolute top-0 left-0 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
                             />
                             {/* Back Image */}
-                            <img 
-                                src="/plan-tab.png" 
+                            <Image 
+                                src="/landing/app/plan.jpg" 
                                 alt="Focalyst Plan Tab Mockup" 
-                                className="absolute top-32 right-0 md:top-24 md:-right-10 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
+                                width={827}
+                                height={1800}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-32 right-0 md:top-24 md:-right-10 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
                             />
                         </div>
                     </div>
@@ -628,10 +641,13 @@ export default function AppLandingPage() {
                     {/* Left Column - Visual Column */}
                     <div className="flex justify-center items-center py-6 md:py-0 order-2 md:order-1">
                         <div className="relative max-w-[280px] sm:max-w-[320px] md:max-w-[350px] w-full">
-                            <img 
-                                src="/pomodoro.png" 
+                            <Image 
+                                src="/landing/app/pomodoro.jpg" 
                                 alt="Focalyst Pomodoro Mockup" 
-                                className="w-full h-auto object-contain select-none drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem]"
+                                width={827}
+                                height={1800}
+                                sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
+                                className="h-full w-full object-cover object-top select-none drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem]"
                             />
                             {/* The Floating Shield Badge */}
                             <div className="absolute bottom-10 right-0 md:-right-4 bg-[#0B1020]/80 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5 z-30 select-none">
@@ -740,10 +756,13 @@ export default function AppLandingPage() {
                                 className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
                             />
                             {/* Image 2 (Front) */}
-                            <img 
-                                src="/voice-note.png" 
+                            <Image 
+                                src="/landing/app/voice-ui.jpg" 
                                 alt="Focalyst Voice Note Mockup" 
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
+                                width={827}
+                                height={1800}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
                             />
                         </div>
                     </div>
@@ -765,10 +784,13 @@ export default function AppLandingPage() {
                                 className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
                             />
                             {/* Image 2 (Front) */}
-                            <img 
-                                src="/ai-chat.png" 
+                            <Image 
+                                src="/landing/app/ai-chat-ui.jpg" 
                                 alt="Focalyst AI Chat Mockup" 
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
+                                width={827}
+                                height={1800}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
                             />
                         </div>
                     </div>
@@ -787,7 +809,7 @@ export default function AppLandingPage() {
                         
                         {/* Body */}
                         <p className="text-[#A3ADC8] text-[15.5px] md:text-[16.5px] leading-[1.7] font-normal mt-4 max-w-[420px]">
-                            Powered by OpenRouter, your Focalyst AI assistant helps you manage tasks effortlessly. Pair that with rich, weekly productivity analytics that break down exactly when you work best, where you get distracted, and how to improve.
+                            Your Focalyst AI assistant helps you manage tasks effortlessly. Pair that with rich weekly productivity analytics that show exactly when you work best, where you get distracted and how to improve.
                         </p>
                         
                         {/* Feature Bullets */}
@@ -810,14 +832,6 @@ export default function AppLandingPage() {
                                     Visual focus heatmaps &amp; scoring
                                 </span>
                             </div>
-                        </div>
-
-                        {/* OpenRouter Badge (Desktop only) */}
-                        <div className="hidden md:flex items-center gap-2 mt-8 px-4 py-1.5 border border-white/15 bg-white/5 rounded-full">
-                            <Sparkles className="w-3.5 h-3.5 text-[#6FA4FF]" />
-                            <span className="text-snow/80 text-[12px] font-medium leading-none">
-                                Powered by OpenRouter
-                            </span>
                         </div>
                     </div>
 
@@ -867,15 +881,13 @@ export default function AppLandingPage() {
                             href="https://play.google.com/store/apps/details?id=online.focalyst"
                             target="_blank"
                             rel="noopener noreferrer"
+                            aria-label="Get Focalyst on the Play Store"
                             className="h-[52px] w-full md:w-auto rounded-full border border-snow/60 bg-[#0B1020]/70 text-snow hover:bg-[#0B1020] backdrop-blur-md px-[28px] flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] shadow-[0_8px_24px_rgba(0,0,0,0.25)] font-semibold"
                         >
-                            {/* Google Play SVG */}
-                            <svg className="w-5.5 h-5.5 fill-current flex-shrink-0" viewBox="0 0 24 24">
-                                <path d="M3 5.27v13.46c0 .87.72 1.42 1.47 1.05l14.4-7.2c.75-.38.75-1.46 0-1.83L4.47 4.22c-.75-.37-1.47.18-1.47 1.05z" />
-                            </svg>
+                            <GooglePlayLogo className="w-5.5 h-5.5 flex-shrink-0" />
                             <span className="text-[14px] md:text-[15px] font-semibold whitespace-nowrap">
-                                <span className="md:hidden">Get it on Google Play</span>
-                                <span className="hidden md:block">Google Play</span>
+                                <span className="md:hidden">Get it on Play Store</span>
+                                <span className="hidden md:block">Play Store</span>
                             </span>
                         </a>
                     </div>

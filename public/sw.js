@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focalyst-static-v1';
+const CACHE_NAME = 'focalyst-static-v2';
 const ASSETS_TO_CACHE = [
     '/',
     '/manifest.json',
@@ -40,6 +40,8 @@ self.addEventListener('fetch', (event) => {
                     (url.pathname.startsWith('/_next/static/') ||
                         url.pathname.includes('/fonts/') ||
                         url.pathname.endsWith('.png') ||
+                        url.pathname.endsWith('.jpg') ||
+                        url.pathname.endsWith('.jpeg') ||
                         url.pathname.endsWith('.svg') ||
                         url.pathname.endsWith('.webp'))
                 ) {
