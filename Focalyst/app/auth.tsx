@@ -122,9 +122,22 @@ export default function AuthScreen() {
     setIsLoading(true);
     setMessage('');
     try {
-      const { error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
         setMessage(error.message);
+      } else if (data?.session && data?.user) {
+        // Email confirmation is off: session returned immediately
+        const { data: profile } = await supabase
+          .from('users')
+          .select('onboarding_done')
+          .eq('id', data.user.id)
+          .single();
+
+        if (profile?.onboarding_done) {
+          router.replace('/(tabs)/plan' as any);
+        } else {
+          router.replace('/paywall' as any);
+        }
       } else {
         setMessage('Check your email for the confirmation link.');
       }

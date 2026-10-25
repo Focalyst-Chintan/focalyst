@@ -22,7 +22,7 @@ export async function reconcileUser(user: User): Promise<ReconcileResult> {
   const supabase = createAdminClient();
   const { data: userRow, error: userErr } = await supabase
     .from('users')
-    .select('plan, plan_expires_at')
+    .select('plan, plan_expires_at, polar_customer_id')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -36,7 +36,7 @@ export async function reconcileUser(user: User): Promise<ReconcileResult> {
     return { changed: false, plan: 'lifetime' };
   }
 
-  // 1. Find the Polar customer: first external ID, then email if confirmed
+  // 1. Find the Polar customer: external ID, users.polar_customer_id, metadata user_id, or email (Google/Apple only)
   let customer: any = null;
   try {
     customer = await polar<any>(`/v1/customers/external/${encodeURIComponent(user.id)}`);
@@ -48,7 +48,41 @@ export async function reconcileUser(user: User): Promise<ReconcileResult> {
     }
   }
 
-  if (!customer && user.email_confirmed_at && user.email) {
+  if (!customer && userRow?.polar_customer_id) {
+    try {
+      customer = await polar<any>(`/v1/customers/${encodeURIComponent(userRow.polar_customer_id)}`);
+    } catch (err) {
+      if (err instanceof PolarError && err.status === 404) {
+        customer = null;
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  if (!customer && user.id) {
+    try {
+      const list = await polar<{ items: any[] }>(`/v1/customers/`, {
+        query: { 'metadata[user_id]': user.id },
+      });
+      if (list?.items?.length) {
+        customer = list.items[0];
+      }
+    } catch (err) {
+      if (err instanceof PolarError && err.status === 404) {
+        customer = null;
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  const isOAuthUser =
+    Boolean(user.identities?.some((id: any) => id.provider === 'google' || id.provider === 'apple')) ||
+    user.app_metadata?.provider === 'google' ||
+    user.app_metadata?.provider === 'apple';
+
+  if (!customer && isOAuthUser && user.email) {
     const list = await polar<{ items: any[] }>(`/v1/customers/`, {
       query: { email: user.email },
     });
