@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focalyst-static-v2';
+const CACHE_NAME = 'focalyst-static-v3';
 const ASSETS_TO_CACHE = [
     '/',
     '/manifest.json',

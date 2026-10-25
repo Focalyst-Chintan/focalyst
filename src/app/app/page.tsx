@@ -177,15 +177,16 @@ export default function AppLandingPage() {
 
                     {/* Right Column - Device Mockup */}
                     <div className="flex justify-center items-center py-6">
-                        <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[350px] animate-float-mobile md:animate-float-desktop drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)]">
+                        <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[350px] animate-float-mobile md:animate-float-desktop">
                             {/* Screen Image */}
                             <Image 
-                                src="/landing/app/plan.jpg" 
+                                src="/landing/app/plan.webp" 
                                 alt="Focalyst Plan Tab Mockup" 
-                                width={827}
-                                height={1800}
+                                width={900}
+                                height={1600}
                                 sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
-                                className="h-full w-full object-cover object-top select-none rounded-[2.5rem]"
+                                className="h-auto w-full select-none"
+                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
                                 priority
                             />
                         </div>
@@ -621,12 +622,13 @@ export default function AppLandingPage() {
                             />
                             {/* Back Image */}
                             <Image 
-                                src="/landing/app/plan.jpg" 
+                                src="/landing/app/plan.webp" 
                                 alt="Focalyst Plan Tab Mockup" 
-                                width={827}
-                                height={1800}
+                                width={900}
+                                height={1600}
                                 sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:-right-10 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
+                                className="absolute top-32 right-0 md:top-24 md:-right-10 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-10"
+                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
                             />
                         </div>
                     </div>
@@ -642,12 +644,13 @@ export default function AppLandingPage() {
                     <div className="flex justify-center items-center py-6 md:py-0 order-2 md:order-1">
                         <div className="relative max-w-[280px] sm:max-w-[320px] md:max-w-[350px] w-full">
                             <Image 
-                                src="/landing/app/pomodoro.jpg" 
+                                src="/landing/app/pomodoro.webp" 
                                 alt="Focalyst Pomodoro Mockup" 
-                                width={827}
-                                height={1800}
+                                width={900}
+                                height={1600}
                                 sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
-                                className="h-full w-full object-cover object-top select-none drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem]"
+                                className="h-auto w-full select-none"
+                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
                             />
                             {/* The Floating Shield Badge */}
                             <div className="absolute bottom-10 right-0 md:-right-4 bg-[#0B1020]/80 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5 z-30 select-none">
@@ -757,12 +760,13 @@ export default function AppLandingPage() {
                             />
                             {/* Image 2 (Front) */}
                             <Image 
-                                src="/landing/app/voice-ui.jpg" 
+                                src="/landing/app/voice-ui.webp" 
                                 alt="Focalyst Voice Note Mockup" 
-                                width={827}
-                                height={1800}
+                                width={900}
+                                height={1600}
                                 sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
+                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-20"
+                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
                             />
                         </div>
                     </div>
@@ -785,12 +789,13 @@ export default function AppLandingPage() {
                             />
                             {/* Image 2 (Front) */}
                             <Image 
-                                src="/landing/app/ai-chat-ui.jpg" 
+                                src="/landing/app/ai-chat.webp" 
                                 alt="Focalyst AI Chat Mockup" 
-                                width={827}
-                                height={1800}
+                                width={900}
+                                height={1600}
                                 sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-full object-cover object-top z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
+                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-20"
+                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
                             />
                         </div>
                     </div>
