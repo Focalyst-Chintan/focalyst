@@ -10,7 +10,7 @@ Business facts (use everywhere they apply):
 - Prices: Pro Monthly $4.99, Pro Annual $39.99, Lifetime $99.99 (one-time). India: ₹99/month, ₹999/year, ₹2,999 lifetime.
 - Payments: Polar (polar.sh). Razorpay is not used anywhere.
 - AI: OpenRouter for Focalyst AI chat, summaries and reports. Speech to text: Whisper Large v3 Turbo.
-- No analytics or advertising tools are used.
+- Vercel Web Analytics and Speed Insights (cookieless) are used on the web only. No advertising tools.
 - Chintan's tagline is Productivity and Mindful Living.
 
 ---------------------------------------------------------------------

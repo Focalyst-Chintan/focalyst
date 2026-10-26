@@ -27,6 +27,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_BUILD_TARGET: process.env.EXPORT_MOBILE === 'true' ? 'mobile' : 'web',
+  },
   output: isMobile ? 'export' : undefined,
   images: {
     unoptimized: true,

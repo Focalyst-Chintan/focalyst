@@ -5,6 +5,7 @@ import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import AuthInitializer from "@/components/AuthInitializer";
+import { VercelInsights } from "@/components/VercelInsights";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -84,6 +85,7 @@ export default function RootLayout({
             <ServiceWorkerRegister />
           </AuthProvider>
         </ThemeProvider>
+        {process.env.NEXT_PUBLIC_BUILD_TARGET !== 'mobile' && <VercelInsights />}
       </body>
     </html>
   );

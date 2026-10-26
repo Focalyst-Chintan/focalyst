@@ -25,7 +25,7 @@ const TOC = [
 
 const SHORT_VERSION = [
   'We collect only what Focalyst needs to work: your account, the things you create, and how you use the timer and AI.',
-  'We never sell your data and we do not use analytics or advertising trackers.',
+  'We never sell your data and we do not use advertising trackers. We use privacy-friendly, cookieless analytics from Vercel to count visits and measure how fast pages load.',
   'Focalyst AI uses your tasks, habits, notes and focus sessions as context to answer you. AI chats are deleted after 90 days.',
   'Voice notes and dictation are turned into text. The transcript is saved with your note.',
   'Delete your account and everything is permanently erased. We keep no backups of deleted accounts.',
@@ -39,7 +39,7 @@ const PROVIDERS = [
   },
   {
     name: 'Vercel',
-    purpose: 'Website hosting and delivery',
+    purpose: 'Hosting, content delivery, security, and anonymous website analytics and performance measurement',
     url: 'https://vercel.com/legal/privacy-policy',
   },
   {
@@ -99,13 +99,17 @@ const RETENTION = [
     type: 'Technical logs',
     period: 'Kept by our hosting provider for a short period under its own policy',
   },
+  {
+    type: 'Website analytics and performance data',
+    period: 'Anonymous and aggregated. Kept by Vercel under its own retention periods.',
+  },
 ];
 
 export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      lastUpdated="20 October 2026"
+      lastUpdated="26 October 2026"
       shortVersion={SHORT_VERSION}
       toc={TOC}
     >
@@ -140,7 +144,7 @@ export default function PrivacyPage() {
           <strong>2.7 Waitlist and email.</strong> If you join a waitlist or ask for updates, your email address and, if you share it, your first name.
         </p>
         <p>
-          <strong>2.8 Technical information.</strong> Like any website, our hosting provider processes basic technical data such as your IP address, browser type and request logs to deliver the Service and keep it secure. We do not use analytics tools.
+          <strong>2.8 Technical information.</strong> Like any website, our hosting provider processes basic technical data such as your IP address, browser type and request logs to deliver the Service and keep it secure. On our website and web app we also use Vercel Web Analytics and Vercel Speed Insights. They record anonymous, aggregated information such as the page visited (with personal identifiers removed from the address), the referring website, your country or region, browser, operating system, device type and how quickly the page loaded. They do not use cookies, do not identify you and do not follow you across other websites. Vercel recognises a single visit using a temporary value derived from the request, which is discarded after 24 hours. These tools are not used inside our iOS and Android apps.
         </p>
         <p>
           <strong>2.9 Stored on your device.</strong> We store a few preferences on your device, such as your theme, sidebar state and sign-in session.
@@ -325,7 +329,7 @@ export default function PrivacyPage() {
       <section id="cookies-and-local-storage">
         <h2>11. Cookies and local storage</h2>
         <p>
-          We use only what is strictly necessary for Focalyst to work, such as keeping you signed in and remembering your preferences. We do not use advertising or analytics cookies.
+          We use only what is strictly necessary for Focalyst to work, such as keeping you signed in and remembering your preferences. We do not use advertising cookies, and our analytics are cookieless.
         </p>
       </section>
 
