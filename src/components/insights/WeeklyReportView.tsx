@@ -258,7 +258,7 @@ function CopyToast({ visible }: { visible: boolean }) {
 
   return (
     <div className="fixed top-6 left-1/2 z-[110] -translate-x-1/2" style={{ animation: 'fadeInDown 0.3s ease-out forwards' }}>
-      <div className="flex items-center gap-2 bg-navy text-white px-5 py-2.5 rounded-full shadow-xl text-[13px] font-semibold">
+      <div className="flex items-center gap-2 bg-navy text-snow px-5 py-2.5 rounded-full shadow-xl text-[13px] font-semibold">
         <Check className="w-4 h-4 text-[#10B981]" />
         {t('insights.toastCopied')}
       </div>
@@ -292,13 +292,31 @@ function EmptyState() {
 /* ─── Loading State ──────────────────────────────────────────── */
 
 function LoadingState() {
-  const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <Loader2 className="w-8 h-8 text-navy/40 dark:text-slate-500 animate-spin mb-4" />
-      <p className="text-[13px] text-blue-muted dark:text-slate-400 font-medium">
-        {t('insights.preparingReport')}
+      <p className="text-[15px] font-semibold text-navy dark:text-slate-200 mb-1">
+        Creating your report
       </p>
+      <p className="text-[12px] text-blue-muted dark:text-slate-400 font-medium">
+        Analyzing your tasks, habits, and focus hours
+      </p>
+    </div>
+  );
+}
+
+function ErrorState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+      <p className="text-[14px] text-navy dark:text-slate-200 font-medium max-w-[280px] mb-4">
+        Your report could not be created right now. Please try again in a few minutes.
+      </p>
+      <button
+        onClick={onRetry}
+        className="px-4 py-2 rounded-full bg-navy text-snow text-xs font-semibold hover:opacity-90 transition-opacity"
+      >
+        Try again
+      </button>
     </div>
   );
 }
@@ -333,11 +351,11 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
 
     try {
       setIsLoading(true);
-      const res = await fetch('/api/generate-weekly-report', { method: 'POST' });
+      setFetchError(false);
+      const res = await fetch('/api/ai/weekly-report', { method: 'POST' });
 
       if (!res.ok) {
-        // If not Sunday-Tuesday, the API might 404 or the data isn't ready
-        setReportData(null);
+        setFetchError(true);
         setIsLoading(false);
         return;
       }
@@ -430,6 +448,8 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
         <div className="px-6 pb-6">
           {isLoading ? (
             <LoadingState />
+          ) : fetchError ? (
+            <ErrorState onRetry={fetchReport} />
           ) : !hasData ? (
             <EmptyState />
           ) : (

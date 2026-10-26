@@ -1,14 +1,9 @@
+import 'server-only';
 import { FOCALYST_AI_PERSONA } from '@/constants/focalystPersona';
 
-const OPENROUTER_API_KEY =
-  process.env.NEXT_PUBLIC_OPENROUTER_API_KEY ||
-  process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ||
-  process.env.OPENROUTER_API_KEY;
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
-const GEMINI_API_KEY =
-  process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
-  process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-  process.env.GEMINI_API_KEY;
 
 // OpenRouter primary model ID from mobile app: meta-llama/llama-3.1-8b-instruct
 export const OPENROUTER_PRIMARY_MODEL = 'meta-llama/llama-3.1-8b-instruct';

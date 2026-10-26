@@ -387,35 +387,29 @@ export default function DesktopNotesView() {
   const handleSaveAudio = async (blob: Blob, durationSec: number) => {
     if (!user) return;
     try {
-      // 1. Upload audio file to Supabase storage 'notes-audio'
-      const filename = `${user.id}/${Date.now()}.webm`;
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from('notes-audio')
-        .upload(filename, blob, { contentType: 'audio/webm' });
+      const formData = new FormData();
+      formData.append('file', blob, 'recording.webm');
+      formData.append('durationSeconds', String(durationSec));
 
-      let audioUrl = '';
-      if (!uploadErr && uploadData) {
-        const { data: publicUrlData } = supabase.storage
-          .from('notes-audio')
-          .getPublicUrl(filename);
-        audioUrl = publicUrlData?.publicUrl || '';
-      }
-
-      // 2. Call /api/ai/summarize-voice
-      const res = await fetch('/api/ai/summarize-voice', {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await fetch('/api/ai/voice-summary', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: '',
-          durationSeconds: durationSec,
-          audioUrl,
-        }),
+        headers: {
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
+        body: formData,
       });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Failed to save voice note');
+      }
 
       emitDataChanged('note');
       fetchNotes(1, 100);
     } catch (err) {
-      console.error('Audio upload failed:', err);
+      console.error('Audio processing failed:', err);
+      throw err;
     }
   };
 

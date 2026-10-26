@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { RotateCcw, X, Sparkles, ArrowUp, Mic } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { RotateCcw, X, Sparkles, ArrowUp, Mic, Square, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { IconButton } from '@/components/desktop/ui/IconButton';
 import { useAuth } from '@/context/AuthContext';
@@ -21,10 +21,23 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
   const [inputValue, setInputValue] = useState('');
   const [status, setStatus] = useState<'ready' | 'loading' | 'error'>('ready');
   const [chatError, setChatError] = useState<string | null>(null);
+  const [isQuotaError, setIsQuotaError] = useState(false);
+  const [dictationNotice, setDictationNotice] = useState<string | null>(null);
+
+  // Dictation state
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const lastUserPromptRef = useRef<string>('');
 
+  const supabase = createClient();
   const isPro = plan !== 'free';
   const displayName = getDisplayName(profile, user);
   const firstName = getFirstName(displayName);
@@ -33,8 +46,31 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
   useEffect(() => {
     if (open) {
       setTimeout(() => inputRef.current?.focus(), 150);
+    } else {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      stopVoiceRecording(false);
     }
   }, [open]);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        try {
+          mediaRecorderRef.current.stop();
+        } catch {}
+      }
+    };
+  }, []);
 
   // Auto scroll to bottom
   useEffect(() => {
@@ -57,15 +93,15 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
 
     setStatus('loading');
     setChatError(null);
+    setIsQuotaError(false);
+    lastUserPromptRef.current = textToSend.trim();
 
-    const userMsg = {
-      id: Date.now().toString(),
+    const userMessage = {
       role: 'user',
       content: textToSend.trim(),
-      parts: [{ type: 'text', text: textToSend.trim() }],
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMessage]);
     setInputValue('');
 
     const newHistory = [
@@ -75,6 +111,9 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
       })),
       { role: 'user', content: textToSend.trim() },
     ];
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     try {
       let { data: { session } } = await supabase.auth.getSession();
@@ -89,17 +128,21 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
         throw new Error('Your session has expired. Please sign in again.');
       }
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ messages: newHistory }),
+        signal: controller.signal,
       });
 
       if (!res.ok) {
         const errJson = await res.json().catch(() => ({}));
+        if (res.status === 429 && (errJson.code === 'quota' || String(errJson.error || '').toLowerCase().includes('quota'))) {
+          setIsQuotaError(true);
+        }
         throw new Error(errJson.error || `Server responded with ${res.status}`);
       }
 
@@ -132,26 +175,197 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
       }
 
       setStatus('ready');
+      abortControllerRef.current = null;
       refreshData();
       refreshUserProfile();
     } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setStatus('ready');
+        return;
+      }
       console.error('AI Drawer error:', err);
-      setChatError(err.message || 'Something went wrong.');
+      const isQuota = String(err?.message || '').toLowerCase().includes('quota') || String(err?.message || '').toLowerCase().includes('used today');
+      if (isQuota) {
+        setIsQuotaError(true);
+      }
+      setChatError('Focalyst AI is busy right now. Please try again in a moment.');
       setStatus('error');
+      abortControllerRef.current = null;
+    }
+  };
+
+  const retryLastMessage = () => {
+    if (lastUserPromptRef.current) {
+      sendMessage(lastUserPromptRef.current);
     }
   };
 
   const handleResetChat = () => {
     setMessages([]);
     setChatError(null);
+    setIsQuotaError(false);
     setStatus('ready');
+  };
+
+  // Stop recording helper
+  const stopVoiceRecording = useCallback(async (shouldProcess = true) => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    const rec = mediaRecorderRef.current;
+    if (!rec) {
+      setIsRecording(false);
+      setRecordingSeconds(0);
+      return;
+    }
+
+    if (rec.state !== 'inactive') {
+      rec.onstop = async () => {
+        setIsRecording(false);
+        const tracks = rec.stream?.getTracks();
+        tracks?.forEach((t) => t.stop());
+
+        if (!shouldProcess) {
+          setRecordingSeconds(0);
+          audioChunksRef.current = [];
+          return;
+        }
+
+        const mime = rec.mimeType || 'audio/webm';
+        const blob = new Blob(audioChunksRef.current, { type: mime });
+        audioChunksRef.current = [];
+        setRecordingSeconds(0);
+
+        if (blob.size === 0) {
+          setDictationNotice('Could not process that recording. Please try again.');
+          return;
+        }
+
+        if (blob.size > 4 * 1024 * 1024) {
+          setDictationNotice('That recording is too long. Keep voice notes under 10 minutes.');
+          return;
+        }
+
+        try {
+          setIsTranscribing(true);
+          const { data: { session } } = await supabase.auth.getSession();
+          const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'wav');
+          const formData = new FormData();
+          formData.append('file', blob, `voice-dictation.${ext}`);
+
+          const res = await fetch('/api/ai/transcribe', {
+            method: 'POST',
+            headers: {
+              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+            },
+            body: formData,
+          });
+
+          if (!res.ok) {
+            throw new Error('Transcription failed');
+          }
+
+          const data = await res.json();
+          if (data.text && data.text.trim()) {
+            setInputValue((prev) => (prev ? `${prev} ${data.text.trim()}` : data.text.trim()));
+          } else {
+            setDictationNotice('Could not process that recording. Please try again.');
+          }
+        } catch (transcribeErr) {
+          console.error('[AIDrawer Dictation]', transcribeErr);
+          setDictationNotice('Could not process that recording. Please try again.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      try {
+        rec.stop();
+      } catch {
+        setIsRecording(false);
+        setRecordingSeconds(0);
+      }
+    } else {
+      setIsRecording(false);
+      setRecordingSeconds(0);
+    }
+  }, [supabase]);
+
+  const handleMicClick = async () => {
+    if (isTranscribing) return;
+
+    if (isRecording) {
+      stopVoiceRecording(true);
+      return;
+    }
+
+    setDictationNotice(null);
+
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setDictationNotice('Allow microphone access in your browser settings to record.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+
+      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
+      let chosenMime = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        for (const candidate of preferredMimes) {
+          if (MediaRecorder.isTypeSupported(candidate)) {
+            chosenMime = candidate;
+            break;
+          }
+        }
+      }
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: chosenMime,
+        audioBitsPerSecond: 32000,
+      });
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+          audioChunksRef.current.push(e.data);
+        }
+      };
+
+      recorder.start(500);
+      mediaRecorderRef.current = recorder;
+      setIsRecording(true);
+      setRecordingSeconds(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((prev) => {
+          const next = prev + 1;
+          if (next >= 600) {
+            stopVoiceRecording(true);
+            return 600;
+          }
+          return next;
+        });
+      }, 1000);
+    } catch (micErr: any) {
+      console.error('[AIDrawer Mic]', micErr);
+      setDictationNotice('Allow microphone access in your browser settings to record.');
+    }
+  };
+
+  const formatTimer = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   if (!open) return null;
 
   return (
     <>
-      {/* Backdrop (no blur so user sees dashboard) */}
+      {/* Backdrop */}
       <div
         className="fixed inset-0 z-40 bg-[#05070F]/20"
         onClick={onClose}
@@ -159,112 +373,121 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
 
       {/* Drawer Container */}
       <aside
-        className="fixed top-3 right-3 bottom-3 z-50 w-[420px] rounded-[28px] glass-strong liquid flex flex-col overflow-hidden animate-in slide-in-from-right duration-[220ms] ease-[var(--ease)] shadow-[var(--shadow-3)]"
+        className="fixed right-0 top-0 bottom-0 z-50 w-[420px] max-w-[90vw] bg-surface border-l border-line-subtle shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-right duration-200"
       >
+        {/* Ambient Top Glow */}
+        <div className="absolute top-0 right-0 w-[240px] h-[240px] bg-primary/10 rounded-full blur-[80px] pointer-events-none -mr-20 -mt-20" />
+
         {/* Header */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-line shrink-0 relative z-10">
-          <span className="text-[17px] font-semibold text-ink">Ask Focalyst AI</span>
+        <div className="h-16 px-5 border-b border-line-subtle flex items-center justify-between shrink-0 relative z-10">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary-text" />
+            </div>
+            <div>
+              <h2 className="font-ui text-[15px] font-semibold text-ink">
+                Focalyst AI
+              </h2>
+              <p className="text-[11px] text-ink-3">
+                {isPro ? 'Pro Active' : 'Free tier'}
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-1">
             <IconButton
-              size="sm"
-              variant="ghost"
+              aria-label="Reset chat"
               tooltip="New chat"
               onClick={handleResetChat}
             >
-              <RotateCcw className="w-4 h-4 text-ink-2" />
+              <RotateCcw className="w-4 h-4" />
             </IconButton>
             <IconButton
-              size="sm"
-              variant="ghost"
-              tooltip="Close Esc"
+              aria-label="Close drawer"
+              tooltip="Close"
               onClick={onClose}
             >
-              <X className="w-4 h-4 text-ink-2" />
+              <X className="w-4 h-4" />
             </IconButton>
           </div>
         </div>
 
-        {/* Ambient Glow layer at bottom */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] z-0 dark:block hidden"
-          style={{
-            background:
-              'linear-gradient(to bottom, transparent, rgba(25,81,252,0.45) 70%, rgba(55,129,252,0.75)), radial-gradient(ellipse 70% 60% at 50% 100%, rgba(111,160,255,0.4), transparent)',
-          }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] z-0 dark:hidden block"
-          style={{
-            background:
-              'linear-gradient(to bottom, transparent, rgba(203,233,253,0.8) 65%, rgba(169,198,255,0.95)), radial-gradient(ellipse 70% 60% at 50% 100%, rgba(61,111,224,0.20), transparent)',
-          }}
-        />
+        {/* Notice banners */}
+        {dictationNotice && (
+          <div className="px-5 py-2 bg-amber-50 dark:bg-amber-950/40 border-b border-amber-200 dark:border-amber-900 flex items-center justify-between text-[12px] text-amber-800 dark:text-amber-200">
+            <span>{dictationNotice}</span>
+            <button onClick={() => setDictationNotice(null)} className="ml-2 font-medium hover:opacity-75">
+              Dismiss
+            </button>
+          </div>
+        )}
 
-        {/* Body content */}
+        {isQuotaError && (
+          <div className="px-5 py-2.5 bg-accent/10 border-b border-accent/20 flex items-center justify-between text-[12px] text-accent-dark font-medium">
+            <span>You have used today's Focalyst AI messages.</span>
+            <a href="/paywall" className="underline font-semibold ml-2">Upgrade to Pro</a>
+          </div>
+        )}
+
+        {/* Content Area */}
         {messages.length === 0 ? (
-          <div className="flex-1 flex flex-col justify-between relative z-10 overflow-y-auto">
-            {/* Top greeting */}
-            <div className="px-5 pt-7">
-              <h2 className="font-display text-[36px]/[42px] tracking-[-0.015em] text-ink">
-                Hello <span className="text-primary-text">{firstName}</span>
-                <br />
-                May I help you?
-              </h2>
+          <div className="flex-1 p-6 flex flex-col justify-center items-center text-center overflow-y-auto relative z-10">
+            <div className="w-12 h-12 rounded-[16px] bg-primary/10 border border-primary/20 flex items-center justify-center mb-4">
+              <Sparkles className="w-6 h-6 text-primary-text" />
             </div>
+            <h3 className="font-display text-[22px] font-normal text-ink mb-2">
+              How can I help, {firstName}?
+            </h3>
+            <p className="text-[13px] text-ink-3 max-w-[280px] leading-relaxed mb-6">
+              I can analyze your productivity, reschedule tasks, or generate your weekly report.
+            </p>
 
-            {/* Pushed to bottom suggested chips */}
-            <div className="mt-auto px-5 pb-3 flex flex-col gap-2.5">
-              <button
-                type="button"
-                onClick={() => sendMessage('Tell me about my habit consistency')}
-                className="h-12 rounded-[16px] px-4 bg-surface/70 dark:bg-surface-2/70 border border-line text-[14px] font-medium text-ink text-left transition-all hover:-translate-y-px hover:border-line-strong backdrop-blur-sm"
-              >
-                Tell me about my habit consistency
-              </button>
-              <button
-                type="button"
-                onClick={() => sendMessage('Add a task for tomorrow')}
-                className="h-12 rounded-[16px] px-4 bg-surface/70 dark:bg-surface-2/70 border border-line text-[14px] font-medium text-ink text-left transition-all hover:-translate-y-px hover:border-line-strong backdrop-blur-sm"
-              >
-                Add a task for tomorrow
-              </button>
-              <button
-                type="button"
-                onClick={() => sendMessage('How productive was I this week?')}
-                className="h-12 rounded-[16px] px-4 bg-surface/70 dark:bg-surface-2/70 border border-line text-[14px] font-medium text-ink text-left transition-all hover:-translate-y-px hover:border-line-strong backdrop-blur-sm"
-              >
-                How productive was I this week?
-              </button>
-              <p className="text-[12px] text-ink-3 text-center mt-1">
-                I can add tasks, set reminders, summarise your week, and answer productivity questions.
-              </p>
+            {/* Prompt Starter Chips */}
+            <div className="w-full flex flex-col gap-2">
+              {[
+                'How productive was I this week?',
+                'What should I focus on today?',
+                'Summarize my notes',
+              ].map((chip) => (
+                <button
+                  key={chip}
+                  onClick={() => sendMessage(chip)}
+                  className="w-full p-3 rounded-[14px] bg-surface-2 border border-line-subtle text-left text-[13px] text-ink hover:border-line-strong hover:bg-surface-3 transition-colors duration-150 flex items-center justify-between group"
+                >
+                  <span>{chip}</span>
+                  <ArrowUp className="w-3.5 h-3.5 text-ink-4 group-hover:text-ink-2 transition-colors transform rotate-45" />
+                </button>
+              ))}
             </div>
           </div>
         ) : (
           <div
             ref={scrollRef}
-            className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 relative z-10"
+            className="flex-1 p-5 overflow-y-auto space-y-4 relative z-10"
           >
-            {messages.map((m) => {
-              const content = getMessageContent(m);
+            {messages.map((m, idx) => {
               const isUser = m.role === 'user';
-              if (isUser) {
-                return (
-                  <div
-                    key={m.id}
-                    className="ml-auto max-w-[80%] rounded-[18px] rounded-br-[6px] bg-primary px-3.5 py-2.5 text-[14px]/[22px] text-snow shadow-sm"
-                  >
-                    {content}
-                  </div>
-                );
-              }
+              const content = getMessageContent(m);
+
               return (
-                <div key={m.id} className="flex items-start gap-2.5 text-[14px]/[22px] text-ink">
-                  <Sparkles className="w-5 h-5 text-primary-text shrink-0 mt-0.5" />
-                  <div className="flex-1 prose prose-sm dark:prose-invert max-w-none break-words">
-                    <ReactMarkdown>{content}</ReactMarkdown>
+                <div
+                  key={idx}
+                  className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div
+                    className={
+                      isUser
+                        ? 'ml-auto max-w-[80%] rounded-[18px] rounded-br-[6px] bg-primary px-3.5 py-2.5 text-[14px]/[22px] text-snow shadow-sm'
+                        : 'mr-auto max-w-[85%] rounded-[18px] rounded-tl-[6px] bg-surface-2 border border-line-subtle px-4 py-3 text-[14px]/[22px] text-ink'
+                    }
+                  >
+                    {isUser ? (
+                      content
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <ReactMarkdown>{content}</ReactMarkdown>
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -278,38 +501,79 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
             )}
 
             {chatError && (
-              <div className="rounded-[12px] bg-danger/10 border border-danger/20 p-3 text-[13px] text-danger">
-                {chatError}
+              <div className="rounded-[12px] bg-danger/10 border border-danger/20 p-3 text-[13px] text-danger flex items-center justify-between">
+                <span>{chatError}</span>
+                <button
+                  type="button"
+                  onClick={retryLastMessage}
+                  className="px-2.5 py-1 rounded-md text-[12px] font-medium bg-danger/20 hover:bg-danger/30 text-danger transition-colors ml-2"
+                >
+                  Try again
+                </button>
               </div>
             )}
           </div>
         )}
 
-        {/* Input Bar (NO divider line above it) */}
+        {/* Input Bar */}
         <div className="m-4 relative z-10 shrink-0">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              sendMessage(inputValue);
-            }}
-            className="h-14 rounded-full glass pl-5 pr-2 flex items-center gap-2 shadow-sm"
-          >
-            <input
-              ref={inputRef}
-              type="text"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Ask anything..."
-              className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-3 outline-none"
-            />
-            <button
-              type="submit"
-              disabled={!inputValue.trim() || status === 'loading'}
-              className="h-10 w-10 rounded-full bg-primary text-snow flex items-center justify-center hover:bg-primary-hover disabled:opacity-50 transition-colors shrink-0"
+          {isRecording ? (
+            <div className="h-14 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-5 flex items-center justify-between shadow-sm animate-pulse">
+              <div className="flex items-center gap-2.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
+                <span className="text-[14px] font-mono font-semibold text-red-600 dark:text-red-300">
+                  {formatTimer(recordingSeconds)}
+                </span>
+                <span className="text-[13px] text-red-500">Recording</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => stopVoiceRecording(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 text-snow text-[12px] font-medium hover:bg-red-700 transition-colors"
+              >
+                <Square size={12} fill="currentColor" />
+                <span>Done</span>
+              </button>
+            </div>
+          ) : isTranscribing ? (
+            <div className="h-14 rounded-full glass px-5 flex items-center justify-center gap-2 text-[14px] text-ink font-medium shadow-sm">
+              <Loader2 size={16} className="animate-spin text-primary" />
+              <span>Transcribing speech...</span>
+            </div>
+          ) : (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                sendMessage(inputValue);
+              }}
+              className="h-14 rounded-full glass pl-3 pr-2 flex items-center gap-2 shadow-sm"
             >
-              <ArrowUp className="w-[18px] h-[18px]" />
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={handleMicClick}
+                className="p-2 text-ink-3 hover:text-ink transition-colors rounded-full"
+                aria-label="Voice input"
+                title="Dictate with voice"
+              >
+                <Mic size={18} />
+              </button>
+              <input
+                ref={inputRef}
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Ask anything..."
+                className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-3 outline-none min-w-0"
+              />
+              <button
+                type="submit"
+                disabled={!inputValue.trim() || status === 'loading'}
+                className="h-10 w-10 rounded-full bg-primary text-snow flex items-center justify-center hover:bg-primary-hover disabled:opacity-50 transition-colors shrink-0"
+              >
+                <ArrowUp className="w-[18px] h-[18px]" />
+              </button>
+            </form>
+          )}
           {isPro && (
             <p className="text-[12px] text-ink-3 text-center mt-1.5">
               Focalyst Pro Active

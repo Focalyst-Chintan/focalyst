@@ -57,6 +57,7 @@ export const VoiceRecordingOverlay = ({
     const finalTxRef       = useRef<string[]>([])
     // Capture latest transcript in a ref so handleStop can read it synchronously
     const transcriptRef    = useRef('')
+    const handleStopRef    = useRef<() => void>(() => {})
 
     // Keep transcriptRef in sync with state
     useEffect(() => { transcriptRef.current = transcript }, [transcript])
@@ -182,24 +183,29 @@ export const VoiceRecordingOverlay = ({
             setPermissionState('granted')
         } catch (err: any) {
             const msg = err?.name === 'NotAllowedError'
-                ? 'Microphone access denied. Go to Settings → Focalyst → Microphone and enable it.'
-                : `Could not access microphone: ${err?.message || err}`
+                ? 'Allow microphone access in your browser settings to record.'
+                : 'Could not process that recording. Please try again.'
             setError(msg)
             setPermissionState('denied')
             console.error('[VoiceRecorder] getUserMedia error:', err)
             return
         }
 
-        // MediaRecorder — record the raw audio blob for potential upload
+        // MediaRecorder with preferred mime and 32kbps audio
         try {
-            const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-                ? 'audio/webm;codecs=opus'
-                : MediaRecorder.isTypeSupported('audio/mp4')
-                    ? 'audio/mp4'
-                    : ''
-            const mr = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+            const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+            let chosenMime = 'audio/webm'
+            if (typeof MediaRecorder !== 'undefined') {
+                for (const candidate of preferredMimes) {
+                    if (MediaRecorder.isTypeSupported(candidate)) {
+                        chosenMime = candidate
+                        break
+                    }
+                }
+            }
+            const mr = new MediaRecorder(stream, { mimeType: chosenMime, audioBitsPerSecond: 32000 })
             mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-            mr.start(250)  // collect chunks every 250ms
+            mr.start(250)
             mediaRecorderRef.current = mr
         } catch (e) {
             console.warn('[VoiceRecorder] MediaRecorder unavailable:', e)
@@ -211,10 +217,17 @@ export const VoiceRecordingOverlay = ({
         // Speech recognition transcript
         startRecognition()
 
-        // Timer
+        // Timer capped at 10 minutes (600s)
         setIsRecording(true)
         timerRef.current = setInterval(() => {
-            setDuration(prev => prev + 1)
+            setDuration(prev => {
+                const next = prev + 1
+                if (next >= 600) {
+                    handleStopRef.current()
+                    return 600
+                }
+                return next
+            })
         }, 1000)
     }, [startWaveform, startRecognition])
 
@@ -281,10 +294,35 @@ export const VoiceRecordingOverlay = ({
     }, [isRecording, isPaused, stopRecognition, startWaveform, startRecognition])
 
     // ─── Stop & finalize ────────────────────────────────────────────────────
-    const handleStop = useCallback(() => {
-        const finalText = transcriptRef.current.trim()
+    const handleStop = useCallback(async () => {
         const finalDuration = duration
         stopAll()
+
+        let finalText = transcriptRef.current.trim()
+        if (!finalText && chunksRef.current.length > 0) {
+            try {
+                const mime = mediaRecorderRef.current?.mimeType || 'audio/webm'
+                const blob = new Blob(chunksRef.current, { type: mime })
+                if (blob.size > 4 * 1024 * 1024) {
+                    setError('That recording is too long. Keep voice notes under 10 minutes.')
+                    return
+                }
+                const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'wav')
+                const formData = new FormData()
+                formData.append('file', blob, `voice-note.${ext}`)
+
+                const res = await fetch('/api/ai/transcribe', {
+                    method: 'POST',
+                    body: formData,
+                })
+                if (res.ok) {
+                    const data = await res.json()
+                    finalText = data.text || ''
+                }
+            } catch (e) {
+                console.error('[VoiceRecorder] Transcribe error:', e)
+            }
+        }
 
         if (finalText.length > 0) {
             onRecordingComplete(finalText, finalDuration)
@@ -292,6 +330,10 @@ export const VoiceRecordingOverlay = ({
             onClose()
         }
     }, [duration, stopAll, onRecordingComplete, onClose])
+
+    useEffect(() => {
+        handleStopRef.current = handleStop
+    }, [handleStop])
 
     // ─── Discard ─────────────────────────────────────────────────────────────
     const handleDiscard = useCallback(() => {
@@ -307,7 +349,7 @@ export const VoiceRecordingOverlay = ({
 
     return (
         <div
-            className="fixed inset-0 h-screen z-[100] flex flex-col bg-white dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-800"
+            className="fixed inset-0 h-screen z-[100] flex flex-col bg-snow dark:bg-gradient-to-b dark:from-slate-900 dark:to-slate-800"
             style={{ touchAction: 'manipulation' }}
         >
             {/* ── HEADER ─────────────────────────────────────────────────── */}

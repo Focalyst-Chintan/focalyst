@@ -38,3 +38,14 @@ export function originAllowed(req: NextRequest): boolean {
       || (process.env.NODE_ENV !== 'production' && new URL(origin).hostname === 'localhost');
   } catch { return false; }
 }
+
+export function corsHeaders(req: NextRequest): Record<string, string> {
+  const origin = req.headers.get('origin');
+  const allowed = originAllowed(req);
+  return {
+    'Access-Control-Allow-Origin': allowed && origin ? origin : '*',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+  };
+}
+

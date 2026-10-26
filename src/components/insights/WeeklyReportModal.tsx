@@ -100,7 +100,7 @@ export default function WeeklyReportModal({ userId }: WeeklyReportModalProps) {
         {/* CTA Button */}
         <button
           onClick={handleReadNow}
-          className="mt-8 rounded-full bg-[#F07A54] hover:bg-[#e06943] active:scale-95 text-white px-8 py-3.5 font-bold text-sm tracking-wider transition-all shadow-lg hover:shadow-xl"
+          className="mt-8 rounded-full bg-[#F07A54] hover:bg-[#e06943] active:scale-95 text-snow px-8 py-3.5 font-bold text-sm tracking-wider transition-all shadow-lg hover:shadow-xl"
           id="weekly-report-modal-read-now"
         >
           READ NOW
