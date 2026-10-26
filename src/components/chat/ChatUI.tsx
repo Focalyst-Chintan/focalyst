@@ -10,6 +10,7 @@ import ReactMarkdown from 'react-markdown';
 import { createClient } from '@/lib/supabase';
 import { FREE_TIER_LIMITS } from '@/lib/featureGates';
 import { useAuth } from '@/context/AuthContext';
+import { useRecorder } from '@/lib/audio/useRecorder';
 
 interface ChatMessage {
   id: string;
@@ -37,14 +38,23 @@ export function ChatUI() {
   const [limitBannerVisible, setLimitBannerVisible] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
 
-  // Voice recording state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  // Shared recorder hook
+  const {
+    isRecording,
+    isTranscribing,
+    recordingSeconds,
+    error: recorderError,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useRecorder();
 
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  useEffect(() => {
+    if (recorderError) {
+      setFeedbackNotice(recorderError);
+    }
+  }, [recorderError]);
+
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastUserPromptRef = useRef<string>('');
 
@@ -57,28 +67,19 @@ export function ChatUI() {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
-      stopVoiceRecording(false);
+      cancelRecording();
     }
-  }, [isChatOpen]);
+  }, [isChatOpen, cancelRecording]);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch {}
-      }
     };
   }, []);
 
-  const append = async (textToSend: string) => {
+  const append = async (textToSend: string, isRetry = false) => {
     if (!textToSend.trim() || isLoading) return;
 
     setStatus('loading');
@@ -86,19 +87,28 @@ export function ChatUI() {
     setFeedbackNotice(null);
     lastUserPromptRef.current = textToSend.trim();
 
-    const userMessageId = Date.now().toString();
-    const userMessage: ChatMessage = {
-      id: userMessageId,
-      role: 'user',
-      content: textToSend.trim(),
-    };
+    let newMessagesHistory: { role: string; content: string }[];
 
-    setMessages((prev) => [...prev, userMessage]);
-
-    const newMessagesHistory = [
-      ...messages.map((m) => ({ role: m.role, content: m.content })),
-      { role: 'user', content: textToSend.trim() },
-    ];
+    if (isRetry) {
+      // Remove any error message from state when retry starts
+      setMessages((prev) => prev.filter((m) => !m.isError));
+      // History uses existing non-error messages without adding another user message
+      newMessagesHistory = messages
+        .filter((m) => !m.isError)
+        .map((m) => ({ role: m.role, content: m.content }));
+    } else {
+      const userMessageId = Date.now().toString();
+      const userMessage: ChatMessage = {
+        id: userMessageId,
+        role: 'user',
+        content: textToSend.trim(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      newMessagesHistory = [
+        ...messages.filter((m) => !m.isError).map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user', content: textToSend.trim() },
+      ];
+    }
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -209,158 +219,24 @@ export function ChatUI() {
 
   const retryLastMessage = () => {
     if (lastUserPromptRef.current) {
-      append(lastUserPromptRef.current);
+      append(lastUserPromptRef.current, true);
     }
   };
 
-  // Stop recording helper
-  const stopVoiceRecording = useCallback(async (shouldProcess = true) => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-
-    const rec = mediaRecorderRef.current;
-    if (!rec) {
-      setIsRecording(false);
-      setRecordingSeconds(0);
-      return;
-    }
-
-    if (rec.state !== 'inactive') {
-      rec.onstop = async () => {
-        setIsRecording(false);
-        const tracks = rec.stream?.getTracks();
-        tracks?.forEach((t) => t.stop());
-
-        if (!shouldProcess) {
-          setRecordingSeconds(0);
-          audioChunksRef.current = [];
-          return;
-        }
-
-        const mime = rec.mimeType || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: mime });
-        audioChunksRef.current = [];
-        setRecordingSeconds(0);
-
-        if (blob.size === 0) {
-          setFeedbackNotice('Could not process that recording. Please try again.');
-          return;
-        }
-
-        if (blob.size > 4 * 1024 * 1024) {
-          setFeedbackNotice('That recording is too long. Keep voice notes under 10 minutes.');
-          return;
-        }
-
-        try {
-          setIsTranscribing(true);
-          const { data: { session } } = await supabase.auth.getSession();
-          const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'wav');
-          const formData = new FormData();
-          formData.append('file', blob, `voice-dictation.${ext}`);
-
-          const res = await fetch('/api/ai/transcribe', {
-            method: 'POST',
-            headers: {
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-            },
-            body: formData,
-          });
-
-          if (!res.ok) {
-            throw new Error('Transcription failed');
-          }
-
-          const data = await res.json();
-          if (data.text && data.text.trim()) {
-            setInputValue((prev) => (prev ? `${prev} ${data.text.trim()}` : data.text.trim()));
-          } else {
-            setFeedbackNotice('Could not process that recording. Please try again.');
-          }
-        } catch (transcribeErr) {
-          console.error('[Dictation]', transcribeErr);
-          setFeedbackNotice('Could not process that recording. Please try again.');
-        } finally {
-          setIsTranscribing(false);
-        }
-      };
-
-      try {
-        rec.stop();
-      } catch {
-        setIsRecording(false);
-        setRecordingSeconds(0);
-      }
-    } else {
-      setIsRecording(false);
-      setRecordingSeconds(0);
-    }
-  }, [supabase]);
-
-  // Handle click on Microphone icon
+  // Handle click on Microphone icon using useRecorder
   const handleMicClick = async () => {
     if (isTranscribing) return;
 
     if (isRecording) {
-      stopVoiceRecording(true);
+      const text = await stopRecording();
+      if (text && text.trim()) {
+        setInputValue((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()));
+      }
       return;
     }
 
     setFeedbackNotice(null);
-
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setFeedbackNotice('Allow microphone access in your browser settings to record.');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunksRef.current = [];
-
-      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-      let chosenMime = 'audio/webm';
-      if (typeof MediaRecorder !== 'undefined') {
-        for (const candidate of preferredMimes) {
-          if (MediaRecorder.isTypeSupported(candidate)) {
-            chosenMime = candidate;
-            break;
-          }
-        }
-      }
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType: chosenMime,
-        audioBitsPerSecond: 32000,
-      });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-
-      recorder.start(500);
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-      setRecordingSeconds(0);
-
-      // Start 1-second interval timer capped at 10 minutes (600s)
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 600) {
-            stopVoiceRecording(true);
-            return 600;
-          }
-          return next;
-        });
-      }, 1000);
-    } catch (micErr: any) {
-      console.error('[Mic Permission]', micErr);
-      setFeedbackNotice('Allow microphone access in your browser settings to record.');
-    }
+    await startRecording();
   };
 
   // Scroll to bottom on message updates
@@ -619,7 +495,7 @@ export function ChatUI() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => stopVoiceRecording(true)}
+                    onClick={handleMicClick}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600 text-snow text-[12px] font-medium hover:bg-red-700 transition-colors"
                   >
                     <Square size={12} fill="currentColor" />

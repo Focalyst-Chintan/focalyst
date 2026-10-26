@@ -375,78 +375,44 @@ export async function completeJSON<T = any>(
 }
 
 /**
- * Transcribes audio: Groq -> OpenRouter STT -> Gemini audio fallback.
+ * Transcribes audio: OpenRouter STT -> Gemini audio fallback.
  */
 export async function transcribeAudio(
   buffer: Buffer,
   filename: string,
   mimeType: string
 ): Promise<{ text: string; provider: string }> {
-  const groqKey = process.env.GROQ_API_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
 
-  // 1. Try Groq Whisper if GROQ_API_KEY is configured
-  if (groqKey) {
-    try {
-      const formData = new FormData();
-      const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-      formData.append('file', new Blob([uint8 as unknown as BlobPart], { type: mimeType }), filename);
-      formData.append('model', 'whisper-large-v3-turbo');
-      formData.append('response_format', 'json');
-
-      const res = await fetch('https://api.groq.com/openai/v1/audio/transcriptions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${groqKey}`,
-        },
-        body: formData,
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = cleanWhisperTranscript(data.text || '');
-        return { text, provider: 'groq' };
-      } else {
-        const errText = await res.text().catch(() => '');
-        console.error('[ai:transcribe]', 'groq', res.status, errText.slice(0, 100));
-      }
-    } catch (groqErr: any) {
-      console.error('[ai:transcribe]', 'groq', 500, groqErr?.message || 'Groq transcribe error');
-    }
-  }
-
   const base64Audio = buffer.toString('base64');
   const extMatch = filename.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);
-  const audioFormat = extMatch ? extMatch[1] : (mimeType.includes('webm') ? 'webm' : (mimeType.includes('mp4') ? 'mp4' : 'wav'));
+  const audioFormat = extMatch ? extMatch[1] : (mimeType.includes('webm') ? 'webm' : (mimeType.includes('mp4') ? 'm4a' : 'wav'));
 
-  // 2. Try OpenRouter Whisper STT
+  // 1. Try OpenRouter Whisper STT with multipart FormData
   if (openRouterKey) {
     const whisperModels = ['openai/whisper-large-v3-turbo', 'openai/whisper-large-v3'];
     for (const modelId of whisperModels) {
       try {
+        const formData = new FormData();
+        const uint8 = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+        formData.append('file', new Blob([uint8 as unknown as BlobPart], { type: mimeType || 'audio/webm' }), `audio.${audioFormat}`);
+        formData.append('model', modelId);
+
         const res = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${openRouterKey}`,
-            'Content-Type': 'application/json',
             'HTTP-Referer': 'https://focalyst.online',
             'X-Title': 'Focalyst',
           },
-          body: JSON.stringify({
-            model: modelId,
-            input_audio: {
-              data: base64Audio,
-              format: audioFormat,
-            },
-          }),
-          signal: AbortSignal.timeout(30000),
+          body: formData,
+          signal: AbortSignal.timeout(40000),
         });
 
         if (res.ok) {
           const data = await res.json();
-          const text = cleanWhisperTranscript(data?.text || data?.choices?.[0]?.message?.content || '');
+          const text = cleanWhisperTranscript(data?.text || '');
           if (text) return { text, provider: 'openrouter' };
         } else {
           const errText = await res.text().catch(() => '');

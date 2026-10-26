@@ -384,20 +384,20 @@ export default function DesktopNotesView() {
     emitDataChanged('note');
   };
 
-  const handleSaveAudio = async (blob: Blob, durationSec: number) => {
+  const handleSaveVoiceNote = async (transcript: string, durationSec: number) => {
     if (!user) return;
     try {
-      const formData = new FormData();
-      formData.append('file', blob, 'recording.webm');
-      formData.append('durationSeconds', String(durationSec));
-
       const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch('/api/ai/voice-summary', {
         method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
         },
-        body: formData,
+        body: JSON.stringify({
+          transcript,
+          durationSeconds: durationSec,
+        }),
       });
 
       if (!res.ok) {
@@ -934,7 +934,7 @@ export default function DesktopNotesView() {
       <VoiceRecorderModal
         open={isVoiceModalOpen}
         onClose={() => setIsVoiceModalOpen(false)}
-        onSaveAudio={handleSaveAudio}
+        onSaveVoiceNote={handleSaveVoiceNote}
       />
 
       {/* New Folder Creation Modal */}

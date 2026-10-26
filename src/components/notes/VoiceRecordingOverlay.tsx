@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { pickMime, extFor } from '@/lib/audio/useRecorder'
 
 // ─── iOS/WebKit global type augmentations ──────────────────────────────────────
 declare global {
@@ -193,19 +194,13 @@ export const VoiceRecordingOverlay = ({
 
         // MediaRecorder with preferred mime and 32kbps audio
         try {
-            const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
-            let chosenMime = 'audio/webm'
-            if (typeof MediaRecorder !== 'undefined') {
-                for (const candidate of preferredMimes) {
-                    if (MediaRecorder.isTypeSupported(candidate)) {
-                        chosenMime = candidate
-                        break
-                    }
-                }
-            }
-            const mr = new MediaRecorder(stream, { mimeType: chosenMime, audioBitsPerSecond: 32000 })
+            const mime = pickMime()
+            const mr = new MediaRecorder(
+                stream,
+                mime ? { mimeType: mime, audioBitsPerSecond: 32000 } : { audioBitsPerSecond: 32000 }
+            )
             mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
-            mr.start(250)
+            mr.start(1000)
             mediaRecorderRef.current = mr
         } catch (e) {
             console.warn('[VoiceRecorder] MediaRecorder unavailable:', e)
@@ -300,27 +295,41 @@ export const VoiceRecordingOverlay = ({
 
         let finalText = transcriptRef.current.trim()
         if (!finalText && chunksRef.current.length > 0) {
+            const mime = pickMime()
+            const blob = new Blob(chunksRef.current, { type: mediaRecorderRef.current?.mimeType || mime || 'audio/webm' })
+            chunksRef.current = []
+
+            if (blob.size < 2000) {
+                setError('That was too short. Hold the mic a little longer.')
+                return
+            }
+
+            if (blob.size > 4_000_000) {
+                setError('That recording is too long. Keep it under 10 minutes.')
+                return
+            }
+
             try {
-                const mime = mediaRecorderRef.current?.mimeType || 'audio/webm'
-                const blob = new Blob(chunksRef.current, { type: mime })
-                if (blob.size > 4 * 1024 * 1024) {
-                    setError('That recording is too long. Keep voice notes under 10 minutes.')
-                    return
-                }
-                const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'wav')
                 const formData = new FormData()
-                formData.append('file', blob, `voice-note.${ext}`)
+                formData.append('file', blob, `recording.${extFor(blob.type)}`)
 
                 const res = await fetch('/api/ai/transcribe', {
                     method: 'POST',
                     body: formData,
+                    credentials: 'same-origin',
                 })
-                if (res.ok) {
-                    const data = await res.json()
-                    finalText = data.text || ''
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    console.error('[recorder]', res.status, data.code)
+                    setError(data.error || 'Could not process that recording. Please try again.')
+                    return
                 }
+                const data = await res.json()
+                finalText = data.text || ''
             } catch (e) {
-                console.error('[VoiceRecorder] Transcribe error:', e)
+                console.error('[recorder] network error', e)
+                setError('Could not reach Focalyst. Check your connection and try again.')
+                return
             }
         }
 

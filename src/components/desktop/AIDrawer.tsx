@@ -8,6 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
 import { createClient } from '@/lib/supabase';
 import { getDisplayName, getFirstName } from '@/lib/utils/name';
+import { useRecorder } from '@/lib/audio/useRecorder';
 
 interface AIDrawerProps {
   open: boolean;
@@ -24,16 +25,25 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
   const [isQuotaError, setIsQuotaError] = useState(false);
   const [dictationNotice, setDictationNotice] = useState<string | null>(null);
 
-  // Dictation state
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingSeconds, setRecordingSeconds] = useState(0);
-  const [isTranscribing, setIsTranscribing] = useState(false);
+  // Shared recorder hook
+  const {
+    isRecording,
+    isTranscribing,
+    recordingSeconds,
+    error: recorderError,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+  } = useRecorder();
+
+  useEffect(() => {
+    if (recorderError) {
+      setDictationNotice(recorderError);
+    }
+  }, [recorderError]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastUserPromptRef = useRef<string>('');
 
@@ -51,23 +61,15 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
-      stopVoiceRecording(false);
+      cancelRecording();
     }
-  }, [open]);
+  }, [open, cancelRecording]);
 
-  // Clean up timers on unmount
+  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
-      }
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch {}
       }
     };
   }, []);
@@ -88,7 +90,7 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
       .join('');
   };
 
-  const sendMessage = async (textToSend: string) => {
+  const sendMessage = async (textToSend: string, isRetry = false) => {
     if (!textToSend.trim() || status === 'loading') return;
 
     setStatus('loading');
@@ -96,21 +98,31 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
     setIsQuotaError(false);
     lastUserPromptRef.current = textToSend.trim();
 
-    const userMessage = {
-      role: 'user',
-      content: textToSend.trim(),
-    };
+    let newHistory: { role: string; content: string }[];
 
-    setMessages((prev) => [...prev, userMessage]);
-    setInputValue('');
-
-    const newHistory = [
-      ...messages.map((m) => ({
+    if (isRetry) {
+      // The user message is already in messages; do not add a duplicate bubble
+      newHistory = messages.map((m) => ({
         role: m.role,
         content: getMessageContent(m),
-      })),
-      { role: 'user', content: textToSend.trim() },
-    ];
+      }));
+    } else {
+      const userMessage = {
+        role: 'user',
+        content: textToSend.trim(),
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      setInputValue('');
+
+      newHistory = [
+        ...messages.map((m) => ({
+          role: m.role,
+          content: getMessageContent(m),
+        })),
+        { role: 'user', content: textToSend.trim() },
+      ];
+    }
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
@@ -196,7 +208,7 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
 
   const retryLastMessage = () => {
     if (lastUserPromptRef.current) {
-      sendMessage(lastUserPromptRef.current);
+      sendMessage(lastUserPromptRef.current, true);
     }
   };
 
@@ -207,152 +219,19 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
     setStatus('ready');
   };
 
-  // Stop recording helper
-  const stopVoiceRecording = useCallback(async (shouldProcess = true) => {
-    if (recordingTimerRef.current) {
-      clearInterval(recordingTimerRef.current);
-      recordingTimerRef.current = null;
-    }
-
-    const rec = mediaRecorderRef.current;
-    if (!rec) {
-      setIsRecording(false);
-      setRecordingSeconds(0);
-      return;
-    }
-
-    if (rec.state !== 'inactive') {
-      rec.onstop = async () => {
-        setIsRecording(false);
-        const tracks = rec.stream?.getTracks();
-        tracks?.forEach((t) => t.stop());
-
-        if (!shouldProcess) {
-          setRecordingSeconds(0);
-          audioChunksRef.current = [];
-          return;
-        }
-
-        const mime = rec.mimeType || 'audio/webm';
-        const blob = new Blob(audioChunksRef.current, { type: mime });
-        audioChunksRef.current = [];
-        setRecordingSeconds(0);
-
-        if (blob.size === 0) {
-          setDictationNotice('Could not process that recording. Please try again.');
-          return;
-        }
-
-        if (blob.size > 4 * 1024 * 1024) {
-          setDictationNotice('That recording is too long. Keep voice notes under 10 minutes.');
-          return;
-        }
-
-        try {
-          setIsTranscribing(true);
-          const { data: { session } } = await supabase.auth.getSession();
-          const ext = mime.includes('mp4') ? 'mp4' : (mime.includes('webm') ? 'webm' : 'wav');
-          const formData = new FormData();
-          formData.append('file', blob, `voice-dictation.${ext}`);
-
-          const res = await fetch('/api/ai/transcribe', {
-            method: 'POST',
-            headers: {
-              ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-            },
-            body: formData,
-          });
-
-          if (!res.ok) {
-            throw new Error('Transcription failed');
-          }
-
-          const data = await res.json();
-          if (data.text && data.text.trim()) {
-            setInputValue((prev) => (prev ? `${prev} ${data.text.trim()}` : data.text.trim()));
-          } else {
-            setDictationNotice('Could not process that recording. Please try again.');
-          }
-        } catch (transcribeErr) {
-          console.error('[AIDrawer Dictation]', transcribeErr);
-          setDictationNotice('Could not process that recording. Please try again.');
-        } finally {
-          setIsTranscribing(false);
-        }
-      };
-
-      try {
-        rec.stop();
-      } catch {
-        setIsRecording(false);
-        setRecordingSeconds(0);
-      }
-    } else {
-      setIsRecording(false);
-      setRecordingSeconds(0);
-    }
-  }, [supabase]);
-
   const handleMicClick = async () => {
     if (isTranscribing) return;
 
     if (isRecording) {
-      stopVoiceRecording(true);
+      const text = await stopRecording();
+      if (text && text.trim()) {
+        setInputValue((prev) => (prev ? `${prev} ${text.trim()}` : text.trim()));
+      }
       return;
     }
 
     setDictationNotice(null);
-
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      setDictationNotice('Allow microphone access in your browser settings to record.');
-      return;
-    }
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      audioChunksRef.current = [];
-
-      const preferredMimes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'];
-      let chosenMime = 'audio/webm';
-      if (typeof MediaRecorder !== 'undefined') {
-        for (const candidate of preferredMimes) {
-          if (MediaRecorder.isTypeSupported(candidate)) {
-            chosenMime = candidate;
-            break;
-          }
-        }
-      }
-
-      const recorder = new MediaRecorder(stream, {
-        mimeType: chosenMime,
-        audioBitsPerSecond: 32000,
-      });
-
-      recorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-          audioChunksRef.current.push(e.data);
-        }
-      };
-
-      recorder.start(500);
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-      setRecordingSeconds(0);
-
-      recordingTimerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 600) {
-            stopVoiceRecording(true);
-            return 600;
-          }
-          return next;
-        });
-      }, 1000);
-    } catch (micErr: any) {
-      console.error('[AIDrawer Mic]', micErr);
-      setDictationNotice('Allow microphone access in your browser settings to record.');
-    }
+    await startRecording();
   };
 
   const formatTimer = (sec: number) => {
@@ -528,7 +407,7 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
               </div>
               <button
                 type="button"
-                onClick={() => stopVoiceRecording(true)}
+                onClick={handleMicClick}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-600 text-snow text-[12px] font-medium hover:bg-red-700 transition-colors"
               >
                 <Square size={12} fill="currentColor" />
