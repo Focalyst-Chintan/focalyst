@@ -10,7 +10,7 @@
     "persona": "node scripts/build-persona.mjs"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.60",
+    "@ai-sdk/google": "^4.0.104",
     "@ai-sdk/react": "^3.0.155",
     "@capacitor/cli": "^7.6.5",
     "@capacitor/core": "^8.3.4",
