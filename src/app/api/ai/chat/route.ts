@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
 import { streamChat, type ChatMessageParam } from '@/lib/ai/providers';
 import { buildUserContext } from '@/lib/ai/chatContext';
-import { FOCALYST_AI_PERSONA } from '@/constants/focalystPersona';
+import { AI_PERSONA } from '@/lib/ai/persona';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -145,10 +145,16 @@ export async function POST(req: NextRequest) {
 
     // Build real-time context with user's signed-in Supabase client
     const userContext = await buildUserContext(supabase, user.id, tz);
-    const systemPrompt = `${FOCALYST_AI_PERSONA}\n\n${userContext}`;
+    const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz }).format(new Date());
+    const system = [
+      AI_PERSONA,
+      'Always finish your answer completely. Use short paragraphs and simple markdown (bold, bullet lists, numbered steps). Never stop mid-sentence.',
+      `Today is ${today} (${tz}).`,
+      `The user's Focalyst data:\n${userContext}`,
+    ].join('\n\n');
 
     const modelType = isHeavyQuery(userPrompt) ? 'heavy' : 'light';
-    const { stream, provider } = await streamChat(normalizedMessages, systemPrompt, modelType);
+    const { stream, provider } = await streamChat(normalizedMessages, system, modelType);
 
     // Track stream output to persist in ai_chat_logs and update usage counter
     const textDecoder = new TextDecoder();

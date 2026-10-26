@@ -161,7 +161,6 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
       // Stream assistant response
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
-      let assistantText = '';
       const assistantId = (Date.now() + 1).toString();
 
       setMessages((prev) => [
@@ -170,20 +169,27 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
       ]);
 
       if (reader) {
+        let acc = '';
         while (true) {
-          const { done, value } = await reader.read();
+          const { value, done } = await reader.read();
           if (done) break;
-          const chunk = decoder.decode(value, { stream: true });
-          assistantText += chunk;
-
+          acc += decoder.decode(value, { stream: true });
           setMessages((prev) =>
             prev.map((m) =>
               m.id === assistantId
-                ? { ...m, content: assistantText, parts: [{ type: 'text', text: assistantText }] }
+                ? { ...m, content: acc, parts: [{ type: 'text', text: acc }] }
                 : m
             )
           );
         }
+        acc += decoder.decode();
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId
+              ? { ...m, content: acc, parts: [{ type: 'text', text: acc }], streaming: false }
+              : m
+          )
+        );
       }
 
       setStatus('ready');

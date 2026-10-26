@@ -23,7 +23,9 @@ import { onDataChanged } from '@/lib/events';
 import { getLevelFromXp, LEVELS } from '@/lib/xp/levels';
 import { minuteTicks, fmtMin } from '@/lib/utils/chart';
 import { LevelUpModal } from '@/components/insights/LevelUpModal';
-import WeeklyReportView from '@/components/insights/WeeklyReportView';
+import { DesktopWeeklyReport, type WeeklyReportView as DesktopWeeklyReportData } from './DesktopWeeklyReport';
+import { isPaidPlan } from '@/lib/featureGates';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 
 // Desktop UI
 import { Button } from '@/components/desktop/ui/Button';
@@ -40,6 +42,7 @@ import {
   Star,
   Lock,
   Check,
+  X,
 } from 'lucide-react';
 
 function MicroBars({ values, todayIndex }: { values: number[]; todayIndex?: number }) {
@@ -77,9 +80,15 @@ export default function DesktopInsightsView() {
   const [offset, setOffset] = useState<number>(0);
 
   const [totalXP, setTotalXP] = useState(0);
-  const [userPlan, setUserPlan] = useState<'free' | 'pro'>('free');
+  const [userPlan, setUserPlan] = useState<string>('free');
+  const [userTimezone, setUserTimezone] = useState<string>('Asia/Kolkata');
   const [weeklyReport, setWeeklyReport] = useState<any | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reportViewData, setReportViewData] = useState<DesktopWeeklyReportData | null>(null);
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportError, setReportError] = useState(false);
+  const openedFromRef = useRef<HTMLElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [isLevelsModalOpen, setIsLevelsModalOpen] = useState(false);
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
 
@@ -115,13 +124,16 @@ export default function DesktopInsightsView() {
     try {
       const { data: profile } = await supabase
         .from('users')
-        .select('plan, total_xp')
+        .select('plan, total_xp, timezone')
         .eq('id', user.id)
         .single();
 
       if (profile) {
         setTotalXP(profile.total_xp || 0);
-        setUserPlan(profile.plan !== 'free' ? 'pro' : 'free');
+        setUserPlan(profile.plan || 'free');
+        if (profile.timezone) {
+          setUserTimezone(profile.timezone);
+        }
       }
 
       const { data: reports } = await supabase
@@ -619,6 +631,180 @@ export default function DesktopInsightsView() {
       activeDays: `${activeDaysCount} of ${totalPeriodDays}`,
     };
   }, [fullPeriodStats, kind, period.from, period.to]);
+
+  const fetchReport = useCallback(async () => {
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    const weekKey = `${d.getUTCFullYear()}-W${weekNo}`;
+    const cacheKey = `focalyst_report_data_${weekKey}`;
+
+    const mapDataToView = (data: any): DesktopWeeklyReportData => {
+      const timeZone = userTimezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata';
+      let start: Date;
+      let end: Date;
+      if (data.startDate && data.endDate) {
+        start = new Date(data.startDate);
+        end = new Date(data.endDate);
+      } else {
+        const day = now.getDay();
+        const daysToSubtract = day === 6 ? 7 : (day + 1);
+        end = new Date(now);
+        end.setDate(now.getDate() - daysToSubtract);
+        start = new Date(end);
+        start.setDate(end.getDate() - 6);
+      }
+      const fmt = (dt: Date) =>
+        new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone }).format(dt);
+      const rangeLabel = `${fmt(start)} to ${fmt(end)}`;
+
+      let focusM = 0;
+      if (typeof data.focusTime === 'string') {
+        const hMatch = data.focusTime.match(/(\d+)\s*h/);
+        if (hMatch) focusM += parseInt(hMatch[1], 10) * 60;
+        const mMatch = data.focusTime.match(/(\d+)\s*m/);
+        if (mMatch) focusM += parseInt(mMatch[1], 10);
+        if (!hMatch && !mMatch) {
+          const n = parseInt(data.focusTime, 10);
+          if (!isNaN(n)) focusM = n;
+        }
+      } else if (typeof data.focusMinutes === 'number') {
+        focusM = data.focusMinutes;
+      } else {
+        focusM = currentStats.totalMinutes;
+      }
+
+      const tasksDone = typeof data.tasksCompleted === 'number'
+        ? data.tasksCompleted
+        : (typeof data.tasksDone === 'number' ? data.tasksDone : tasksDoneCount);
+
+      const totalTasksInPeriod = tasksDoneCount + stillOpenTasksCount;
+      const taskCompletionPct = typeof data.taskCompletionPct === 'number'
+        ? data.taskCompletionPct
+        : (totalTasksInPeriod > 0
+            ? Math.round((tasksDoneCount / totalTasksInPeriod) * 100)
+            : (tasksDone > 0 ? 100 : 0));
+
+      const habitPct = typeof data.habitConsistency === 'string'
+        ? (parseInt(data.habitConsistency, 10) || habitConsistencyPct || 0)
+        : (typeof data.habitPct === 'number' ? data.habitPct : habitConsistencyPct || 0);
+
+      const insight = data.weekSummaryText || data.insight || '';
+
+      const strengths = Array.isArray(data.strengths) && data.strengths.length > 0
+        ? data.strengths
+        : undefined;
+
+      const cat = data.catalystInsights || data.catalyst;
+      const catalyst = cat && (cat.pattern || cat.weakness || cat.prescription)
+        ? {
+            pattern: cat.pattern || '',
+            weakness: cat.weakness || '',
+            prescription: cat.prescription || '',
+          }
+        : null;
+
+      return {
+        rangeLabel,
+        score: Math.round(data.score ?? prodBreakdown.total ?? 0),
+        focusMinutes: focusM,
+        tasksDone,
+        taskCompletionPct,
+        habitPct,
+        insight,
+        strengths,
+        catalyst,
+        generatedAt: data.generatedAt || data.created_at || (data.startDate ? new Date().toISOString() : undefined),
+      };
+    };
+
+    const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setReportViewData(mapDataToView(parsed));
+        setReportLoading(false);
+        return;
+      } catch {}
+    }
+
+    try {
+      setReportLoading(true);
+      setReportError(false);
+      const res = await fetch('/api/ai/weekly-report', { method: 'POST' });
+      if (!res.ok) {
+        setReportError(true);
+        setReportLoading(false);
+        return;
+      }
+      const data = await res.json();
+      setReportViewData(mapDataToView(data));
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(cacheKey, JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('[DesktopWeeklyReport] fetch error:', err);
+      setReportError(true);
+    } finally {
+      setReportLoading(false);
+    }
+  }, [userTimezone, currentStats.totalMinutes, tasksDoneCount, stillOpenTasksCount, habitConsistencyPct, prodBreakdown.total]);
+
+  const openReportModal = (e?: React.MouseEvent) => {
+    openedFromRef.current = (e?.currentTarget as HTMLElement) || (document.activeElement as HTMLElement | null);
+    setIsReportModalOpen(true);
+    if (!reportViewData && !reportLoading) {
+      fetchReport();
+    }
+  };
+
+  const closeReportModal = () => {
+    setIsReportModalOpen(false);
+    setTimeout(() => {
+      openedFromRef.current?.focus();
+    }, 0);
+  };
+
+  useEffect(() => {
+    if (!isReportModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeReportModal();
+        return;
+      }
+      if (e.key === 'Tab') {
+        const el = dialogRef.current;
+        if (!el) return;
+        const focusable = el.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isReportModalOpen]);
+
+  useEffect(() => {
+    if (isReportModalOpen && dialogRef.current) {
+      const first = dialogRef.current.querySelector<HTMLElement>(
+        'button, [href], input, [tabindex]:not([tabindex="-1"])'
+      );
+      first?.focus();
+    }
+  }, [isReportModalOpen, reportLoading, reportError]);
 
   return (
     <div className="pb-16 max-w-[1280px] mx-auto">
@@ -1345,7 +1531,7 @@ export default function DesktopInsightsView() {
             <Button
               variant="primary"
               size="sm"
-              onClick={() => setIsReportModalOpen(true)}
+              onClick={openReportModal}
             >
               Read full report
             </Button>
@@ -1469,17 +1655,122 @@ export default function DesktopInsightsView() {
         </div>
       </Modal>
 
-      {/* Full Weekly Report Modal */}
-      <Modal
-        isOpen={isReportModalOpen}
-        onClose={() => setIsReportModalOpen(false)}
-        size="lg"
-        title="Weekly Intelligence Report"
-      >
-        <div className="max-h-[70vh] overflow-y-auto py-2">
-          <WeeklyReportView userPlan={userPlan} />
+      {/* Full Weekly Report Modal (>= 1024px) */}
+      {isReportModalOpen && (
+        <div
+          role="presentation"
+          className="fixed inset-0 z-50 grid place-items-center bg-[rgba(3,25,91,0.35)] backdrop-blur-sm p-4 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeReportModal();
+          }}
+        >
+          <div ref={dialogRef} className="max-w-full">
+            {reportLoading ? (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="fx-report-title"
+                className="glass-strong flex h-[min(88vh,920px)] w-[min(1080px,92vw)] flex-col overflow-hidden rounded-3xl border border-[var(--line)] shadow-2xl"
+              >
+                <header className="flex items-start justify-between gap-6 border-b border-[var(--line)] px-8 py-6">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--ink-3)]">Weekly report</p>
+                    <h2 id="fx-report-title" className="mt-1 font-display text-3xl text-[var(--ink)]">Creating your report</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={closeReportModal}
+                      aria-label="Close report"
+                      className="grid size-9 place-items-center rounded-xl text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                </header>
+
+                <div className="grid min-h-0 flex-1 grid-cols-[340px_minmax(0,1fr)]">
+                  <aside className="space-y-6 overflow-y-auto border-r border-[var(--line)] p-8">
+                    <div className="flex flex-col items-center text-center">
+                      <Skeleton className="size-44 rounded-full" />
+                      <Skeleton className="mt-4 h-7 w-36 rounded-lg" />
+                      <Skeleton className="mt-2 h-4 w-28 rounded-md" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-12 w-full rounded-2xl" />
+                      <Skeleton className="h-12 w-full rounded-2xl" />
+                      <Skeleton className="h-12 w-full rounded-2xl" />
+                    </div>
+                    <div className="space-y-4 rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-5">
+                      <Skeleton className="h-4 w-20 rounded-md" />
+                      <Skeleton className="h-8 w-full rounded-lg" />
+                      <Skeleton className="h-8 w-full rounded-lg" />
+                    </div>
+                  </aside>
+
+                  <main className="space-y-8 overflow-y-auto p-8">
+                    <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-6 space-y-3">
+                      <Skeleton className="h-6 w-32 rounded-lg" />
+                      <Skeleton className="h-4 w-full rounded-md" />
+                      <Skeleton className="h-4 w-5/6 rounded-md" />
+                      <Skeleton className="h-4 w-3/4 rounded-md" />
+                    </section>
+                    <section className="rounded-2xl border border-[var(--line)] bg-[var(--surface-2)] p-6 space-y-3">
+                      <Skeleton className="h-6 w-40 rounded-lg" />
+                      <Skeleton className="h-4 w-full rounded-md" />
+                      <Skeleton className="h-4 w-4/5 rounded-md" />
+                      <Skeleton className="h-4 w-2/3 rounded-md" />
+                    </section>
+                  </main>
+                </div>
+              </div>
+            ) : reportError || !reportViewData ? (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="fx-report-title"
+                className="glass-strong flex h-[min(88vh,920px)] w-[min(1080px,92vw)] flex-col overflow-hidden rounded-3xl border border-[var(--line)] shadow-2xl"
+              >
+                <header className="flex items-start justify-between gap-6 border-b border-[var(--line)] px-8 py-6">
+                  <div>
+                    <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-[var(--ink-3)]">Weekly report</p>
+                    <h2 id="fx-report-title" className="mt-1 font-display text-3xl text-[var(--ink)]">Weekly report</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={closeReportModal}
+                      aria-label="Close report"
+                      className="grid size-9 place-items-center rounded-xl text-[var(--ink-2)] transition hover:bg-[var(--surface-2)] hover:text-[var(--ink)]"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  </div>
+                </header>
+                <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+                  <p className="max-w-md text-base leading-7 text-[var(--ink-2)]">
+                    Your report could not be created right now. Please try again in a few minutes.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={fetchReport}
+                    className="mt-6 inline-flex h-10 items-center rounded-xl bg-[linear-gradient(90deg,#0B2CB1,#1951FC)] px-5 text-sm font-medium text-snow shadow-sm transition hover:brightness-110"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <DesktopWeeklyReport
+                report={reportViewData}
+                isPro={isPaidPlan(userPlan)}
+                onClose={closeReportModal}
+                onUpgrade={() => router.push('/paywall')}
+              />
+            )}
+          </div>
         </div>
-      </Modal>
+      )}
 
       {/* Level-up celebration modal */}
       {showLevelUpModal && (

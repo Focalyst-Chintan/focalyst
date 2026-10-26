@@ -17,6 +17,7 @@ interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   isError?: boolean;
+  streaming?: boolean;
 }
 
 export function ChatUI() {
@@ -159,24 +160,17 @@ export function ChatUI() {
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
-      let assistantReply = '';
+      let acc = '';
 
       while (true) {
-        const { done, value } = await reader.read();
+        const { value, done } = await reader.read();
         if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        if (chunk) {
-          setIsWaitingFirstToken(false);
-          assistantReply += chunk;
-
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantMessageId ? { ...m, content: assistantReply } : m
-            )
-          );
-        }
+        setIsWaitingFirstToken(false);
+        acc += decoder.decode(value, { stream: true });
+        setMessages((prev) => prev.map((m) => (m.id === assistantMessageId ? { ...m, content: acc } : m)));
       }
+      acc += decoder.decode();
+      setMessages((prev) => prev.map((m) => (m.id === assistantMessageId ? { ...m, content: acc, streaming: false } : m)));
 
       setStatus('ready');
       setIsWaitingFirstToken(false);

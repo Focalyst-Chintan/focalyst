@@ -77,7 +77,8 @@ export async function streamChat(
           model: orModel,
           messages: fullMessages,
           stream: true,
-          max_tokens: 1024,
+          max_tokens: 4096,
+          reasoning: { effort: 'low', exclude: true },
           temperature: 0.7,
         }),
         signal: controller.signal,
@@ -101,6 +102,7 @@ export async function streamChat(
 
       let hasReceivedFirstToken = false;
       let buffer = '';
+      let finishReason: string | null = null;
 
       // Read first chunk to ensure first token arrived before the 20s timeout
       const firstRead = await reader.read();
@@ -132,6 +134,8 @@ export async function streamChat(
                 const jsonStr = trimmed.slice(6).trim();
                 try {
                   const parsed = JSON.parse(jsonStr);
+                  const fr = parsed.choices?.[0]?.finish_reason;
+                  if (fr) finishReason = fr;
                   const content = parsed.choices?.[0]?.delta?.content;
                   if (typeof content === 'string' && content.length > 0) {
                     streamController.enqueue(encoder.encode(content));
@@ -158,6 +162,7 @@ export async function streamChat(
             if (buffer.length > 0) {
               processChunk('\n');
             }
+            console.info('[ai] finish', 'openrouter', finishReason ?? 'unknown');
             streamController.close();
           } catch (streamErr) {
             console.error('[ai:chat]', 'openrouter', 500, 'Stream read error');
@@ -190,7 +195,8 @@ export async function streamChat(
           model: GEMINI_CHAT_MODEL,
           messages: fullMessages,
           stream: true,
-          max_tokens: 1024,
+          max_tokens: 4096,
+          generationConfig: { maxOutputTokens: 4096 },
           temperature: 0.7,
         }),
         signal: controller.signal,
@@ -220,6 +226,7 @@ export async function streamChat(
       }
 
       let buffer = '';
+      let finishReason: string | null = null;
 
       const stream = new ReadableStream<Uint8Array>({
         async start(streamController) {
@@ -240,6 +247,8 @@ export async function streamChat(
                 const jsonStr = trimmed.slice(6).trim();
                 try {
                   const parsed = JSON.parse(jsonStr);
+                  const fr = parsed.candidates?.[0]?.finishReason || parsed.choices?.[0]?.finish_reason;
+                  if (fr) finishReason = fr;
                   const content = parsed.choices?.[0]?.delta?.content;
                   if (typeof content === 'string' && content.length > 0) {
                     streamController.enqueue(encoder.encode(content));
@@ -264,6 +273,7 @@ export async function streamChat(
             if (buffer.length > 0) {
               processChunk('\n');
             }
+            console.info('[ai] finish', 'gemini', finishReason ?? 'unknown');
             streamController.close();
           } catch (streamErr) {
             console.error('[ai:chat]', 'gemini', 500, 'Gemini stream read error');
