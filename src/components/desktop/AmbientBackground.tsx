@@ -12,8 +12,7 @@ export default function AmbientBackground({
   const o = strong ? 1.4 : 1;
 
   useEffect(() => {
-    const onVis = () => setPaused(document.hidden);
-    onVis();
+    const onVis = () => document.documentElement.toggleAttribute('data-hidden', document.hidden);
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
   }, []);
@@ -60,7 +59,7 @@ export default function AmbientBackground({
           animationPlayState: playState,
         }}
       />
-      <div className="ambient-grain" />
+      <div className="ambient-grain pointer-events-none" />
     </div>
   );
 }

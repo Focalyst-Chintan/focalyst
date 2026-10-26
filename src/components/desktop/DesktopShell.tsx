@@ -58,6 +58,11 @@ const ReminderModal = dynamic(
   { ssr: false }
 );
 
+const ShortcutsModal = dynamic(
+  () => import('./ShortcutsModal').then((m) => m.ShortcutsModal),
+  { ssr: false }
+);
+
 const BRAND_LOGO = '/small-logo.png';
 
 function SidebarBrand({
@@ -237,6 +242,24 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
   const [isWideScreen, setIsWideScreen] = useState(true);
   const contextPanelRef = useRef<HTMLDivElement>(null);
 
+  // Restore & save scroll position on navigation
+  useEffect(() => {
+    const key = `fx_scroll_${pathname}`;
+    const saved = sessionStorage.getItem(key);
+    if (saved) {
+      window.scrollTo(0, parseInt(saved, 10));
+    }
+
+    const onScroll = () => {
+      sessionStorage.setItem(`fx_scroll_${window.location.pathname}`, String(window.scrollY));
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+    };
+  }, [pathname]);
+
   useEffect(() => {
     const checkWidth = () => {
       setIsWideScreen(window.innerWidth >= 1280);
@@ -280,6 +303,8 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const [shortcutsModalOpen, setShortcutsModalOpen] = useState(false);
+
   // Register Global Desktop Shortcuts
   useDesktopShortcuts({
     onToggleCommandPalette: toggleCommandPalette,
@@ -287,13 +312,16 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
     onToggleSidebar: toggleSidebar,
     onToggleContextPanel: toggleContextPanel,
     onOpenNewMenu: toggleNewMenu,
+    onToggleShortcuts: () => setShortcutsModalOpen((prev) => !prev),
     onNewHabit: () => create.open('habit'),
     onNewReminder: () => create.open('reminder'),
     onFocusTasksComposer: () => {
       create.open('task');
     },
     onEscape: () => {
-      if (commandPaletteOpen) {
+      if (shortcutsModalOpen) {
+        setShortcutsModalOpen(false);
+      } else if (commandPaletteOpen) {
         setCommandPaletteOpen(false);
       } else if (aiDrawerOpen) {
         setAiDrawerOpen(false);
@@ -935,6 +963,12 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
         onClose={() => setReminderModalOpen(false)}
         reminderToEdit={editingReminder}
         prefillDate={reminderPrefillDate}
+      />
+
+      {/* Keyboard Shortcuts Modal */}
+      <ShortcutsModal
+        isOpen={shortcutsModalOpen}
+        onClose={() => setShortcutsModalOpen(false)}
       />
 
       <GlobalToastContainer />

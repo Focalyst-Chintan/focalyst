@@ -151,7 +151,7 @@ export function CalendarDesktopView() {
   };
 
   const remindersKey = user ? `reminders:${user.id}` : null;
-  const { data: cachedReminders, mutate: mutateReminders } = useData(remindersKey, remindersFetcher);
+  const { data: cachedReminders, error: remindersError, mutate: mutateReminders } = useData(remindersKey, remindersFetcher);
 
   useEffect(() => {
     if (cachedReminders) {
@@ -424,6 +424,19 @@ export function CalendarDesktopView() {
     openNewReminderModal,
     openEditReminderModal,
   ]);
+
+  if (remindersError && allDbReminders.length === 0 && (!contextReminders || contextReminders.length === 0)) {
+    return (
+      <div className="flex flex-col gap-6 w-full">
+        <div className="py-12 flex flex-col items-center justify-center text-center p-6 rounded-[20px] frost">
+          <p className="text-[14px] text-ink mb-3">Couldn't load calendar reminders.</p>
+          <Button variant="secondary" size="sm" onClick={() => mutateReminders()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col gap-5 w-full">

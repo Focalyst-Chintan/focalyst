@@ -9,6 +9,7 @@ interface DesktopShortcutsOptions {
   onToggleSidebar?: () => void;
   onToggleContextPanel?: () => void;
   onOpenNewMenu?: () => void;
+  onToggleShortcuts?: () => void;
   onEscape?: () => void;
   onNewHabit?: () => void;
   onNewReminder?: () => void;
@@ -21,6 +22,7 @@ export function useDesktopShortcuts({
   onToggleSidebar,
   onToggleContextPanel,
   onOpenNewMenu,
+  onToggleShortcuts,
   onEscape,
   onNewHabit,
   onNewReminder,
@@ -52,6 +54,13 @@ export function useDesktopShortcuts({
         if (onEscape) {
           onEscape();
         }
+        return;
+      }
+
+      // '?' opens shortcuts sheet (works even with Shift)
+      if (e.key === '?' && !isInput && !modifier) {
+        e.preventDefault();
+        onToggleShortcuts?.();
         return;
       }
 
@@ -163,6 +172,7 @@ export function useDesktopShortcuts({
     onToggleSidebar,
     onToggleContextPanel,
     onOpenNewMenu,
+    onToggleShortcuts,
     onEscape,
     onNewHabit,
     onNewReminder,

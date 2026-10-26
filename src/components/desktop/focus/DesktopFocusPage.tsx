@@ -800,6 +800,7 @@ export function DesktopFocusPage() {
                 type="button"
                 onClick={handleReset}
                 title="Reset timer"
+                aria-label="Reset timer"
                 className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
               >
                 <RotateCcw size={20} />
@@ -809,6 +810,7 @@ export function DesktopFocusPage() {
                 type="button"
                 onClick={toggleStartPause}
                 title={isActive ? 'Pause' : 'Start'}
+                aria-label={isActive ? 'Pause timer' : 'Start timer'}
                 className="h-[72px] w-[72px] rounded-full bg-primary hover:bg-primary-hover text-snow flex items-center justify-center shadow-[0_10px_30px_rgba(25,81,252,0.45)] transition-transform active:scale-95 cursor-pointer"
               >
                 {isActive ? <Pause size={28} /> : <Play size={28} className="ml-1" />}
@@ -818,6 +820,7 @@ export function DesktopFocusPage() {
                 type="button"
                 onClick={handleEndSession}
                 title="End session"
+                aria-label="End session"
                 className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
               >
                 <Square size={20} />
@@ -827,6 +830,7 @@ export function DesktopFocusPage() {
                 type="button"
                 onClick={handleSkip}
                 title="Skip block"
+                aria-label="Skip block"
                 className="h-12 w-12 rounded-full flex items-center justify-center text-ink-3 hover:text-ink hover:bg-surface-2 transition-colors cursor-pointer"
               >
                 <SkipForward size={20} />

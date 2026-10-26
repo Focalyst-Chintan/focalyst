@@ -16,7 +16,7 @@ import { onDataChanged } from '@/lib/events';
 import { AccountabilitySection } from './AccountabilitySection';
 
 export function HabitsView() {
-  const { habits, updateHabit, deleteHabit } = usePlan();
+  const { habits, loading, error, refreshData, updateHabit, deleteHabit } = usePlan();
   const { setContextPanel, setIsContextPanelOpen } = useDesktopShell();
   const { open: openCreate } = useCreate();
   const { user } = useAuth();
@@ -251,6 +251,30 @@ export function HabitsView() {
     openCreate,
     deleteHabit,
   ]);
+
+  if (error) {
+    return (
+      <div className="flex flex-col gap-6 w-full">
+        <div className="py-12 flex flex-col items-center justify-center text-center p-6 rounded-[20px] frost">
+          <p className="text-[14px] text-ink mb-3">{error || "Couldn't load habits."}</p>
+          <Button variant="secondary" size="sm" onClick={() => refreshData()}>
+            Retry
+          </Button>
+        </div>
+        <AccountabilitySection />
+      </div>
+    );
+  }
+
+  if (loading && (!habits || habits.length === 0)) {
+    return (
+      <div className="flex flex-col gap-3 w-full animate-pulse">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-16 rounded-[16px] bg-surface-2/60 border border-line" />
+        ))}
+      </div>
+    );
+  }
 
   if (!habits || habits.length === 0) {
     return (

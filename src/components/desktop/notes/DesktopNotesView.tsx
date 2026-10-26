@@ -454,6 +454,17 @@ export default function DesktopNotesView() {
     }
   };
 
+  if (error && notes.length === 0) {
+    return (
+      <div className="frost rounded-[20px] p-12 flex flex-col items-center justify-center text-center gap-3">
+        <p className="text-[14px] text-ink">{error || "Couldn't load notes."}</p>
+        <Button variant="secondary" size="sm" onClick={() => fetchNotes(1, 30)}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   if (loading && notes.length === 0) {
     return (
       <div className="grid grid-cols-[220px_320px_1fr] gap-4 h-[calc(100vh-112px)]">

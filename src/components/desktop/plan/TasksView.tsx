@@ -25,7 +25,7 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 };
 
 export function TasksView() {
-  const { tasks, addTask, updateTask, deleteTask, reorderTasks } = usePlan();
+  const { tasks, loading, error, refreshData, addTask, updateTask, deleteTask, reorderTasks } = usePlan();
   const { setContextPanel, setIsContextPanelOpen, composerFocusTrigger } = useDesktopShell();
 
   const [composerText, setComposerText] = useState('');
@@ -615,8 +615,21 @@ export function TasksView() {
         )}
       </form>
 
-      {/* Task Groups */}
-      {isListCompletelyEmpty ? (
+      {/* Task Groups, Loading and Error States */}
+      {error ? (
+        <div className="py-12 flex flex-col items-center justify-center text-center p-6 rounded-[20px] frost">
+          <p className="text-[14px] text-ink mb-3">{error || "Couldn't load tasks."}</p>
+          <Button variant="secondary" size="sm" onClick={() => refreshData()}>
+            Retry
+          </Button>
+        </div>
+      ) : loading && tasks.length === 0 ? (
+        <div className="flex flex-col gap-3 py-4 animate-pulse">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-11 rounded-[12px] bg-surface-2/60 border border-line" />
+          ))}
+        </div>
+      ) : isListCompletelyEmpty ? (
         <div className="py-12" onClick={() => composerInputRef.current?.focus()}>
           <EmptyState
             title="Nothing on your list."
