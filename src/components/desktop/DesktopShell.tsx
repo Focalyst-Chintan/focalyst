@@ -34,15 +34,29 @@ import { ThemeSwitch } from '@/components/desktop/ui/ThemeSwitch';
 import { GlobalToastContainer } from '@/components/desktop/ui/Toast';
 import { Kbd } from '@/components/desktop/ui/Kbd';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
-import { CommandPalette } from './CommandPalette';
+import dynamic from 'next/dynamic';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { AIDrawer } from './AIDrawer';
-import { HabitModal } from './plan/HabitModal';
-import { ReminderModal } from './plan/ReminderModal';
 import { useDesktopShortcuts } from '@/hooks/useDesktopShortcuts';
 import { useTheme } from 'next-themes';
 import { getDisplayName } from '@/lib/utils/name';
 import { CreateProvider, useCreate } from '@/components/desktop/create/CreateProvider';
 import { DesktopErrorBoundary } from './DesktopErrorBoundary';
+
+const CommandPalette = dynamic(
+  () => import('./CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false }
+);
+
+const HabitModal = dynamic(
+  () => import('./plan/HabitModal').then((m) => m.HabitModal),
+  { ssr: false }
+);
+
+const ReminderModal = dynamic(
+  () => import('./plan/ReminderModal').then((m) => m.ReminderModal),
+  { ssr: false }
+);
 
 const BRAND_LOGO = '/small-logo.png';
 
@@ -233,6 +247,24 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Esc closes context panel when focus is inside it
+  const [paletteReady, setPaletteReady] = useState(false);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') setPaletteReady(true);
+    };
+    window.addEventListener('keydown', onKey);
+    const idle =
+      'requestIdleCallback' in window
+        ? (window as any).requestIdleCallback(() => setPaletteReady(true))
+        : setTimeout(() => setPaletteReady(true), 3000);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      typeof idle === 'number'
+        ? clearTimeout(idle)
+        : (window as any).cancelIdleCallback?.(idle);
+    };
+  }, []);
+
   const handleContextPanelKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.stopPropagation();
@@ -862,20 +894,22 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Global Command Palette */}
-      <CommandPalette
-        open={commandPaletteOpen}
-        onOpenChange={setCommandPaletteOpen}
-        onToggleSidebar={toggleSidebar}
-        onToggleAiDrawer={toggleAiDrawer}
-        onNewHabit={openNewHabitModal}
-        onNewReminder={() => openNewReminderModal()}
-        onFocusTasksComposer={() => {
-          if (!pathname.startsWith('/plan')) {
-            router.push('/plan?view=tasks');
-          }
-          triggerComposerFocus();
-        }}
-      />
+      {paletteReady ? (
+        <CommandPalette
+          open={commandPaletteOpen}
+          onOpenChange={setCommandPaletteOpen}
+          onToggleSidebar={toggleSidebar}
+          onToggleAiDrawer={toggleAiDrawer}
+          onNewHabit={openNewHabitModal}
+          onNewReminder={() => openNewReminderModal()}
+          onFocusTasksComposer={() => {
+            if (!pathname.startsWith('/plan')) {
+              router.push('/plan?view=tasks');
+            }
+            triggerComposerFocus();
+          }}
+        />
+      ) : null}
 
       {/* Global AI Drawer */}
       <AIDrawer open={aiDrawerOpen} onClose={() => setAiDrawerOpen(false)} />

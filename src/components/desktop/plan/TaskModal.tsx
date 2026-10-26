@@ -1,12 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
+import dynamic from 'next/dynamic';
 import { X, Check, Calendar, Flag, Hash } from 'lucide-react';
 import { usePlan, Priority } from '@/context/PlanContext';
 import { localDateStr } from '@/lib/utils/date';
-import { DatePicker } from '@/components/desktop/ui/DatePicker';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { Popover } from '@/components/desktop/ui/Popover';
 import { emitDataChanged } from '@/lib/events';
+
+const DatePicker = dynamic(
+  () => import('@/components/desktop/ui/DatePicker').then((m) => m.DatePicker),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-9 w-32 rounded-lg" />,
+  }
+);
 
 interface TaskModalProps {
   defaultDate?: string;

@@ -1,14 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { Modal } from '@/components/desktop/ui/Modal';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan, Reminder } from '@/context/PlanContext';
 import { localDateStr } from '@/lib/utils/date';
-import { DatePicker } from '@/components/desktop/ui/DatePicker';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
 import { emitDataChanged } from '@/lib/events';
+
+const DatePicker = dynamic(
+  () => import('@/components/desktop/ui/DatePicker').then((m) => m.DatePicker),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-9 w-32 rounded-lg" />,
+  }
+);
 
 const CATEGORIES = [
   { label: 'Work', color: '#2B6BFF' },

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import ReactMarkdown from 'react-markdown'
@@ -219,9 +220,12 @@ export default function AccountPage() {
                 <div className="relative">
                     <div className="w-[64px] h-[64px] rounded-full bg-card-bg dark:bg-slate-800 overflow-hidden border-2 border-white dark:border-slate-950 shadow-sm flex items-center justify-center">
                         {user?.avatar_url ? (
-                            <img
+                            <Image
                                 src={user.avatar_url}
                                 alt={user?.full_name || 'User'}
+                                width={64}
+                                height={64}
+                                sizes="32px"
                                 className="w-full h-full object-cover"
                             />
                         ) : (

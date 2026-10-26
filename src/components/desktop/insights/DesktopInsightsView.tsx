@@ -22,8 +22,13 @@ import { useFocusStats } from '@/hooks/useFocusStats';
 import { onDataChanged } from '@/lib/events';
 import { getLevelFromXp, LEVELS } from '@/lib/xp/levels';
 import { minuteTicks, fmtMin } from '@/lib/utils/chart';
-import { LevelUpModal } from '@/components/insights/LevelUpModal';
+import dynamic from 'next/dynamic';
 import { DesktopWeeklyReport, type WeeklyReportView as DesktopWeeklyReportData } from './DesktopWeeklyReport';
+
+const LevelUpModal = dynamic(
+  () => import('@/components/insights/LevelUpModal').then((m) => m.LevelUpModal),
+  { ssr: false }
+);
 import { isPaidPlan } from '@/lib/featureGates';
 import { Skeleton } from '@/components/desktop/ui/Skeleton';
 

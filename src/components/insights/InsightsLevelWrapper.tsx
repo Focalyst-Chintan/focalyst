@@ -1,10 +1,15 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { FocusLevelCard } from './FocusLevelCard'
 import { LevelDropdownTimeline } from './LevelDropdownTimeline'
-import { LevelUpModal } from './LevelUpModal'
 import { getLevelFromXP } from '@/lib/utils/levels'
+
+const LevelUpModal = dynamic(
+  () => import('./LevelUpModal').then((m) => m.LevelUpModal),
+  { ssr: false }
+)
 
 const LEVEL_STORAGE_KEY = 'focalyst_last_known_xp_level'
 

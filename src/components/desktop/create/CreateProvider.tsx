@@ -1,9 +1,22 @@
 'use client';
 
 import React, { createContext, useCallback, useContext, useState } from 'react';
-import { TaskModal } from '@/components/desktop/plan/TaskModal';
-import { HabitModal } from '@/components/desktop/plan/HabitModal';
-import { ReminderModal } from '@/components/desktop/plan/ReminderModal';
+import dynamic from 'next/dynamic';
+
+const TaskModal = dynamic(
+  () => import('@/components/desktop/plan/TaskModal').then((m) => m.TaskModal),
+  { ssr: false }
+);
+
+const HabitModal = dynamic(
+  () => import('@/components/desktop/plan/HabitModal').then((m) => m.HabitModal),
+  { ssr: false }
+);
+
+const ReminderModal = dynamic(
+  () => import('@/components/desktop/plan/ReminderModal').then((m) => m.ReminderModal),
+  { ssr: false }
+);
 
 export type CreateKind = 'task' | 'habit' | 'reminder' | 'note' | 'focus';
 type Opts = { date?: string; initialData?: any };

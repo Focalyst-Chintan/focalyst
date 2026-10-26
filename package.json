@@ -38,7 +38,7 @@
     "ai": "^6.0.153",
     "cmdk": "^1.1.1",
     "i18next": "^26.2.0",
-    "isomorphic-dompurify": "^3.0.0",
+    "isomorphic-dompurify": "^3.19.0",
     "jspdf": "^4.2.0",
     "lucide-react": "^1.16.0",
     "next": "^16.4.3",
@@ -61,6 +61,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

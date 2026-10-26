@@ -14,8 +14,20 @@ import WeeklyReportView from '@/components/insights/WeeklyReportView'
 import InsightsHeader from '@/components/insights/InsightsHeader'
 import HabitGroupLeaderboardSection from '@/components/insights/HabitGroupLeaderboardSection'
 import { useIsDesktop } from '@/hooks/useIsDesktop'
-import DesktopInsightsView from '@/components/desktop/insights/DesktopInsightsView'
 import { Skeleton } from '@/components/desktop/ui/Skeleton'
+import dynamic from 'next/dynamic'
+
+const DesktopInsightsView = dynamic(
+  () => import('@/components/desktop/insights/DesktopInsightsView'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-6">
+        <Skeleton className="h-[calc(100vh-140px)] w-full rounded-[20px]" />
+      </div>
+    ),
+  }
+)
 
 export default function InsightsPage() {
     const isDesktop = useIsDesktop()

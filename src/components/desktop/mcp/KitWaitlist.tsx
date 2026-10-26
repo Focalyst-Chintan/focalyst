@@ -15,6 +15,8 @@ export default function KitWaitlist({
   buttonLabel?: string;
 }) {
   const [email, setEmail] = useState(defaultEmail);
+  const [websiteHoneypot, setWebsiteHoneypot] = useState('');
+  const [renderedAt] = useState(() => Date.now());
   const [status, setStatus] = useState<Status>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -33,6 +35,13 @@ export default function KitWaitlist({
     e.preventDefault();
     const form = e.currentTarget;
     const value = email.trim();
+
+    // S11: Honeypot check and timing check (<2s)
+    if (websiteHoneypot || (Date.now() - renderedAt < 2000)) {
+      // Silently pretend success to bots
+      setStatus('success');
+      return;
+    }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
       setError('Enter a valid email.');
@@ -93,6 +102,17 @@ export default function KitWaitlist({
         className="glass liquid flex h-[60px] items-center gap-2 rounded-full p-1.5 pl-6"
       >
         {firstName ? <input type="hidden" name="fields[first_name]" value={firstName} /> : null}
+        {/* S11 Honeypot field for bot protection */}
+        <input
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          value={websiteHoneypot}
+          onChange={(e) => setWebsiteHoneypot(e.target.value)}
+          className="absolute -left-[9999px] h-0 w-0 opacity-0 pointer-events-none"
+          aria-hidden="true"
+        />
         <input
           type="email"
           name="email_address"

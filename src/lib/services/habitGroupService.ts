@@ -76,8 +76,23 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
         const userIds = (allGroupMembers as { user_id: string; habit_id: string | null }[]).map((m) => m.user_id)
         const habitIds = (allGroupMembers as { user_id: string; habit_id: string | null }[]).map((m) => m.habit_id).filter((id): id is string => Boolean(id))
 
+        // Prefer group_member_profiles RPC to avoid reading protected users table rows
+        let profilesMap = new Map<string, string>()
+        try {
+            const { data: profilesData, error: profilesErr } = await supabase.rpc('group_member_profiles', {
+                p_group: memberRow.group_id,
+            })
+            if (!profilesErr && Array.isArray(profilesData)) {
+                for (const p of profilesData) {
+                    profilesMap.set(String(p.id), String(p.full_name || 'Member'))
+                }
+            }
+        } catch {}
+
         const [usersRes, habitsRes, logsRes] = await Promise.all([
-            supabase.from('users').select('id, full_name, email').in('id', userIds),
+            profilesMap.size === 0
+                ? supabase.from('users').select('id, full_name, email').in('id', userIds)
+                : Promise.resolve({ data: [] }),
             habitIds.length > 0
                 ? supabase.from('habits').select('id, name, current_streak').in('id', habitIds)
                 : Promise.resolve({ data: [] }),
@@ -86,9 +101,11 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
                 : Promise.resolve({ data: [] }),
         ])
 
-        const usersMap = new Map<string, string>(
-            (usersRes.data || []).map((u: any) => [String(u.id), String(u.full_name || u.email?.split('@')[0] || 'Member')])
-        )
+        const usersMap = profilesMap.size > 0
+            ? profilesMap
+            : new Map<string, string>(
+                (usersRes.data || []).map((u: any) => [String(u.id), String(u.full_name || u.email?.split('@')[0] || 'Member')])
+            )
         const habitsMap = new Map<string, any>((habitsRes.data || []).map((h: any) => [String(h.id), h]))
 
         // Count total log days per habit
@@ -202,6 +219,32 @@ export async function joinHabitGroupByCode(
     const supabase = createClient()
     const cleanCode = inviteCode.trim().toUpperCase()
 
+    // 1. Try join_group RPC (spec S8)
+    try {
+        const { data: joinedId, error: joinErr } = await supabase.rpc('join_group', {
+            p_code: cleanCode,
+        })
+        if (!joinErr && joinedId) {
+            // Update the habit_id for this user in the group if habitId was supplied
+            if (habitId) {
+                const { data: authData } = await supabase.auth.getUser()
+                if (authData?.user?.id) {
+                    await supabase
+                        .from('habit_group_members')
+                        .update({ habit_id: habitId })
+                        .eq('user_id', authData.user.id)
+                        .eq('group_id', joinedId)
+                }
+            }
+            return {
+                success: true,
+                group_id: joinedId,
+                message: 'Successfully joined the habit group!',
+            }
+        }
+    } catch {}
+
+    // 2. Try legacy join_habit_group_by_code RPC
     try {
         const { data, error } = await supabase.rpc('join_habit_group_by_code', {
             p_invite_code: cleanCode,

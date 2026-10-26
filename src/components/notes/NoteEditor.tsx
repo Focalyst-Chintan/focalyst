@@ -7,6 +7,7 @@ import { generatePdf } from '@/lib/pdf'
 import { Note } from '@/types'
 import { UpgradeModal } from './UpgradeModal'
 import { createClient } from '@/lib/supabase'
+import DOMPurify from 'isomorphic-dompurify'
 import { useSpeechToText } from '@/hooks/useSpeechToText'
 import {
     ChevronLeft,
@@ -417,7 +418,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                 {isVoiceNote ? (
                     <div
                         className="w-full flex-1 min-h-[60vh] text-slate-900 dark:text-slate-100 prose dark:prose-invert prose-sm sm:prose-base select-text leading-relaxed"
-                        dangerouslySetInnerHTML={{ __html: content || '' }}
+                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content || '') }}
                     />
                 ) : (
                     <textarea

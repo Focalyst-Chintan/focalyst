@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { HexColorPicker } from 'react-colorful';
 import { Palette } from 'lucide-react';
 import { Modal } from '@/components/desktop/ui/Modal';
@@ -8,9 +9,17 @@ import { Popover } from '@/components/desktop/ui/Popover';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan, HabitItem } from '@/context/PlanContext';
-import { DatePicker } from '@/components/desktop/ui/DatePicker';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { TimeSelect } from '@/components/desktop/ui/TimeSelect';
 import { emitDataChanged } from '@/lib/events';
+
+const DatePicker = dynamic(
+  () => import('@/components/desktop/ui/DatePicker').then((m) => m.DatePicker),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="h-9 w-32 rounded-lg" />,
+  }
+);
 
 const DAYS = [
   { label: 'M', index: 0 },

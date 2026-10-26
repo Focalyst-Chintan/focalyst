@@ -139,6 +139,33 @@ export async function joinHabitGroupByCode(
 }> {
   const cleanCode = inviteCode.trim().toUpperCase();
 
+  // 1. Try join_group RPC (spec S8)
+  try {
+    const { data: joinedId, error: joinErr } = await supabase.rpc('join_group', {
+      p_code: cleanCode,
+    });
+    if (!joinErr && joinedId) {
+      if (habitId) {
+        const { data: authData } = await supabase.auth.getUser();
+        if (authData?.user?.id) {
+          await supabase
+            .from('habit_group_members')
+            .update({ habit_id: habitId })
+            .eq('user_id', authData.user.id)
+            .eq('group_id', joinedId);
+        }
+      }
+      await fetchMyGroupLeaderboard();
+      notifyGroupChanged();
+      return {
+        success: true,
+        group_id: joinedId,
+        message: 'Successfully joined the habit group!',
+      };
+    }
+  } catch {}
+
+  // 2. Try legacy join_habit_group_by_code RPC
   const { data, error } = await supabase.rpc('join_habit_group_by_code', {
     p_invite_code: cleanCode,
     p_habit_id: habitId,
@@ -267,17 +294,32 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
     const memberUserIds = allGroupMembers.map((m: any) => m.user_id);
     const habitIds = allGroupMembers.map((m: any) => m.habit_id).filter(Boolean);
 
-    const { data: usersData } = await supabase
-      .from('users')
-      .select('id, full_name, email')
-      .in('id', memberUserIds);
+    // Prefer group_member_profiles RPC to avoid reading protected users table rows
+    let userMap = new Map<string, string>();
+    try {
+      const { data: profilesData, error: profilesErr } = await supabase.rpc('group_member_profiles', {
+        p_group: memberRow.group_id,
+      });
+      if (!profilesErr && Array.isArray(profilesData)) {
+        for (const p of profilesData) {
+          userMap.set(p.id, p.full_name || 'Member');
+        }
+      }
+    } catch {}
 
-    const userMap = new Map(
-      (usersData || []).map((u: any) => [
-        u.id,
-        u.full_name || (u.email ? u.email.split('@')[0] : 'Member'),
-      ])
-    );
+    if (userMap.size === 0) {
+      const { data: usersData } = await supabase
+        .from('users')
+        .select('id, full_name, email')
+        .in('id', memberUserIds);
+
+      userMap = new Map(
+        (usersData || []).map((u: any) => [
+          u.id,
+          u.full_name || (u.email ? u.email.split('@')[0] : 'Member'),
+        ])
+      );
+    }
 
     const { data: habitsData } = await supabase
       .from('habits')

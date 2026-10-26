@@ -3,10 +3,16 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
-import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
+import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
+
+const KitWaitlist = dynamic(() => import('@/components/desktop/mcp/KitWaitlist'), {
+  ssr: false,
+  loading: () => <Skeleton className="h-12 w-full max-w-[500px] rounded-xl" />,
+});
 
 export default function LandingPage() {
   const router = useRouter();
@@ -26,21 +32,23 @@ export default function LandingPage() {
 
   return (
     <div className="dark min-h-screen w-full bg-[#05070F] text-[#F2F5FF] font-ui selection:bg-[#1951FC] selection:text-snow overflow-x-hidden">
-      {/* ================= HERO SECTION (100vh with hero.png) ================= */}
+      {/* ================= HERO SECTION (100vh with hero.webp) ================= */}
       <section
         className="relative isolate flex min-h-screen w-full flex-col justify-between overflow-hidden bg-[#05070F]"
         style={{
-          backgroundImage: "url('/landing/hero.png')",
+          backgroundImage: "url('/landing/hero.webp')",
           backgroundSize: 'cover',
           backgroundPosition: 'center 58%',
           backgroundRepeat: 'no-repeat',
         }}
       >
         {/* Background Image Layer */}
-        <img
-          src="/landing/hero.png"
+        <Image
+          src="/landing/hero.webp"
           alt="Own your time. Build what matters."
-          fetchPriority="high"
+          fill
+          priority
+          sizes="100vw"
           className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover object-[center_58%] select-none"
         />
 
@@ -235,12 +243,12 @@ export default function LandingPage() {
       <section id="features" className="relative z-10 mx-auto max-w-[1240px] px-6 -mt-6 lg:-mt-10 mb-20">
         <div className="glass-strong liquid rounded-[28px] p-3 sm:p-5 shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] border border-snow/15 overflow-hidden">
           <Image
-            src="/landing/app-preview.png"
+            src="/landing/app-preview.webp"
             alt="Focalyst app preview"
             width={1600}
             height={950}
+            sizes="(max-width: 1240px) 100vw, 1200px"
             className="w-full h-auto rounded-[20px] object-cover"
-            priority
           />
         </div>
       </section>

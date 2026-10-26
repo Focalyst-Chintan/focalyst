@@ -8,11 +8,19 @@ import { useAuth } from '@/context/AuthContext';
 import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { createClient } from '@/lib/supabase';
+import dynamic from 'next/dynamic';
 import FolderPocketCard from './FolderPocketCard';
 import { FolderCard } from './FolderCard';
-import DesktopNoteEditor from './DesktopNoteEditor';
-import VoiceRecorderModal from './VoiceRecorderModal';
 import { stripHtml } from './noteUtils';
+
+const DesktopNoteEditor = dynamic(() => import('./DesktopNoteEditor'), {
+  ssr: false,
+  loading: () => <div className="flex-1 p-6"><div className="h-full w-full rounded-2xl bg-surface-2/40 animate-pulse" /></div>,
+});
+
+const VoiceRecorderModal = dynamic(() => import('./VoiceRecorderModal'), {
+  ssr: false,
+});
 import {
   FileText,
   Star,

@@ -344,9 +344,12 @@ export default function AppLandingPage() {
                             </div>
 
                             {/* Focalyst Official Logo */}
-                            <img 
+                            <Image 
                                 src="/small-logo.png" 
                                 alt="Focalyst Logo" 
+                                width={64}
+                                height={64}
+                                sizes="64px"
                                 className="w-16 h-16 rounded-2xl shadow-xl border border-white/15 object-contain flex-shrink-0 bg-[#0B1020]"
                             />
                         </div>
@@ -615,10 +618,13 @@ export default function AppLandingPage() {
                     <div className="flex justify-center items-center py-6 md:py-0">
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
                             {/* Front Image */}
-                            <img 
+                            <Image 
                                 src="/focus-tab.png" 
                                 alt="Focalyst Focus Tab Mockup" 
-                                className="absolute top-0 left-0 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none"
+                                width={1290}
+                                height={2796}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-0 left-0 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none h-auto"
                             />
                             {/* Back Image */}
                             <Image 
@@ -753,10 +759,13 @@ export default function AppLandingPage() {
                     <div className="flex justify-center items-center py-6 md:py-0">
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
                             {/* Image 1 (Back) */}
-                            <img 
+                            <Image 
                                 src="/notes-tab.png" 
                                 alt="Focalyst Notes Tab Mockup" 
-                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
+                                width={1290}
+                                height={2796}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none h-auto"
                             />
                             {/* Image 2 (Front) */}
                             <Image 
@@ -782,10 +791,13 @@ export default function AppLandingPage() {
                     <div className="flex justify-center items-center py-6 md:py-0 order-2 md:order-1">
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
                             {/* Image 1 (Back) */}
-                            <img 
+                            <Image 
                                 src="/insights-tab.png" 
                                 alt="Focalyst Insights Tab Mockup" 
-                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none"
+                                width={1290}
+                                height={2796}
+                                sizes="(min-width: 1024px) 360px, 75vw"
+                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none h-auto"
                             />
                             {/* Image 2 (Front) */}
                             <Image 

@@ -1,5 +1,6 @@
 'use client';
 import React from 'react';
+import Image from 'next/image';
 
 const AVATAR_COLORS = ['#1951FC', '#3781FC', '#0B2CB1', '#4B5675', '#6FA4FF'] as const;
 
@@ -70,7 +71,13 @@ export function MemberAvatar({
       title={effectiveName || undefined}
     >
       {effectiveAvatarUrl ? (
-        <img src={effectiveAvatarUrl} alt={effectiveName || 'Avatar'} className="h-full w-full object-cover" />
+        <Image
+          src={effectiveAvatarUrl}
+          alt={effectiveName || 'Avatar'}
+          fill
+          sizes="32px"
+          className="h-full w-full object-cover"
+        />
       ) : (
         <span>{getInitials(effectiveName)}</span>
       )}

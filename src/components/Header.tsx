@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { UserAccountIcon, AIChatIcon } from '@/components/icons'
 import { useChat } from '@/context/ChatContext'
@@ -46,9 +47,12 @@ export default function Header() {
                 style={{ backgroundColor: '#EAE3D9' }}
             >
                 {avatarUrl ? (
-                    <img
+                    <Image
                         src={avatarUrl}
                         alt="Profile"
+                        width={32}
+                        height={32}
+                        sizes="32px"
                         className="w-full h-full object-cover"
                     />
                 ) : (

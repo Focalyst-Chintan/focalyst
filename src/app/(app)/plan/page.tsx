@@ -10,8 +10,13 @@ import { useIsDesktop } from '@/hooks/useIsDesktop'
 import TodoList from '@/components/plan/TodoList'
 import HabitList from '@/components/plan/HabitList'
 import CalendarView from '@/components/plan/CalendarView'
-import WeeklyReportModal from '@/components/insights/WeeklyReportModal'
+import dynamic from 'next/dynamic'
 import { DesktopPlanPage } from '@/components/desktop/plan/DesktopPlanPage'
+
+const WeeklyReportModal = dynamic(
+  () => import('@/components/insights/WeeklyReportModal'),
+  { ssr: false }
+)
 
 type TabView = 'today' | 'calendar'
 
