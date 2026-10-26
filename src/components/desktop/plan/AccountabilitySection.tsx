@@ -15,6 +15,7 @@ import {
 } from '@/lib/services/habitGroupService';
 import { Button, IconButton, Input, Modal, SegmentedControl, Toast } from '@/components/desktop/ui';
 import { MemberAvatar } from '@/components/desktop/ui/MemberAvatar';
+import { useData } from '@/lib/data/useData';
 
 type Row = { userId: string; name: string; habit: string; streak: number; isYou: boolean };
 type Ranked = Row & { habits: string[] };
@@ -71,27 +72,36 @@ export function AccountabilitySection() {
     }
   }, [habits, selectedHabitId]);
 
-  // Load active group leaderboard
-  const loadGroup = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fetchMyGroupLeaderboard();
-      setLeaderboardData(data || { in_group: false, members: [] });
-      if (data?.in_group && data?.group_id) {
-        setActiveGroupId(data.group_id);
-        setAllGroups([{ id: data.group_id, name: 'Habit Group' }]);
+  // Load active group leaderboard via useData
+  const leaderboardFetcher = useCallback(async (): Promise<GroupLeaderboardData> => {
+    const data = await fetchMyGroupLeaderboard();
+    return data || { in_group: false, members: [] };
+  }, []);
+
+  const accountabilityKey = user ? `accountability:${user.id}` : null;
+  const { data: cachedLeaderboard, isLoading: leaderboardLoading, mutate: mutateLeaderboard } = useData<GroupLeaderboardData>(
+    accountabilityKey,
+    leaderboardFetcher
+  );
+
+  useEffect(() => {
+    if (cachedLeaderboard) {
+      setLeaderboardData(cachedLeaderboard);
+      if (cachedLeaderboard.in_group && cachedLeaderboard.group_id) {
+        setActiveGroupId(cachedLeaderboard.group_id);
+        setAllGroups([{ id: cachedLeaderboard.group_id, name: 'Habit Group' }]);
       } else {
         setAllGroups([]);
       }
-    } catch (err) {
-      console.error('Failed to load group:', err);
-    } finally {
-      setLoading(false);
     }
-  }, []);
+    setLoading(leaderboardLoading);
+  }, [cachedLeaderboard, leaderboardLoading]);
+
+  const loadGroup = useCallback(async () => {
+    await mutateLeaderboard();
+  }, [mutateLeaderboard]);
 
   useEffect(() => {
-    loadGroup();
     const unsub = onDataChanged(['habit'], () => {
       loadGroup();
     });

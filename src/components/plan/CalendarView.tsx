@@ -3,6 +3,11 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
+import { useAuth } from '@/context/AuthContext'
+import { useData } from '@/lib/data/useData'
+import { useSWRConfig } from 'swr'
+import { emitDataChanged } from '@/lib/events'
+import { useToast } from '@/components/desktop/ui/Toast'
 import {
     ChevronLeft,
     ChevronRight,
@@ -188,35 +193,34 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
     const [formCustomFreq, setFormCustomFreq] = useState<'day' | 'week' | 'month' | 'year'>('week')
     const [formError, setFormError] = useState('')
     const [formSaving, setFormSaving] = useState(false)
+    const { user } = useAuth()
+    const { mutate } = useSWRConfig()
+    const toast = useToast()
 
     // Fetch all user reminders with user_id to satisfy RLS
-    const fetchUserReminders = useCallback(async () => {
-        try {
-            setLoading(true)
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                setLoading(false)
-                return
-            }
+    const fetchUserReminders = useCallback(async (): Promise<ReminderItem[]> => {
+        if (!user) return []
+        const { data, error } = await supabase
+            .from('reminders')
+            .select('id, user_id, title, description, date, start_time, end_time, all_day, repeat, custom_interval, is_completed, is_starred')
+            .eq('user_id', user.id)
 
-            const { data, error } = await supabase
-                .from('reminders')
-                .select('*')
-                .eq('user_id', user.id)
-
-            if (!error && data) {
-                setReminders(data as ReminderItem[])
-            }
-        } catch (err) {
-            console.error('Error fetching user reminders:', err)
-        } finally {
-            setLoading(false)
+        if (error) {
+            console.error('Error fetching user reminders:', error)
+            throw error
         }
-    }, [supabase])
+        return (data || []) as ReminderItem[]
+    }, [user, supabase])
+
+    const remindersKey = user ? `reminders:${user.id}` : null
+    const { data: cachedReminders, isLoading: remindersLoading, mutate: mutateReminders } = useData<ReminderItem[]>(remindersKey, fetchUserReminders)
 
     useEffect(() => {
-        fetchUserReminders()
-    }, [fetchUserReminders])
+        if (cachedReminders) {
+            setReminders(cachedReminders)
+        }
+        setLoading(remindersLoading)
+    }, [cachedReminders, remindersLoading])
 
     // Days in current month grid
     const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate()
@@ -282,12 +286,32 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
     // Toggle reminder completion optimistically & persist
     const handleToggleComplete = async (rem: ReminderItem) => {
         const nextCompleted = !rem.is_completed
-        setReminders(prev => prev.map(r => r.id === rem.id ? { ...r, is_completed: nextCompleted } : r))
+        const applyToggle = (list: ReminderItem[]) =>
+            list.map(r => r.id === rem.id ? { ...r, is_completed: nextCompleted } : r)
 
-        try {
-            await supabase.from('reminders').update({ is_completed: nextCompleted }).eq('id', rem.id)
-        } catch (err) {
-            console.error('Failed to toggle reminder completion:', err)
+        setReminders(prev => applyToggle(prev))
+
+        if (user) {
+            const key = `reminders:${user.id}`
+            try {
+                await mutate<ReminderItem[]>(
+                    key,
+                    async (current = []) => {
+                        const { error } = await supabase.from('reminders').update({ is_completed: nextCompleted }).eq('id', rem.id)
+                        if (error) throw error
+                        return applyToggle(current)
+                    },
+                    {
+                        optimisticData: (current = []) => applyToggle(current),
+                        rollbackOnError: true,
+                        revalidate: false,
+                    }
+                )
+                emitDataChanged('reminder')
+            } catch (err) {
+                console.error('Failed to toggle reminder completion:', err)
+                toast.show("Could not save. Check your connection and try again.", 'error')
+            }
         }
     }
 

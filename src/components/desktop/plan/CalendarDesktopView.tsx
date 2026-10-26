@@ -20,7 +20,10 @@ import { Popover } from '@/components/desktop/ui/Popover';
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { onDataChanged } from '@/lib/events';
+import { onDataChanged, emitDataChanged } from '@/lib/events';
+import { useData } from '@/lib/data/useData';
+import { useSWRConfig } from 'swr';
+import { useToast } from '@/components/desktop/ui/Toast';
 
 const MONTH_NAMES = [
   'January',
@@ -130,32 +133,43 @@ export function CalendarDesktopView() {
     return () => clearInterval(id);
   }, []);
 
+  const toast = useToast();
+  const { mutate } = useSWRConfig();
+
   // Fetch full reminders table with tags, color overrides, stars etc.
-  const fetchAllReminders = async () => {
-    if (!user) return;
-    try {
-      const { data } = await supabase
-        .from('reminders')
-        .select('*')
-        .eq('user_id', user.id);
-      setAllDbReminders(data || []);
-    } catch (err) {
-      console.error('Error fetching reminders:', err);
+  const remindersFetcher = async () => {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('reminders')
+      .select('id, user_id, title, date, start_time, end_time, all_day, repeat, is_completed, is_starred, tags, color')
+      .eq('user_id', user.id);
+    if (error) {
+      console.error('Error fetching reminders:', error);
+      throw error;
     }
+    return data || [];
   };
 
+  const remindersKey = user ? `reminders:${user.id}` : null;
+  const { data: cachedReminders, mutate: mutateReminders } = useData(remindersKey, remindersFetcher);
+
   useEffect(() => {
-    fetchAllReminders();
+    if (cachedReminders) {
+      setAllDbReminders(cachedReminders);
+    }
+  }, [cachedReminders]);
+
+  useEffect(() => {
     const unsub = onDataChanged(['reminder'], () => {
-      fetchAllReminders();
+      mutateReminders();
     });
-    const handleFocus = () => fetchAllReminders();
+    const handleFocus = () => mutateReminders();
     window.addEventListener('focus', handleFocus);
     return () => {
       unsub();
       window.removeEventListener('focus', handleFocus);
     };
-  }, [user]);
+  }, [mutateReminders]);
 
   // Combined active reminders
   const remindersList = useMemo(() => {
@@ -264,13 +278,32 @@ export function CalendarDesktopView() {
   // Toggle reminder completion or star
   const handleToggleCompleted = async (rem: any) => {
     const nextVal = !rem.is_completed;
-    setAllDbReminders((prev) =>
-      prev.map((r) => (r.id === rem.id ? { ...r, is_completed: nextVal } : r))
-    );
-    try {
-      await supabase.from('reminders').update({ is_completed: nextVal }).eq('id', rem.id);
-    } catch (e) {
-      console.warn('Error updating completion:', e);
+    const applyToggle = (list: any[]) =>
+      list.map((r) => (r.id === rem.id ? { ...r, is_completed: nextVal } : r));
+
+    setAllDbReminders((prev) => applyToggle(prev));
+
+    if (user) {
+      const key = `reminders:${user.id}`;
+      try {
+        await mutate<any[]>(
+          key,
+          async (current = []) => {
+            const { error } = await supabase.from('reminders').update({ is_completed: nextVal }).eq('id', rem.id);
+            if (error) throw error;
+            return applyToggle(current);
+          },
+          {
+            optimisticData: (current = []) => applyToggle(current),
+            rollbackOnError: true,
+            revalidate: false,
+          }
+        );
+        emitDataChanged('reminder');
+      } catch (e) {
+        console.warn('Error updating completion:', e);
+        toast.show("Could not save. Check your connection and try again.", 'error');
+      }
     }
   };
 
@@ -281,6 +314,7 @@ export function CalendarDesktopView() {
     );
     try {
       await supabase.from('reminders').update({ is_starred: nextVal }).eq('id', rem.id);
+      emitDataChanged('reminder');
     } catch (e) {
       console.warn('Error updating star:', e);
     }

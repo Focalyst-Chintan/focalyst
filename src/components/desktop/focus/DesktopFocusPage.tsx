@@ -24,6 +24,7 @@ import { getLevelFromXp } from '@/lib/xp/levels';
 import { recordFocusSession, reconcileDailyFocus } from '@/lib/focus/recordFocusSession';
 import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { useFocusStats } from '@/hooks/useFocusStats';
+import { useData } from '@/lib/data/useData';
 import { FocusRing } from './FocusRing';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 import { IconButton } from '@/components/desktop/ui/IconButton';
@@ -219,21 +220,34 @@ export function DesktopFocusPage() {
 
 
 
-  // Fetch countdowns
-  const fetchCountdowns = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data } = await supabase
-        .from('countdowns')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('target_date', { ascending: true });
-      setCountdowns(data || []);
-    } catch (err) {
-      console.warn('Error fetching countdowns:', err);
+  // Fetch countdowns via useData
+  const countdownsFetcher = useCallback(async () => {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('countdowns')
+      .select('id, user_id, title, target_date, is_active, color, icon')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .order('target_date', { ascending: true });
+    if (error) {
+      console.warn('Error fetching countdowns:', error);
+      throw error;
     }
+    return data || [];
   }, [user, supabase]);
+
+  const countdownsKey = user ? `countdowns:${user.id}` : null;
+  const { data: cachedCountdowns, mutate: mutateCountdowns } = useData(countdownsKey, countdownsFetcher);
+
+  useEffect(() => {
+    if (cachedCountdowns) {
+      setCountdowns(cachedCountdowns);
+    }
+  }, [cachedCountdowns]);
+
+  const fetchCountdowns = useCallback(async () => {
+    await mutateCountdowns();
+  }, [mutateCountdowns]);
 
   // Fetch today's pomodoro sessions list
   const fetchTodaySessions = useCallback(async () => {

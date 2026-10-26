@@ -6,8 +6,11 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { FREE_TIER_LIMITS, isFreePlan } from '@/lib/featureGates'
 import { localDateStr } from '@/lib/utils/date'
-import { onDataChanged } from '@/lib/events'
+import { onDataChanged, emitDataChanged } from '@/lib/events'
 import { awardXP } from '@/lib/xp/award'
+import { useData } from '@/lib/data/useData'
+import { useSWRConfig } from 'swr'
+import { useToast } from '@/components/desktop/ui/Toast'
 
 // ── Types ──
 export interface TaskItem {
@@ -109,7 +112,9 @@ export function normalizePriority(value: unknown): Priority {
 
 export function PlanProvider({ children }: { children: ReactNode }) {
     const router = useRouter()
-    const { plan } = useAuth()
+    const { user, plan } = useAuth()
+    const { mutate } = useSWRConfig()
+    const toast = useToast()
     const [tasks, setTasks] = useState<TaskItem[]>([])
     const [habits, setHabits] = useState<HabitItem[]>([])
     const [reminders, setReminders] = useState<Reminder[]>([])
@@ -117,144 +122,131 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     const [error, setError] = useState<string | null>(null)
     const [useSupabase, setUseSupabase] = useState(true)
 
-    // ── Fetch data from Supabase or fallback to mock ──
-    const fetchData = useCallback(async () => {
-        setLoading(true)
-        setError(null)
+    // ── Fetchers for SWR ──
+    const fetchTasksFromDb = useCallback(async (): Promise<TaskItem[]> => {
+        if (!user) return MOCK_TASKS
+        const supabase = createClient()
+        const { data: taskData, error: taskError } = await supabase
+            .from('tasks')
+            .select('id, title, is_completed, due_date, completed_at, tags, priority, reminder_time')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(100)
 
-        try {
-            const supabase = createClient()
-            const { data: { user } } = await supabase.auth.getUser()
+        if (taskError) {
+            console.error("[SUPABASE FETCH ERROR]:", taskError.message, taskError.details)
+            throw taskError
+        }
 
-            if (!user) {
-                // No authenticated user — use mock data
-                setUseSupabase(false)
-                setTasks(MOCK_TASKS)
-                setHabits(MOCK_HABITS)
-                setReminders(MOCK_REMINDERS)
-                setLoading(false)
-                return
+        return (taskData || []).map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            is_completed: t.is_completed,
+            start_date: t.due_date || '',
+            end_date: t.due_date || '',
+            due_date: t.due_date || null,
+            completed_at: t.completed_at || null,
+            tags: t.tags || [],
+            priority: normalizePriority(t.priority),
+            reminders: !!t.reminder_time,
+        }))
+    }, [user])
+
+    const fetchHabitsFromDb = useCallback(async (): Promise<HabitItem[]> => {
+        if (!user) return MOCK_HABITS
+        const supabase = createClient()
+        const { data: habitData, error: habitError } = await supabase
+            .from('habits')
+            .select('id, name, current_streak, frequency, custom_days, reminder_time, position, created_at, icon, color')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .order('position', { ascending: true })
+            .limit(20)
+
+        if (habitError) {
+            console.error("[SUPABASE FETCH ERROR]:", habitError.message, habitError.details)
+            throw habitError
+        }
+
+        const habitIds = (habitData || []).map((h: any) => h.id)
+        let todayCompletions: string[] = []
+        const habitCompletions: Record<string, string[]> = {}
+
+        if (habitIds.length > 0) {
+            const earliestCreated = (habitData || []).reduce((min: string, h: any) => {
+                const d = h.created_at ? h.created_at.split('T')[0] : todayStr()
+                return d < min ? d : min
+            }, todayStr())
+
+            const { data: logData, error: logError } = await supabase
+                .from('habit_logs')
+                .select('habit_id, completed_date')
+                .in('habit_id', habitIds)
+                .gte('completed_date', earliestCreated)
+
+            if (logError) {
+                console.error("[SUPABASE FETCH ERROR]:", logError.message, logError.details)
+                throw logError
             }
 
-            // ── Fetch tasks (incomplete + recently completed) ──
-            const { data: taskData, error: taskError } = await supabase
-                .from('tasks')
-                .select('*')
-                .eq('user_id', user.id)
-                .order('created_at', { ascending: false })
-                .limit(100)
-
-            if (taskError) {
-                console.error("[SUPABASE FETCH ERROR]:", taskError.message, taskError.details)
-                throw taskError
-            }
-
-            const mappedTasks: TaskItem[] = (taskData || []).map((t: any) => ({
-                id: t.id,
-                title: t.title,
-                is_completed: t.is_completed,
-                start_date: t.due_date || '',
-                end_date: t.due_date || '',
-                due_date: t.due_date || null,
-                completed_at: t.completed_at || null,
-                tags: t.tags || [],
-                priority: normalizePriority(t.priority),
-                reminders: !!t.reminder_time,
-            }))
-
-            // ── Fetch habits (active, paginated to 20) ──
-            const { data: habitData, error: habitError } = await supabase
-                .from('habits')
-                .select('id, name, current_streak, frequency, custom_days, reminder_time, position, created_at, icon, color')
-                .eq('user_id', user.id)
-                .eq('is_active', true)
-                .order('position', { ascending: true })
-                .limit(20)
-
-            if (habitError) {
-                console.error("[SUPABASE FETCH ERROR]:", habitError.message, habitError.details)
-                throw habitError
-            }
-
-            // Fetch all habit_logs from each habit's creation date (for the contribution graph)
-            const habitIds = (habitData || []).map((h: any) => h.id)
-            let todayCompletions: string[] = []
-            // Map of habitId -> array of completed date strings
-            const habitCompletions: Record<string, string[]> = {}
-
-            if (habitIds.length > 0) {
-                // Find the earliest created_at among all habits to minimize the query range
-                const earliestCreated = (habitData || []).reduce((min: string, h: any) => {
-                    const d = h.created_at ? h.created_at.split('T')[0] : todayStr()
-                    return d < min ? d : min
-                }, todayStr())
-
-                const { data: logData, error: logError } = await supabase
-                    .from('habit_logs')
-                    .select('habit_id, completed_date')
-                    .in('habit_id', habitIds)
-                    .gte('completed_date', earliestCreated)
-
-                if (logError) {
-                    console.error("[SUPABASE FETCH ERROR]:", logError.message, logError.details)
-                    throw logError
+            const today = todayStr()
+            for (const log of logData || []) {
+                if (log.completed_date === today) {
+                    todayCompletions.push(log.habit_id)
                 }
-
-                const today = todayStr()
-                for (const log of logData || []) {
-                    if (log.completed_date === today) {
-                        todayCompletions.push(log.habit_id)
-                    }
-                    if (!habitCompletions[log.habit_id]) {
-                        habitCompletions[log.habit_id] = []
-                    }
-                    habitCompletions[log.habit_id].push(log.completed_date)
+                if (!habitCompletions[log.habit_id]) {
+                    habitCompletions[log.habit_id] = []
                 }
+                habitCompletions[log.habit_id].push(log.completed_date)
             }
+        }
 
-            const mappedHabits: HabitItem[] = (habitData || []).map((h: any) => ({
-                id: h.id,
-                name: h.name,
-                current_streak: h.current_streak,
-                completed_today: todayCompletions.includes(h.id),
-                start_date: '',
-                end_date: '',
-                repeat_days: h.custom_days || [0, 1, 2, 3, 4, 5, 6],
-                all_days: h.frequency === 'daily',
-                reminders: !!h.reminder_time,
-                reminder_time: h.reminder_time || '07:00',
-                position: h.position,
-                completedDates: habitCompletions[h.id] || [],
-                created_at: h.created_at || new Date().toISOString(),
-                icon: h.icon || '🎯',
-                color: h.color || '#3B82F6',
-            }))
+        return (habitData || []).map((h: any) => ({
+            id: h.id,
+            name: h.name,
+            current_streak: h.current_streak,
+            completed_today: todayCompletions.includes(h.id),
+            start_date: '',
+            end_date: '',
+            repeat_days: h.custom_days || [0, 1, 2, 3, 4, 5, 6],
+            all_days: h.frequency === 'daily',
+            reminders: !!h.reminder_time,
+            reminder_time: h.reminder_time || '07:00',
+            position: h.position,
+            completedDates: habitCompletions[h.id] || [],
+            created_at: h.created_at || new Date().toISOString(),
+            icon: h.icon || '🎯',
+            color: h.color || '#3B82F6',
+        }))
+    }, [user])
 
-            setTasks(mappedTasks)
-            setHabits(mappedHabits)
-            // Reminders stay local for now (no reminders table in schema)
-            setReminders(MOCK_REMINDERS)
-            setUseSupabase(true)
-        } catch (err: any) {
-            // Explicit error logging formatted exactly as requested
-            if (err && typeof err === 'object' && 'message' in err) {
-                console.error("[SUPABASE FETCH ERROR]:", err.message, err.details || '')
-            } else {
-                console.error('PlanContext fetch error:', err)
-            }
-            // Fallback to mock data on any error
+    const tasksKey = user ? `tasks:${user.id}` : null
+    const habitsKey = user ? `habits:${user.id}` : null
+
+    const { data: cachedTasks, isLoading: tasksLoading, mutate: mutateTasks } = useData<TaskItem[]>(tasksKey, fetchTasksFromDb)
+    const { data: cachedHabits, isLoading: habitsLoading, mutate: mutateHabits } = useData<HabitItem[]>(habitsKey, fetchHabitsFromDb)
+
+    useEffect(() => {
+        if (!user) {
             setUseSupabase(false)
             setTasks(MOCK_TASKS)
             setHabits(MOCK_HABITS)
             setReminders(MOCK_REMINDERS)
-            setError('Could not load your data. Showing sample data.')
-        } finally {
             setLoading(false)
+            return
         }
-    }, [])
+        setUseSupabase(true)
+        if (cachedTasks) setTasks(cachedTasks)
+        if (cachedHabits) setHabits(cachedHabits)
+        setLoading(tasksLoading || habitsLoading)
+    }, [user, cachedTasks, cachedHabits, tasksLoading, habitsLoading])
+
+    const fetchData = useCallback(async () => {
+        if (!user) return
+        await Promise.all([mutateTasks(), mutateHabits()])
+    }, [user, mutateTasks, mutateHabits])
 
     useEffect(() => {
-        fetchData()
         const unsub = onDataChanged(['task', 'habit', 'reminder'], () => {
             fetchData()
         })
@@ -340,37 +332,57 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
 
     const updateTask = async (id: string, updates: Partial<TaskItem>) => {
-        // Optimistic local update
-        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates, ...(updates.priority ? { priority: normalizePriority(updates.priority) } : {}) } : t)))
+        const applyTaskUpdate = (t: TaskItem): TaskItem => ({
+            ...t,
+            ...updates,
+            ...(updates.priority ? { priority: normalizePriority(updates.priority) } : {}),
+        })
 
-        if (useSupabase) {
+        // Local state update
+        setTasks((prev) => prev.map((t) => (t.id === id ? applyTaskUpdate(t) : t)))
+
+        if (useSupabase && user) {
+            const key = `tasks:${user.id}`
             try {
-                const supabase = createClient()
-                const dbUpdates: Record<string, unknown> = {}
-                if (updates.title !== undefined) dbUpdates.title = updates.title.trim()
-                if (updates.is_completed !== undefined) {
-                    dbUpdates.is_completed = updates.is_completed
-                    dbUpdates.completed_at = updates.is_completed ? new Date().toISOString() : null
-                }
-                if (updates.priority !== undefined) dbUpdates.priority = normalizePriority(updates.priority)
-                if (updates.tags !== undefined) dbUpdates.tags = updates.tags.length > 0 ? updates.tags : null
-                if (updates.start_date !== undefined) dbUpdates.due_date = updates.start_date || null
-                if (updates.reminders !== undefined) {
-                    dbUpdates.reminder_time = updates.reminders ? new Date().toISOString() : null
-                }
+                await mutate<TaskItem[]>(
+                    key,
+                    async (current = []) => {
+                        const supabase = createClient()
+                        const dbUpdates: Record<string, unknown> = {}
+                        if (updates.title !== undefined) dbUpdates.title = updates.title.trim()
+                        if (updates.is_completed !== undefined) {
+                            dbUpdates.is_completed = updates.is_completed
+                            dbUpdates.completed_at = updates.is_completed ? new Date().toISOString() : null
+                        }
+                        if (updates.priority !== undefined) dbUpdates.priority = normalizePriority(updates.priority)
+                        if (updates.tags !== undefined) dbUpdates.tags = updates.tags.length > 0 ? updates.tags : null
+                        if (updates.start_date !== undefined) dbUpdates.due_date = updates.start_date || null
+                        if (updates.reminders !== undefined) {
+                            dbUpdates.reminder_time = updates.reminders ? new Date().toISOString() : null
+                        }
 
-                const { error: updateError } = await supabase
-                    .from('tasks')
-                    .update(dbUpdates)
-                    .eq('id', id)
+                        const { error: updateError } = await supabase
+                            .from('tasks')
+                            .update(dbUpdates)
+                            .eq('id', id)
 
-                if (updateError) throw updateError
+                        if (updateError) throw updateError
+                        return current.map((t) => (t.id === id ? applyTaskUpdate(t) : t))
+                    },
+                    {
+                        optimisticData: (current = []) => current.map((t) => (t.id === id ? applyTaskUpdate(t) : t)),
+                        rollbackOnError: true,
+                        revalidate: false,
+                    }
+                )
 
                 if (updates.is_completed === true) {
                     awardXP(8, 'Task Completed')
+                    emitDataChanged('task')
                 }
             } catch (err) {
                 console.error('Failed to update task:', err)
+                toast.show("Could not save. Check your connection and try again.", 'error')
                 setError('Failed to update task.')
             }
         }
@@ -463,60 +475,80 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             const habit = habits.find((h) => h.id === id)
             if (!habit) return
 
-            // Optimistic update
-            setHabits((prev) => prev.map((h) => (h.id === id ? { ...h, completed_today: updates.completed_today! } : h)))
+            const nextCompleted = updates.completed_today
+            const today = todayStr()
 
-            if (useSupabase) {
+            const applyToggle = (h: HabitItem): HabitItem => {
+                if (h.id !== id) return h
+                const nextStreak = nextCompleted
+                    ? (h.current_streak || 0) + 1
+                    : Math.max(0, (h.current_streak || 0) - 1)
+                const nextCompletedDates = nextCompleted
+                    ? Array.from(new Set([...(h.completedDates || []), today]))
+                    : (h.completedDates || []).filter((d) => d !== today)
+                return {
+                    ...h,
+                    completed_today: nextCompleted,
+                    current_streak: nextStreak,
+                    completedDates: nextCompletedDates,
+                }
+            }
+
+            // Local state update
+            setHabits((prev) => prev.map((h) => applyToggle(h)))
+
+            if (useSupabase && user) {
+                const key = `habits:${user.id}`
                 try {
-                    const supabase = createClient()
-                    const { data: { user } } = await supabase.auth.getUser()
-                    if (!user) return
+                    await mutate<HabitItem[]>(
+                        key,
+                        async (current = []) => {
+                            const supabase = createClient()
+                            if (nextCompleted) {
+                                const { error: upsertErr } = await supabase
+                                    .from('habit_logs')
+                                    .upsert({
+                                        habit_id: id,
+                                        user_id: user.id,
+                                        completed_date: today,
+                                    }, { onConflict: 'habit_id,completed_date' })
+                                if (upsertErr) throw upsertErr
 
-                    if (updates.completed_today) {
-                        // Insert habit_log for today
-                        await supabase
-                            .from('habit_logs')
-                            .upsert({
-                                habit_id: id,
-                                user_id: user.id,
-                                completed_date: todayStr(),
-                            }, { onConflict: 'habit_id,completed_date' })
+                                const { error: habitErr } = await supabase
+                                    .from('habits')
+                                    .update({ current_streak: (habit.current_streak || 0) + 1 })
+                                    .eq('id', id)
+                                if (habitErr) throw habitErr
+                            } else {
+                                const { error: delErr } = await supabase
+                                    .from('habit_logs')
+                                    .delete()
+                                    .eq('habit_id', id)
+                                    .eq('completed_date', today)
+                                if (delErr) throw delErr
 
-                        // Increment streak
-                        await supabase
-                            .from('habits')
-                            .update({
-                                current_streak: (habit.current_streak || 0) + 1,
-                            })
-                            .eq('id', id)
+                                const { error: habitErr } = await supabase
+                                    .from('habits')
+                                    .update({ current_streak: Math.max(0, (habit.current_streak || 0) - 1) })
+                                    .eq('id', id)
+                                if (habitErr) throw habitErr
+                            }
+                            return current.map((x) => applyToggle(x))
+                        },
+                        {
+                            optimisticData: (current = []) => current.map((x) => applyToggle(x)),
+                            rollbackOnError: true,
+                            revalidate: false,
+                        }
+                    )
 
-                        setHabits((prev) => prev.map((h) =>
-                            h.id === id ? { ...h, current_streak: h.current_streak + 1 } : h
-                        ))
-
+                    if (nextCompleted) {
                         awardXP(5, 'Habit Logged')
-                    } else {
-                        // Delete today's habit_log
-                        await supabase
-                            .from('habit_logs')
-                            .delete()
-                            .eq('habit_id', id)
-                            .eq('completed_date', todayStr())
-
-                        // Decrement streak
-                        await supabase
-                            .from('habits')
-                            .update({
-                                current_streak: Math.max(0, (habit.current_streak || 0) - 1),
-                            })
-                            .eq('id', id)
-
-                        setHabits((prev) => prev.map((h) =>
-                            h.id === id ? { ...h, current_streak: Math.max(0, h.current_streak - 1) } : h
-                        ))
                     }
+                    emitDataChanged('habit')
                 } catch (err) {
                     console.error('Failed to toggle habit:', err)
+                    toast.show("Could not save. Check your connection and try again.", 'error')
                 }
             }
             return

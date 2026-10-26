@@ -1,9 +1,11 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react'
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase'
 import { UserPlan } from '@/lib/featureGates'
 import { User, Session } from '@supabase/supabase-js'
+import { useData } from '@/lib/data/useData'
+import { useSWRConfig } from 'swr'
 
 interface UserProfile {
     full_name?: string | null;
@@ -84,6 +86,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Guard: ensure the init effect fires exactly once, even in React StrictMode.
     const didInit = useRef(false)
+    const { mutate } = useSWRConfig()
+
+    const profileFetcher = useCallback(async () => {
+        const currentUser = user || session?.user
+        if (!currentUser) return null
+
+        const { data, error } = await supabase
+            .from('users')
+            .select('plan, plan_expires_at, ai_message_count, last_message_date, full_name, total_xp, current_level, current_title')
+            .eq('id', currentUser.id)
+            .single()
+
+        if (error) {
+            console.error('Failed to fetch user profile:', error)
+            throw error
+        }
+        return data
+    }, [user, session?.user])
+
+    const { data: cachedProfile, mutate: mutateProfile } = useData(
+        (user?.id || session?.user?.id) ? `profile:${user?.id || session?.user?.id}` : null,
+        profileFetcher
+    )
+
+    useEffect(() => {
+        if (cachedProfile) {
+            setProfile({
+                full_name: cachedProfile.full_name,
+                total_xp: cachedProfile.total_xp || 0,
+                current_level: cachedProfile.current_level || 1,
+                current_title: cachedProfile.current_title || 'Ignition',
+            })
+            setPlan(cachedProfile.plan || 'free')
+            setAiMessageCount(cachedProfile.ai_message_count || 0)
+            setLastMessageDate(cachedProfile.last_message_date || null)
+        }
+    }, [cachedProfile])
 
     const refreshUserProfile = React.useCallback(async () => {
         const currentUser = user || session?.user
@@ -94,28 +133,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setLastMessageDate(null)
             return
         }
-
-        const { data, error } = await supabase
-            .from('users')
-            .select('plan, plan_expires_at, ai_message_count, last_message_date, full_name, total_xp, current_level, current_title')
-            .eq('id', currentUser.id)
-            .single()
-
-        if (error) {
-            console.error('Failed to fetch user profile:', error)
-            return
-        }
-
-        setProfile({
-            full_name: data?.full_name,
-            total_xp: data?.total_xp || 0,
-            current_level: data?.current_level || 1,
-            current_title: data?.current_title || 'Ignition',
-        })
-        setPlan(data?.plan || 'free')
-        setAiMessageCount(data?.ai_message_count || 0)
-        setLastMessageDate(data?.last_message_date || null)
-    }, [user, session?.user])
+        await mutateProfile()
+    }, [user, session?.user, mutateProfile])
 
     useEffect(() => {
         if (didInit.current) return
@@ -140,24 +159,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 if (currentSession) {
                     setSession(currentSession)
                     setUser(currentSession.user)
-                    const { data: profile, error: profileError } = await supabase
-                        .from('users')
-                        .select('plan, ai_message_count, last_message_date, total_xp, current_level, current_title, full_name')
-                        .eq('id', currentSession.user.id)
-                        .single()
-                    if (profileError) {
-                        console.error('Failed to fetch user profile:', profileError)
-                    } else {
-                        setProfile({
-                            full_name: profile?.full_name,
-                            total_xp: profile?.total_xp || 0,
-                            current_level: profile?.current_level || 1,
-                            current_title: profile?.current_title || 'Ignition',
-                        })
-                        setPlan(profile?.plan || 'free')
-                        setAiMessageCount(profile?.ai_message_count || 0)
-                        setLastMessageDate(profile?.last_message_date || null)
-                    }
                 }
             } catch (err) {
                 console.error('Supabase getSession exception:', err)

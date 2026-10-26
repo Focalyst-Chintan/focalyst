@@ -14,6 +14,8 @@ import { DesktopShell } from '@/components/desktop/DesktopShell'
 import { DesktopShellProvider } from '@/components/desktop/DesktopShellContext'
 import { CreateProvider } from '@/components/desktop/create/CreateProvider'
 import CheckoutIntentRunner from '@/components/billing/CheckoutIntentRunner'
+import { DataEventsBridge } from '@/lib/data/useData'
+import { GlobalToastContainer } from '@/components/desktop/ui/Toast'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -64,6 +66,7 @@ export default function AppLayout({
                 <ChatProvider>
                     <DesktopShellProvider>
                         <CreateProvider>
+                            <DataEventsBridge />
                             <CheckoutIntentRunner />
                             {/* Desktop Layout (>= 1024px) */}
                             <div className="hidden lg:contents">
@@ -84,6 +87,7 @@ export default function AppLayout({
                                     <BottomNav />
                                 </div>
                                 {isDesktop === false && <ChatUI />}
+                                <GlobalToastContainer />
                             </div>
                         </CreateProvider>
                     </DesktopShellProvider>

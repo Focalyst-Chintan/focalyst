@@ -1,17 +1,75 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Note } from '@/types'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
+import { useData } from '@/lib/data/useData'
+import { useSWRConfig } from 'swr'
+import { emitDataChanged } from '@/lib/events'
+import { useToast } from '@/components/desktop/ui/Toast'
 
 export function useNotes(userId: string | undefined) {
+    const supabase = createClient()
+    const { mutate } = useSWRConfig()
+    const toast = useToast()
+
+    const notesFetcher = useCallback(async (): Promise<Note[]> => {
+        if (!userId) return []
+        let { data, error: fetchError } = await supabase
+            .from('notes')
+            .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+            .limit(100)
+
+        // If error is due to optional columns (like is_pinned), retry with core columns
+        if (fetchError && fetchError.message?.toLowerCase().includes('column')) {
+            const fallbackQuery = supabase
+                .from('notes')
+                .select('id, user_id, title, content, is_favourite, folder, note_type, transcript, created_at, updated_at')
+                .eq('user_id', userId)
+                .order('created_at', { ascending: false })
+                .limit(100)
+            const res = await fallbackQuery
+            data = res.data
+            fetchError = res.error
+        }
+
+        if (fetchError) throw fetchError
+
+        const sortPinned = (list: Note[]) => {
+            return [...list].sort((a, b) => {
+                if (a.is_pinned && !b.is_pinned) return -1
+                if (!a.is_pinned && b.is_pinned) return 1
+                return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+            })
+        }
+
+        return sortPinned((data || []) as Note[])
+    }, [userId, supabase])
+
+    const notesKey = userId ? `notes:${userId}` : null
+    const { data: cachedNotes, isLoading: isSwrLoading, mutate: mutateNotes } = useData<Note[]>(notesKey, notesFetcher)
+
     const [notes, setNotes] = useState<Note[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-    const [hasMore, setHasMore] = useState(true)
-    const supabase = createClient()
+    const [hasMore, setHasMore] = useState(false)
+
+    useEffect(() => {
+        if (cachedNotes) {
+            setNotes(cachedNotes)
+        }
+        setLoading(isSwrLoading)
+    }, [cachedNotes, isSwrLoading])
 
     const fetchNotes = useCallback(async (page = 1, limit = 20, folderFilter?: string | null, favouriteFilter?: boolean, timeFilter?: boolean, noteTypeFilter?: string[]) => {
         if (!userId) return
+
+        // If default initial view, trigger SWR revalidation
+        if (page === 1 && folderFilter === undefined && !favouriteFilter && !timeFilter && (!noteTypeFilter || noteTypeFilter.length === 0)) {
+            await mutateNotes()
+            return
+        }
 
         setLoading(true)
         setError(null)
@@ -54,7 +112,6 @@ export function useNotes(userId: string | undefined) {
 
             let { data, error: fetchError, count } = await query.range(from, to)
 
-            // If error is due to optional columns (like is_pinned), retry with core columns
             if (fetchError && fetchError.message?.toLowerCase().includes('column')) {
                 const fallbackQuery = supabase
                     .from('notes')
@@ -91,7 +148,7 @@ export function useNotes(userId: string | undefined) {
         } finally {
             setLoading(false)
         }
-    }, [userId, supabase])
+    }, [userId, supabase, mutateNotes])
 
     const fetchNoteById = useCallback(async (id: string) => {
         try {
@@ -108,7 +165,6 @@ export function useNotes(userId: string | undefined) {
             return null
         }
     }, [supabase])
-
 
     const createNote = useCallback(async (title: string = 'Untitled document', content: string = '') => {
         if (!userId) return null
@@ -143,23 +199,26 @@ export function useNotes(userId: string | undefined) {
             if (error) throw error
 
             setNotes((prev) => [data as Note, ...prev])
+            if (notesKey) {
+                mutateNotes((curr = []) => [data as Note, ...curr], false)
+            }
+            emitDataChanged('note')
             return data as Note
         } catch (err: any) {
             console.error('Supabase error:', err?.message, err?.details, err?.hint)
             return null
         }
-    }, [userId, supabase])
+    }, [userId, supabase, notesKey, mutateNotes])
 
     const updateNote = useCallback(async (id: string, updates: Partial<Note>) => {
         setNotes((currentNotes) => {
             const previousNote = currentNotes.find(n => n.id === id)
-            if (!previousNote) return currentNotes;
+            if (!previousNote) return currentNotes
 
             return currentNotes.map((note) => note.id === id ? { ...note, ...updates, updated_at: new Date().toISOString() } : note)
-        });
+        })
 
         try {
-            // Validate inputs
             if (updates.title && updates.title.length > 200) {
                 throw new Error('Title too long')
             }
@@ -177,81 +236,102 @@ export function useNotes(userId: string | undefined) {
             if (error) throw error
 
             setNotes((prev) => prev.map((note) => note.id === id ? { ...note, ...data } : note))
+            if (notesKey) {
+                mutateNotes((curr = []) => curr.map((note) => note.id === id ? { ...note, ...data } : note), false)
+            }
+            emitDataChanged('note')
             return data as Note
         } catch (err: any) {
             console.error('Supabase error:', err?.message, err?.details, err?.hint)
-
-            // Revert optimistic update by re-fetching or simply letting the component handle failures
-            // For robust revert, we will re-fetch this note specifically
             fetchNoteById(id).then(serverNote => {
                 if (serverNote) {
                     setNotes((prev) => prev.map((note) => note.id === id ? serverNote : note))
                 }
             })
-
-            throw err // Re-throw to handle in component (e.g., auto-save failure)
+            throw err
         }
-    }, [supabase, fetchNoteById])
+    }, [supabase, fetchNoteById, notesKey, mutateNotes])
 
     const deleteNote = useCallback(async (id: string) => {
         if (!userId) {
-            console.error('Delete failed: No userId provided to hook');
+            console.error('Delete failed: No userId provided to hook')
             return false
         }
 
-
-        // Optimistic update
         setNotes((prev) => prev.filter((note) => note.id !== id))
+        if (notesKey) {
+            mutateNotes((curr = []) => curr.filter((note) => note.id !== id), false)
+        }
 
         try {
             const { error } = await supabase
                 .from('notes')
                 .delete()
-                .eq('id', id);
+                .eq('id', id)
 
             if (error) {
-                // Revert on error
-                const { data } = await supabase.from('notes').select('*').eq('id', id).single();
+                const { data } = await supabase.from('notes').select('*').eq('id', id).single()
                 if (data) {
                     setNotes((prev) => [...prev, data as Note])
+                    if (notesKey) {
+                        mutateNotes((curr = []) => [...curr, data as Note], false)
+                    }
                 }
                 throw error
             }
-
+            emitDataChanged('note')
             return true
         } catch (err: any) {
             console.error('Supabase delete error:', err?.message, err?.details, err?.hint)
             return false
         }
-    }, [userId, supabase])
+    }, [userId, supabase, notesKey, mutateNotes])
 
     const toggleFavourite = useCallback(async (id: string, currentStatus: boolean) => {
-        // optimistic update
         setNotes((prev) => prev.map((note) => note.id === id ? { ...note, is_favourite: !currentStatus } : note))
         try {
             await updateNote(id, { is_favourite: !currentStatus })
         } catch (e) {
-            // revert on failure
             setNotes((prev) => prev.map((note) => note.id === id ? { ...note, is_favourite: currentStatus } : note))
         }
     }, [updateNote])
 
     const togglePin = useCallback(async (id: string, currentPinned?: boolean) => {
         const nextPinned = !currentPinned
-        setNotes((prev) => {
-            const updated = prev.map((note) => note.id === id ? { ...note, is_pinned: nextPinned } : note)
+        const applyPin = (list: Note[]) => {
+            const updated = list.map((note) => note.id === id ? { ...note, is_pinned: nextPinned } : note)
             return [...updated].sort((a, b) => {
                 if (a.is_pinned && !b.is_pinned) return -1
                 if (!a.is_pinned && b.is_pinned) return 1
                 return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
             })
-        })
-        try {
-            await supabase.from('notes').update({ is_pinned: nextPinned }).eq('id', id)
-        } catch (e) {
-            console.error('Failed to update pin in supabase:', e)
         }
-    }, [supabase])
+
+        // Local state
+        setNotes((prev) => applyPin(prev))
+
+        if (userId && notesKey) {
+            try {
+                await mutate<Note[]>(
+                    notesKey,
+                    async (current = []) => {
+                        const { error } = await supabase.from('notes').update({ is_pinned: nextPinned }).eq('id', id)
+                        if (error) throw error
+                        return applyPin(current)
+                    },
+                    {
+                        optimisticData: (current = []) => applyPin(current),
+                        rollbackOnError: true,
+                        revalidate: false,
+                    }
+                )
+                emitDataChanged('note')
+            } catch (e) {
+                console.error('Failed to update pin in supabase:', e)
+                toast.show("Could not save. Check your connection and try again.", 'error')
+            }
+        }
+    }, [supabase, userId, notesKey, mutate, toast])
 
     return {
         notes,

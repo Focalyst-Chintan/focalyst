@@ -23,6 +23,7 @@ import { IconButton } from '@/components/desktop/ui/IconButton';
 import { Popover } from '@/components/desktop/ui/Popover';
 import { Modal } from '@/components/desktop/ui/Modal';
 import { Toast, ToastContainer } from '@/components/desktop/ui/Toast';
+import { useData } from '@/lib/data/useData';
 import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import {
   Users,
@@ -71,22 +72,30 @@ export default function DesktopGroupsView() {
     }
   }, [habits, selectedHabitId]);
 
-  // Load group leaderboard
-  const loadGroup = useCallback(async () => {
-    try {
-      setLoading(true);
-      const data = await fetchMyGroupLeaderboard();
-      setLeaderboardData(data || { in_group: false, members: [] });
-    } catch (err) {
-      console.error('Failed to load group:', err);
-    } finally {
-      setLoading(false);
-    }
+  // Load group leaderboard via useData
+  const groupFetcher = useCallback(async (): Promise<GroupLeaderboardData> => {
+    const data = await fetchMyGroupLeaderboard();
+    return data || { in_group: false, members: [] };
   }, []);
 
-  useEffect(() => {
-    loadGroup();
+  const accountabilityKey = user ? `accountability:${user.id}` : null;
+  const { data: cachedGroup, isLoading: groupLoading, mutate: mutateGroup } = useData<GroupLeaderboardData>(
+    accountabilityKey,
+    groupFetcher
+  );
 
+  useEffect(() => {
+    if (cachedGroup) {
+      setLeaderboardData(cachedGroup);
+    }
+    setLoading(groupLoading);
+  }, [cachedGroup, groupLoading]);
+
+  const loadGroup = useCallback(async () => {
+    await mutateGroup();
+  }, [mutateGroup]);
+
+  useEffect(() => {
     // Listen to custom habit updates
     const unsub = onDataChanged(['habit'], loadGroup);
 

@@ -24,6 +24,7 @@ const TodayFocusChart = dynamic(
   }
 );
 import { onDataChanged, emitDataChanged } from '@/lib/events';
+import { useData } from '@/lib/data/useData';
 import {
   getStartAndEndOfWeek,
   aggregateSessionsByDay,
@@ -208,25 +209,28 @@ export default function TodayPage() {
     }
   }, [user, supabase]);
 
-  // Fetch group leaderboard
-  const fetchGroup = useCallback(async () => {
-    setLoadingGroup(true);
-    setGroupError(false);
-    try {
-      const data = await fetchMyGroupLeaderboard();
-      setGroupData(data);
-    } catch (err) {
-      console.error('Group fetch error:', err);
-      setGroupError(true);
-    } finally {
-      setLoadingGroup(false);
-    }
+  // Fetch group leaderboard via useData
+  const groupFetcher = useCallback(async () => {
+    return await fetchMyGroupLeaderboard();
   }, []);
+
+  const groupKey = user ? `accountability:${user.id}` : null;
+  const { data: cachedGroupData, isLoading: groupLoading, mutate: mutateGroup } = useData<GroupLeaderboardData | null>(groupKey, groupFetcher);
+
+  useEffect(() => {
+    if (cachedGroupData) {
+      setGroupData(cachedGroupData);
+    }
+    setLoadingGroup(groupLoading);
+  }, [cachedGroupData, groupLoading]);
+
+  const fetchGroup = useCallback(async () => {
+    await mutateGroup();
+  }, [mutateGroup]);
 
   useEffect(() => {
     fetchHabitHeatmapLogs();
-    fetchGroup();
-  }, [fetchHabitHeatmapLogs, fetchGroup]);
+  }, [fetchHabitHeatmapLogs]);
 
   // Greeting based on local hour
   const greeting = useMemo(() => {
@@ -442,27 +446,38 @@ export default function TodayPage() {
 
   const create = useCreate();
 
-  // Countdowns state for Today banner
+  // Countdowns state for Today banner via useData
   const [countdowns, setCountdowns] = useState<any[]>([]);
   const [countdownModalOpen, setCountdownModalOpen] = useState(false);
 
-  const fetchCountdowns = useCallback(async () => {
-    if (!user) return;
-    try {
-      const { data } = await supabase
-        .from('countdowns')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('target_date', { ascending: true });
-      setCountdowns(data || []);
-    } catch (e) {
-      console.warn('Error fetching countdowns on today:', e);
+  const countdownsFetcher = useCallback(async () => {
+    if (!user) return [];
+    const { data, error } = await supabase
+      .from('countdowns')
+      .select('id, user_id, title, target_date, is_active, color, icon')
+      .eq('user_id', user.id)
+      .order('target_date', { ascending: true });
+    if (error) {
+      console.warn('Error fetching countdowns on today:', error);
+      throw error;
     }
+    return data || [];
   }, [user, supabase]);
 
-  useEffect(() => {
-    fetchCountdowns();
+  const countdownsKey = user ? `countdowns:${user.id}` : null;
+  const { data: cachedCountdowns, mutate: mutateCountdowns } = useData(countdownsKey, countdownsFetcher);
 
+  useEffect(() => {
+    if (cachedCountdowns) {
+      setCountdowns(cachedCountdowns);
+    }
+  }, [cachedCountdowns]);
+
+  const fetchCountdowns = useCallback(async () => {
+    await mutateCountdowns();
+  }, [mutateCountdowns]);
+
+  useEffect(() => {
     const unsub = onDataChanged(['countdown', 'focus'], () => {
       fetchCountdowns();
       todayStats.refetch();
