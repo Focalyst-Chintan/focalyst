@@ -666,3 +666,100 @@ body.distraction-free nav {
 .fx-no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Legal pages (privacy, terms): always visible, never animated, readable in dark scope */
+.fx-article {
+  color: var(--ink-2);
+  font-size: 16px;
+  line-height: 1.75;
+}
+.fx-article section,
+.fx-article section * {
+  opacity: 1 !important;
+  visibility: visible !important;
+  transform: none !important;
+  animation: none !important;
+  filter: none !important;
+  clip-path: none !important;
+}
+.fx-article section {
+  display: block;
+  scroll-margin-top: 7rem;
+}
+.fx-article section + section {
+  margin-top: 3rem;
+}
+.fx-article h2 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 0 0 1rem;
+}
+.fx-article h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 1.5rem 0 0.5rem;
+}
+.fx-article p {
+  margin: 0 0 1rem;
+}
+.fx-article ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+.fx-article ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+  margin: 0 0 1rem;
+}
+.fx-article li {
+  margin: 0.375rem 0;
+}
+.fx-article li::marker {
+  color: var(--ink-3);
+}
+.fx-article strong,
+.fx-article b {
+  color: var(--ink);
+  font-weight: 600;
+}
+.fx-article a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.fx-article a:hover {
+  text-decoration-thickness: 2px;
+}
+.fx-article table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: 0.9375rem;
+}
+.fx-article th,
+.fx-article td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.75rem 0.875rem;
+  border-bottom: 1px solid var(--line);
+}
+.fx-article th {
+  color: var(--ink);
+  font-weight: 600;
+  background: var(--surface-2);
+}
+@media (max-width: 640px) {
+  .fx-article h2 { font-size: 1.5rem; }
+  .fx-article table { font-size: 0.875rem; }
+}
+@media print {
+  .fx-article,
+  .fx-article h2,
+  .fx-article h3,
+  .fx-article strong { color: #000 !important; }
+}
