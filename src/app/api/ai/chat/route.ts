@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     const isPro = profile?.plan && profile.plan !== 'free';
     const dailyLimit = isPro ? 100 : 5;
 
-    const { startOfDayIso } = getTodayRangeInTz(tz);
+    const { startOfDayIso, tz: safeTz } = getTodayRangeInTz(tz);
 
     // Count today's messages in user's timezone from ai_chat_logs
     const { count: todayCount, error: countErr } = await supabase
@@ -144,12 +144,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Build real-time context with user's signed-in Supabase client
-    const userContext = await buildUserContext(supabase, user.id, tz);
-    const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: tz }).format(new Date());
+    const userContext = await buildUserContext(supabase, user.id, safeTz);
+    const today = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: safeTz }).format(new Date());
     const system = [
       AI_PERSONA,
       'Always finish your answer completely. Use short paragraphs and simple markdown (bold, bullet lists, numbered steps). Never stop mid-sentence.',
-      `Today is ${today} (${tz}).`,
+      `Today is ${today} (${safeTz}).`,
       `The user's Focalyst data:\n${userContext}`,
     ].join('\n\n');
 

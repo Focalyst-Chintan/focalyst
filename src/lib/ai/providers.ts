@@ -22,7 +22,7 @@ export function cleanWhisperTranscript(rawText: string): string {
   return trimmed;
 }
 
-const OPENROUTER_CHAT_MODEL_LIGHT = 'meta-llama/llama-3.1-8b-instruct';
+const OPENROUTER_CHAT_MODEL_LIGHT = 'meta-llama/llama-3.3-70b-instruct';
 const OPENROUTER_CHAT_MODEL_HEAVY = 'meta-llama/llama-3.3-70b-instruct';
 const GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
 
@@ -48,6 +48,7 @@ export async function streamChat(
 ): Promise<StreamChatResult> {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  console.info('[ai:chat] providers', 'openrouter=' + (openRouterKey ? 'yes' : 'NO KEY'), 'gemini=' + (geminiKey ? 'yes' : 'NO KEY'), 'model=' + (modelType === 'heavy' ? OPENROUTER_CHAT_MODEL_HEAVY : OPENROUTER_CHAT_MODEL_LIGHT));
 
   const fullMessages: ChatMessageParam[] = [];
   if (systemPrompt) {
@@ -87,7 +88,7 @@ export async function streamChat(
       if (!res.ok) {
         clearTimeout(firstTokenTimeout);
         const errText = await res.text().catch(() => '');
-        console.error('[ai:chat]', 'openrouter', res.status, errText.slice(0, 100));
+        console.error('[ai:chat]', 'openrouter', res.status, errText.slice(0, 300));
         throw new Error(`OpenRouter returned status ${res.status}`);
       }
 
@@ -196,7 +197,7 @@ export async function streamChat(
           messages: fullMessages,
           stream: true,
           max_tokens: 4096,
-          generationConfig: { maxOutputTokens: 4096 },
+          reasoning_effort: 'low',
           temperature: 0.7,
         }),
         signal: controller.signal,
@@ -205,7 +206,47 @@ export async function streamChat(
       if (!res.ok) {
         clearTimeout(firstTokenTimeout);
         const errText = await res.text().catch(() => '');
-        console.error('[ai:chat]', 'gemini', res.status, errText.slice(0, 100));
+        console.error('[ai:chat]', 'gemini', res.status, errText.slice(0, 300));
+        if (res.status === 400 && errText.toLowerCase().includes('reasoning')) {
+          // Retry once without reasoning_effort if this Gemini model does not accept it
+          const retry = await fetch('https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${geminiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: GEMINI_CHAT_MODEL, messages: fullMessages, stream: true, max_tokens: 4096, temperature: 0.7 }),
+            signal: controller.signal,
+          });
+          if (retry.ok && retry.body) {
+            clearTimeout(firstTokenTimeout);
+            const passthrough = retry.body.getReader();
+            const enc = new TextEncoder();
+            const dec = new TextDecoder();
+            let buf = '';
+            const s = new ReadableStream<Uint8Array>({
+              async start(c) {
+                try {
+                  while (true) {
+                    const { done, value } = await passthrough.read();
+                    if (done) break;
+                    buf += dec.decode(value, { stream: true });
+                    const lines = buf.split('\n');
+                    buf = lines.pop() || '';
+                    for (const line of lines) {
+                      const t = line.trim();
+                      if (!t.startsWith('data: ') || t === 'data: [DONE]') continue;
+                      try {
+                        const p = JSON.parse(t.slice(6));
+                        const content = p.choices?.[0]?.delta?.content;
+                        if (typeof content === 'string' && content) c.enqueue(enc.encode(content));
+                      } catch {}
+                    }
+                  }
+                  c.close();
+                } catch (e) { c.error(e); }
+              },
+            });
+            return { stream: s, provider: 'gemini' };
+          }
+        }
         throw new Error(`Gemini returned status ${res.status}`);
       }
 
