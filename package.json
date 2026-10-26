@@ -22,7 +22,7 @@
     "@polar-sh/sdk": "^1.0.2",
     "@polar-sh/supabase": "^0.4.3",
     "@revenuecat/purchases-capacitor": "^13.1.2",
-    "@sparticuz/chromium-min": "^143.0.4",
+    "@sparticuz/chromium-min": "^153.0.0",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.118.0",
     "@tailwindcss/typography": "^0.5.19",
