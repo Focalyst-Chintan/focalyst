@@ -161,10 +161,10 @@ export default function PublicLayout({
         ) : null}
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="relative z-10 flex-1">{children}</main>
 
       {/* Shared 4-Column Footer */}
-      <footer className="mt-24 border-t border-line bg-surface/40 py-16 print:hidden">
+      <footer className="relative z-10 mt-24 border-t border-line bg-surface/40 py-16 print:hidden">
         <div className="mx-auto max-w-[1200px] px-6">
           <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
             <div>
