@@ -21,7 +21,7 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
         const fetchCountdowns = async () => {
             const { data } = await supabase
                 .from('countdowns')
-                .select('*')
+                .select('id, user_id, event_name, target_date, is_active')
                 .eq('user_id', userId)
                 .eq('is_active', true)
                 .order('target_date', { ascending: true })

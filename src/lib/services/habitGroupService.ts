@@ -131,11 +131,28 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
             }
         })
 
+        // Sort members by streak desc, then total_days desc
+        members.sort((a, b) => b.streak - a.streak || b.total_days - a.total_days)
+
+        // P7: Group standings top 50 plus current user always
+        let pagedMembers = members
+        if (members.length > 50) {
+            const top50 = members.slice(0, 50)
+            const userInTop50 = top50.some((m) => m.is_me)
+            if (!userInTop50) {
+                const userRow = members.find((m) => m.is_me)
+                if (userRow) {
+                    top50.push(userRow)
+                }
+            }
+            pagedMembers = top50
+        }
+
         return {
             in_group: true,
             group_id: memberRow.group_id,
             invite_code: grp?.invite_code || '------',
-            members,
+            members: pagedMembers,
         }
     } catch (err) {
         console.error('Error fetching group leaderboard:', err)

@@ -66,7 +66,7 @@ export async function reconcileDailyFocus(dayStr: string, userId?: string) {
 
   const { data: existingData, error: readErr } = await supabase
     .from('daily_focus_activity')
-    .select('*')
+    .select('break_minutes, break_time_minutes')
     .eq('user_id', uid)
     .eq('date', dayStr)
     .maybeSingle();

@@ -36,7 +36,7 @@ export default function CountdownForm({
             const fetchCountdown = async () => {
                 const { data, error } = await supabase
                     .from('countdowns')
-                    .select('*')
+                    .select('id, event_name, target_date')
                     .eq('id', id)
                     .single()
 

@@ -186,7 +186,7 @@ function TimerContent() {
             // 2. Query and upsert daily_focus_activity
             const { data: existingData } = await supabase
                 .from('daily_focus_activity')
-                .select('*')
+                .select('focus_time_minutes, focus_minutes, break_time_minutes, break_minutes')
                 .eq('user_id', user.id)
                 .eq('date', dateStr)
                 .maybeSingle()

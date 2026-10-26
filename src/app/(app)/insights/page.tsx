@@ -88,7 +88,7 @@ export default function InsightsPage() {
         setCompletedTasks(completed)
         setTotalTasks(total)
 
-        // 3. Fetch daily_focus_activity data using localDateStr to eliminate timezone drift
+        // 3. Fetch focus totals using focus_daily_totals RPC (with fallback)
         const { startOfWeek, endOfWeek } = getStartAndEndOfWeek(today)
         const startOfWeekStr = localDateStr(startOfWeek)
         const endOfWeekStr = localDateStr(endOfWeek)
@@ -97,24 +97,48 @@ export default function InsightsPage() {
         const lastWeekStartStr = localDateStr(lastWeekStart)
         const lastWeekEndStr = startOfWeekStr
 
-        // Fetch records bounded by the active period
-        const { data: allActivities } = await supabase
-            .from('daily_focus_activity')
-            .select('*')
-            .eq('user_id', userId)
-            .gte('date', lastWeekStartStr)
-            .lte('date', endOfWeekStr)
+        let allDailyTotals: Array<{ day: string; minutes: number }> = []
+
+        try {
+            const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
+            const { data: rpcData, error: rpcErr } = await supabase.rpc('focus_daily_totals', {
+                p_from: lastWeekStartStr,
+                p_to: endOfWeekStr,
+                p_tz: tz,
+            })
+            if (!rpcErr && Array.isArray(rpcData)) {
+                allDailyTotals = rpcData.map((r: any) => ({
+                    day: String(r.day).slice(0, 10),
+                    minutes: Number(r.minutes) || 0,
+                }))
+            } else {
+                throw rpcErr || new Error('RPC returned no data')
+            }
+        } catch {
+            // Fallback to daily_focus_activity if RPC is not yet executed
+            const { data: allActivities } = await supabase
+                .from('daily_focus_activity')
+                .select('date, focus_time_minutes, focus_minutes')
+                .eq('user_id', userId)
+                .gte('date', lastWeekStartStr)
+                .lte('date', endOfWeekStr)
+            allDailyTotals = (allActivities || []).map((a: any) => ({
+                day: a.date,
+                minutes: a.focus_time_minutes ?? a.focus_minutes ?? 0,
+            }))
+        }
 
         // Calculate focus time within window
-        const totalMin = allActivities?.reduce((acc: number, a: any) => acc + (a.focus_time_minutes || 0), 0) || 0
+        const totalMin = allDailyTotals.reduce((acc, a) => acc + (a.minutes || 0), 0)
         setTotalFocusMinutes(totalMin)
 
-        // current week
-        const currentWeekActivities = allActivities?.filter((a: any) => a.date >= startOfWeekStr && a.date <= endOfWeekStr) || []
-        const previousWeekActivities = allActivities?.filter((a: any) => a.date >= lastWeekStartStr && a.date < lastWeekEndStr) || []
-
-        const currentFocusMinutes = currentWeekActivities.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0)
-        const prevFocusMinutes = previousWeekActivities.reduce((acc: number, curr: any) => acc + (curr.focus_time_minutes || 0), 0)
+        // current week vs previous week
+        const currentFocusMinutes = allDailyTotals
+            .filter((a) => a.day >= startOfWeekStr && a.day <= endOfWeekStr)
+            .reduce((acc, curr) => acc + (curr.minutes || 0), 0)
+        const prevFocusMinutes = allDailyTotals
+            .filter((a) => a.day >= lastWeekStartStr && a.day < lastWeekEndStr)
+            .reduce((acc, curr) => acc + (curr.minutes || 0), 0)
 
         // 4. Fetch Active Habits (Streaks)
         const { data: habits } = await supabase

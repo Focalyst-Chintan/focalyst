@@ -143,7 +143,7 @@ export default function DesktopInsightsView() {
 
       const { data: reports } = await supabase
         .from('weekly_reports')
-        .select('*')
+        .select('id, user_id, start_date, end_date, summary, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1);

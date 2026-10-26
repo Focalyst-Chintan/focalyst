@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useNotes } from '@/hooks/useNotes'
 import { NoteRow } from './NoteRow'
@@ -51,7 +51,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                 noteTypeFilter = ['voice']
             }
 
-            fetchNotes(1, 20, undefined, isFavourite, false, activeFilter === 'Notes' ? [] : noteTypeFilter) // Passing empty array as special signal for 'Notes'
+            fetchNotes(1, 30, undefined, isFavourite, false, activeFilter === 'Notes' ? [] : noteTypeFilter) // Passing empty array as special signal for 'Notes'
             setPage(1)
         }
     }, [userId, activeFilter, fetchNotes])
@@ -134,7 +134,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             if (activeFilter === 'Notes') noteTypeFilter = []; // special signal for text/null
             else if (activeFilter === 'Voice notes') noteTypeFilter = ['voice'];
 
-            fetchNotes(page + 1, 20, undefined, isFavourite, false, noteTypeFilter)
+            fetchNotes(page + 1, 30, undefined, isFavourite, false, noteTypeFilter)
         }
     }
 
@@ -195,6 +195,23 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             </div>
         )
     }
+
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!hasMore || loading) return;
+        const el = sentinelRef.current;
+        if (!el || typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) {
+                loadMore();
+            }
+        }, { rootMargin: '200px' });
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [hasMore, loading, loadMore]);
 
     // Render logic based on view mode
     return (
@@ -265,13 +282,16 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             )}
 
             {hasMore && (
-                <button
-                    onClick={loadMore}
-                    disabled={loading}
-                    className="w-full py-4 text-center text-[14px] font-medium text-blue-muted hover:text-navy disabled:opacity-50 mt-2"
-                >
-                    {loading ? 'Loading...' : 'Load more'}
-                </button>
+                <>
+                    <button
+                        onClick={loadMore}
+                        disabled={loading}
+                        className="w-full py-4 text-center text-[14px] font-medium text-blue-muted hover:text-navy disabled:opacity-50 mt-2"
+                    >
+                        {loading ? 'Loading...' : 'Load more'}
+                    </button>
+                    <div ref={sentinelRef} className="h-4 w-full" />
+                </>
             )}
 
             <FolderModal

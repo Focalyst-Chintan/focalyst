@@ -30,7 +30,7 @@ export function useFocusToday(): FocusTodayData {
 
       const { data } = await supabase
         .from('daily_focus_activity')
-        .select('*')
+        .select('focus_time_minutes, focus_minutes, sessions_completed')
         .eq('user_id', user.id)
         .eq('date', today)
         .maybeSingle();

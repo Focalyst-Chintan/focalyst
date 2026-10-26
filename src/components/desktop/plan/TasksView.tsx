@@ -96,6 +96,8 @@ export function TasksView() {
     return { overdue: ov, today: td, upcoming: up, noDate: nd, completed: comp };
   }, [tasks, todayStr]);
 
+  const [completedLimit, setCompletedLimit] = useState(50);
+
   // Selected task
   const selectedTask = useMemo(() => {
     if (!selectedTaskId) return null;
@@ -416,72 +418,88 @@ export function TasksView() {
         {/* Task Rows */}
         {!collapsed && (
           <div className="flex flex-col gap-1 mt-1">
-            {items.map((t) => {
-              const isSelected = selectedTaskId === t.id;
-              const dueInfo = formatDueDate(t.end_date || t.start_date);
-
+            {(() => {
+              const visibleItems = groupKey === 'completed' ? items.slice(0, completedLimit) : items;
               return (
-                <div
-                  key={t.id}
-                  draggable
-                  onDragStart={() => handleDragStart(t)}
-                  onDragEnter={() => handleDragEnter(t)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => e.preventDefault()}
-                  onClick={() => setSelectedTaskId(t.id)}
-                  className={`h-11 rounded-[12px] px-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
-                    isSelected ? 'bg-surface-2 border border-line-strong' : 'hover:bg-surface-2'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 truncate min-w-0 flex-1">
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={t.is_completed}
-                        onChange={() => updateTask(t.id, { is_completed: !t.is_completed })}
-                      />
-                    </div>
-                    <span
-                      className={`text-[14px] truncate ${
-                        t.is_completed ? 'line-through text-ink-3' : 'text-ink font-normal'
-                      }`}
-                    >
-                      {t.title}
-                    </span>
+                <>
+                  {visibleItems.map((t) => {
+                    const isSelected = selectedTaskId === t.id;
+                    const dueInfo = formatDueDate(t.end_date || t.start_date);
 
-                    {/* Tag chips */}
-                    {t.tags && t.tags.length > 0 && (
-                      <div className="hidden sm:flex items-center gap-1 shrink-0">
-                        {t.tags.slice(0, 2).map((tg) => (
-                          <span
-                            key={tg}
-                            className="px-2 py-0.5 rounded-full bg-primary-soft text-primary-text text-[11px] font-medium"
-                          >
-                            #{tg}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Priority dot & Due Date */}
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span
-                      title={`Priority: ${t.priority}`}
-                      className={`h-2 w-2 rounded-full ${PRIORITY_COLORS[t.priority] || 'bg-ink-3'}`}
-                    />
-                    {dueInfo && (
-                      <span
-                        className={`text-[12px] tabular-nums font-medium ${
-                          dueInfo.isOverdue && !t.is_completed ? 'text-danger' : 'text-ink-3'
+                    return (
+                      <div
+                        key={t.id}
+                        draggable
+                        onDragStart={() => handleDragStart(t)}
+                        onDragEnter={() => handleDragEnter(t)}
+                        onDragEnd={handleDragEnd}
+                        onDragOver={(e) => e.preventDefault()}
+                        onClick={() => setSelectedTaskId(t.id)}
+                        className={`h-11 rounded-[12px] px-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                          isSelected ? 'bg-surface-2 border border-line-strong' : 'hover:bg-surface-2'
                         }`}
                       >
-                        {dueInfo.label}
-                      </span>
-                    )}
-                  </div>
-                </div>
+                        <div className="flex items-center gap-3 truncate min-w-0 flex-1">
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Checkbox
+                              checked={t.is_completed}
+                              onChange={() => updateTask(t.id, { is_completed: !t.is_completed })}
+                            />
+                          </div>
+                          <span
+                            className={`text-[14px] truncate ${
+                              t.is_completed ? 'line-through text-ink-3' : 'text-ink font-normal'
+                            }`}
+                          >
+                            {t.title}
+                          </span>
+
+                          {/* Tag chips */}
+                          {t.tags && t.tags.length > 0 && (
+                            <div className="hidden sm:flex items-center gap-1 shrink-0">
+                              {t.tags.slice(0, 2).map((tg) => (
+                                <span
+                                  key={tg}
+                                  className="px-2 py-0.5 rounded-full bg-primary-soft text-primary-text text-[11px] font-medium"
+                                >
+                                  #{tg}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Priority dot & Due Date */}
+                        <div className="flex items-center gap-3 shrink-0">
+                          <span
+                            title={`Priority: ${t.priority}`}
+                            className={`h-2 w-2 rounded-full ${PRIORITY_COLORS[t.priority] || 'bg-ink-3'}`}
+                          />
+                          {dueInfo && (
+                            <span
+                              className={`text-[12px] tabular-nums font-medium ${
+                                dueInfo.isOverdue && !t.is_completed ? 'text-danger' : 'text-ink-3'
+                              }`}
+                            >
+                              {dueInfo.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {groupKey === 'completed' && items.length > completedLimit && (
+                    <button
+                      type="button"
+                      onClick={() => setCompletedLimit((prev) => prev + 50)}
+                      className="mt-2 py-2 text-center text-[13px] font-medium text-ink-2 hover:text-ink hover:bg-surface-2 rounded-lg transition-colors"
+                    >
+                      Show more ({items.length - completedLimit} remaining)
+                    </button>
+                  )}
+                </>
               );
-            })}
+            })()}
           </div>
         )}
       </div>

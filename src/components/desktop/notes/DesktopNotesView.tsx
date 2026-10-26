@@ -134,13 +134,35 @@ export default function DesktopNotesView() {
   // Initial load & data event listener
   useEffect(() => {
     if (user?.id) {
-      fetchNotes(1, 100);
+      fetchNotes(1, 30);
     }
     const unsub = onDataChanged(['note'], () => {
-      if (user?.id) fetchNotes(1, 100);
+      if (user?.id) fetchNotes(1, 30);
     });
     return unsub;
   }, [user?.id, fetchNotes]);
+
+  const [desktopNotesPage, setDesktopNotesPage] = useState(1);
+  const desktopSentinelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (loading) return;
+    const el = desktopSentinelRef.current;
+    if (!el || typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0]?.isIntersecting) {
+        setDesktopNotesPage((prev) => {
+          const next = prev + 1;
+          fetchNotes(next, 30);
+          return next;
+        });
+      }
+    }, { rootMargin: '200px' });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [loading, fetchNotes]);
 
   // Keyboard shortcut '/' to focus search input
   useEffect(() => {
@@ -790,6 +812,7 @@ export default function DesktopNotesView() {
                 })}
               </div>
             )}
+            <div ref={desktopSentinelRef} className="h-4 w-full" />
           </div>
         </div>
       </div>

@@ -101,23 +101,23 @@ export async function GET(req: Request) {
                 const [tasksRes, habitsRes, logsRes, sessionsRes] = await Promise.all([
                     supabaseAdmin
                         .from('tasks')
-                        .select('*')
+                        .select('id, is_completed, status, due_date, completed_at')
                         .eq('user_id', userId)
                         .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
                     supabaseAdmin
                         .from('habits')
-                        .select('*')
+                        .select('id, current_streak, longest_streak, frequency, custom_days')
                         .eq('user_id', userId)
                         .eq('is_active', true),
                     supabaseAdmin
                         .from('habit_logs')
-                        .select('*')
+                        .select('id, habit_id, completed_date')
                         .eq('user_id', userId)
                         .gte('completed_date', startDateStr)
                         .lte('completed_date', endDateStr),
                     supabaseAdmin
                         .from('pomodoro_sessions')
-                        .select('*')
+                        .select('id, focus_minutes, sets_completed, was_completed')
                         .eq('user_id', userId)
                         .gte('completed_at', startDateISO)
                         .lte('completed_at', endDateISO)

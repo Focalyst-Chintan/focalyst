@@ -255,7 +255,7 @@ export function DesktopFocusPage() {
     try {
       const { data } = await supabase
         .from('pomodoro_sessions')
-        .select('*')
+        .select('id, user_id, focus_minutes, break_minutes, sets_planned, sets_completed, started_at, completed_at, was_completed')
         .eq('user_id', user.id)
         .gte('started_at', `${todayStr}T00:00:00`)
         .order('started_at', { ascending: false })

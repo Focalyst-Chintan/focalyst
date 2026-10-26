@@ -56,7 +56,7 @@ export default function EditNotePage() {
             // Fetch note
             const { data, error } = await supabase
                 .from('notes')
-                .select('*')
+                .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
                 .eq('id', noteId)
                 .eq('user_id', user.id)
                 .single()

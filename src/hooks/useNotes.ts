@@ -154,7 +154,7 @@ export function useNotes(userId: string | undefined) {
         try {
             const { data, error } = await supabase
                 .from('notes')
-                .select('*')
+                .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
                 .eq('id', id)
                 .single()
 
@@ -270,7 +270,11 @@ export function useNotes(userId: string | undefined) {
                 .eq('id', id)
 
             if (error) {
-                const { data } = await supabase.from('notes').select('*').eq('id', id).single()
+                const { data } = await supabase
+                    .from('notes')
+                    .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
+                    .eq('id', id)
+                    .single()
                 if (data) {
                     setNotes((prev) => [...prev, data as Note])
                     if (notesKey) {

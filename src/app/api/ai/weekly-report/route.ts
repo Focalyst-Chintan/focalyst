@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     // 1. Check if report for this week already exists
     const { data: existingReport } = await supabase
       .from('reports')
-      .select('*')
+      .select('score, focus_time, tasks_completed, habit_consistency, week_summary_text, catalyst_insights, start_date, end_date')
       .eq('user_id', user.id)
       .eq('start_date', startDateISO)
       .eq('end_date', endDateISO)
@@ -129,23 +129,23 @@ export async function POST(req: NextRequest) {
     const [tasksRes, habitsRes, habitLogsRes, sessionsRes, notesCountRes] = await Promise.all([
       supabase
         .from('tasks')
-        .select('*')
+        .select('id, is_completed, status, due_date')
         .eq('user_id', user.id)
         .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
       supabase
         .from('habits')
-        .select('*')
+        .select('id, current_streak')
         .eq('user_id', user.id)
         .eq('is_active', true),
       supabase
         .from('habit_logs')
-        .select('*')
+        .select('id, habit_id, completed_date')
         .eq('user_id', user.id)
         .gte('completed_date', startDateStr)
         .lte('completed_date', endDateStr),
       supabase
         .from('pomodoro_sessions')
-        .select('*')
+        .select('id, focus_minutes')
         .eq('user_id', user.id)
         .gte('created_at', startDateISO)
         .lte('created_at', endDateISO),
