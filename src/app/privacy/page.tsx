@@ -1,10 +1,20 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import LegalLayout from '@/components/desktop/public/LegalLayout';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
   description: 'How Focalyst by Chintan collects, uses and protects your personal data.',
+  alternates: {
+    canonical: 'https://focalyst.online/privacy',
+  },
+  openGraph: {
+    title: 'Privacy Policy | Focalyst',
+    description: 'How Focalyst by Chintan collects, uses and protects your personal data.',
+    url: 'https://focalyst.online/privacy',
+  },
 };
 
 const TOC = [
@@ -106,6 +116,11 @@ const RETENTION = [
 ];
 
 export default function PrivacyPage() {
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'Privacy Policy', path: '/privacy' },
+  ]);
+
   return (
     <LegalLayout
       title="Privacy Policy"
@@ -113,6 +128,7 @@ export default function PrivacyPage() {
       shortVersion={SHORT_VERSION}
       toc={TOC}
     >
+      <JsonLd data={breadcrumbData} />
       <section id="who-we-are">
         <h2>1. Who we are</h2>
         <p>

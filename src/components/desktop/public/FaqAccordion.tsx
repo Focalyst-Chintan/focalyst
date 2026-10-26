@@ -141,11 +141,13 @@ export default function FaqAccordion({
               </span>
             </button>
 
-            {isOpen && (
-              <div className="text-[15px] leading-7 text-[var(--ink-2)] px-5 pb-5 pt-1 border-t border-line/60">
-                {renderAnswer(item.answer, searchQuery)}
-              </div>
-            )}
+            <div
+              className={`text-[15px] leading-7 text-[var(--ink-2)] px-5 pb-5 pt-1 border-t border-line/60 ${
+                isOpen ? 'block' : 'hidden'
+              }`}
+            >
+              {renderAnswer(item.answer, searchQuery)}
+            </div>
           </div>
         );
       })}

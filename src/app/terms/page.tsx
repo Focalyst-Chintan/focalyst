@@ -1,10 +1,20 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import LegalLayout from '@/components/desktop/public/LegalLayout';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'Terms of Service for Focalyst by Chintan.',
+  description: 'The terms for using Focalyst, including plans, payments and refunds.',
+  alternates: {
+    canonical: 'https://focalyst.online/terms',
+  },
+  openGraph: {
+    title: 'Terms of Service | Focalyst',
+    description: 'The terms for using Focalyst, including plans, payments and refunds.',
+    url: 'https://focalyst.online/terms',
+  },
 };
 
 const TOC = [
@@ -39,6 +49,11 @@ const SHORT_VERSION = [
 ];
 
 export default function TermsPage() {
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'Terms of Service', path: '/terms' },
+  ]);
+
   return (
     <LegalLayout
       title="Terms of Service"
@@ -46,6 +61,7 @@ export default function TermsPage() {
       shortVersion={SHORT_VERSION}
       toc={TOC}
     >
+      <JsonLd data={breadcrumbData} />
       <section id="agreement">
         <h2>1. Agreement</h2>
         <p>

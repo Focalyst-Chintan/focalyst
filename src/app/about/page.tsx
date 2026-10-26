@@ -9,11 +9,22 @@ import {
   Sparkles,
 } from 'lucide-react';
 import PublicLayout from '@/components/desktop/public/PublicLayout';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
   title: 'About',
   description:
-    'Focalyst is a calm, all-in-one productivity hub for people who want to do meaningful work without the noise.',
+    'Focalyst is built by Chintan, an independent company in Kolkata, India, founded by Sohan Tamang. Productivity and Mindful Living.',
+  alternates: {
+    canonical: 'https://focalyst.online/about',
+  },
+  openGraph: {
+    title: 'About | Focalyst',
+    description:
+      'Focalyst is built by Chintan, an independent company in Kolkata, India, founded by Sohan Tamang. Productivity and Mindful Living.',
+    url: 'https://focalyst.online/about',
+  },
 };
 
 const BELIEFS = [
@@ -69,8 +80,25 @@ const FEATURES = [
 ];
 
 export default function AboutPage() {
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: 'Sohan Tamang',
+    jobTitle: 'Founder and CEO',
+    worksFor: {
+      '@id': 'https://focalyst.online/#organization',
+    },
+    sameAs: 'https://www.linkedin.com/in/storiesbysohan/',
+  };
+
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'About', path: '/about' },
+  ]);
+
   return (
     <PublicLayout>
+      <JsonLd data={[personJsonLd, breadcrumbData]} />
       <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         {/* Hero */}
         <section className="fx-reveal mx-auto max-w-[760px] pt-14 text-center">

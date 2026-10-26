@@ -2,11 +2,22 @@ import type { Metadata } from 'next';
 import PublicLayout from '@/components/desktop/public/PublicLayout';
 import PricingSection from '@/components/PricingSection';
 import FaqAccordion from '@/components/desktop/public/FaqAccordion';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { SOFTWARE_APP, breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
-  title: 'Pricing | Focalyst',
+  title: 'Pricing',
   description:
-    'Start free. Go Pro for more AI, custom focus timers and your weekly Catalyst Report. Prices in rupees in India and US dollars everywhere else.',
+    'Focalyst is free to start. Pro is $4.99 a month, $39.99 a year or $99.99 for Lifetime. In India: ₹99, ₹999 or ₹2,999.',
+  alternates: {
+    canonical: 'https://focalyst.online/pricing',
+  },
+  openGraph: {
+    title: 'Pricing | Focalyst',
+    description:
+      'Focalyst is free to start. Pro is $4.99 a month, $39.99 a year or $99.99 for Lifetime. In India: ₹99, ₹999 or ₹2,999.',
+    url: 'https://focalyst.online/pricing',
+  },
 };
 
 const PRICING_FAQ = [
@@ -43,8 +54,14 @@ const PRICING_FAQ = [
 ];
 
 export default function PricingPage() {
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'Pricing', path: '/pricing' },
+  ]);
+
   return (
     <PublicLayout>
+      <JsonLd data={[SOFTWARE_APP, breadcrumbData]} />
       <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 pt-16 sm:pt-20 pb-24 font-ui">
         {/* Header Block */}
         <div className="mx-auto max-w-[760px] text-center mb-8 sm:mb-12">
@@ -61,6 +78,11 @@ export default function PricingPage() {
 
         {/* Pricing Cards Section */}
         <PricingSection mode="pricing" />
+
+        {/* Plain server-rendered line under the cards */}
+        <p className="text-center text-[13.5px] text-ink-3 mt-4 max-w-[720px] mx-auto leading-relaxed">
+          Pro: $4.99 a month or $39.99 a year. Lifetime: $99.99 one-time. In India: ₹99 a month, ₹999 a year or ₹2,999 Lifetime. Final price and any taxes are shown at checkout.
+        </p>
 
         {/* FAQ Section */}
         <div className="mt-20 sm:mt-28 mx-auto max-w-[800px]">

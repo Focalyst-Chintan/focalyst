@@ -1,0 +1,20 @@
+# Focalyst
+
+> Focalyst is an all-in-one productivity app for web, iOS and Android by Focalyst by Chintan (Kolkata, India). It combines tasks, habits, a Pomodoro focus timer, notes, voice notes, accountability groups and Focalyst AI so people can plan their day, focus deeply and build lasting habits.
+
+Key facts:
+- Platforms: web at https://focalyst.online, iOS and Android. One account syncs across all.
+- Free plan: unlimited tasks, focus timer, a limited number of habits and notes, one countdown, 5 Focalyst AI messages a day.
+- Focalyst Pro: $4.99 a month or $39.99 a year; Lifetime $99.99 one-time. In India: ₹99 a month, ₹999 a year, ₹2,999 Lifetime.
+- Pro adds more habits, notes and voice notes, custom timers, up to 3 countdowns, the AI Productivity Score, the weekly Catalyst Report and more AI messages.
+- Privacy: no data selling, no advertising trackers, AI chats deleted after 90 days.
+- Company: Focalyst by Chintan, a registered MSME in Kolkata, West Bengal, India. Founder and CEO: Sohan Tamang. Contact: contactfocalyst@gmail.com.
+
+## Pages
+- [Features](https://focalyst.online/app): everything Focalyst can do
+- [Pricing](https://focalyst.online/pricing): Free, Pro and Lifetime plans in USD and INR
+- [Help and FAQ](https://focalyst.online/help): answers about accounts, plans, timers, habits, notes, AI and privacy
+- [About](https://focalyst.online/about): who builds Focalyst and why
+- [MCP](https://focalyst.online/mcp-preview): connect Focalyst to ChatGPT, Claude or Gemini (coming soon)
+- [Privacy Policy](https://focalyst.online/privacy)
+- [Terms of Service](https://focalyst.online/terms)

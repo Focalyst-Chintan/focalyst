@@ -7,7 +7,8 @@
     "build": "node scripts/build-mobile.js",
     "start": "next start",
     "lint": "eslint",
-    "persona": "node scripts/build-persona.mjs"
+    "persona": "node scripts/build-persona.mjs",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.60",

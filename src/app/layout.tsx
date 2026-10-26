@@ -7,6 +7,9 @@ import { AuthProvider } from "@/context/AuthContext";
 import AuthInitializer from "@/components/AuthInitializer";
 import { VercelInsights } from "@/components/VercelInsights";
 
+import { JsonLd } from "@/components/seo/JsonLd";
+import { ORGANIZATION, WEBSITE } from "@/lib/seo/schema";
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter-var",
@@ -24,7 +27,7 @@ const instrument = Instrument_Serif({
 export const metadata: Metadata = {
   metadataBase: new URL('https://focalyst.online'),
   title: {
-    default: 'Focalyst · Own your time',
+    default: 'Focalyst: AI productivity app for planning, focus and habits',
     template: '%s | Focalyst',
   },
   description:
@@ -77,6 +80,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className={`scroll-smooth ${instrument.variable}`}>
       <body className={`${inter.variable} antialiased font-[family-name:var(--font-inter)] bg-[#F4F7FA] text-[#2C4259] dark:bg-slate-950 dark:text-slate-100 lg:bg-transparent transition-colors duration-300`}>
+        <JsonLd data={[ORGANIZATION, WEBSITE]} />
         <ThemeProvider>
           <AuthProvider>
             <AuthInitializer>

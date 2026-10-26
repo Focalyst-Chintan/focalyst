@@ -1,11 +1,22 @@
 import type { Metadata } from 'next';
 import PublicLayout from '@/components/desktop/public/PublicLayout';
 import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
   title: 'Blog',
   description:
-    'Essays on focus, study systems and behaviour science from the team behind Focalyst.',
+    'Ideas on focus, habits and productivity from the Focalyst team.',
+  alternates: {
+    canonical: 'https://focalyst.online/blog',
+  },
+  openGraph: {
+    title: 'Blog | Focalyst',
+    description:
+      'Ideas on focus, habits and productivity from the Focalyst team.',
+    url: 'https://focalyst.online/blog',
+  },
 };
 
 const TOPICS = [
@@ -17,8 +28,14 @@ const TOPICS = [
 ];
 
 export default function BlogPage() {
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'Blog', path: '/blog' },
+  ]);
+
   return (
     <PublicLayout>
+      <JsonLd data={breadcrumbData} />
       <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
         {/* Hero */}
         <section className="fx-reveal mx-auto max-w-[760px] pt-14 text-center">

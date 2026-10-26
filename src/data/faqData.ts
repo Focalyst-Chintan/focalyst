@@ -19,7 +19,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         id: 'what-is-focalyst',
         question: 'What is Focalyst?',
         answer:
-          'Focalyst is an all-in-one productivity hub. You can plan habits, tasks and reminders, run focus sessions, write notes and voice notes, review your progress in Insights and stay accountable with friends. Focalyst AI helps you make sense of it all.',
+          'Focalyst is an all-in-one productivity app for web, iOS and Android. It brings tasks, habits, a Pomodoro focus timer, an app blocker on mobile, notes, voice notes, accountability groups and Focalyst AI into one calm workspace, so you can plan your day, focus deeply and see how you are growing without switching between apps.',
       },
       {
         id: 'which-devices',

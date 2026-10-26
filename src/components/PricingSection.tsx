@@ -223,12 +223,11 @@ export default function PricingSection({
                                 PRO
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
-                                <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {prices ? (
-                                        isYearly ? prices.yearly : prices.monthly
-                                    ) : (
-                                        <span className="inline-block w-28 h-10 bg-white/10 rounded animate-pulse" />
-                                    )}
+                                <span className={`text-[38px] md:text-[48px] font-bold text-snow ${!isYearly ? 'inline-block' : 'hidden'}`}>
+                                    {prices ? prices.monthly : (cur === 'INR' ? '₹99' : '$4.99')}
+                                </span>
+                                <span className={`text-[38px] md:text-[48px] font-bold text-snow ${isYearly ? 'inline-block' : 'hidden'}`}>
+                                    {prices ? prices.yearly : (cur === 'INR' ? '₹999' : '$39.99')}
                                 </span>
                                 <span className={`text-[14px] md:text-[15px] font-medium ${isYearly ? 'text-[#6FA4FF]' : 'text-[#A3ADC8]'}`}>
                                     / {isYearly ? 'year' : 'month'}
@@ -272,11 +271,7 @@ export default function PricingSection({
                             </span>
                             <div className="flex items-baseline gap-1.5 mb-6">
                                 <span className="text-[38px] md:text-[48px] font-bold text-snow">
-                                    {prices ? (
-                                        prices.lifetime
-                                    ) : (
-                                        <span className="inline-block w-28 h-10 bg-white/10 rounded animate-pulse" />
-                                    )}
+                                    {prices ? prices.lifetime : (cur === 'INR' ? '₹2,999' : '$99.99')}
                                 </span>
                                 <span className="text-[14px] md:text-[15px] text-[#A3ADC8] font-medium">
                                     one-time
@@ -325,13 +320,13 @@ export default function PricingSection({
 
                 </div>
 
-                {/* Final price notice */}
-                <p className="text-center text-[13px] text-[#A3ADC8] mt-6">
-                    Final price and any taxes are shown at checkout.
+                {/* Plain server-rendered line visible without JavaScript */}
+                <p className="text-center text-[13.5px] text-[#A3ADC8] mt-8 max-w-[720px] mx-auto leading-relaxed">
+                    Pro: $4.99 a month or $39.99 a year. Lifetime: $99.99 one-time. In India: ₹99 a month, ₹999 a year or ₹2,999 Lifetime. Final price and any taxes are shown at checkout.
                 </p>
 
                 {/* Footer Trust Text */}
-                <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-6 font-medium">
+                <p className="text-[#6B7591] text-[12px] md:text-[13px] text-center mt-4 font-medium">
                     Payments secured by Polar · Cancel monthly or yearly plans anytime
                 </p>
             </div>

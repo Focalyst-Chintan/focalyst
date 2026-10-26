@@ -1,16 +1,33 @@
 import type { Metadata } from 'next';
 import PublicLayout from '@/components/desktop/public/PublicLayout';
 import McpView from '@/components/desktop/mcp/McpView';
+import { JsonLd } from '@/components/seo/JsonLd';
+import { breadcrumb } from '@/lib/seo/schema';
 
 export const metadata: Metadata = {
-  title: 'MCP',
+  title: 'MCP: connect Focalyst to your AI',
   description:
-    'Connect your Focalyst data to ChatGPT, Claude, Gemini or any AI assistant you already use.',
+    'Connect your Focalyst tasks, habits and focus data to ChatGPT, Claude or Gemini and get a productivity coach that knows you. Coming soon to Focalyst Pro.',
+  alternates: {
+    canonical: 'https://focalyst.online/mcp-preview',
+  },
+  openGraph: {
+    title: 'MCP: connect Focalyst to your AI | Focalyst',
+    description:
+      'Connect your Focalyst tasks, habits and focus data to ChatGPT, Claude or Gemini and get a productivity coach that knows you. Coming soon to Focalyst Pro.',
+    url: 'https://focalyst.online/mcp-preview',
+  },
 };
 
 export default function McpPreviewPage() {
+  const breadcrumbData = breadcrumb([
+    { name: 'Focalyst', path: '/' },
+    { name: 'MCP', path: '/mcp-preview' },
+  ]);
+
   return (
     <PublicLayout strongAmbient>
+      <JsonLd data={breadcrumbData} />
       <McpView />
     </PublicLayout>
   );
