@@ -123,6 +123,7 @@ function LoginContent() {
 
   const handleAuthSuccess = async () => {
     router.refresh();
+    const nextPath = searchParams.get('next');
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -134,7 +135,9 @@ function LoginContent() {
         .single();
 
       if (profile?.onboarding_done) {
-        if (window.innerWidth >= 1024) {
+        if (nextPath && nextPath.startsWith('/')) {
+          router.push(nextPath);
+        } else if (window.innerWidth >= 1024) {
           router.push('/today');
         } else {
           router.push('/plan');
@@ -143,7 +146,11 @@ function LoginContent() {
         router.push('/onboarding/plans');
       }
     } else {
-      router.push(window.innerWidth >= 1024 ? '/today' : '/plan');
+      if (nextPath && nextPath.startsWith('/')) {
+        router.push(nextPath);
+      } else {
+        router.push(window.innerWidth >= 1024 ? '/today' : '/plan');
+      }
     }
   };
 

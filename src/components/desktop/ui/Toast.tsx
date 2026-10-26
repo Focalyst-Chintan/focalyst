@@ -74,15 +74,34 @@ export function ToastContainer({ children }: { children: React.ReactNode }) {
   );
 }
 
+interface ToastItem {
+  id: string;
+  message: string;
+  type?: 'success' | 'error' | 'info';
+  duration?: number;
+  action?: { label: string; onClick: () => void };
+  onClose?: () => void;
+}
+
 export function GlobalToastContainer() {
-  const [toasts, setToasts] = React.useState<Array<{ id: string; message: string; type?: 'success' | 'error' | 'info'; action?: { label: string; onClick: () => void } }>>([]);
+  const [toasts, setToasts] = React.useState<ToastItem[]>([]);
 
   React.useEffect(() => {
     const handleToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (detail && detail.message) {
         const id = Math.random().toString(36).substring(2, 9);
-        setToasts((prev) => [...prev, { id, message: detail.message, type: detail.type || 'success', action: detail.action }]);
+        setToasts((prev) => [
+          ...prev,
+          {
+            id,
+            message: detail.message,
+            type: detail.type || 'success',
+            duration: detail.duration,
+            action: detail.action,
+            onClose: detail.onClose,
+          },
+        ]);
       }
     };
     window.addEventListener('fx:show-toast', handleToast);
@@ -90,7 +109,17 @@ export function GlobalToastContainer() {
   }, []);
 
   const handleDismiss = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+    setToasts((prev) => {
+      const match = prev.find((t) => t.id === id);
+      if (match?.onClose) {
+        try {
+          match.onClose();
+        } catch (e) {
+          console.error('Toast onClose error:', e);
+        }
+      }
+      return prev.filter((t) => t.id !== id);
+    });
   };
 
   if (toasts.length === 0) return null;
@@ -98,7 +127,15 @@ export function GlobalToastContainer() {
   return (
     <ToastContainer>
       {toasts.map((t) => (
-        <Toast key={t.id} id={t.id} message={t.message} type={t.type} action={t.action} onDismiss={handleDismiss} />
+        <Toast
+          key={t.id}
+          id={t.id}
+          message={t.message}
+          type={t.type}
+          duration={t.duration}
+          action={t.action}
+          onDismiss={handleDismiss}
+        />
       ))}
     </ToastContainer>
   );
@@ -106,9 +143,24 @@ export function GlobalToastContainer() {
 
 export function useToast() {
   return {
-    show: (message: string, type: 'success' | 'error' | 'info' = 'success', action?: { label: string; onClick: () => void }) => {
+    show: (
+      message: string,
+      type: 'success' | 'error' | 'info' = 'success',
+      action?: { label: string; onClick: () => void },
+      options?: { duration?: number; onClose?: () => void }
+    ) => {
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('fx:show-toast', { detail: { message, type, action } }));
+        window.dispatchEvent(
+          new CustomEvent('fx:show-toast', {
+            detail: {
+              message,
+              type,
+              action,
+              duration: options?.duration,
+              onClose: options?.onClose,
+            },
+          })
+        );
       }
     },
   };

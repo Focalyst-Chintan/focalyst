@@ -329,14 +329,45 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
 
     // Delete reminder
     const handleDeleteReminder = async (rem: ReminderItem) => {
-        if (!confirm(`Delete reminder "${rem.title}"?`)) return
+        // Remove immediately
         setReminders(prev => prev.filter(r => r.id !== rem.id))
 
-        try {
-            await supabase.from('reminders').delete().eq('id', rem.id)
-        } catch (err) {
-            console.error('Failed to delete reminder:', err)
+        let undone = false
+        const executeDelete = async () => {
+            if (undone) return
+            try {
+                await supabase.from('reminders').delete().eq('id', rem.id)
+                emitDataChanged('reminder')
+            } catch (err) {
+                console.error('Failed to delete reminder:', err)
+            }
         }
+
+        const timeoutId = setTimeout(() => {
+            void executeDelete()
+        }, 5000)
+
+        toast.show(
+            'Deleted',
+            'info',
+            {
+                label: 'Undo',
+                onClick: () => {
+                    undone = true
+                    clearTimeout(timeoutId)
+                    setReminders(prev => [rem, ...prev.filter(r => r.id !== rem.id)])
+                },
+            },
+            {
+                duration: 5000,
+                onClose: () => {
+                    if (!undone) {
+                        clearTimeout(timeoutId)
+                        void executeDelete()
+                    }
+                },
+            }
+        )
     }
 
     // Open Form

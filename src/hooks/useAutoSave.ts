@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type SaveStatus = 'idle' | 'saving' | 'still-working' | 'saved' | 'error';
 
 export function useAutoSave<T>(
     saveFunction: (data: T) => Promise<void>,
@@ -9,6 +9,7 @@ export function useAutoSave<T>(
 ) {
     const [status, setStatus] = useState<SaveStatus>('idle');
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const slowTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const dataRef = useRef(dataToSave);
     const isFirstRender = useRef(true);
 
@@ -19,13 +20,20 @@ export function useAutoSave<T>(
 
     const performSave = useCallback(async (data: T) => {
         setStatus('saving');
+        if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
+        slowTimerRef.current = setTimeout(() => {
+            setStatus((current) => current === 'saving' ? 'still-working' : current);
+        }, 8000);
+
         try {
             await saveFunction(data);
+            if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
             setStatus('saved');
             setTimeout(() => {
                 setStatus((current) => current === 'saved' ? 'idle' : current);
             }, 2000);
         } catch (error) {
+            if (slowTimerRef.current) clearTimeout(slowTimerRef.current);
             console.error('Failed to auto-save:', error);
             setStatus('error');
         }

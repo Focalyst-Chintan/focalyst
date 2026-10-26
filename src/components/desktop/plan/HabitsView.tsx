@@ -24,8 +24,6 @@ export function HabitsView() {
 
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
   const [habitLogs, setHabitLogs] = useState<{ completed_date: string; habit_id: string }[]>([]);
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [habitToDelete, setHabitToDelete] = useState<HabitItem | null>(null);
   const [heatmapYear, setHeatmapYear] = useState(new Date().getFullYear());
 
   const todayStr = useMemo(() => localDateStr(new Date()), []);
@@ -230,8 +228,9 @@ export function HabitsView() {
             variant="ghost"
             size="sm"
             onClick={() => {
-              setHabitToDelete(selectedHabit);
-              setDeleteModalOpen(true);
+              deleteHabit(selectedHabit.id);
+              setSelectedHabitId(null);
+              setIsContextPanelOpen(false);
             }}
             className="text-danger hover:bg-danger/10 gap-1.5"
           >
@@ -250,17 +249,8 @@ export function HabitsView() {
     setContextPanel,
     setIsContextPanelOpen,
     openCreate,
+    deleteHabit,
   ]);
-
-  const confirmDelete = async () => {
-    if (!habitToDelete) return;
-    deleteHabit(habitToDelete.id);
-    setDeleteModalOpen(false);
-    setHabitToDelete(null);
-    if (selectedHabitId === habitToDelete.id) {
-      setSelectedHabitId(null);
-    }
-  };
 
   if (!habits || habits.length === 0) {
     return (
@@ -399,20 +389,6 @@ export function HabitsView() {
 
       {/* Accountability Section */}
       <AccountabilitySection />
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={deleteModalOpen}
-        onClose={() => setDeleteModalOpen(false)}
-        size="sm"
-        title="Delete habit?"
-        confirmLabel="Delete"
-        onConfirm={confirmDelete}
-      >
-        <p className="text-[14px] text-ink-2 leading-relaxed">
-          Are you sure you want to delete &ldquo;{habitToDelete?.name}&rdquo;? Your history will be preserved.
-        </p>
-      </Modal>
     </div>
   );
 }

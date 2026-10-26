@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { Note } from '@/types'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
@@ -252,44 +252,91 @@ export function useNotes(userId: string | undefined) {
         }
     }, [supabase, fetchNoteById, notesKey, mutateNotes])
 
+    const pendingDeleteNotes = useRef<Map<string, { note: Note; timeoutId: ReturnType<typeof setTimeout> }>>(new Map())
+
     const deleteNote = useCallback(async (id: string) => {
         if (!userId) {
             console.error('Delete failed: No userId provided to hook')
             return false
         }
 
+        const noteToDelete = notes.find((n) => n.id === id)
+
+        // Remove immediately
         setNotes((prev) => prev.filter((note) => note.id !== id))
         if (notesKey) {
             mutateNotes((curr = []) => curr.filter((note) => note.id !== id), false)
         }
 
-        try {
-            const { error } = await supabase
-                .from('notes')
-                .delete()
-                .eq('id', id)
-
-            if (error) {
-                const { data } = await supabase
+        const executeDelete = async () => {
+            pendingDeleteNotes.current.delete(id)
+            try {
+                const { error } = await supabase
                     .from('notes')
-                    .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
+                    .delete()
                     .eq('id', id)
-                    .single()
-                if (data) {
-                    setNotes((prev) => [...prev, data as Note])
-                    if (notesKey) {
-                        mutateNotes((curr = []) => [...curr, data as Note], false)
+
+                if (error) {
+                    const { data } = await supabase
+                        .from('notes')
+                        .select('id, user_id, title, content, is_favourite, is_pinned, folder, note_type, transcript, audio_url, duration_seconds, created_at, updated_at')
+                        .eq('id', id)
+                        .single()
+                    if (data) {
+                        setNotes((prev) => [...prev, data as Note])
+                        if (notesKey) {
+                            mutateNotes((curr = []) => [...curr, data as Note], false)
+                        }
                     }
+                    throw error
                 }
-                throw error
+                emitDataChanged('note')
+                return true
+            } catch (err: any) {
+                console.error('Supabase delete error:', err?.message, err?.details, err?.hint)
+                return false
             }
-            emitDataChanged('note')
-            return true
-        } catch (err: any) {
-            console.error('Supabase delete error:', err?.message, err?.details, err?.hint)
-            return false
         }
-    }, [userId, supabase, notesKey, mutateNotes])
+
+        const timeoutId = setTimeout(() => {
+            void executeDelete()
+        }, 5000)
+
+        if (noteToDelete) {
+            pendingDeleteNotes.current.set(id, { note: noteToDelete, timeoutId })
+        }
+
+        toast.show(
+            'Deleted',
+            'info',
+            {
+                label: 'Undo',
+                onClick: () => {
+                    const pending = pendingDeleteNotes.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        pendingDeleteNotes.current.delete(id)
+                        setNotes((prev) => [pending.note, ...prev.filter((n) => n.id !== id)])
+                        if (notesKey) {
+                            mutateNotes((curr = []) => [pending.note, ...curr.filter((n) => n.id !== id)], false)
+                        }
+                    }
+                },
+            },
+            {
+                duration: 5000,
+                onClose: () => {
+                    const pending = pendingDeleteNotes.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        void executeDelete()
+                    }
+                },
+            }
+        )
+
+        return true
+    }, [userId, supabase, notesKey, mutateNotes, notes, toast])
 
     const toggleFavourite = useCallback(async (id: string, currentStatus: boolean) => {
         setNotes((prev) => prev.map((note) => note.id === id ? { ...note, is_favourite: !currentStatus } : note))

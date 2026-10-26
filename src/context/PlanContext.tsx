@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
@@ -121,6 +121,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [useSupabase, setUseSupabase] = useState(true)
+
+    const pendingDeleteTasks = useRef<Map<string, { item: TaskItem; timeoutId: ReturnType<typeof setTimeout> }>>(new Map())
+    const pendingDeleteHabits = useRef<Map<string, { item: HabitItem; timeoutId: ReturnType<typeof setTimeout> }>>(new Map())
+    const pendingDeleteReminders = useRef<Map<string, { item: Reminder; timeoutId: ReturnType<typeof setTimeout> }>>(new Map())
 
     // ── Fetchers for SWR ──
     const fetchTasksFromDb = useCallback(async (): Promise<TaskItem[]> => {
@@ -389,21 +393,61 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
 
     const deleteTask = async (id: string) => {
+        const itemToDelete = tasks.find((t) => t.id === id)
+        if (!itemToDelete) return
+
+        // Remove immediately
         setTasks((prev) => prev.filter((t) => t.id !== id))
 
-        if (useSupabase) {
-            try {
-                const supabase = createClient()
-                const { error: deleteError } = await supabase
-                    .from('tasks')
-                    .delete()
-                    .eq('id', id)
-                if (deleteError) throw deleteError
-            } catch (err) {
-                console.error('Failed to delete task:', err)
-                setError('Failed to delete task.')
+        const executeDelete = async () => {
+            pendingDeleteTasks.current.delete(id)
+            if (useSupabase) {
+                try {
+                    const supabase = createClient()
+                    const { error: deleteError } = await supabase
+                        .from('tasks')
+                        .delete()
+                        .eq('id', id)
+                    if (deleteError) throw deleteError
+                    emitDataChanged('task')
+                } catch (err) {
+                    console.error('Failed to delete task:', err)
+                    setError('Failed to delete task.')
+                }
             }
         }
+
+        const timeoutId = setTimeout(() => {
+            void executeDelete()
+        }, 5000)
+
+        pendingDeleteTasks.current.set(id, { item: itemToDelete, timeoutId })
+
+        toast.show(
+            'Deleted',
+            'info',
+            {
+                label: 'Undo',
+                onClick: () => {
+                    const pending = pendingDeleteTasks.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        pendingDeleteTasks.current.delete(id)
+                        setTasks((prev) => [pending.item, ...prev.filter((t) => t.id !== id)])
+                    }
+                },
+            },
+            {
+                duration: 5000,
+                onClose: () => {
+                    const pending = pendingDeleteTasks.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        void executeDelete()
+                    }
+                },
+            }
+        )
     }
 
     const reorderTasks = (newOrder: TaskItem[]) => {
@@ -585,21 +629,61 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
 
     const deleteHabit = async (id: string) => {
+        const itemToDelete = habits.find((h) => h.id === id)
+        if (!itemToDelete) return
+
+        // Remove immediately
         setHabits((prev) => prev.filter((h) => h.id !== id))
 
-        if (useSupabase) {
-            try {
-                const supabase = createClient()
-                const { error: deleteError } = await supabase
-                    .from('habits')
-                    .delete()
-                    .eq('id', id)
-                if (deleteError) throw deleteError
-            } catch (err) {
-                console.error('Failed to delete habit:', err)
-                setError('Failed to delete habit.')
+        const executeDelete = async () => {
+            pendingDeleteHabits.current.delete(id)
+            if (useSupabase) {
+                try {
+                    const supabase = createClient()
+                    const { error: deleteError } = await supabase
+                        .from('habits')
+                        .delete()
+                        .eq('id', id)
+                    if (deleteError) throw deleteError
+                    emitDataChanged('habit')
+                } catch (err) {
+                    console.error('Failed to delete habit:', err)
+                    setError('Failed to delete habit.')
+                }
             }
         }
+
+        const timeoutId = setTimeout(() => {
+            void executeDelete()
+        }, 5000)
+
+        pendingDeleteHabits.current.set(id, { item: itemToDelete, timeoutId })
+
+        toast.show(
+            'Deleted',
+            'info',
+            {
+                label: 'Undo',
+                onClick: () => {
+                    const pending = pendingDeleteHabits.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        pendingDeleteHabits.current.delete(id)
+                        setHabits((prev) => [pending.item, ...prev.filter((h) => h.id !== id)])
+                    }
+                },
+            },
+            {
+                duration: 5000,
+                onClose: () => {
+                    const pending = pendingDeleteHabits.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        void executeDelete()
+                    }
+                },
+            }
+        )
     }
 
     // ── Reminders (local-only, no DB table) ──
@@ -612,7 +696,47 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     }
 
     const deleteReminder = (id: string) => {
+        const itemToDelete = reminders.find((r) => r.id === id)
+        if (!itemToDelete) return
+
+        // Remove immediately
         setReminders((prev) => prev.filter((r) => r.id !== id))
+
+        const executeDelete = () => {
+            pendingDeleteReminders.current.delete(id)
+        }
+
+        const timeoutId = setTimeout(() => {
+            executeDelete()
+        }, 5000)
+
+        pendingDeleteReminders.current.set(id, { item: itemToDelete, timeoutId })
+
+        toast.show(
+            'Deleted',
+            'info',
+            {
+                label: 'Undo',
+                onClick: () => {
+                    const pending = pendingDeleteReminders.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        pendingDeleteReminders.current.delete(id)
+                        setReminders((prev) => [pending.item, ...prev.filter((r) => r.id !== id)])
+                    }
+                },
+            },
+            {
+                duration: 5000,
+                onClose: () => {
+                    const pending = pendingDeleteReminders.current.get(id)
+                    if (pending) {
+                        clearTimeout(pending.timeoutId)
+                        executeDelete()
+                    }
+                },
+            }
+        )
     }
 
     const getRemindersForDate = (dateStr: string) => {

@@ -114,15 +114,9 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
     }
 
     const handleDelete = async (note: Note) => {
-
-        if (window.confirm('Delete this note? This cannot be undone.')) {
-            // Optimistic update
-            setPage(1); // Reset page to avoid issues with lists shifting 
-            const success = await deleteNote(note.id)
-            if (!success) {
-                console.error('Delete execution failed');
-            }
-        }
+        // Immediate removal handled inside deleteNote with Undo Toast
+        setPage(1);
+        await deleteNote(note.id);
     }
 
     const loadMore = () => {

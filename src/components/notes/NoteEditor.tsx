@@ -48,9 +48,25 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
     const [titleError, setTitleError] = useState('')
     const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<'summary' | 'transcript'>('summary')
+    const [draftOffer, setDraftOffer] = useState<{ title: string; content: string } | null>(null)
 
     const isPaidUser = ['pro_monthly', 'pro_yearly', 'lifetime'].includes(userPlan)
     const isVoiceNote = note.note_type === 'voice'
+
+    // Check for unsaved draft
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(`fx_note_draft_${note.id}`)
+            if (raw) {
+                const draft = JSON.parse(raw)
+                if (draft && (draft.title !== (initialNote.title || '') || draft.content !== (initialNote.content || ''))) {
+                    setDraftOffer({ title: draft.title, content: draft.content })
+                } else {
+                    localStorage.removeItem(`fx_note_draft_${note.id}`)
+                }
+            }
+        } catch (e) {}
+    }, [note.id, initialNote])
 
     // AutoSave Hook setup
     const dataToSave = { title, content }
@@ -61,7 +77,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
             throw new Error('Title too long')
         }
 
-        const { error } = await supabase
+        const { error, status } = await supabase
             .from('notes')
             .update({
                 title: data.title,
@@ -70,10 +86,36 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
             })
             .eq('id', note.id)
 
-        if (error) throw error
+        if (error) {
+            if (status === 401) {
+                window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`)
+            }
+            throw error
+        }
+
+        try {
+            localStorage.removeItem(`fx_note_draft_${note.id}`)
+        } catch (e) {}
     }, [note.id, supabase])
 
     const { status: saveStatus, triggerSave, retrySave } = useAutoSave(saveToSupabase, dataToSave, 3000)
+
+    useEffect(() => {
+        const handleFlush = () => {
+            void triggerSave()
+        }
+        window.addEventListener('fx:flush-notes', handleFlush)
+        return () => window.removeEventListener('fx:flush-notes', handleFlush)
+    }, [triggerSave])
+
+    const persistDraft = (newTitle: string, newContent: string) => {
+        try {
+            localStorage.setItem(
+                `fx_note_draft_${note.id}`,
+                JSON.stringify({ title: newTitle, content: newContent, timestamp: Date.now() })
+            )
+        } catch (e) {}
+    }
 
     useEffect(() => {
         setCharCount(content.length)
@@ -239,8 +281,10 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                         type="text"
                         value={title || ''}
                         onChange={(e) => {
-                            setTitle(e.target.value)
-                            if (e.target.value.length <= 200) setTitleError('')
+                            const newTitle = e.target.value
+                            setTitle(newTitle)
+                            persistDraft(newTitle, content)
+                            if (newTitle.length <= 200) setTitleError('')
                         }}
                         placeholder="Untitled document"
                         className="w-full text-center text-lg font-bold text-slate-900 dark:text-white bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal truncate"
@@ -256,6 +300,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     {/* Save Status Indicator */}
                     <div className="h-4 flex items-center justify-center mt-0.5">
                         {saveStatus === 'saving' && <span className="text-[11px] text-slate-400">Saving...</span>}
+                        {saveStatus === 'still-working' && <span className="text-[11px] text-slate-400">Still working...</span>}
                         {saveStatus === 'saved' && (
                             <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
                                 <Check className="w-3 h-3 stroke-[2.5]" />
@@ -413,6 +458,40 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                 </div>
             )}
 
+            {/* Draft Restore Offer */}
+            {draftOffer && (
+                <div className="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between gap-3 text-xs">
+                    <span className="text-slate-800 dark:text-slate-200">Unsaved draft from previous session found.</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setTitle(draftOffer.title)
+                                setContent(draftOffer.content)
+                                persistDraft(draftOffer.title, draftOffer.content)
+                                triggerSave()
+                                setDraftOffer(null)
+                            }}
+                            className="px-2.5 py-1 bg-[#2B6BFF] text-white font-semibold rounded-lg text-xs"
+                        >
+                            Restore
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                try {
+                                    localStorage.removeItem(`fx_note_draft_${note.id}`)
+                                } catch (e) {}
+                                setDraftOffer(null)
+                            }}
+                            className="px-2 py-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs"
+                        >
+                            Discard
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Editor Textarea Area */}
             <div className={`flex-1 flex flex-col px-5 py-6 pb-32 max-w-3xl w-full mx-auto ${activeTab !== 'summary' ? 'hidden' : ''}`}>
                 {isVoiceNote ? (
@@ -424,7 +503,11 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     <textarea
                         ref={textareaRef}
                         value={content || ''}
-                        onChange={(e) => setContent(e.target.value)}
+                        onChange={(e) => {
+                            const newContent = e.target.value
+                            setContent(newContent)
+                            persistDraft(title, newContent)
+                        }}
                         placeholder="Start typing your note... Use - [ ] for checklists, **bold**, or # headings"
                         disabled={!isPaidUser && charCount >= MAX_FREE_CHARS}
                         className="w-full flex-1 min-h-[65vh] text-slate-900 dark:text-slate-100 bg-transparent outline-none border-none resize-none prose dark:prose-invert prose-sm sm:prose-base focus:ring-0 focus:outline-none p-0 placeholder:text-slate-400 select-text leading-relaxed font-sans"

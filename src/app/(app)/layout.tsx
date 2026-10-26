@@ -16,6 +16,7 @@ import { CreateProvider } from '@/components/desktop/create/CreateProvider'
 import CheckoutIntentRunner from '@/components/billing/CheckoutIntentRunner'
 import { DataEventsBridge } from '@/lib/data/useData'
 import { GlobalToastContainer } from '@/components/desktop/ui/Toast'
+import { OfflineBanner } from '@/components/desktop/ui/OfflineBanner'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -37,7 +38,12 @@ export default function AppLayout({
     useEffect(() => {
         if (!isLoading && !user && !didRedirect.current) {
             didRedirect.current = true
-            router.replace('/login')
+            try {
+                window.dispatchEvent(new CustomEvent('fx:flush-notes'))
+            } catch (e) {}
+            const current = window.location.pathname + window.location.search
+            const nextParam = current && current !== '/login' ? `?next=${encodeURIComponent(current)}` : ''
+            router.replace(`/login${nextParam}`)
         }
         // Reset when user logs in so future logouts can redirect again.
         if (user) {
@@ -68,6 +74,7 @@ export default function AppLayout({
                         <CreateProvider>
                             <DataEventsBridge />
                             <CheckoutIntentRunner />
+                            <OfflineBanner />
                             {/* Desktop Layout (>= 1024px) */}
                             <div className="hidden lg:contents">
                                 <DesktopShell>

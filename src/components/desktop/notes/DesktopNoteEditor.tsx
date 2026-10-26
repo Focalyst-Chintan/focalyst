@@ -90,7 +90,6 @@ export default function DesktopNoteEditor({
   const [title, setTitle] = useState(note.title || '');
   const [contentHtml, setContentHtml] = useState(() => toEditorHTML(note.content));
   const [showTranscript, setShowTranscript] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [newFolderNameInput, setNewFolderNameInput] = useState('');
 
   // Floating Selection Bar state
@@ -123,6 +122,26 @@ export default function DesktopNoteEditor({
     adjustTextareaHeight();
   }, [title, adjustTextareaHeight]);
 
+  // Unsaved draft restore state
+  const [draftOffer, setDraftOffer] = useState<{ title: string; contentHtml: string } | null>(null);
+
+  // Check for unsaved draft on note mount / switch
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(`fx_note_draft_${note.id}`);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && (draft.title !== (note.title || '') || draft.contentHtml !== toEditorHTML(note.content))) {
+          setDraftOffer({ title: draft.title, contentHtml: draft.contentHtml });
+        } else {
+          localStorage.removeItem(`fx_note_draft_${note.id}`);
+        }
+      }
+    } catch (e) {
+      // LocalStorage access might fail (e.g. privacy mode)
+    }
+  }, [note.id]);
+
   // Sync state when note prop changes
   useEffect(() => {
     setTitle(note.title || '');
@@ -137,7 +156,7 @@ export default function DesktopNoteEditor({
 
   // Save handler for autosave
   const handleSave = useCallback(async () => {
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from('notes')
       .update({
         title: titleRef.current,
@@ -147,18 +166,43 @@ export default function DesktopNoteEditor({
       .eq('id', note.id);
 
     if (error) {
+      if (status === 401) {
+        window.location.assign(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`);
+      }
       throw error;
+    }
+
+    try {
+      localStorage.removeItem(`fx_note_draft_${note.id}`);
+    } catch (e) {
+      // Ignore localStorage errors
     }
   }, [note.id, supabase]);
 
   const { status: saveStatus, schedule: scheduleSave, flush: flushSave } = useAutosave(handleSave, 800);
 
-  // Flush on note change or unmount
+  // Flush on note change or unmount, or when fx:flush-notes is triggered
   useEffect(() => {
+    const handleFlushNotes = () => {
+      void flushSave();
+    };
+    window.addEventListener('fx:flush-notes', handleFlushNotes);
     return () => {
+      window.removeEventListener('fx:flush-notes', handleFlushNotes);
       void flushSave();
     };
   }, [note.id, flushSave]);
+
+  const persistDraft = (newTitle: string, newContent: string) => {
+    try {
+      localStorage.setItem(
+        `fx_note_draft_${note.id}`,
+        JSON.stringify({ title: newTitle, contentHtml: newContent, timestamp: Date.now() })
+      );
+    } catch (e) {
+      // Ignore quota or private mode issues
+    }
+  };
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -235,6 +279,7 @@ export default function DesktopNoteEditor({
     onUpdate: ({ editor: ed }) => {
       const html = ed.getHTML();
       setContentHtml(html);
+      persistDraft(titleRef.current, html);
       scheduleSave();
 
       // Check slash command trigger
@@ -277,6 +322,7 @@ export default function DesktopNoteEditor({
 
   let saveStatusText = 'Saved';
   if (saveStatus === 'saving') saveStatusText = 'Saving...';
+  if (saveStatus === 'still-working') saveStatusText = 'Still working...';
   if (saveStatus === 'error') saveStatusText = "Couldn't save. Retrying";
 
   const relativeTime = formatRelativeTime(note.updated_at || note.created_at);
@@ -521,9 +567,9 @@ export default function DesktopNoteEditor({
               <div className="p-1.5 w-44 flex flex-col">
                 <button
                   type="button"
-                  onClick={() => {
+                  onClick={async () => {
                     close();
-                    setIsDeleteModalOpen(true);
+                    await onDeleteNote(note.id);
                   }}
                   className="h-8 px-2.5 rounded-[8px] flex items-center gap-2 text-[13px] text-danger hover:bg-danger/10 transition-colors text-left font-medium"
                 >
@@ -588,6 +634,40 @@ export default function DesktopNoteEditor({
           </div>
         )}
 
+        {/* Draft Restore Offer */}
+        {draftOffer && (
+          <div className="mb-4 px-4 py-3 rounded-[12px] bg-primary/10 border border-primary/20 flex items-center justify-between gap-4">
+            <span className="text-[13px] text-ink">An unsaved draft was found from a previous session.</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setTitle(draftOffer.title);
+                  setContentHtml(draftOffer.contentHtml);
+                  editor?.commands.setContent(draftOffer.contentHtml, { emitUpdate: false });
+                  scheduleSave();
+                  setDraftOffer(null);
+                }}
+                className="px-2.5 py-1 text-[12px] font-semibold text-primary-text bg-primary hover:bg-primary/90 rounded-[8px] transition-colors"
+              >
+                Restore
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    localStorage.removeItem(`fx_note_draft_${note.id}`);
+                  } catch (e) {}
+                  setDraftOffer(null);
+                }}
+                className="px-2 py-1 text-[12px] text-ink-3 hover:text-ink transition-colors"
+              >
+                Discard
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Note Title */}
         <textarea
           id="note-title-input"
@@ -595,7 +675,9 @@ export default function DesktopNoteEditor({
           rows={1}
           value={title}
           onChange={(e) => {
-            setTitle(e.target.value);
+            const newTitle = e.target.value;
+            setTitle(newTitle);
+            persistDraft(newTitle, contentRef.current);
             scheduleSave();
           }}
           onBlur={() => {
@@ -684,34 +766,6 @@ export default function DesktopNoteEditor({
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
-        size="sm"
-        title="Delete note?"
-        subtitle="This action cannot be undone."
-      >
-        <div className="py-2">
-          <p className="text-[14px] text-ink-2">
-            Are you sure you want to delete <strong className="text-ink font-semibold">"{title || 'Untitled'}"</strong>?
-          </p>
-          <div className="mt-6 flex justify-end gap-3">
-            <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                await onDeleteNote(note.id);
-                setIsDeleteModalOpen(false);
-              }}
-            >
-              Delete note
-            </Button>
-          </div>
-        </div>
-      </Modal>
     </div>
   );
 }
