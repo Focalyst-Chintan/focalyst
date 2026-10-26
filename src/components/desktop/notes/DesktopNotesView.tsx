@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import FolderPocketCard from './FolderPocketCard';
 import { FolderCard } from './FolderCard';
 import { stripHtml } from './noteUtils';
+import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback';
 
 const DesktopNoteEditor = dynamic(() => import('./DesktopNoteEditor'), {
   ssr: false,
@@ -106,11 +107,21 @@ export default function DesktopNotesView() {
 
   const [activeFilter, setActiveFilter] = useState<FilterTab>(filterParam);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(folderParam);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortOption, setSortOption] = useState<SortOption>('updated');
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+
+  const debouncedSearch = useDebouncedCallback((val: string) => {
+    setSearchQuery(val);
+  }, 200);
+
+  const handleSearchChange = (val: string) => {
+    setSearchInput(val);
+    debouncedSearch.run(val);
+  };
 
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -596,8 +607,8 @@ export default function DesktopNotesView() {
           <Input
             ref={searchInputRef}
             placeholder="Search notes"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={searchInput}
+            onChange={(e) => handleSearchChange(e.target.value)}
             leftIcon={<Search size={15} />}
             rightIcon={<Kbd className="text-[10px]">/</Kbd>}
             className="h-9 text-[13px]"

@@ -7,10 +7,22 @@ import PublicLayout from '@/components/desktop/public/PublicLayout';
 import FaqAccordion from '@/components/desktop/public/FaqAccordion';
 import { FAQ_CATEGORIES } from '@/data/faqData';
 import { Button } from '@/components/desktop/ui/Button';
+import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback';
 
 export default function HelpClient() {
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  const debouncedSetSearch = useDebouncedCallback((val: string) => {
+    setSearchQuery(val);
+  }, 200);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchInput(val);
+    debouncedSetSearch.run(val);
+  };
 
   // Filter questions and categories based on search query
   const filteredCategories = useMemo(() => {
@@ -52,8 +64,8 @@ export default function HelpClient() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-ink-3 pointer-events-none" />
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={handleSearchChange}
               placeholder="Search questions..."
               className="w-full h-12 rounded-[16px] bg-surface-2 border border-line pl-11 pr-4 text-[15px] text-ink placeholder:text-ink-3 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition-all"
             />
@@ -67,6 +79,7 @@ export default function HelpClient() {
               type="button"
               onClick={() => {
                 setActiveCategory('all');
+                setSearchInput('');
                 setSearchQuery('');
               }}
               className={`px-4 py-2 rounded-full text-[13px] font-medium transition-all ${
@@ -83,6 +96,7 @@ export default function HelpClient() {
                 type="button"
                 onClick={() => {
                   setActiveCategory(cat.id);
+                  setSearchInput('');
                   setSearchQuery('');
                 }}
                 className={`px-4 py-2 rounded-full text-[13px] font-medium transition-all ${

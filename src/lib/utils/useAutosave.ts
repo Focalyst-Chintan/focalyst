@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { emitDataChanged } from '@/lib/events';
 
-export function useAutosave(save: () => Promise<void>, delay = 1200) {
+export function useAutosave(save: () => Promise<void>, delay = 800) {
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const dirty = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -44,8 +44,10 @@ export function useAutosave(save: () => Promise<void>, delay = 1200) {
       void flush();
     };
     window.addEventListener('beforeunload', onHide);
+    window.addEventListener('pagehide', onHide);
     return () => {
       window.removeEventListener('beforeunload', onHide);
+      window.removeEventListener('pagehide', onHide);
       clearTimeout(retryTimer.current);
       void flush();
     };

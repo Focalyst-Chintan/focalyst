@@ -18,6 +18,8 @@ const VoiceRecordingOverlay = dynamic(
 
 const FILTERS: FilterType[] = ['All', 'Notes', 'Favourite', 'Folders', 'Voice notes']
 
+import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback'
+
 export default function NotesPage() {
     const isDesktop = useIsDesktop()
     const router = useRouter()
@@ -27,8 +29,18 @@ export default function NotesPage() {
     const [userId, setUserId] = useState<string | undefined>()
     const [userPlan, setUserPlan] = useState<string>('free')
 
+    const [searchInput, setSearchInput] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const [activeFilter, setActiveFilter] = useState<FilterType>('All')
+
+    const debouncedSearch = useDebouncedCallback((val: string) => {
+        setSearchQuery(val)
+    }, 200)
+
+    const handleSearchChange = (val: string) => {
+        setSearchInput(val)
+        debouncedSearch.run(val)
+    }
 
     const [notesCount, setNotesCount] = useState(0)
 
@@ -119,8 +131,8 @@ export default function NotesPage() {
                     <input
                         type="search"
                         placeholder={t('notes.searchPlaceholder')}
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
+                        value={searchInput}
+                        onChange={(e) => handleSearchChange(e.target.value)}
                         className="w-full bg-card-bg dark:bg-slate-900 border border-transparent dark:border-slate-800 text-[15px] text-navy dark:text-slate-100 placeholder:text-blue-muted dark:placeholder:text-slate-500 rounded-full py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-navy/20"
                     />
                 </div>

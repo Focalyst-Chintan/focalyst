@@ -11,6 +11,73 @@ import { Maximize2, Minimize2, Pause, Play, RotateCcw, ArrowLeft } from 'lucide-
 
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 
+function useNow(ms = 250) {
+    const [now, setNow] = useState(() => Date.now())
+    useEffect(() => {
+        const t = setInterval(() => setNow(Date.now()), ms)
+        return () => clearInterval(t)
+    }, [ms])
+    return now
+}
+
+function MobileTimerDisplay({
+    endsAt,
+    isActive,
+    pausedTimeLeft,
+    dialSize,
+    isLandscape,
+    phaseTotalSeconds,
+    onExpire,
+}: {
+    endsAt: number | null
+    isActive: boolean
+    pausedTimeLeft: number
+    dialSize: number
+    isLandscape: boolean
+    phaseTotalSeconds: number
+    onExpire: () => void
+}) {
+    const now = useNow(250)
+    const leftMs = isActive && endsAt ? Math.max(0, endsAt - now) : pausedTimeLeft * 1000
+    const leftSecs = Math.max(0, Math.ceil(leftMs / 1000))
+    const mm = String(Math.floor(leftMs / 60000)).padStart(2, '0')
+    const ss = String(Math.floor((leftMs % 60000) / 1000)).padStart(2, '0')
+
+    useEffect(() => {
+        if (isActive) {
+            document.title = `${mm}:${ss} · Focus`
+        }
+    }, [isActive, mm, ss])
+
+    const hasExpiredRef = useRef(false)
+    useEffect(() => {
+        if (!isActive) {
+            hasExpiredRef.current = false
+        }
+    }, [isActive])
+
+    useEffect(() => {
+        if (isActive && endsAt && now >= endsAt && !hasExpiredRef.current) {
+            hasExpiredRef.current = true
+            onExpire()
+        }
+    }, [isActive, endsAt, now, onExpire])
+
+    const progress = phaseTotalSeconds > 0 ? (phaseTotalSeconds - leftSecs) / phaseTotalSeconds : 0
+
+    return (
+        <SeamlessRadialTimerDial progress={progress} size={dialSize}>
+            <div className={`font-extrabold tracking-tight tabular-nums whitespace-nowrap text-slate-900 dark:text-white leading-none ${
+                isLandscape
+                    ? 'text-[104px] sm:text-[112px]'
+                    : 'text-[68px] sm:text-[76px]'
+            }`}>
+                {mm}:{ss}
+            </div>
+        </SeamlessRadialTimerDial>
+    )
+}
+
 function TimerContent() {
     const searchParams = useSearchParams()
     const { t } = useTranslation()
@@ -34,16 +101,28 @@ function TimerContent() {
     const totalSets = parseInt(searchParams.get('sets') || '4', 10)
 
     const [mode, setMode] = useState<'FOCUS' | 'BREAK' | 'DONE'>('FOCUS')
-    const [timeLeft, setTimeLeft] = useState(focusMins * 60)
     const [currentSet, setCurrentSet] = useState(1)
     const [isActive, setIsActive] = useState(true)
     const [isFullscreen, setIsFullscreen] = useState(false)
+
+    // Store endsAt timestamp in state so page does not re-render every second
+    const [endsAt, setEndsAt] = useState<number | null>(() => Date.now() + focusMins * 60 * 1000)
+    const [pausedTimeLeft, setPausedTimeLeft] = useState(focusMins * 60)
+
+    // Reset document.title when timer stops or component unmounts
+    useEffect(() => {
+        if (!isActive) {
+            document.title = 'Focalyst · Plan, focus and build habits'
+        }
+        return () => {
+            document.title = 'Focalyst · Plan, focus and build habits'
+        }
+    }, [isActive])
 
     // Window dimensions for landscape / desk-clock mode
     const [dimensions, setDimensions] = useState({ width: 400, height: 800 })
 
     const wakeLock = useRef<WakeLockSentinel | null>(null)
-    const endTimeRef = useRef<number | null>(null)
     const lastSavedElapsedSecsRef = useRef(0)
     const completedRef = useRef(false)
 
@@ -56,8 +135,14 @@ function TimerContent() {
             })
         }
         updateDims()
-        window.addEventListener('resize', updateDims)
-        return () => window.removeEventListener('resize', updateDims)
+        if (typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(() => updateDims())
+            ro.observe(document.documentElement)
+            return () => ro.disconnect()
+        } else {
+            window.addEventListener('resize', updateDims)
+            return () => window.removeEventListener('resize', updateDims)
+        }
     }, [])
 
     const isLandscape = dimensions.width > dimensions.height
@@ -79,14 +164,7 @@ function TimerContent() {
         }
     }, [])
 
-    // Timer deadline synchronization
-    useEffect(() => {
-        if (isActive && mode !== 'DONE') {
-            endTimeRef.current = Date.now() + (timeLeft * 1000)
-        } else {
-            endTimeRef.current = null
-        }
-    }, [isActive, mode, timeLeft])
+
 
     // Resilient incremental save to Supabase
     const recordFocusActivityToSupabase = useCallback(async (focusMinsToAdd: number, breakMinsToAdd: number) => {
@@ -166,7 +244,8 @@ function TimerContent() {
     // Save partial elapsed time when leaving or ending
     const savePartialElapsedTime = useCallback(async () => {
         const phaseTotalSeconds = (mode === 'FOCUS' ? focusMins : breakMins) * 60
-        const totalElapsedSecs = Math.max(0, phaseTotalSeconds - timeLeft)
+        const currentRemaining = endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)) : pausedTimeLeft
+        const totalElapsedSecs = Math.max(0, phaseTotalSeconds - currentRemaining)
         const unsavedSecs = Math.max(0, totalElapsedSecs - lastSavedElapsedSecsRef.current)
         const unsavedMins = Math.floor(unsavedSecs / 60)
 
@@ -178,7 +257,7 @@ function TimerContent() {
                 await recordFocusActivityToSupabase(0, unsavedMins)
             }
         }
-    }, [mode, focusMins, breakMins, timeLeft, recordFocusActivityToSupabase])
+    }, [mode, focusMins, breakMins, endsAt, pausedTimeLeft, recordFocusActivityToSupabase])
 
     // Session completion handler
     const handleSessionCompletion = useCallback(async () => {
@@ -186,7 +265,8 @@ function TimerContent() {
         completedRef.current = true
 
         setIsActive(false)
-        setTimeLeft(0)
+        setEndsAt(null)
+        setPausedTimeLeft(0)
 
         // Save last completed focus set
         await recordFocusActivityToSupabase(focusMins, 0)
@@ -210,7 +290,8 @@ function TimerContent() {
 
             if (currentSet < totalSets) {
                 setMode('BREAK')
-                setTimeLeft(breakMins * 60)
+                setPausedTimeLeft(breakMins * 60)
+                setEndsAt(Date.now() + breakMins * 60 * 1000)
             } else {
                 handleSessionCompletion()
             }
@@ -221,35 +302,32 @@ function TimerContent() {
 
             setMode('FOCUS')
             setCurrentSet((s) => s + 1)
-            setTimeLeft(focusMins * 60)
+            setPausedTimeLeft(focusMins * 60)
+            setEndsAt(Date.now() + focusMins * 60 * 1000)
         }
     }, [mode, currentSet, totalSets, breakMins, focusMins, recordFocusActivityToSupabase, handleSessionCompletion])
-
-    // Main interval tick
-    useEffect(() => {
-        let interval: any
-        if (isActive && mode !== 'DONE') {
-            interval = setInterval(() => {
-                if (endTimeRef.current) {
-                    const remaining = Math.max(0, Math.ceil((endTimeRef.current - Date.now()) / 1000))
-                    setTimeLeft(remaining)
-                    if (remaining === 0) {
-                        if (currentSet === totalSets && mode === 'FOCUS') {
-                            handleSessionCompletion()
-                        } else {
-                            handleTimeUp()
-                        }
-                    }
-                }
-            }, 500)
-        }
-        return () => clearInterval(interval)
-    }, [isActive, mode, currentSet, totalSets, handleSessionCompletion, handleTimeUp])
 
     // Exit & End button action with partial save
     const handleEndSession = async () => {
         await savePartialElapsedTime()
         router.push('/focus')
+    }
+
+    const togglePauseResume = () => {
+        if (isActive) {
+            // Pausing
+            if (endsAt) {
+                const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000))
+                setPausedTimeLeft(remaining)
+            }
+            setEndsAt(null)
+            setIsActive(false)
+        } else {
+            // Resuming
+            const now = Date.now()
+            setEndsAt(now + pausedTimeLeft * 1000)
+            setIsActive(true)
+        }
     }
 
     const toggleFullscreen = () => {
@@ -262,14 +340,7 @@ function TimerContent() {
         }
     }
 
-    const formatDigits = (secs: number) => {
-        const m = Math.floor(secs / 60)
-        const s = secs % 60
-        return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
-    }
-
     const totalPhaseSecs = (mode === 'FOCUS' ? focusMins : breakMins) * 60
-    const progress = totalPhaseSecs > 0 ? (totalPhaseSecs - timeLeft) / totalPhaseSecs : 0
 
     // Dial sizes
     const dialSize = isLandscape
@@ -317,24 +388,24 @@ function TimerContent() {
                 </button>
             </div>
 
-            {/* Center Dial & Giant Digits */}
+            {/* Center Dial & Giant Digits - isolated in MobileTimerDisplay */}
             <div className="my-auto flex flex-col items-center justify-center">
-                <SeamlessRadialTimerDial progress={progress} size={dialSize}>
-                    <div className={`font-extrabold tracking-tight tabular-nums whitespace-nowrap text-slate-900 dark:text-white leading-none ${
-                        isLandscape
-                            ? 'text-[104px] sm:text-[112px]'
-                            : 'text-[68px] sm:text-[76px]'
-                    }`}>
-                        {formatDigits(timeLeft)}
-                    </div>
-                </SeamlessRadialTimerDial>
+                <MobileTimerDisplay
+                    endsAt={endsAt}
+                    isActive={isActive}
+                    pausedTimeLeft={pausedTimeLeft}
+                    dialSize={dialSize}
+                    isLandscape={isLandscape}
+                    phaseTotalSeconds={totalPhaseSecs}
+                    onExpire={handleTimeUp}
+                />
             </div>
 
             {/* Bottom Controls */}
             <div className={`w-full max-w-sm flex items-center justify-center gap-4 ${isLandscape ? 'pb-1' : 'pb-6'}`}>
                 {/* Pause / Resume Button */}
                 <button
-                    onClick={() => setIsActive(!isActive)}
+                    onClick={togglePauseResume}
                     className={`flex items-center justify-center gap-2 rounded-full font-semibold transition-all active:scale-95 shadow-md ${
                         isLandscape
                             ? 'h-[36px] min-w-[96px] px-5 text-[13px]'

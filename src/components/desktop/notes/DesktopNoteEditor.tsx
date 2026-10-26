@@ -151,9 +151,14 @@ export default function DesktopNoteEditor({
     }
   }, [note.id, supabase]);
 
-  const { status: saveStatus, schedule: scheduleSave, flush: flushSave } = useAutosave(handleSave, 1200);
+  const { status: saveStatus, schedule: scheduleSave, flush: flushSave } = useAutosave(handleSave, 800);
 
-  // TipTap editor initialization
+  // Flush on note change or unmount
+  useEffect(() => {
+    return () => {
+      void flushSave();
+    };
+  }, [note.id, flushSave]);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -593,6 +598,9 @@ export default function DesktopNoteEditor({
             setTitle(e.target.value);
             scheduleSave();
           }}
+          onBlur={() => {
+            void flushSave();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -604,7 +612,7 @@ export default function DesktopNoteEditor({
         />
 
         {/* TipTap Editor */}
-        <div className="relative">
+        <div className="relative" onBlur={() => void flushSave()}>
           <EditorContent editor={editor} />
         </div>
       </div>

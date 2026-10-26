@@ -24,6 +24,38 @@ interface AuthContextType {
     signOut: () => Promise<void>
 }
 
+// User-specific Context (Session & User Auth)
+interface UserAuthContextType {
+    user: User | null;
+    session: Session | null;
+    isLoading: boolean;
+    signOut: () => Promise<void>;
+}
+
+// Profile & Plan Context
+interface ProfileContextType {
+    profile: UserProfile | null;
+    plan: UserPlan;
+    aiMessageCount: number;
+    lastMessageDate: string | null;
+    refreshUserProfile: () => Promise<void>;
+}
+
+const UserAuthContext = createContext<UserAuthContextType>({
+    user: null,
+    session: null,
+    isLoading: true,
+    signOut: async () => { },
+});
+
+const ProfileContext = createContext<ProfileContextType>({
+    profile: null,
+    plan: 'free',
+    aiMessageCount: 0,
+    lastMessageDate: null,
+    refreshUserProfile: async () => { },
+});
+
 const AuthContext = createContext<AuthContextType>({
     user: null,
     session: null,
@@ -53,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Guard: ensure the init effect fires exactly once, even in React StrictMode.
     const didInit = useRef(false)
 
-    const refreshUserProfile = async () => {
+    const refreshUserProfile = React.useCallback(async () => {
         const currentUser = user || session?.user
         if (!currentUser) {
             setProfile(null)
@@ -83,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setPlan(data?.plan || 'free')
         setAiMessageCount(data?.ai_message_count || 0)
         setLastMessageDate(data?.last_message_date || null)
-    }
+    }, [user, session?.user])
 
     useEffect(() => {
         if (didInit.current) return
@@ -192,7 +224,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user?.id])
 
-    const signOut = async () => {
+    const signOut = React.useCallback(async () => {
         setIsLoading(true)
         try {
             await supabase.auth.signOut()
@@ -207,15 +239,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } finally {
             setIsLoading(false)
         }
-    }
+    }, [])
+
+    const userAuthValue = React.useMemo(() => ({
+        user,
+        session,
+        isLoading,
+        signOut,
+    }), [user, session, isLoading, signOut])
+
+    const profileValue = React.useMemo(() => ({
+        profile,
+        plan,
+        aiMessageCount,
+        lastMessageDate,
+        refreshUserProfile,
+    }), [profile, plan, aiMessageCount, lastMessageDate, refreshUserProfile])
+
+    const combinedAuthValue = React.useMemo(() => ({
+        user,
+        session,
+        profile,
+        isLoading,
+        plan,
+        aiMessageCount,
+        lastMessageDate,
+        refreshUserProfile,
+        signOut,
+    }), [user, session, profile, isLoading, plan, aiMessageCount, lastMessageDate, refreshUserProfile, signOut])
 
     return (
-        <AuthContext.Provider value={{ user, session, profile, isLoading, plan, aiMessageCount, lastMessageDate, refreshUserProfile, signOut }}>
-            {children}
-        </AuthContext.Provider>
+        <UserAuthContext.Provider value={userAuthValue}>
+            <ProfileContext.Provider value={profileValue}>
+                <AuthContext.Provider value={combinedAuthValue}>
+                    {children}
+                </AuthContext.Provider>
+            </ProfileContext.Provider>
+        </UserAuthContext.Provider>
     )
 }
 
 export function useAuth() {
     return useContext(AuthContext)
+}
+
+export function useUser() {
+    return useContext(UserAuthContext)
+}
+
+export function useProfile() {
+    return useContext(ProfileContext)
 }

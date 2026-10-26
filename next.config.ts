@@ -42,6 +42,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  reactCompiler: true,
   env: {
     NEXT_PUBLIC_BUILD_TARGET: process.env.EXPORT_MOBILE === 'true' ? 'mobile' : 'web',
   },

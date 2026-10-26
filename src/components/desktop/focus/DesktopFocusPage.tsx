@@ -37,6 +37,100 @@ import { Countdown } from '@/types';
 
 type PomodoroPhase = 'focus' | 'short_break' | 'long_break';
 
+function useNow(ms = 250) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(t);
+  }, [ms]);
+  return now;
+}
+
+function TimerDisplay({ endsAt }: { endsAt: number }) {
+  const now = useNow();
+  const left = Math.max(0, endsAt - now);
+  const mm = String(Math.floor(left / 60000)).padStart(2, '0');
+  const ss = String(Math.floor((left % 60000) / 1000)).padStart(2, '0');
+  useEffect(() => {
+    document.title = `${mm}:${ss} · Focus`;
+  }, [mm, ss]);
+  return <span className="tabular-nums">{mm}:{ss}</span>;
+}
+
+function FocusTimerWidget({
+  endsAt,
+  pausedTimeLeft,
+  isActive,
+  totalSeconds,
+  isBreak,
+  isDeskMode,
+  taskTitle,
+  onExpire,
+}: {
+  endsAt: number | null;
+  pausedTimeLeft: number;
+  isActive: boolean;
+  totalSeconds: number;
+  isBreak: boolean;
+  isDeskMode: boolean;
+  taskTitle?: string | null;
+  onExpire: () => void;
+}) {
+  const now = useNow(250);
+  const leftMs = isActive && endsAt ? Math.max(0, endsAt - now) : pausedTimeLeft * 1000;
+  const leftSecs = Math.max(0, Math.ceil(leftMs / 1000));
+  const mm = String(Math.floor(leftMs / 60000)).padStart(2, '0');
+  const ss = String(Math.floor((leftMs % 60000) / 1000)).padStart(2, '0');
+
+  useEffect(() => {
+    if (isActive) {
+      document.title = `${mm}:${ss} · Focus`;
+    }
+  }, [isActive, mm, ss]);
+
+  const hasExpiredRef = useRef(false);
+  useEffect(() => {
+    if (!isActive) {
+      hasExpiredRef.current = false;
+    }
+  }, [isActive]);
+
+  useEffect(() => {
+    if (isActive && endsAt && now >= endsAt && !hasExpiredRef.current) {
+      hasExpiredRef.current = true;
+      onExpire();
+    }
+  }, [isActive, endsAt, now, onExpire]);
+
+  const progress = totalSeconds > 0 ? Math.max(0, totalSeconds - leftSecs) / totalSeconds : 0;
+
+  return (
+    <FocusRing
+      progress={progress}
+      size={isDeskMode ? 'min(62vh, 640px)' : 'min(400px, 50vh)'}
+      isBreak={isBreak}
+    >
+      <div className="flex flex-col items-center select-none">
+        <div className="font-ui font-light text-[80px]/[84px] tabular-nums tracking-[-0.03em] text-ink">
+          {mm}:{ss}
+        </div>
+        <div className="mt-2 text-[13px] font-medium text-ink-2 max-w-[260px] truncate">
+          {taskTitle || 'No task linked'}
+        </div>
+      </div>
+    </FocusRing>
+  );
+}
+
+function DeskClockDisplay() {
+  const now = useNow(1000);
+  const timeStr = useMemo(() => {
+    return new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  }, [now]);
+
+  return <span className="text-[14px] tabular-nums font-medium text-snow/90">{timeStr}</span>;
+}
+
 function safeRandomId() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     try {
@@ -75,9 +169,20 @@ export function DesktopFocusPage() {
   // Active preset key: '25/5' | '50/10' | '90/15' | 'custom'
   const [activePreset, setActivePreset] = useState<string>('25/5');
 
-  // Timer run state
+  // Timer run state: endsAt timestamp
   const [isActive, setIsActive] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(25 * 60);
+  const [endsAt, setEndsAt] = useState<number | null>(null);
+  const [pausedTimeLeft, setPausedTimeLeft] = useState(25 * 60); // seconds
+
+  // Reset tab title on unmount or when timer stops
+  useEffect(() => {
+    if (!isActive) {
+      document.title = 'Focalyst · Plan, focus and build habits';
+    }
+    return () => {
+      document.title = 'Focalyst · Plan, focus and build habits';
+    };
+  }, [isActive]);
 
   // Linked task
   const [linkedTaskId, setLinkedTaskId] = useState<string>('');
@@ -86,7 +191,6 @@ export function DesktopFocusPage() {
   // Desk Mode
   const [isDeskMode, setIsDeskMode] = useState(false);
   const deskContainerRef = useRef<HTMLDivElement>(null);
-  const [localClockTime, setLocalClockTime] = useState('');
 
   // Countdowns data
   const [countdowns, setCountdowns] = useState<Countdown[]>([]);
@@ -113,18 +217,7 @@ export function DesktopFocusPage() {
     return longBreakMins * 60;
   }, [phase, focusMins, shortBreakMins, longBreakMins]);
 
-  // Desk mode clock
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setLocalClockTime(
-        now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
-    };
-    updateTime();
-    const id = setInterval(updateTime, 1000);
-    return () => clearInterval(id);
-  }, []);
+
 
   // Fetch countdowns
   const fetchCountdowns = useCallback(async () => {
@@ -279,7 +372,8 @@ export function DesktopFocusPage() {
   useEffect(() => {
     if (!isActive || phase !== 'focus') return;
     const interval = setInterval(() => {
-      const elapsedSecs = Math.max(0, currentPhaseTotalSeconds - timeLeft);
+      const remainingSecs = endsAt ? Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)) : pausedTimeLeft;
+      const elapsedSecs = Math.max(0, currentPhaseTotalSeconds - remainingSecs);
       const elapsedMins = Math.floor(elapsedSecs / 60);
       try {
         localStorage.setItem(
@@ -295,7 +389,7 @@ export function DesktopFocusPage() {
       } catch {}
     }, 15000);
     return () => clearInterval(interval);
-  }, [isActive, phase, currentPhaseTotalSeconds, timeLeft]);
+  }, [isActive, phase, currentPhaseTotalSeconds, endsAt, pausedTimeLeft]);
 
   // Save on unmount / route change
   useEffect(() => {
@@ -313,107 +407,17 @@ export function DesktopFocusPage() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [saveCurrentFocusBlock]);
 
-  // Auto-start from URL param ?start=1
-  useEffect(() => {
-    if (searchParams.get('start') === '1') {
-      setIsActive(true);
-      sessionStartTimeRef.current = Date.now();
-      savedRef.current = false;
-      currentSessionIdRef.current = safeRandomId();
-    }
-  }, [searchParams]);
+  // Handle timer phase expiration
+  const handleTimeUp = useCallback(() => {
+    saveCurrentFocusBlock();
 
-  // Timer countdown tick
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isActive && timeLeft > 0) {
-      interval = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-    } else if (isActive && timeLeft <= 0) {
-      // Natural block completion
-      saveCurrentFocusBlock();
-
-      if (phase === 'focus') {
-        if (currentSet < totalSets) {
-          setPhase('short_break');
-          setTimeLeft(shortBreakMins * 60);
-        } else {
-          setPhase('long_break');
-          setTimeLeft(longBreakMins * 60);
-        }
-      } else {
-        // Break ended
-        if (phase === 'long_break') {
-          setCurrentSet(1);
-        } else {
-          setCurrentSet((s) => s + 1);
-        }
-        setPhase('focus');
-        setTimeLeft(focusMins * 60);
-      }
-      setIsActive(false);
-      savedRef.current = false;
-      sessionStartTimeRef.current = Date.now();
-      currentSessionIdRef.current = safeRandomId();
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [
-    isActive,
-    timeLeft,
-    phase,
-    currentSet,
-    totalSets,
-    focusMins,
-    shortBreakMins,
-    longBreakMins,
-    saveCurrentFocusBlock,
-  ]);
-
-  // Start / Pause
-  const toggleStartPause = () => {
-    if (!isActive) {
-      if (timeLeft <= 0) {
-        setTimeLeft(currentPhaseTotalSeconds);
-      }
-      const now = Date.now();
-      if (!sessionStartedAtRef.current) {
-        sessionStartedAtRef.current = now;
-      }
-      lastResumeAtRef.current = now;
-      setIsActive(true);
-    } else {
-      // Pausing
-      if (lastResumeAtRef.current) {
-        accumulatedElapsedMsRef.current += Math.max(0, Date.now() - lastResumeAtRef.current);
-        lastResumeAtRef.current = null;
-      }
-      setIsActive(false);
-    }
-  };
-
-  // Reset timer
-  const handleReset = async () => {
-    const savedMins = await saveCurrentFocusBlock();
-    setIsActive(false);
-    setTimeLeft(currentPhaseTotalSeconds);
-    resetSessionTiming();
-  };
-
-  // Skip block
-  const handleSkip = async () => {
-    const savedMins = await saveCurrentFocusBlock();
-    setIsActive(false);
-    resetSessionTiming();
     if (phase === 'focus') {
       if (currentSet < totalSets) {
         setPhase('short_break');
-        setTimeLeft(shortBreakMins * 60);
+        setPausedTimeLeft(shortBreakMins * 60);
       } else {
         setPhase('long_break');
-        setTimeLeft(longBreakMins * 60);
+        setPausedTimeLeft(longBreakMins * 60);
       }
     } else {
       if (phase === 'long_break') {
@@ -422,13 +426,100 @@ export function DesktopFocusPage() {
         setCurrentSet((s) => s + 1);
       }
       setPhase('focus');
-      setTimeLeft(focusMins * 60);
+      setPausedTimeLeft(focusMins * 60);
+    }
+    setIsActive(false);
+    setEndsAt(null);
+    savedRef.current = false;
+    sessionStartTimeRef.current = Date.now();
+    currentSessionIdRef.current = safeRandomId();
+  }, [
+    saveCurrentFocusBlock,
+    phase,
+    currentSet,
+    totalSets,
+    shortBreakMins,
+    longBreakMins,
+    focusMins,
+  ]);
+
+  // Auto-start from URL param ?start=1
+  useEffect(() => {
+    if (searchParams.get('start') === '1') {
+      const now = Date.now();
+      const currentDuration = pausedTimeLeft > 0 ? pausedTimeLeft : currentPhaseTotalSeconds;
+      setEndsAt(now + currentDuration * 1000);
+      setIsActive(true);
+      sessionStartTimeRef.current = now;
+      savedRef.current = false;
+      currentSessionIdRef.current = safeRandomId();
+    }
+  }, [searchParams, currentPhaseTotalSeconds, pausedTimeLeft]);
+
+  // Start / Pause
+  const toggleStartPause = () => {
+    if (!isActive) {
+      const now = Date.now();
+      const currentDuration = pausedTimeLeft > 0 ? pausedTimeLeft : currentPhaseTotalSeconds;
+      setEndsAt(now + currentDuration * 1000);
+      if (!sessionStartedAtRef.current) {
+        sessionStartedAtRef.current = now;
+      }
+      lastResumeAtRef.current = now;
+      setIsActive(true);
+    } else {
+      // Pausing
+      if (endsAt) {
+        const remaining = Math.max(0, Math.ceil((endsAt - Date.now()) / 1000));
+        setPausedTimeLeft(remaining);
+      }
+      if (lastResumeAtRef.current) {
+        accumulatedElapsedMsRef.current += Math.max(0, Date.now() - lastResumeAtRef.current);
+        lastResumeAtRef.current = null;
+      }
+      setEndsAt(null);
+      setIsActive(false);
+    }
+  };
+
+  // Reset timer
+  const handleReset = async () => {
+    await saveCurrentFocusBlock();
+    setIsActive(false);
+    setEndsAt(null);
+    setPausedTimeLeft(currentPhaseTotalSeconds);
+    resetSessionTiming();
+  };
+
+  // Skip block
+  const handleSkip = async () => {
+    await saveCurrentFocusBlock();
+    setIsActive(false);
+    setEndsAt(null);
+    resetSessionTiming();
+    if (phase === 'focus') {
+      if (currentSet < totalSets) {
+        setPhase('short_break');
+        setPausedTimeLeft(shortBreakMins * 60);
+      } else {
+        setPhase('long_break');
+        setPausedTimeLeft(longBreakMins * 60);
+      }
+    } else {
+      if (phase === 'long_break') {
+        setCurrentSet(1);
+      } else {
+        setCurrentSet((s) => s + 1);
+      }
+      setPhase('focus');
+      setPausedTimeLeft(focusMins * 60);
     }
   };
 
   // End session: save elapsed focus minutes (if >= 1 min), stop cycle, go back to idle Focus session 1
   const handleEndSession = async () => {
     setIsActive(false);
+    setEndsAt(null);
     if (lastResumeAtRef.current) {
       accumulatedElapsedMsRef.current += Math.max(0, Date.now() - lastResumeAtRef.current);
       lastResumeAtRef.current = null;
@@ -445,7 +536,7 @@ export function DesktopFocusPage() {
     }
     setPhase('focus');
     setCurrentSet(1);
-    setTimeLeft(focusMins * 60);
+    setPausedTimeLeft(focusMins * 60);
     resetSessionTiming();
   };
 
@@ -455,11 +546,12 @@ export function DesktopFocusPage() {
     await saveCurrentFocusBlock();
     setPhase(newPhase);
     setIsActive(false);
+    setEndsAt(null);
     resetSessionTiming();
 
-    if (newPhase === 'focus') setTimeLeft(focusMins * 60);
-    else if (newPhase === 'short_break') setTimeLeft(shortBreakMins * 60);
-    else setTimeLeft(longBreakMins * 60);
+    if (newPhase === 'focus') setPausedTimeLeft(focusMins * 60);
+    else if (newPhase === 'short_break') setPausedTimeLeft(shortBreakMins * 60);
+    else setPausedTimeLeft(longBreakMins * 60);
   };
 
   // Keyboard Desk Mode & Space
@@ -486,7 +578,7 @@ export function DesktopFocusPage() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isDeskMode, isActive, timeLeft]);
+  }, [isDeskMode, isActive, endsAt, pausedTimeLeft]);
 
   // Fullscreen Desk Mode
   const toggleDeskMode = async () => {
@@ -513,14 +605,6 @@ export function DesktopFocusPage() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // Format time MM:SS
-  const mins = Math.floor(timeLeft / 60);
-  const secs = timeLeft % 60;
-  const timeString = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-
-  // Time remaining fraction for Orb progress
-  const remainingProgress = currentPhaseTotalSeconds > 0 ? timeLeft / currentPhaseTotalSeconds : 0;
-
   // Linked task title
   const currentLinkedTask = tasks.find((t) => t.id === linkedTaskId);
 
@@ -539,9 +623,10 @@ export function DesktopFocusPage() {
     setFocusMins(customFocusTemp);
     setShortBreakMins(customBreakTemp);
     setActivePreset('custom');
-    if (phase === 'focus') setTimeLeft(customFocusTemp * 60);
-    else if (phase === 'short_break') setTimeLeft(customBreakTemp * 60);
+    if (phase === 'focus') setPausedTimeLeft(customFocusTemp * 60);
+    else if (phase === 'short_break') setPausedTimeLeft(customBreakTemp * 60);
     setIsActive(false);
+    setEndsAt(null);
     setCustomPopoverOpen(false);
   };
 
@@ -549,9 +634,10 @@ export function DesktopFocusPage() {
     setFocusMins(focus);
     setShortBreakMins(brk);
     setActivePreset(key);
-    if (phase === 'focus') setTimeLeft(focus * 60);
-    else if (phase === 'short_break') setTimeLeft(brk * 60);
+    if (phase === 'focus') setPausedTimeLeft(focus * 60);
+    else if (phase === 'short_break') setPausedTimeLeft(brk * 60);
     setIsActive(false);
+    setEndsAt(null);
   };
 
   // Countdowns sorting & calculations
@@ -617,7 +703,7 @@ export function DesktopFocusPage() {
         <div className="fixed top-6 left-8 right-8 z-50 flex items-center justify-between text-snow/80">
           <span className="text-[14px] font-semibold tracking-[0.2em] uppercase">FOCALYST · DESK</span>
           <div className="flex items-center gap-4">
-            <span className="text-[14px] tabular-nums font-medium text-snow/90">{localClockTime}</span>
+            <DeskClockDisplay />
             <button
               type="button"
               onClick={toggleDeskMode}
@@ -679,26 +765,18 @@ export function DesktopFocusPage() {
               : 'LONG BREAK'}
           </div>
 
-          {/* FocusRing in center: size = min(400px, 50vh) on desktop, min(62vh, 640px) in desk mode */}
+          {/* FocusTimerWidget in center: isolates ticker re-renders */}
           <div className="my-auto py-6">
-            <FocusRing
-              progress={
-                currentPhaseTotalSeconds > 0
-                  ? Math.max(0, currentPhaseTotalSeconds - timeLeft) / currentPhaseTotalSeconds
-                  : 0
-              }
-              size={isDeskMode ? 'min(62vh, 640px)' : 'min(400px, 50vh)'}
+            <FocusTimerWidget
+              endsAt={endsAt}
+              pausedTimeLeft={pausedTimeLeft}
+              isActive={isActive}
+              totalSeconds={currentPhaseTotalSeconds}
               isBreak={phase !== 'focus'}
-            >
-              <div className="flex flex-col items-center select-none">
-                <div className="font-ui font-light text-[80px]/[84px] tabular-nums tracking-[-0.03em] text-ink">
-                  {timeString}
-                </div>
-                <div className="mt-2 text-[13px] font-medium text-ink-2 max-w-[260px] truncate">
-                  {currentLinkedTask?.title || 'No task linked'}
-                </div>
-              </div>
-            </FocusRing>
+              isDeskMode={isDeskMode}
+              taskTitle={currentLinkedTask?.title}
+              onExpire={handleTimeUp}
+            />
           </div>
 
           {/* Controls Row: Reset (48 ghost), Start/Pause (72 primary), End (48 ghost), Skip (48 ghost) */}

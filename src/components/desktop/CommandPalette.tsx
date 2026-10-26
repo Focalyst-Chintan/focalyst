@@ -30,6 +30,7 @@ import { useNotes } from '@/hooks/useNotes';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
 import { useCreate } from '@/components/desktop/create/CreateProvider';
+import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -52,7 +53,17 @@ export function CommandPalette({
   const { notes, fetchNotes } = useNotes(user?.id);
   const { setTheme } = useTheme();
   const { open: openCreate } = useCreate();
+  const [searchInput, setSearchInput] = useState('');
   const [search, setSearch] = useState('');
+
+  const debouncedSearch = useDebouncedCallback((val: string) => {
+    setSearch(val);
+  }, 200);
+
+  const handleSearchChange = (val: string) => {
+    setSearchInput(val);
+    debouncedSearch.run(val);
+  };
 
   // Fetch initial notes for search when palette opens
   useEffect(() => {
@@ -60,6 +71,7 @@ export function CommandPalette({
       fetchNotes(1, 10);
     }
     if (!open) {
+      setSearchInput('');
       setSearch('');
     }
   }, [open, user?.id, fetchNotes]);
@@ -94,8 +106,8 @@ export function CommandPalette({
           <div className="h-14 px-4 flex items-center gap-3 border-b border-line">
             <Search className="w-[18px] h-[18px] text-ink-3 shrink-0" />
             <Command.Input
-              value={search}
-              onValueChange={setSearch}
+              value={searchInput}
+              onValueChange={handleSearchChange}
               placeholder="Type a command or search..."
               className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-3 outline-none"
               autoFocus

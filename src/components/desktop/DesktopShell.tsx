@@ -242,8 +242,16 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
       setIsWideScreen(window.innerWidth >= 1280);
     };
     checkWidth();
-    window.addEventListener('resize', checkWidth);
-    return () => window.removeEventListener('resize', checkWidth);
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(() => {
+        checkWidth();
+      });
+      ro.observe(document.documentElement);
+      return () => ro.disconnect();
+    } else {
+      window.addEventListener('resize', checkWidth);
+      return () => window.removeEventListener('resize', checkWidth);
+    }
   }, []);
 
   // Esc closes context panel when focus is inside it
