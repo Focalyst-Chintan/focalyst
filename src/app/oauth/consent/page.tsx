@@ -8,6 +8,7 @@ import { MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
 import { isPaidPlan } from '@/lib/featureGates';
 import { Button } from '@/components/desktop/ui/Button';
 import { Switch } from '@/components/desktop/ui/Switch';
+import { AppIcon, iconHost } from '@/components/desktop/settings/connections/AppIcon';
 
 const IS_MOBILE_BUILD = process.env.NEXT_PUBLIC_BUILD_TARGET === 'mobile';
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
@@ -18,7 +19,7 @@ type Credits = { has_account: boolean; balance?: number; monthly_credits: number
 type View =
   | { kind: 'loading' }
   | { kind: 'expired' }
-  | { kind: 'not_pro'; client: Client }
+  | { kind: 'not_pro'; client: Client; host: string }
   | { kind: 'consent'; client: Client; host: string; credits: Credits };
 
 const fmt = (n: number) => n.toLocaleString('en-US');
@@ -33,23 +34,8 @@ function ConsentCard({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ClientMark({ client }: { client: Client }) {
-  if (client.logo) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={client.logo}
-        alt=""
-        referrerPolicy="no-referrer"
-        className="h-12 w-12 rounded-[14px] border border-line bg-surface object-cover"
-      />
-    );
-  }
-  return (
-    <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-primary-soft font-display text-[22px] text-primary-text">
-      {(client.name.trim()[0] || '?').toUpperCase()}
-    </div>
-  );
+function ClientMark({ client, host }: { client: Client; host?: string }) {
+  return <AppIcon name={client.name} logo={client.logo} host={host} size={48} />;
 }
 
 function Row({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
@@ -121,7 +107,7 @@ function ConsentContent() {
       if (cancelled) return;
 
       if (!isPaidPlan(profile?.plan, profile?.plan_expires_at)) {
-        setView({ kind: 'not_pro', client });
+        setView({ kind: 'not_pro', client, host });
         return;
       }
       setView({ kind: 'consent', client, host, credits: (credits as Credits) ?? null });
@@ -150,7 +136,7 @@ function ConsentContent() {
     window.location.assign(data.redirect_url);
   }
 
-  async function handleAllow(client: Client) {
+  async function handleAllow(client: Client, host: string) {
     if (!authorizationId) return;
     setWorking(true);
     setError('');
@@ -160,6 +146,7 @@ function ConsentContent() {
           p_client_id: client.id,
           p_client_name: client.name,
           p_allow_writes: allowWrites,
+          p_client_host: iconHost(host),
         });
         if (consentError) throw consentError;
       }
@@ -195,10 +182,10 @@ function ConsentContent() {
   }
 
   if (view.kind === 'not_pro') {
-    const { client } = view;
+    const { client, host } = view;
     return (
       <ConsentCard>
-        <ClientMark client={client} />
+        <ClientMark client={client} host={host} />
         <h1 className="mt-5 font-display text-[26px] leading-tight text-ink">AI connections are part of Pro</h1>
         <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
           Upgrade to connect {client.name} and other AI apps to your Focalyst account.
@@ -223,7 +210,7 @@ function ConsentContent() {
 
   return (
     <ConsentCard>
-      <ClientMark client={client} />
+      <ClientMark client={client} host={host} />
       <h1 className="mt-5 font-display text-[26px] leading-tight text-ink">Connect {client.name} to Focalyst</h1>
       <p className="mt-2 text-[15px] leading-relaxed text-ink-2">
         {client.name} wants to use your Focalyst account. You&apos;ll return to{' '}
@@ -284,7 +271,7 @@ function ConsentContent() {
         <Button variant="secondary" onClick={handleCancel} disabled={working}>
           Cancel
         </Button>
-        <Button variant="primary" onClick={() => handleAllow(client)} loading={working} disabled={working}>
+        <Button variant="primary" onClick={() => handleAllow(client, host)} loading={working} disabled={working}>
           Allow
         </Button>
       </div>

@@ -38,6 +38,7 @@ export type McpConnectionRow = {
   last_used_at: string | null;
   call_count: number;
   revoked_at: string | null;
+  client_host: string | null;
 };
 
 export type McpConnectedApp = {
@@ -47,6 +48,8 @@ export type McpConnectedApp = {
   lastUsedAt: string | null;
   calls: number;
   allowWrites: boolean;
+  host: string | null;
+  logo: string | null;
 };
 
 function useUid() {
@@ -126,6 +129,8 @@ export function useMcpConnections() {
           lastUsedAt: row?.last_used_at ?? null,
           calls: row?.call_count ?? 0,
           allowWrites: row?.allow_writes ?? true,
+          host: row?.client_host ?? null,
+          logo: g.client?.logo_uri || null,
         });
       }
       return { apps, names };

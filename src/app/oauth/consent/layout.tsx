@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
+import { FocalystLogo } from '@/components/icons';
 
 export const metadata: Metadata = {
   title: 'Connect an app · Focalyst',
@@ -11,7 +12,12 @@ export default function ConsentLayout({ children }: { children: React.ReactNode 
     <div className="relative min-h-screen bg-canvas text-ink">
       <AmbientBackground />
       <main className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 py-10">
-        <span className="mb-6 font-ui text-[13px] font-semibold tracking-[0.32em] text-ink">FOCALYST</span>
+        <div className="mb-6">
+          <FocalystLogo
+            size={44}
+            fallback={<span className="font-ui text-[13px] font-semibold tracking-[0.32em] text-ink">FOCALYST</span>}
+          />
+        </div>
         {children}
       </main>
     </div>

@@ -13,11 +13,12 @@ const CLAUDE_CODE_CMD = `claude mcp add --transport http focalyst ${MCP_URL}`;
 
 const GUIDES: Record<
   GuideTab,
-  { chip: string; note?: string; steps: { title: string; body?: React.ReactNode }[] }
+  { chip: string; note?: string; tip?: string; steps: { title: string; body?: React.ReactNode }[] }
 > = {
   claude: {
     chip: 'Every Claude plan',
     note: 'Claude Free allows one custom connector.',
+    tip: "Tip: in Claude's connector settings, set read-only tools to Always allow so Claude doesn't ask before every read.",
     steps: [
       { title: 'Open Claude on the web or the desktop app, then go to Customize → Connectors.' },
       { title: 'Click + Add, then Add custom connector.' },
@@ -136,6 +137,7 @@ export function SetupGuide() {
               </li>
             ))}
           </ol>
+          {guide.tip && <p className="mt-4 text-[13px] leading-snug text-ink-2">{guide.tip}</p>}
           {guide.note && (
             <p className="mt-4 rounded-[14px] bg-surface-2/70 p-3 text-[13px] leading-snug text-ink-3">{guide.note}</p>
           )}

@@ -8,6 +8,7 @@ import { Modal } from '@/components/desktop/ui/Modal';
 import { Switch } from '@/components/desktop/ui/Switch';
 import { useToast } from '@/components/desktop/ui/Toast';
 import type { McpConnectedApp } from '@/hooks/mcp/useMcp';
+import { AppIcon } from './AppIcon';
 import { fmtNum, shortDate, timeAgo } from './format';
 
 const GENERIC_ERROR = 'Something went wrong. Please try again.';
@@ -55,9 +56,7 @@ function AppRow({ app, onChanged }: { app: McpConnectedApp; onChanged: () => voi
 
   return (
     <li className="flex flex-wrap items-center gap-4 rounded-[16px] bg-surface-2/60 p-4">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-primary-soft font-display text-[18px] text-primary-text">
-        {(app.name.trim()[0] || '?').toUpperCase()}
-      </div>
+      <AppIcon name={app.name} host={app.host} logo={app.logo} />
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-semibold text-ink">{app.name}</p>
         <p className="mt-0.5 text-[12px] text-ink-3">{meta}</p>
