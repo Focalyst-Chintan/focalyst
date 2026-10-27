@@ -1,5 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { safeNext } from '@/lib/auth/safeNext'
 
 export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
@@ -62,6 +63,8 @@ export async function middleware(request: NextRequest) {
     if (!user && (isAppRoute || isOnboardingRoute)) {
         const url = request.nextUrl.clone()
         url.pathname = '/login'
+        url.search = ''
+        url.searchParams.set('next', pathname + request.nextUrl.search)
         return NextResponse.redirect(url)
     }
 
@@ -78,7 +81,12 @@ export async function middleware(request: NextRequest) {
 
         // Logged in user on auth routes → redirect accordingly
         if (isAuthRoute) {
+            const next = safeNext(request.nextUrl.searchParams.get('next'))
             const url = request.nextUrl.clone()
+            url.search = ''
+            if (next) {
+                return NextResponse.redirect(new URL(next, request.url))
+            }
             url.pathname = onboardingDone ? '/plan' : '/onboarding/plans'
             return NextResponse.redirect(url)
         }
@@ -130,7 +138,7 @@ export const config = {
          *       receives instead of a JSON/stream → the '[FRONTEND CRASH]: Received
          *       HTML response instead of AI stream' error.
          */
-        '/((?!_next/static|_next/image|favicon.ico|api/|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|api/|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }
 

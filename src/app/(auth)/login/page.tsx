@@ -9,6 +9,7 @@ import AppleIcon from '@/components/icons/AppleIcon';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { saveCheckoutIntent, peekCheckoutIntent, IntentPlan } from '@/lib/billing/checkoutIntent';
 import CheckInboxPanel from '@/components/auth/CheckInboxPanel';
+import { safeNext, isOAuthReturn } from '@/lib/auth/safeNext';
 
 function isEmailNotConfirmedError(err: any): boolean {
   if (!err) return false;
@@ -63,6 +64,7 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  const nextPath = safeNext(searchParams.get('next'));
 
   const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>(initialMode);
@@ -98,16 +100,20 @@ function LoginContent() {
     }
   }, [searchParams]);
 
-  // If already authenticated on /login, redirect: desktop -> /today, mobile -> /plan
+  // If already authenticated on /login, redirect: next if given, else desktop -> /today, mobile -> /plan
   useEffect(() => {
     supabase.auth.getUser().then((res: any) => {
       const authUser = res?.data?.user;
       if (authUser) {
+        if (nextPath) {
+          router.replace(nextPath);
+          return;
+        }
         const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches;
         router.replace(isDesktop ? '/today' : '/plan');
       }
     });
-  }, [router, supabase]);
+  }, [router, supabase, nextPath]);
 
   const switchMode = (newMode: 'login' | 'signup' | 'reset') => {
     setMode(newMode);
@@ -123,7 +129,10 @@ function LoginContent() {
 
   const handleAuthSuccess = async () => {
     router.refresh();
-    const nextPath = searchParams.get('next');
+    if (isOAuthReturn(nextPath)) {
+      router.push(nextPath!);
+      return;
+    }
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -135,7 +144,7 @@ function LoginContent() {
         .single();
 
       if (profile?.onboarding_done) {
-        if (nextPath && nextPath.startsWith('/')) {
+        if (nextPath) {
           router.push(nextPath);
         } else if (window.innerWidth >= 1024) {
           router.push('/today');
@@ -146,7 +155,7 @@ function LoginContent() {
         router.push('/onboarding/plans');
       }
     } else {
-      if (nextPath && nextPath.startsWith('/')) {
+      if (nextPath) {
         router.push(nextPath);
       } else {
         router.push(window.innerWidth >= 1024 ? '/today' : '/plan');
@@ -154,12 +163,15 @@ function LoginContent() {
     }
   };
 
+  const callbackUrl = () =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath ?? '/onboarding/plans')}`;
+
   const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+          redirectTo: callbackUrl(),
         },
       });
       if (error) {
@@ -179,7 +191,7 @@ function LoginContent() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'apple',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+          redirectTo: callbackUrl(),
         },
       });
       if (error) {
@@ -300,7 +312,7 @@ function LoginContent() {
         password,
         options: {
           data: fullName ? { full_name: fullName, name: fullName } : undefined,
-          emailRedirectTo: `${window.location.origin}/auth/callback?next=/onboarding/plans`,
+          emailRedirectTo: callbackUrl(),
         },
       });
 

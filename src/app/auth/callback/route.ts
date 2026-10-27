@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { rateLimit } from '@/lib/rate-limit'
+import { safeNext, isOAuthReturn } from '@/lib/auth/safeNext'
 
 export async function GET(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
@@ -12,8 +13,7 @@ export async function GET(request: Request) {
 
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    const rawNext = searchParams.get('next') ?? '/onboarding/plans'
-    const next = (rawNext.startsWith('/') && !rawNext.startsWith('//')) ? rawNext : '/onboarding/plans'
+    const next = safeNext(searchParams.get('next')) ?? '/onboarding/plans'
 
     if (code) {
         const cookieStore = await cookies()
@@ -37,6 +37,10 @@ export async function GET(request: Request) {
         const { error } = await supabase.auth.exchangeCodeForSession(code)
 
         if (!error) {
+            // OAuth approval screens come first, whatever the onboarding state
+            if (isOAuthReturn(next)) {
+                return NextResponse.redirect(`${origin}${next}`)
+            }
             // Check if user has completed onboarding
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {
@@ -47,7 +51,7 @@ export async function GET(request: Request) {
                     .single()
 
                 if (profile?.onboarding_done) {
-                    return NextResponse.redirect(`${origin}/plan`)
+                    return NextResponse.redirect(`${origin}${next !== '/onboarding/plans' ? next : '/plan'}`)
                 }
             }
             return NextResponse.redirect(`${origin}${next}`)
