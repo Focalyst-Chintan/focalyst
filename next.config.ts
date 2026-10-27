@@ -37,7 +37,6 @@ const securityHeaders = [
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), geolocation=(), payment=(), usb=(), microphone=(self)' },
   { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
-  { key: 'Access-Control-Allow-Origin', value: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' },
   { key: 'Content-Security-Policy', value: csp },
 ];
 
@@ -63,6 +62,13 @@ const nextConfig: NextConfig = {
       {
         source: '/(.*)',
         headers: securityHeaders,
+      },
+      {
+        // MCP and its discovery documents set their own CORS headers
+        source: '/((?!api/mcp|\\.well-known/).*)',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' },
+        ],
       },
     ];
   },

@@ -4,6 +4,7 @@ import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
 import { streamChat, type ChatMessageParam } from '@/lib/ai/providers';
 import { buildUserContext } from '@/lib/ai/chatContext';
 import { AI_PERSONA } from '@/lib/ai/persona';
+import { getTodayRangeInTz } from '@/lib/time/tz';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,31 +15,6 @@ export async function OPTIONS(req: NextRequest) {
     status: 204,
     headers: corsHeaders(req),
   });
-}
-
-function getTodayRangeInTz(timezone = 'Asia/Kolkata') {
-  let tz = timezone;
-  try {
-    Intl.DateTimeFormat(undefined, { timeZone: tz });
-  } catch {
-    tz = 'Asia/Kolkata';
-  }
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: tz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-  const todayDateStr = formatter.format(now); // "YYYY-MM-DD"
-
-  // Compute UTC start for midnight in user's timezone
-  const invDate = new Date(now.toLocaleString('en-US', { timeZone: tz }));
-  const diff = now.getTime() - invDate.getTime();
-  const localMidnight = new Date(`${todayDateStr}T00:00:00Z`);
-  const startOfDayUtc = new Date(localMidnight.getTime() + diff);
-
-  return { todayDateStr, startOfDayIso: startOfDayUtc.toISOString(), tz };
 }
 
 function isHeavyQuery(text: string): boolean {
