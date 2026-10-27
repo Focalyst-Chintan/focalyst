@@ -10,7 +10,7 @@ const PENDING_GRACE_MS = 2 * 60_000;
 function actionLabel(row: McpLedgerRow, labels: Record<string, string>) {
   if (row.kind === 'bonus') return 'Daily bonus';
   if (row.kind === 'reset') return 'Monthly refill';
-  if (row.kind === 'adjustment') return 'Adjustment';
+  if (row.kind === 'adjustment') return 'Credit adjustment';
   return (row.tool && labels[row.tool]) || row.tool || 'Request';
 }
 

@@ -4,6 +4,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertTriangle, Eye, Loader2, Plus, ShieldOff } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
+import { MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
 import { isPaidPlan } from '@/lib/featureGates';
 import { Button } from '@/components/desktop/ui/Button';
 import { Switch } from '@/components/desktop/ui/Switch';
@@ -218,7 +219,7 @@ function ConsentContent() {
   }
 
   const { client, host, credits } = view;
-  const monthly = credits?.monthly_credits ?? 2000;
+  const monthly = credits?.monthly_credits || MCP_PRO_MONTHLY_CREDITS;
 
   return (
     <ConsentCard>

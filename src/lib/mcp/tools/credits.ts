@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
+import { MCP_DAILY_BONUS } from '../config';
 import { must } from '../run';
 import { localDate } from '../time';
 import { READ, defineTool } from './shared';
@@ -25,7 +26,7 @@ export function registerCreditTools(server: McpServer) {
         remaining: credits.balance,
         monthly_credits: credits.monthly,
         refills_on: localDate(credits.resetsAt, tz),
-        daily_bonus: must(cfg)?.daily_bonus ?? 10,
+        daily_bonus: must(cfg)?.daily_bonus ?? MCP_DAILY_BONUS,
         prices: must(prices) ?? [],
       };
     }

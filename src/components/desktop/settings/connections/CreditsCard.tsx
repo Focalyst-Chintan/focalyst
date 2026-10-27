@@ -105,6 +105,11 @@ export function CreditsCard({ credits, prices }: { credits: McpCredits; prices: 
             : `+${credits.daily_bonus} when you open Focalyst tomorrow`}
         </Chip>
       </div>
+      {credits.plan_renews_at && (
+        <p className="mt-2 text-[12px] leading-snug text-ink-3">
+          AI connections stay active while Pro is active. Pro renews on {shortDate(credits.plan_renews_at)}.
+        </p>
+      )}
     </div>
   );
 }

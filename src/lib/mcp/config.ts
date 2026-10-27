@@ -12,3 +12,7 @@ export const MCP_CORS_HEADERS: Record<string, string> = {
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version, Last-Event-ID',
   'Access-Control-Expose-Headers': 'WWW-Authenticate, Mcp-Session-Id',
 };
+
+// Public copy only. Signed-in screens and tool messages use monthly_credits from the database.
+export const MCP_PRO_MONTHLY_CREDITS = 500;
+export const MCP_DAILY_BONUS = 10;

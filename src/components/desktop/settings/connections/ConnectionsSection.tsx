@@ -10,12 +10,13 @@ import { ConnectedApps } from './ConnectedApps';
 import { CreditsCard } from './CreditsCard';
 import { RecentActivity } from './RecentActivity';
 import { SetupGuide } from './SetupGuide';
-import { IS_MOBILE_BUILD, MCP_URL } from './format';
+import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
+import { IS_MOBILE_BUILD, MCP_URL, fmtNum } from './format';
 
 const PAGE = 20;
 const MAX_ROWS = 200;
 
-function ProCard() {
+function ProCard({ monthly }: { monthly: number }) {
   const router = useRouter();
   return (
     <div className="relative overflow-hidden rounded-[24px] bg-[radial-gradient(120%_120%_at_0%_100%,#1951FC_0%,#0B2CB1_45%,#03195B_100%)] p-7 text-snow">
@@ -24,8 +25,8 @@ function ProCard() {
         <Sparkles className="h-5 w-5 text-snow" />
         <h3 className="mt-3 font-display text-[24px] leading-tight text-snow">AI connections are part of Pro</h3>
         <p className="mt-2 max-w-[520px] text-[14px] leading-relaxed text-snow/80">
-          Connect Focalyst to Claude, ChatGPT and Gemini, with 2,000 MCP credits every month and 10 more each day you
-          open Focalyst.
+          Connect Focalyst to Claude, ChatGPT and Gemini, with {fmtNum(monthly)} MCP credits every month and{' '}
+          {MCP_DAILY_BONUS} more each day you open Focalyst.
         </p>
         {!IS_MOBILE_BUILD && (
           <Button variant="onDark" className="mt-5" onClick={() => router.push('/pricing')}>
@@ -81,7 +82,7 @@ export default function ConnectionsSection() {
     return (
       <div className="space-y-6">
         {header}
-        <ProCard />
+        <ProCard monthly={credits.data?.monthly_credits || MCP_PRO_MONTHLY_CREDITS} />
         <div aria-label="Setup guide preview">
           <SetupGuide />
         </div>

@@ -13,6 +13,9 @@ export type McpCredits = {
   period_start?: string;
   period_end?: string;
   bonus_claimed_today?: boolean;
+  plan?: string | null;
+  /** Monthly and yearly plans only; null for lifetime */
+  plan_renews_at?: string | null;
 };
 
 export type McpPrice = { tool: string; label: string; cost: number; is_write: boolean; sort: number };

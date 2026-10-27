@@ -2,6 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthInfo, CallToolResult } from '@modelcontextprotocol/server';
 import { userClient } from './auth';
+import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from './config';
 import { localDate, safeTz, shortDateLabel } from './time';
 
 export type ToolName =
@@ -39,7 +40,14 @@ type BeginCall =
       resets_at: string;
       timezone: string;
     }
-  | { ok: false; code: string; balance?: number; resets_at?: string; daily_bonus?: number };
+  | {
+      ok: false;
+      code: string;
+      balance?: number;
+      resets_at?: string;
+      daily_bonus?: number;
+      monthly_credits?: number;
+    };
 
 export const MSG = {
   signin: "Please reconnect Focalyst: sign-in has expired or isn't valid.",
@@ -78,21 +86,22 @@ export function errorResult(msg: string): CallToolResult {
   return { content: [{ type: 'text', text: msg }], isError: true };
 }
 
-async function noCreditsMessage(sb: SupabaseClient, userId: string, b: { resets_at?: string }) {
-  let monthly = 2000;
+async function noCreditsMessage(
+  sb: SupabaseClient,
+  userId: string,
+  b: { resets_at?: string; monthly_credits?: number; daily_bonus?: number }
+) {
+  const monthly = typeof b.monthly_credits === 'number' ? b.monthly_credits : MCP_PRO_MONTHLY_CREDITS;
+  const bonus = typeof b.daily_bonus === 'number' ? b.daily_bonus : MCP_DAILY_BONUS;
   let tz = 'Asia/Kolkata';
   try {
-    const [cfg, user] = await Promise.all([
-      sb.from('mcp_config').select('monthly_credits').limit(1).maybeSingle(),
-      sb.from('users').select('timezone').eq('id', userId).maybeSingle(),
-    ]);
-    if (typeof cfg.data?.monthly_credits === 'number') monthly = cfg.data.monthly_credits;
+    const user = await sb.from('users').select('timezone').eq('id', userId).maybeSingle();
     tz = safeTz(user.data?.timezone);
   } catch {
-    // fall back to defaults
+    // fall back to the default timezone
   }
   const when = b.resets_at ? shortDateLabel(b.resets_at, tz) : 'the next refill date';
-  return `You've used all your Focalyst MCP credits for now. They refill to ${monthly.toLocaleString('en-US')} on ${when}. Opening Focalyst each day adds 10 bonus credits.`;
+  return `You've used all your Focalyst MCP credits for now. They refill to ${monthly.toLocaleString('en-US')} on ${when}. Opening Focalyst each day adds ${bonus} bonus credits.`;
 }
 
 async function messageFor(sb: SupabaseClient, userId: string, b: Extract<BeginCall, { ok: false }>) {
