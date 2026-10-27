@@ -3,17 +3,10 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
-import { Skeleton } from '@/components/desktop/ui/Skeleton';
 import { useAuth } from '@/context/AuthContext';
 import { FAQ } from '@/content/faq';
-
-const KitWaitlist = dynamic(() => import('@/components/desktop/mcp/KitWaitlist'), {
-  ssr: false,
-  loading: () => <Skeleton className="h-12 w-full max-w-[500px] rounded-xl" />,
-});
 
 export default function LandingClient() {
   const router = useRouter();
@@ -338,12 +331,16 @@ export default function LandingClient() {
           </h2>
 
           <p className="mx-auto mt-3 max-w-[540px] text-[14.5px] sm:text-[16px] leading-[1.6] text-[#A3ADC8]">
-            Connect your habits, tasks and focus sessions to the AI assistants
-            you already use.
+            Connect Claude, ChatGPT or Gemini to your tasks, habits, focus and notes. Included with Pro.
           </p>
 
-          <div className="mx-auto mt-7 max-w-[500px]">
-            <KitWaitlist />
+          <div className="mt-7 flex justify-center">
+            <Link
+              href="/mcp-preview"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-snow/80 bg-snow/15 px-7 text-[15px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.37)] transition-all hover:bg-snow hover:text-[#05070F] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
+            >
+              See how it works
+            </Link>
           </div>
         </div>
 

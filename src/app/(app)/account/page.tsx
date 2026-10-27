@@ -22,6 +22,7 @@ import {
     DiamondIcon,
     UserAccountIcon
 } from '@/components/icons'
+import { Plug } from 'lucide-react';
 import { User } from '@/types';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import DesktopSettingsView from '@/components/desktop/settings/DesktopSettingsView';
@@ -410,6 +411,19 @@ export default function AccountPage() {
                             </div>
                         </div>
                         <DarkModeToggle />
+                    </div>
+                </div>
+
+                {/* AI connections */}
+                <div className="w-full mt-8">
+                    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-card-bg/30 dark:border-slate-800 transition-colors duration-300">
+                        <Link href="/settings?tab=connections" className="flex items-center justify-between p-4 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300 cursor-pointer">
+                            <span className="flex items-center gap-3">
+                                <Plug className="h-[18px] w-[18px] text-navy dark:text-slate-300" aria-hidden />
+                                <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">AI connections</span>
+                            </span>
+                            <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+                        </Link>
                     </div>
                 </div>
 
