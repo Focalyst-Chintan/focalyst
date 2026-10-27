@@ -13,6 +13,7 @@ import {
   Loader2,
   Trash2,
   ExternalLink,
+  Plug,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase';
 import { emitDataChanged } from '@/lib/events';
@@ -24,8 +25,9 @@ import { useToast } from '@/components/desktop/ui/Toast';
 import { openBillingPortal } from '@/lib/billing/checkout';
 import { useCurrency, PRICES } from '@/lib/billing/useCurrency';
 import { useRestorePurchase } from '@/lib/billing/useRestorePurchase';
+import ConnectionsSection from '@/components/desktop/settings/connections/ConnectionsSection';
 
-type Tab = 'profile' | 'appearance' | 'notifications' | 'pro' | 'account';
+type Tab = 'profile' | 'appearance' | 'notifications' | 'pro' | 'connections' | 'account';
 
 interface UserData {
   id: string;
@@ -74,7 +76,7 @@ export default function DesktopSettingsView() {
 
   useEffect(() => {
     const tabFromUrl = searchParams.get('tab') as Tab;
-    if (tabFromUrl && ['profile', 'appearance', 'notifications', 'pro', 'account'].includes(tabFromUrl)) {
+    if (tabFromUrl && ['profile', 'appearance', 'notifications', 'pro', 'connections', 'account'].includes(tabFromUrl)) {
       setActiveTab(tabFromUrl);
     }
   }, [searchParams]);
@@ -276,6 +278,7 @@ export default function DesktopSettingsView() {
             { id: 'appearance' as Tab, label: 'Appearance', icon: Palette },
             { id: 'notifications' as Tab, label: 'Notifications', icon: Bell },
             { id: 'pro' as Tab, label: 'Focalyst Pro', icon: Sparkles },
+            { id: 'connections' as Tab, label: 'AI connections', icon: Plug },
             { id: 'account' as Tab, label: 'Account', icon: Shield },
           ].map((item) => {
             const Icon = item.icon;
@@ -534,6 +537,9 @@ export default function DesktopSettingsView() {
               </div>
             </div>
           )}
+
+          {/* AI CONNECTIONS */}
+          {activeTab === 'connections' && <ConnectionsSection />}
 
           {/* TAB 4: FOCALYST PRO */}
           {activeTab === 'pro' && (
