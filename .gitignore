@@ -46,3 +46,6 @@ next-env.d.ts
 .env*
 .git-bin/
 .node/
+
+# written by next dev (agentRules)
+AGENTS.md
