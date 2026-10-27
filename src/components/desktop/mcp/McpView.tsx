@@ -10,14 +10,17 @@ import {
   AppWindow,
   Check,
 } from 'lucide-react';
-import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
 import FaqAccordion from '@/components/desktop/public/FaqAccordion';
+import { useAuth } from '@/context/AuthContext';
+import { isPaidPlan } from '@/lib/featureGates';
+import { MCP_FAQ } from '@/data/faqData';
+import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
 
-interface McpViewProps {
-  defaultEmail?: string;
-  firstName?: string;
-  isSignedIn?: boolean;
-}
+const IS_MOBILE_BUILD = process.env.NEXT_PUBLIC_BUILD_TARGET === 'mobile';
+
+const CREDITS_LINE = `Included with Focalyst Pro: ${MCP_PRO_MONTHLY_CREDITS.toLocaleString('en-US')} MCP credits every month, plus ${MCP_DAILY_BONUS} bonus credits each day you open Focalyst.`;
+
+const WORKS_WITH = ['Claude', 'ChatGPT', 'Gemini', 'Claude Code', 'Cursor'];
 
 const CAPABILITIES = [
   {
@@ -58,42 +61,17 @@ const CAPABILITIES = [
   },
 ];
 
-const MCP_FAQ = [
-  {
-    id: 'mcp-what-is-mcp',
-    question: 'What is MCP?',
-    answer:
-      'MCP, the Model Context Protocol, is an open standard that lets AI assistants connect securely to apps and data sources. It is how your AI assistant will read your Focalyst data.',
-  },
-  {
-    id: 'mcp-which-assistants',
-    question: 'Which AI assistants will work?',
-    answer:
-      'Any assistant that supports MCP connections. That includes ChatGPT, Claude and Gemini where their apps offer MCP support, and more tools are adding it all the time.',
-  },
-  {
-    id: 'mcp-is-it-free',
-    question: 'Is it free?',
-    answer: 'MCP is a Focalyst Pro feature. Anyone can join the waitlist.',
-  },
-  {
-    id: 'mcp-when-launch',
-    question: 'When will it launch?',
-    answer: 'We are building it now. Waitlist members hear first.',
-  },
-];
+/** Pro: connect. Signed-in free: get Pro (not in the phone app). Signed out: start free. */
+function useHeroCta(): { label: string; href: string } | null {
+  const { user, plan, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (!user) return { label: 'Start free', href: '/login?mode=signup' };
+  if (isPaidPlan(plan)) return { label: 'Connect your AI', href: '/settings?tab=connections' };
+  return IS_MOBILE_BUILD ? null : { label: 'Get Pro', href: '/pricing' };
+}
 
-export default function McpView({
-  defaultEmail = '',
-  firstName,
-  isSignedIn = false,
-}: McpViewProps) {
-  const scrollToWaitlist = () => {
-    const el = document.getElementById('mcp-waitlist');
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
+export default function McpView() {
+  const cta = useHeroCta();
 
   return (
     <div className="mx-auto w-full max-w-[1200px] px-4 py-8 sm:px-6">
@@ -102,9 +80,6 @@ export default function McpView({
         <div className="flex flex-wrap items-center justify-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">
             Focalyst Labs
-          </span>
-          <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-[11px] font-semibold text-primary-text">
-            Coming soon
           </span>
           <span className="rounded-full bg-gradient-to-r from-[#0B2CB1] to-[#1951FC] px-2.5 py-0.5 text-[11px] font-semibold text-snow">
             Pro
@@ -119,11 +94,30 @@ export default function McpView({
           Connect your Focalyst data to ChatGPT, Claude, Gemini or any AI assistant you already use, and turn an ordinary chatbot into a productivity coach that actually knows you.
         </p>
 
-        <div id="mcp-waitlist" className="mx-auto mt-8 max-w-[520px] scroll-mt-24">
-          <KitWaitlist defaultEmail={defaultEmail} firstName={firstName} />
-          <p className="mt-2.5 text-[12px] text-ink-3">
-            MCP will be available on Focalyst Pro. Join now for early access.
-          </p>
+        <div className="mx-auto mt-8 flex min-h-[48px] items-center justify-center">
+          {cta && (
+            <Link
+              href={cta.href}
+              className="inline-flex h-12 items-center justify-center rounded-[14px] bg-primary px-6 text-[15px] font-semibold text-snow transition-[transform,background-color] hover:bg-primary-hover hover:-translate-y-0.5 active:translate-y-0"
+            >
+              {cta.label}
+            </Link>
+          )}
+        </div>
+        <p className="mx-auto mt-4 max-w-[520px] text-[13px] leading-[20px] text-ink-3">{CREDITS_LINE}</p>
+
+        <div className="mt-8">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-3">Works with</p>
+          <ul className="mt-3 flex flex-wrap items-center justify-center gap-2">
+            {WORKS_WITH.map((app) => (
+              <li
+                key={app}
+                className="rounded-full border border-line bg-surface-2/60 px-3 py-1 text-[13px] font-medium text-ink-2"
+              >
+                {app}
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
@@ -223,10 +217,10 @@ export default function McpView({
         </p>
       </section>
 
-      {/* How it will work */}
+      {/* How it works */}
       <section className="fx-reveal mx-auto mt-20 max-w-[960px]">
         <h2 className="text-center font-display text-[28px] leading-[34px] text-ink sm:text-[34px]">
-          How it will work
+          How it works
         </h2>
 
         <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
@@ -257,14 +251,14 @@ export default function McpView({
           You stay in control
         </h2>
         <p className="mt-2 text-[15px] text-ink-2">
-          We are designing MCP so that:
+          Focalyst MCP is built so that:
         </p>
 
         <div className="mt-6 space-y-3">
           {[
-            'It is read-only by default. Your AI can look, not change, until you allow it.',
-            'You choose what to share. Connect only the parts of Focalyst you want.',
-            'You can disconnect anytime. One click and the connection is gone.',
+            'You approve every connection yourself, and each one only reaches your own account.',
+            "Your AI can add items only if you allow changes. It can never delete or edit what you've made.",
+            'You can disconnect at any time in Settings → AI connections.',
             'Your data is never sold or used for advertising.',
           ].map((item) => (
             <div key={item} className="frost flex items-center gap-3.5 rounded-[16px] p-4 text-[14px] leading-[22px] text-ink-2">
@@ -285,27 +279,22 @@ export default function McpView({
             Part of Focalyst Pro
           </h2>
           <p className="mt-3 max-w-[620px] text-[15px] leading-[24px] text-snow/90">
-            MCP will be available to Focalyst Pro members. Join the waitlist today and we will email you the moment early access opens.
+            {CREDITS_LINE}
           </p>
-          <p className="mt-2 text-[13px] text-snow/75">
-            Pro starts at $4.99 a month, or ₹99 in India.
-          </p>
+          {!IS_MOBILE_BUILD && (
+            <p className="mt-2 text-[13px] text-snow/75">Pro starts at $4.99 a month, or ₹99 in India.</p>
+          )}
 
-          <div className="mt-6 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={scrollToWaitlist}
-              className="inline-flex h-11 items-center justify-center rounded-[14px] bg-snow px-5 text-[14px] font-semibold text-[#0B2CB1] transition-transform hover:-translate-y-0.5 active:translate-y-0"
-            >
-              Join the waitlist
-            </button>
-            <Link
-              href={isSignedIn ? '/settings?tab=pro' : '/login?mode=signup'}
-              className="inline-flex h-11 items-center justify-center rounded-[14px] border border-snow/30 bg-snow/10 px-5 text-[14px] font-semibold text-snow backdrop-blur-sm transition-colors hover:bg-snow/20"
-            >
-              See Pro plans
-            </Link>
-          </div>
+          {cta && (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                href={cta.href}
+                className="inline-flex h-11 items-center justify-center rounded-[14px] bg-snow px-5 text-[14px] font-semibold text-[#0B2CB1] transition-transform hover:-translate-y-0.5 active:translate-y-0"
+              >
+                {cta.label}
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 

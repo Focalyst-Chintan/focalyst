@@ -17,6 +17,7 @@ import CheckoutIntentRunner from '@/components/billing/CheckoutIntentRunner'
 import { DataEventsBridge } from '@/lib/data/useData'
 import { GlobalToastContainer } from '@/components/desktop/ui/Toast'
 import { OfflineBanner } from '@/components/desktop/ui/OfflineBanner'
+import { useDailyMcpBonus } from '@/hooks/useDailyMcpBonus'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -31,6 +32,7 @@ export default function AppLayout({
     const { user, isLoading } = useAuth()
     const router = useRouter()
     const isDesktop = useIsDesktop()
+    useDailyMcpBonus()
 
     // Guard: fire the redirect exactly once when auth resolves to no-user.
     const didRedirect = useRef(false)

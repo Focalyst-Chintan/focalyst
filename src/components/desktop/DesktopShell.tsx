@@ -504,7 +504,7 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
               collapsed={sidebarCollapsed}
               trailing={
                 <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-text">
-                  Soon
+                  New
                 </span>
               }
             />

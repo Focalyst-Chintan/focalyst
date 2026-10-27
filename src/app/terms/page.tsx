@@ -57,7 +57,7 @@ export default function TermsPage() {
   return (
     <LegalLayout
       title="Terms of Service"
-      lastUpdated="20 October 2026"
+      lastUpdated="27 October 2026"
       shortVersion={SHORT_VERSION}
       toc={TOC}
     >
@@ -161,7 +161,10 @@ export default function TermsPage() {
       <section id="mcp-and-third-party-tools">
         <h2>11. MCP and third-party AI tools</h2>
         <p>
-          When available, MCP is a Pro feature that lets you connect Focalyst to third-party AI assistants you choose. Your use of those assistants is governed by their own terms and privacy policies. You decide what to connect and can disconnect at any time.
+          Focalyst MCP is a Pro feature that lets you connect Focalyst to third-party AI assistants you choose. Your use of those assistants is governed by their own terms and privacy policies. You decide what to connect and can disconnect at any time.
+        </p>
+        <p>
+          Each request an AI assistant makes uses MCP credits. Pro includes a monthly allowance of credits, which refills on your plan&apos;s billing date, and unused credits don&apos;t carry over. Credits have no cash value and can&apos;t be sold, transferred or exchanged for money. Connected apps work only while your Pro plan is active. We may change MCP, its credit allowances or the tools it offers at any time.
         </p>
       </section>
 

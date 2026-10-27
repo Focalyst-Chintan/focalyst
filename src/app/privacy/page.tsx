@@ -22,15 +22,16 @@ const TOC = [
   { id: 'information-we-collect', label: '2. Information we collect' },
   { id: 'how-we-use-information', label: '3. How we use your information' },
   { id: 'how-focalyst-ai-works', label: '4. How Focalyst AI works' },
-  { id: 'who-we-share-data-with', label: '5. Who we share data with' },
-  { id: 'international-transfers', label: '6. International transfers' },
-  { id: 'how-long-we-keep-data', label: '7. How long we keep data' },
-  { id: 'security', label: '8. Security' },
-  { id: 'your-rights', label: '9. Your rights' },
-  { id: 'children', label: '10. Children' },
-  { id: 'cookies-and-local-storage', label: '11. Cookies and local storage' },
-  { id: 'changes-to-this-policy', label: '12. Changes to this policy' },
-  { id: 'contact-and-grievance-officer', label: '13. Contact and grievance officer' },
+  { id: 'connecting-ai-apps', label: '5. Connecting AI apps' },
+  { id: 'who-we-share-data-with', label: '6. Who we share data with' },
+  { id: 'international-transfers', label: '7. International transfers' },
+  { id: 'how-long-we-keep-data', label: '8. How long we keep data' },
+  { id: 'security', label: '9. Security' },
+  { id: 'your-rights', label: '10. Your rights' },
+  { id: 'children', label: '11. Children' },
+  { id: 'cookies-and-local-storage', label: '12. Cookies and local storage' },
+  { id: 'changes-to-this-policy', label: '13. Changes to this policy' },
+  { id: 'contact-and-grievance-officer', label: '14. Contact and grievance officer' },
 ];
 
 const SHORT_VERSION = [
@@ -124,7 +125,7 @@ export default function PrivacyPage() {
   return (
     <LegalLayout
       title="Privacy Policy"
-      lastUpdated="26 October 2026"
+      lastUpdated="27 October 2026"
       shortVersion={SHORT_VERSION}
       toc={TOC}
     >
@@ -197,8 +198,15 @@ export default function PrivacyPage() {
         </p>
       </section>
 
+      <section id="connecting-ai-apps">
+        <h2>5. Connecting AI apps</h2>
+        <p>
+          If you&apos;re on Focalyst Pro, you can connect AI apps such as Claude, ChatGPT or Gemini to your account. When you approve a connection, that app can read your tasks, habits, focus sessions, countdowns and notes, including voice note transcripts and summaries. If you allow changes, it can also add tasks, habits and countdowns, complete tasks and mark habits done. It can&apos;t delete or edit your existing items, or see your payment details or Focalyst AI chats. We share data with the app only when it asks on your behalf. Once shared, the AI provider&apos;s own privacy policy applies. We keep a record of each request (the action, time, app and credits used) to run the credit system and protect your account. You can disconnect an app at any time in Settings → AI connections.
+        </p>
+      </section>
+
       <section id="who-we-share-data-with">
-        <h2>5. Who we share data with</h2>
+        <h2>6. Who we share data with</h2>
         <p>
           We share personal data only with service providers that help us run Focalyst, and only as needed for the purposes in this policy. Each provider handles data under its own privacy policy:
         </p>
@@ -265,14 +273,14 @@ export default function PrivacyPage() {
       </section>
 
       <section id="international-transfers">
-        <h2>6. International transfers</h2>
+        <h2>7. International transfers</h2>
         <p>
           Our providers may store and process data on servers outside India, including in the United States and the European Union. When data leaves India, we rely on providers that apply strong security and contractual protections.
         </p>
       </section>
 
       <section id="how-long-we-keep-data">
-        <h2>7. How long we keep data</h2>
+        <h2>8. How long we keep data</h2>
 
         {/* Desktop / Tablet Table */}
         <div className="frost rounded-[16px] overflow-hidden hidden sm:block mt-6 border border-line">
@@ -310,14 +318,14 @@ export default function PrivacyPage() {
       </section>
 
       <section id="security">
-        <h2>8. Security</h2>
+        <h2>9. Security</h2>
         <p>
           We protect your data with encryption in transit, secure authentication and access controls at the database level. No system is perfectly secure, so please use a strong password and keep your sign-in details private. If we become aware of a breach that affects you, we will notify you and the relevant authorities as the law requires.
         </p>
       </section>
 
       <section id="your-rights">
-        <h2>9. Your rights</h2>
+        <h2>10. Your rights</h2>
         <p>
           Depending on where you live, including under India&apos;s Digital Personal Data Protection Act, 2023 and, for users in the European Economic Area or the United Kingdom, the GDPR, you can:
         </p>
@@ -336,28 +344,28 @@ export default function PrivacyPage() {
       </section>
 
       <section id="children">
-        <h2>10. Children</h2>
+        <h2>11. Children</h2>
         <p>
           Focalyst is not intended for children under 13, and they may not create an account. If you are between 13 and 18, you may use Focalyst only with the consent and supervision of a parent or legal guardian. If you believe a child has given us personal data without proper consent, contact us and we will delete it.
         </p>
       </section>
 
       <section id="cookies-and-local-storage">
-        <h2>11. Cookies and local storage</h2>
+        <h2>12. Cookies and local storage</h2>
         <p>
           We use only what is strictly necessary for Focalyst to work, such as keeping you signed in and remembering your preferences. We do not use advertising cookies, and our analytics are cookieless.
         </p>
       </section>
 
       <section id="changes-to-this-policy">
-        <h2>12. Changes to this policy</h2>
+        <h2>13. Changes to this policy</h2>
         <p>
           We may update this policy as Focalyst evolves. When we make significant changes, we will update the date above and, where appropriate, notify you in the app or by email.
         </p>
       </section>
 
       <section id="contact-and-grievance-officer">
-        <h2>13. Contact and grievance officer</h2>
+        <h2>14. Contact and grievance officer</h2>
         <p>
           Focalyst by Chintan, Kolkata, West Bengal, India<br />
           Email: <a href="mailto:contactfocalyst@gmail.com">contactfocalyst@gmail.com</a><br />

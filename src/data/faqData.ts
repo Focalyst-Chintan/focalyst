@@ -1,3 +1,5 @@
+import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
+
 export interface FaqItem {
   id: string;
   question: string;
@@ -9,6 +11,53 @@ export interface FaqCategory {
   name: string;
   items: FaqItem[];
 }
+
+const fmt = (n: number) => n.toLocaleString('en-US');
+
+/** Shown on /mcp, /mcp-preview and the Help page */
+export const MCP_FAQ: FaqItem[] = [
+  {
+    id: 'mcp-which-apps',
+    question: 'Which AI apps work with Focalyst?',
+    answer:
+      "Claude on every plan, including Free. ChatGPT Business, Enterprise and Edu workspaces; we're preparing a listing in the ChatGPT app directory for every other plan. Gemini for personal Google accounts in the US. Developer tools such as Claude Code and Cursor work too.",
+  },
+  {
+    id: 'mcp-what-can-it-see',
+    question: 'What can my AI see?',
+    answer:
+      "Your tasks, habits, focus sessions, countdowns and notes, including voice note transcripts and summaries. It can't see your payments or your Focalyst AI chats.",
+  },
+  {
+    id: 'mcp-can-it-change',
+    question: 'Can it change my data?',
+    answer:
+      "Only if you allow changes when you connect. It can then add tasks, habits and countdowns, complete tasks and mark habits done. It can never delete or edit what you've already made.",
+  },
+  {
+    id: 'mcp-credits',
+    question: 'What are MCP credits?',
+    answer: `Each request your AI makes uses a few credits. Pro includes ${fmt(MCP_PRO_MONTHLY_CREDITS)} a month, and you get ${MCP_DAILY_BONUS} more on each day you open Focalyst, so up to about ${fmt(MCP_PRO_MONTHLY_CREDITS + 30 * MCP_DAILY_BONUS)} a month. Credits refill on your plan's billing date. Failed requests are refunded, and unused credits don't carry over.`,
+  },
+  {
+    id: 'mcp-access-ends',
+    question: 'When does my AI access end?',
+    answer:
+      'AI connections work while your Pro plan is active. If your plan ends, your connected apps stop working until you renew.',
+  },
+  {
+    id: 'mcp-is-it-safe',
+    question: 'Is my data safe?',
+    answer:
+      "Each connection only reaches your own account, and you approve it yourself. Once your AI reads something, that app's privacy policy applies, so check its settings too.",
+  },
+  {
+    id: 'mcp-disconnect',
+    question: 'How do I disconnect?',
+    answer:
+      'Go to Settings → AI connections and click Disconnect, or remove Focalyst inside your AI app.',
+  },
+];
 
 export const FAQ_CATEGORIES: FaqCategory[] = [
   {
@@ -49,7 +98,7 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
         id: 'what-is-in-pro',
         question: 'What do I get with Pro?',
         answer:
-          'Pro gives you more habits, notes and voice notes; higher daily limits for Focalyst AI (Free includes 5 messages a day); your productivity score; the detailed weekly Catalyst Report on your strengths and weaknesses; custom focus timers and every preset (Free uses 25 and 5 only); up to 3 countdowns (Free includes 1); and MCP, to connect Focalyst to your favourite AI assistant, when it launches.',
+          'Pro gives you more habits, notes and voice notes; higher daily limits for Focalyst AI (Free includes 5 messages a day); your productivity score; the detailed weekly Catalyst Report on your strengths and weaknesses; custom focus timers and every preset (Free uses 25 and 5 only); up to 3 countdowns (Free includes 1); and Focalyst MCP, to connect your Focalyst data to Claude, ChatGPT and Gemini.',
       },
       {
         id: 'pro-cost',
@@ -190,6 +239,11 @@ export const FAQ_CATEGORIES: FaqCategory[] = [
           'Open Plan, go to Habits, and in Accountability open the menu next to the group, then choose Leave group.',
       },
     ],
+  },
+  {
+    id: 'ai-connections',
+    name: 'AI connections (MCP)',
+    items: MCP_FAQ,
   },
   {
     id: 'account-and-data',

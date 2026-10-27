@@ -260,6 +260,17 @@ export function CommandPalette({
                 </div>
               </Command.Item>
               <Command.Item
+                value="AI connections"
+                keywords={['mcp', 'claude', 'chatgpt', 'gemini', 'connector']}
+                onSelect={() => runCommand(() => router.push('/settings?tab=connections'))}
+                className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <Plug className="w-4 h-4 text-ink-2" />
+                  <span>AI connections</span>
+                </div>
+              </Command.Item>
+              <Command.Item
                 value="Settings"
                 onSelect={() => runCommand(() => router.push('/settings'))}
                 className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
