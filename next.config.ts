@@ -50,6 +50,13 @@ const nextConfig: NextConfig = {
   images: {
     unoptimized: true,
   },
+  async rewrites() {
+    if (isMobile) return [];
+    return [
+      { source: '/.well-known/oauth-protected-resource', destination: '/api/mcp/well-known' },
+      { source: '/.well-known/oauth-protected-resource/:path*', destination: '/api/mcp/well-known' },
+    ];
+  },
   async headers() {
     if (isMobile) return [];
     return [
