@@ -553,6 +553,18 @@ function LoginContent() {
                   </div>
                 )}
 
+                {/* Forgot password link under password field */}
+                {mode === 'login' && (
+                  <div className="flex justify-end -mt-1">
+                    <Link
+                      href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+                      className="text-xs text-ink-2 hover:text-ink hover:underline transition-colors cursor-pointer"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                )}
+
                 {/* Inline account exists mismatch (TASK 1.2.c) */}
                 {existingAccountMismatch && (
                   <div className="rounded-[14px] bg-surface-2 border border-line p-3.5 space-y-2 text-left">
@@ -570,16 +582,12 @@ function LoginContent() {
                       >
                         Log in
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExistingAccountMismatch(false);
-                          handleTriggerResetPassword(email);
-                        }}
-                        className="h-8 px-3 rounded-[10px] bg-surface border border-line text-ink text-[13px] font-medium hover:bg-surface-3 transition-colors cursor-pointer"
+                      <Link
+                        href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+                        className="h-8 px-3 rounded-[10px] bg-surface border border-line text-ink text-[13px] font-medium hover:bg-surface-3 transition-colors inline-flex items-center justify-center cursor-pointer"
                       >
                         Reset password
-                      </button>
+                      </Link>
                     </div>
                   </div>
                 )}
@@ -588,13 +596,12 @@ function LoginContent() {
                 {loginInvalidCreds && (
                   <div role="alert" className="text-[13px] text-center pt-1 text-danger">
                     <span>That email and password do not match. Try again or </span>
-                    <button
-                      type="button"
-                      onClick={() => handleTriggerResetPassword(email)}
+                    <Link
+                      href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
                       className="underline hover:text-ink font-medium cursor-pointer"
                     >
                       reset your password
-                    </button>
+                    </Link>
                     .
                   </div>
                 )}
@@ -918,6 +925,17 @@ function LoginContent() {
                             )}
                           </button>
                         </div>
+                        {/* Forgot password link under password field */}
+                        {mode === 'login' && (
+                          <div className="flex justify-end pt-1">
+                            <Link
+                              href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+                              className="text-[13px] text-ink-2 hover:text-ink hover:underline transition-colors cursor-pointer"
+                            >
+                              Forgot password?
+                            </Link>
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -938,16 +956,12 @@ function LoginContent() {
                           >
                             Log in
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setExistingAccountMismatch(false);
-                              handleTriggerResetPassword(email);
-                            }}
-                            className="h-8 px-3 rounded-[10px] bg-surface border border-line text-ink text-[13px] font-medium hover:bg-surface-3 transition-colors cursor-pointer"
+                          <Link
+                            href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
+                            className="h-8 px-3 rounded-[10px] bg-surface border border-line text-ink text-[13px] font-medium hover:bg-surface-3 transition-colors inline-flex items-center justify-center cursor-pointer"
                           >
                             Reset password
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     )}
@@ -956,13 +970,12 @@ function LoginContent() {
                     {loginInvalidCreds && (
                       <div role="alert" className="text-[13px] text-center pt-1 text-danger">
                         <span>That email and password do not match. Try again or </span>
-                        <button
-                          type="button"
-                          onClick={() => handleTriggerResetPassword(email)}
+                        <Link
+                          href={email.trim() ? `/forgot-password?email=${encodeURIComponent(email.trim())}` : '/forgot-password'}
                           className="underline hover:text-ink font-medium cursor-pointer"
                         >
                           reset your password
-                        </button>
+                        </Link>
                         .
                       </div>
                     )}

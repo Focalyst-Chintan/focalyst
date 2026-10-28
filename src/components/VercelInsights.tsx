@@ -4,7 +4,7 @@ import { SpeedInsights } from '@vercel/speed-insights/next';
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 const KEEP_PARAMS = new Set(['utm_source', 'utm_medium', 'utm_campaign', 'ref']);
-const SKIP_PATHS = ['/auth', '/login/callback', '/reset-password', '/api'];
+const SKIP_PATHS = ['/auth', '/login/callback', '/reset-password', '/forgot-password', '/api'];
 
 function scrub(raw: string): string | null {
   try {
