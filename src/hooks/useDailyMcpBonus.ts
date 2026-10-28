@@ -27,9 +27,10 @@ export function useDailyMcpBonus() {
       return;
     }
 
-    // The database allows one claim a day, so a repeated call just returns already_claimed
+    // One grant per day in total across the website and the phone app; the database decides.
+    // A repeated call (or one after the phone app already claimed) returns granted: false.
     const claim = async () => {
-      const { data, error } = await createClient().rpc('mcp_claim_daily_bonus');
+      const { data, error } = await createClient().rpc('claim_daily_mcp_bonus');
       // Network or server error: try again on the next visit
       if (error || !data) return;
       try {
@@ -37,8 +38,8 @@ export function useDailyMcpBonus() {
       } catch {
         // storage unavailable
       }
-      const res = data as { claimed?: boolean; amount?: number };
-      if (!res.claimed) return;
+      const res = data as { granted?: boolean; amount?: number };
+      if (!res.granted) return;
       show(`+${res.amount ?? MCP_DAILY_BONUS} MCP credits added for opening Focalyst today`, 'success');
       mutate((k) => typeof k === 'string' && (k.startsWith('mcp:credits:') || k.startsWith('mcp:activity:')));
     };
