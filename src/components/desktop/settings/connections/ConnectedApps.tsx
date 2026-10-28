@@ -55,19 +55,31 @@ function AppRow({ app, onChanged }: { app: McpConnectedApp; onChanged: () => voi
     .join(' · ');
 
   return (
-    <li className="flex flex-wrap items-center gap-4 rounded-[16px] bg-surface-2/60 p-4">
-      <AppIcon name={app.name} host={app.host} logo={app.logo} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[14px] font-semibold text-ink">{app.name}</p>
-        <p className="mt-0.5 text-[12px] text-ink-3">{meta}</p>
+    <li className="flex flex-col gap-3 rounded-[16px] bg-surface-2/60 p-4 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex items-center justify-between gap-3 sm:contents">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <AppIcon name={app.name} host={app.host} logo={app.logo} />
+          <div className="min-w-0">
+            <p className="font-semibold text-[14px] text-ink whitespace-nowrap">{app.name}</p>
+            <p className="hidden sm:block mt-0.5 text-[12px] text-ink-3">{meta}</p>
+          </div>
+        </div>
+        <div className="sm:hidden">
+          <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>
+            Disconnect
+          </Button>
+        </div>
       </div>
-      <label className="flex items-center gap-2.5 text-[13px] text-ink-2">
+      <p className="text-[12px] leading-relaxed text-ink-3 sm:hidden">{meta}</p>
+      <label className="flex items-center justify-between border-t border-line pt-3 text-[13px] text-ink-2 sm:border-0 sm:pt-0 sm:ml-auto sm:gap-2.5 cursor-pointer">
         <span>Can make changes</span>
-        <Switch checked={allow} onChange={toggle} aria-label={`${app.name} can make changes`} />
+        <Switch checked={allow} onChange={toggle} aria-label={`Allow ${app.name} to make changes`} />
       </label>
-      <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>
-        Disconnect
-      </Button>
+      <div className="hidden sm:block">
+        <Button variant="secondary" size="sm" onClick={() => setConfirming(true)}>
+          Disconnect
+        </Button>
+      </div>
 
       <Modal
         isOpen={confirming}

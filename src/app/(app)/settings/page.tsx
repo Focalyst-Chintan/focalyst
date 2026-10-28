@@ -20,7 +20,7 @@ function SettingsRouter() {
   // Phones and tablets under 1024px: AI connections is its own page, one column, full width
   if (isDesktop === false && searchParams.get('tab') === 'connections') {
     return (
-      <div className="w-full px-4 pt-6 pb-10 sm:px-6">
+      <div className="w-full max-w-full overflow-x-hidden px-4 pt-6 pb-10 sm:px-6">
         <Link
           href="/account"
           className="mb-5 inline-flex items-center gap-1 text-[14px] font-medium text-navy dark:text-slate-200"

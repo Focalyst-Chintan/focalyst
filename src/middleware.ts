@@ -51,6 +51,7 @@ export async function middleware(request: NextRequest) {
         pathname.startsWith('/notes') ||
         pathname.startsWith('/insights') ||
         pathname.startsWith('/account') ||
+        pathname.startsWith('/settings') ||
         pathname.startsWith('/paywall')
 
     // Auth routes (login)

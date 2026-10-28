@@ -26,9 +26,9 @@ export function CopyField({ value, label = 'Copy', className = '' }: CopyFieldPr
 
   return (
     <div
-      className={`flex h-11 min-w-0 items-center gap-2 rounded-[12px] border border-line bg-surface-2/70 pl-3.5 pr-1.5 ${className}`}
+      className={`flex min-h-11 h-auto min-w-0 items-center gap-2 rounded-[12px] border border-line bg-surface-2/70 py-1.5 pl-3.5 pr-1.5 sm:h-11 sm:py-0 ${className}`}
     >
-      <code className="min-w-0 flex-1 truncate font-mono text-[13px] text-ink" title={value}>
+      <code className="min-w-0 flex-1 font-mono text-[13px] text-ink break-all select-all sm:break-normal sm:truncate" title={value}>
         {value}
       </code>
       <button
