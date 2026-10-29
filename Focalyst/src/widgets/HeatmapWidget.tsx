@@ -48,7 +48,7 @@ const HeatmapWidget = (props: HeatmapWidgetProps, env?: WidgetEnv) => {
   const cols = [0, 1, 2, 3, 4, 5, 6];
 
   return (
-    <VStack modifiers={[padding({ all: 11 }), ...(tinted ? [] : [background(t.bg)])]}>
+    <VStack modifiers={[padding({ all: 11 })]}>
       <HStack modifiers={[padding({ horizontal: 8, vertical: 4 }), background(t.headerBg), cornerRadius(8)]}>
         {hasMultiple ? (
           <Button

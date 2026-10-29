@@ -50,7 +50,7 @@ const CountdownWidget = (props: CountdownWidgetProps, env?: WidgetEnv) => {
   ];
 
   return (
-    <VStack modifiers={[padding({ all: 10 }), ...(tinted ? [] : [background(p.bg)])]}>
+    <VStack modifiers={[padding({ all: 10 })]}>
       <VStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.glowBand), cornerRadius(8)]}>
         <HStack>
           <Text modifiers={[font({ size: 10, weight: 'bold' }), foregroundStyle(p.muted)]}>

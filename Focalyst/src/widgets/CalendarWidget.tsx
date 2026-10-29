@@ -161,7 +161,7 @@ const CalendarWidget = (props: CalendarWidgetProps, env?: WidgetEnv) => {
   const maxChars = isMedium ? 28 : 14;
 
   return (
-    <VStack modifiers={[padding({ all: 12 }), ...(tinted ? [] : [background(p.bg)])]}>
+    <VStack modifiers={[padding({ all: 12 })]}>
       {/* Flush-Left Weekday + Date Number (Each row has its own HStack + Spacer so "28" never centers under "WEDNESDAY") */}
       <VStack modifiers={[padding({ leading: 2 })]}>
         <HStack>

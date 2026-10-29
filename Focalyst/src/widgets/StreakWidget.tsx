@@ -40,7 +40,7 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
   const fillWidth = Math.max(18, Math.min(120, Math.round((props.streakDays / goal) * 120)));
 
   return (
-    <VStack modifiers={[padding({ all: 12 }), ...(tinted ? [] : [background(p.outerBg)])]}>
+    <VStack modifiers={[padding({ all: 12 })]}>
       <HStack modifiers={[padding({ horizontal: 8, vertical: 6 }), background(p.glowBand), cornerRadius(10)]}>
         <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.text)]}>
           {`🔥 ${props.habitName}`}

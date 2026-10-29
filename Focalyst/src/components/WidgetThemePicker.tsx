@@ -26,6 +26,15 @@ const PRESETS: {
   { id: 'amber', label: 'Amber Gold', sub: 'Morning Sun', topGlow: '#6B420D', bg: '#170F04', accent: '#F59E0B' },
 ];
 
+// Theme cards show their own background, so their text must contrast with it (Pure White is light).
+const isLightHex = (hex: string) => {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 0xff;
+  const g = (n >> 8) & 0xff;
+  const b = n & 0xff;
+  return 0.299 * r + 0.587 * g + 0.114 * b > 160;
+};
+
 export const WidgetThemePicker: React.FC = () => {
   const systemScheme = useColorScheme() === 'light' ? 'light' : 'dark';
   const [payload, setPayload] = useState(getWidgetPayload());
@@ -72,6 +81,7 @@ export const WidgetThemePicker: React.FC = () => {
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.swatchScroll}>
         {PRESETS.map((item) => {
           const selected = payload.preset === item.id;
+          const lightCard = isLightHex(item.bg);
           return (
             <TouchableOpacity
               key={item.id}
@@ -84,15 +94,15 @@ export const WidgetThemePicker: React.FC = () => {
               <View style={[styles.swatchGlow, { backgroundColor: item.topGlow }]}>
                 <View style={[styles.swatchDot, { backgroundColor: item.accent }]} />
               </View>
-              <Text style={styles.swatchTitle}>{item.label}</Text>
-              <Text style={styles.swatchSub}>{item.sub}</Text>
+              <Text style={[styles.swatchTitle, lightCard && { color: '#090A0F' }]}>{item.label}</Text>
+              <Text style={[styles.swatchSub, lightCard && { color: '#475569' }]}>{item.sub}</Text>
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
       {/* Live Interactive Widget Previews */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.previewScroll}>
+      <View style={styles.previewGrid}>
         {/* 1. Streak Widget */}
         <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
@@ -293,7 +303,7 @@ export const WidgetThemePicker: React.FC = () => {
               </View>
             );
           })()}
-        </ScrollView>
+        </View>
       </View>
     );
   };
@@ -341,13 +351,14 @@ const styles = StyleSheet.create({
   swatchDot: { width: 9, height: 9, borderRadius: 5 },
   swatchTitle: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   swatchSub: { color: '#94A3B8', fontSize: 9, marginTop: 1 },
-  previewScroll: { flexDirection: 'row' },
+  // Two columns; every preview is a small widget, so each takes one square cell.
+  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   widgetBox: {
-    width: 152,
-    height: 152,
+    flexGrow: 1,
+    flexBasis: '40%',
+    aspectRatio: 1,
     borderRadius: 22,
     padding: 12,
-    marginRight: 12,
     justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: '#1E293B',

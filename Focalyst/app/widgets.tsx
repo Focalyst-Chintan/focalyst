@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WidgetThemePicker } from '../src/components/WidgetThemePicker';
 
 export const WIDGETS_ENABLED_KEY = '@focalyst_widgets_enabled';
 
 export default function WidgetsScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export default function WidgetsScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
         <View style={styles.toggleCard}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.toggleTitle}>Enable Home Screen Widgets</Text>

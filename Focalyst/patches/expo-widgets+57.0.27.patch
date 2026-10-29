@@ -152,10 +152,10 @@ index 972fa4f..bc9c77d 100644
      }
  
 diff --git a/node_modules/expo-widgets/ios/Widgets/EntryView.swift b/node_modules/expo-widgets/ios/Widgets/EntryView.swift
-index 946b66d..31071a4 100644
+index 946b66d..da6db03 100644
 --- a/node_modules/expo-widgets/ios/Widgets/EntryView.swift
 +++ b/node_modules/expo-widgets/ios/Widgets/EntryView.swift
-@@ -25,12 +25,28 @@ public struct WidgetsEntryView: View {
+@@ -25,12 +25,17 @@ public struct WidgetsEntryView: View {
    }
  
    public var body: some View {
@@ -163,6 +163,8 @@ index 946b66d..31071a4 100644
 -       !layout.isEmpty {
 -      let node = evaluateLayout(layout: layout, props: entry.props ?? [:], environment: widgetEnvironment)
 -      WidgetsDynamicView(name: entry.name, kind: .widget, node: node, entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
+-    } else {
+-      WidgetsDynamicView(name: entry.name, kind: .widget, node: createRedBox(message: "No layout found for \(WidgetsStorage.appGroupIdentifier ?? "")::\(entry.name)"), entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
 +    let content = Group {
 +      if let layout = WidgetsStorage.getString(forKey: "__expo_widgets_\(entry.name)_layout"),
 +         !layout.isEmpty {
@@ -171,22 +173,10 @@ index 946b66d..31071a4 100644
 +      } else {
 +        WidgetsDynamicView(name: entry.name, kind: .widget, node: createRedBox(message: "No layout found for \(WidgetsStorage.appGroupIdentifier ?? "")::\(entry.name)"), entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
 +      }
-+    }
-+    .frame(maxWidth: .infinity, maxHeight: .infinity)
-+    .focalystWidgetBackground(Color(red: 0.035, green: 0.04, blue: 0.06))
-+  }
-+}
-+
-+public extension View {
-+  /// Hands the background to the system so it can drop it in the accented (Tinted / Clear) modes.
-+  /// A plain `.background` stays opaque there and the widget turns into a solid tile.
-+  @ViewBuilder func focalystWidgetBackground<B: View>(_ background: B) -> some View {
-+    if #available(iOS 17.0, *) {
-+      self.containerBackground(for: .widget) { background }
-     } else {
--      WidgetsDynamicView(name: entry.name, kind: .widget, node: createRedBox(message: "No layout found for \(WidgetsStorage.appGroupIdentifier ?? "")::\(entry.name)"), entryIndex: entry.entryIndex, environmentString: widgetEnvironmentString)
-+      self.background(background)
      }
++    // No background here: each widget's configuration closure declares it on its top-level view
++    // (focalystWidgetBackground in the widget extension's index.swift).
++    return content.frame(maxWidth: .infinity, maxHeight: .infinity)
    }
  }
 diff --git a/node_modules/expo-widgets/ios/Widgets/Utils.swift b/node_modules/expo-widgets/ios/Widgets/Utils.swift
@@ -237,10 +227,76 @@ index 050c3e0..81b1218 100644
      return try ActivityBackgroundTintModifier(from: params, appContext: appContext)
    }
 diff --git a/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js b/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
-index d1b5da9..0a518c1 100644
+index d1b5da9..64d9462 100644
 --- a/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
 +++ b/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
-@@ -180,12 +180,22 @@ struct ${widget.name}: Widget {
+@@ -107,6 +107,57 @@ const withWidgetSourceFiles = (config, { widgets, targetName, onFilesGenerated,
+         },
+     ]);
+ };
++// Lives in the widget extension target. iOS 17+ shows "Please adopt containerBackground API" unless
++// every widget's top-level view declares its background this way.
++const focalystBackgroundSwift = `
++
++extension View {
++  @ViewBuilder func focalystWidgetBackground<B: View>(_ background: B) -> some View {
++    if #available(iOSApplicationExtension 17.0, *) {
++      self.containerBackground(for: .widget) { background }
++    } else {
++      self.background(background)
++    }
++  }
++}
++
++/// The selected widget theme's background. Same colours the widgets in src/widgets used to paint
++/// on their root view; the system drops it in the accented (Tinted / Clear) modes.
++struct FocalystThemeBackground: View {
++  let widget: String
++  let props: [String: Any]?
++  @Environment(\\.colorScheme) private var colorScheme
++
++  var body: some View {
++    let hex = backgroundHex
++    return Color(
++      red: Double((hex >> 16) & 0xFF) / 255,
++      green: Double((hex >> 8) & 0xFF) / 255,
++      blue: Double(hex & 0xFF) / 255
++    )
++  }
++
++  private var backgroundHex: UInt32 {
++    let fallback: String
++    switch widget {
++    case "StreakWidget": fallback = "ember"
++    case "CountdownWidget": fallback = "emerald"
++    default: fallback = "cobalt"
++    }
++    let preset = (props?["preset"] as? String) ?? fallback
++    if preset == "white" || (preset == "monochrome" && colorScheme != .dark) {
++      return widget == "CalendarWidget" ? 0xFFFFFF : 0xF8FAFC
++    }
++    if preset == "monochrome" {
++      return 0x090A0F
++    }
++    let palette: [String: UInt32] = widget == "HeatmapWidget"
++      ? ["ember": 0x140703, "cobalt": 0x060C1A, "emerald": 0x04120D, "violet": 0x0A0517, "crimson": 0x160408, "amber": 0x140D03]
++      : ["ember": 0x160804, "cobalt": 0x060D1F, "emerald": 0x05140F, "violet": 0x0C061C, "crimson": 0x190509, "amber": 0x170F04]
++    return palette[preset] ?? palette[fallback] ?? 0x090A0F
++  }
++}
++`;
+ const createIndexSwift = (widgets, targetPath) => {
+     const indexFilePath = path.join(targetPath, `index.swift`);
+     const numberOfWidgets = widgets.length;
+@@ -127,6 +178,7 @@ internal import ExpoWidgets
+     else {
+         output += addIndexSwiftChunk([], 0, true);
+     }
++    output += focalystBackgroundSwift;
+     fs.writeFileSync(indexFilePath, output);
+     return indexFilePath;
+ };
+@@ -180,12 +232,22 @@ struct ${widget.name}: Widget {
    let name: String = "${widget.name}"
  
    var body: some WidgetConfiguration {
@@ -251,7 +307,7 @@ index d1b5da9..0a518c1 100644
 +        .frame(maxWidth: .infinity, maxHeight: .infinity)
 +${widget.name === 'PomodoroWidget' ? '\n        .widgetURL(URL(string: "focalyst://focus?action=\\(action)"))' : widget.name === 'CalendarWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=calendar"))' : widget.name === 'CountdownWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=countdown"))' : ''}
 +
-+      view.focalystWidgetBackground(Color(red: 0.035, green: 0.04, blue: 0.06))
++      view.focalystWidgetBackground(FocalystThemeBackground(widget: name, props: entry.props))
      }
      .configurationDisplayName(${JSON.stringify(widget.displayName)})
      .description(${JSON.stringify(widget.description)})
@@ -266,3 +322,11 @@ index d1b5da9..0a518c1 100644
    }
  }`;
      return `import WidgetKit
+@@ -341,6 +403,7 @@ struct ${widget.name}: Widget {
+   var body: some WidgetConfiguration {
+     return AppIntentConfiguration(kind: name, intent: ${widget.name}ConfigurationAppIntent.self, provider: ${widget.name}TimelineProvider()) { entry in
+       ${widget.name}EntryView(entry: entry)
++        .focalystWidgetBackground(Color(red: 0.035, green: 0.04, blue: 0.06))
+     }
+     .configurationDisplayName(${JSON.stringify(widget.displayName)})
+     .description(${JSON.stringify(widget.description)})

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { Animated, Easing, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { cardShadow, type, useBlockingTheme, useReduceMotion } from '../../constants/blockingTheme';
@@ -109,6 +109,7 @@ export function SessionSummaryModal({
   onClose: () => void;
 }) {
   const { c, isDark } = useBlockingTheme();
+  const insets = useSafeAreaInsets();
   const { isPro } = useBlocking();
   const quick = record.kind === 'quick';
   const [history, setHistory] = useState<BlockingSessionRecord[]>([record]);
@@ -136,7 +137,8 @@ export function SessionSummaryModal({
 
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+      {/* SafeAreaView reports no insets inside a full-screen Modal, so pad with the hook's insets. */}
+      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={{ alignItems: 'center', marginTop: 24 }}>
             <ProgressRing {...RING_SIZES.summary} progress={1} animateIn>
@@ -274,18 +276,18 @@ export function SessionSummaryModal({
           )}
         </ScrollView>
 
-        <View style={styles.footer}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
           <PrimaryButton label="Start next session" onPress={onStartNext} />
           <TextButton label="View in Insights" onPress={onViewInsights} />
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 24 },
+  content: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 24 },
   center: { textAlign: 'center' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 24 },
   tile: {

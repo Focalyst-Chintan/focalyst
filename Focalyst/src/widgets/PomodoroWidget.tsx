@@ -44,7 +44,7 @@ const PomodoroWidget = (props: PomodoroWidgetProps, env?: WidgetEnv) => {
   const formattedTime = `${mins < 10 ? `0${mins}` : mins}:${secs < 10 ? `0${secs}` : secs}`;
 
   return (
-    <VStack modifiers={[padding({ all: 12 }), ...(tinted ? [] : [background(p.bg)])]}>
+    <VStack modifiers={[padding({ all: 12 })]}>
       <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.topGlow), cornerRadius(8)]}>
         <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
           {props.taskLabel || 'Focus'}

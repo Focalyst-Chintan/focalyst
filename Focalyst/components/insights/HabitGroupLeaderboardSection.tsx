@@ -175,7 +175,6 @@ export default function HabitGroupLeaderboardSection({
   const myMember = myIndex >= 0 ? sortedMembers[myIndex] : null;
   const myRank = myIndex >= 0 ? myIndex + 1 : 1;
   const memberCount = sortedMembers.length;
-  const inviteCode = groupData.invite_code || '';
 
   // Determine selected habit for display
   const selectedHabit =
@@ -488,7 +487,7 @@ export default function HabitGroupLeaderboardSection({
                 </View>
               </View>
 
-              {/* 1. Real Streak & Total Days Top Status Card with Clickable Share Code Pill */}
+              {/* 1. Real Streak & Total Days Top Status Card (the group code stays in the pop-up only) */}
               <View
                 style={[
                   styles.modalRankSummaryCard,
@@ -510,33 +509,6 @@ export default function HabitGroupLeaderboardSection({
                     >
                       {groupData.in_group ? 'ACTIVE GROUP' : 'READY TO COMPETE'}
                     </Text>
-                    {!isCapturingShareImage && groupData.in_group && inviteCode && inviteCode !== '------' && (
-                      <TouchableOpacity
-                        activeOpacity={0.75}
-                        onPress={() => setShowFormModal(true)}
-                        style={[
-                          styles.inlineCodePill,
-                          {
-                            backgroundColor: isDark ? 'rgba(43, 107, 255, 0.22)' : '#EFF6FF',
-                            borderColor: isDark ? '#2B6BFF' : '#93C5FD',
-                          },
-                        ]}
-                      >
-                        <Ionicons
-                          name="key-outline"
-                          size={11}
-                          color={isDark ? '#60A5FA' : '#2563EB'}
-                        />
-                        <Text
-                          style={[
-                            styles.inlineCodePillText,
-                            { color: isDark ? '#93C5FD' : '#2563EB' },
-                          ]}
-                        >
-                          Code: {inviteCode}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
                   </View>
 
                   <Text
@@ -1013,7 +985,7 @@ export default function HabitGroupLeaderboardSection({
                     >
                       <Ionicons name="share-social-outline" size={16} color="#FFFFFF" />
                       <Text numberOfLines={1} style={styles.shareCodeActionText}>
-                        Share Code ({inviteCode || 'Pod'})
+                        Share code
                       </Text>
                     </TouchableOpacity>
 

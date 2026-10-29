@@ -12,6 +12,7 @@ import {
   UIManager,
   View,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   dismissReviewPromptForLater,
   getReviewModalState,
@@ -67,10 +68,10 @@ const POSITIVE_PRESETS: PositivePreset[] = [
   },
 ];
 
-function getMilestoneContext(type: MilestoneActionType | null): string {
-  if (type === 'habit') return 'First habit logged • Consistency unlocked';
-  if (type === 'focus') return 'First focus session • Deep work unlocked';
-  return 'First task completed • Momentum unlocked';
+function getMilestoneContext(type: MilestoneActionType | null): { milestone: string; unlocked: string } {
+  if (type === 'habit') return { milestone: 'First habit logged', unlocked: 'Consistency unlocked' };
+  if (type === 'focus') return { milestone: 'First focus session', unlocked: 'Deep work unlocked' };
+  return { milestone: 'First task completed', unlocked: 'Momentum unlocked' };
 }
 
 export const AppReviewModal: React.FC<{
@@ -104,6 +105,7 @@ export const AppReviewModal: React.FC<{
   }
 
   const isExpanded = selectedStars > 0;
+  const milestone = getMilestoneContext(trigger.milestoneType);
 
   const handleSelectStar = (star: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -187,48 +189,28 @@ export const AppReviewModal: React.FC<{
               </View>
             ) : (
               <>
-                {/* Top Icon Row */}
-                <View style={styles.topIconRow}>
-                  <View style={styles.iconTile}>
-                    <Text style={styles.iconTileStar}>★</Text>
-                  </View>
-                  <View style={styles.milestonePill}>
-                    <Text style={styles.milestonePillText}>
-                      {getMilestoneContext(trigger.milestoneType)}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Main Heading */}
+                <Text style={styles.milestoneLine}>{milestone.milestone.toUpperCase()}</Text>
                 <Text style={styles.title}>Rate your experience</Text>
+                <Text style={styles.subtitle}>
+                  {`${milestone.unlocked}. How is Focalyst working for you so far?`}
+                </Text>
 
-                {/* Unified 5-Star Pill Track (Gray initially -> Blue when tapped) */}
-                <View
-                  style={[
-                    styles.starTrack,
-                    isExpanded && styles.starTrackActive,
-                  ]}
-                >
+                <View style={styles.starRow}>
                   {[1, 2, 3, 4, 5].map((star) => {
                     const isFilled = star <= selectedStars;
                     return (
                       <TouchableOpacity
                         key={star}
                         activeOpacity={0.75}
+                        accessibilityLabel={`${star} star${star === 1 ? '' : 's'}`}
                         onPress={() => handleSelectStar(star)}
-                        style={[
-                          styles.starTouch,
-                          isFilled && styles.starTouchFilled,
-                        ]}
+                        style={styles.starTouch}
                       >
-                        <Text
-                          style={[
-                            styles.starGlyph,
-                            isFilled && styles.starGlyphFilled,
-                          ]}
-                        >
-                          ★
-                        </Text>
+                        <Ionicons
+                          name={isFilled ? 'star' : 'star-outline'}
+                          size={36}
+                          color={isFilled ? ACCENT_BLUE : SECONDARY_TEXT}
+                        />
                       </TouchableOpacity>
                     );
                   })}
@@ -304,7 +286,7 @@ export const AppReviewModal: React.FC<{
                     onPress={() => void dismissReviewPromptForLater()}
                     style={styles.compactCancelBtn}
                   >
-                    <Text style={styles.compactCancelText}>Cancel</Text>
+                    <Text style={styles.compactCancelText}>Not now</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -315,6 +297,9 @@ export const AppReviewModal: React.FC<{
     </Modal>
   );
 };
+
+const ACCENT_BLUE = '#0A84FF';
+const SECONDARY_TEXT = '#94A3B8';
 
 const styles = StyleSheet.create({
   backdrop: {
@@ -330,7 +315,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#111827',
     borderRadius: 28,
-    padding: 22,
+    padding: 24,
     borderWidth: 1,
     borderColor: '#1E293B',
     shadowColor: '#000',
@@ -339,87 +324,43 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     elevation: 12,
   },
-  topIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  iconTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: '#1E293B',
-    borderWidth: 1,
-    borderColor: 'rgba(59, 130, 246, 0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconTileStar: {
-    color: '#38BDF8',
-    fontSize: 20,
-  },
-  milestonePill: {
-    backgroundColor: 'rgba(10, 132, 255, 0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(10, 132, 255, 0.35)',
-    paddingHorizontal: 11,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  milestonePillText: {
-    color: '#60A5FA',
-    fontSize: 11,
-    fontWeight: '700',
+  milestoneLine: {
+    color: ACCENT_BLUE,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1,
+    marginBottom: 6,
   },
   title: {
     color: '#F8FAFC',
     fontSize: 22,
     fontWeight: '800',
-    marginBottom: 16,
     letterSpacing: -0.3,
   },
-  starTrack: {
+  subtitle: {
+    color: SECONDARY_TEXT,
+    fontSize: 15,
+    lineHeight: 21,
+    marginTop: 6,
+  },
+  starRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#0B0F19',
-    borderRadius: 18,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderWidth: 1,
-    borderColor: '#1E293B',
-  },
-  starTrackActive: {
-    borderColor: 'rgba(10, 132, 255, 0.45)',
-    backgroundColor: '#0D1526',
+    justifyContent: 'space-evenly',
+    marginTop: 20,
   },
   starTouch: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
+    minWidth: 48,
+    minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 2,
-  },
-  starTouchFilled: {
-    backgroundColor: 'rgba(10, 132, 255, 0.16)',
-  },
-  starGlyph: {
-    fontSize: 26,
-    color: '#64748B', // Unselected gray
-  },
-  starGlyphFilled: {
-    color: '#0A84FF', // Active iOS Blue
-    textShadowColor: 'rgba(10, 132, 255, 0.55)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 8,
   },
   compactCancelBtn: {
     marginTop: 16,
+    height: 48,
+    alignSelf: 'stretch',
     backgroundColor: '#1E293B',
     borderRadius: 16,
-    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },

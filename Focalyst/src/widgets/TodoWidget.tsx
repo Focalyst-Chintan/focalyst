@@ -43,7 +43,7 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
   const visibleTasks = pendingTasks.slice(0, 3);
 
   return (
-    <VStack modifiers={[padding({ all: 12 }), ...(tinted ? [] : [background(p.bg)])]}>
+    <VStack modifiers={[padding({ all: 12 })]}>
       {/* Header Bar */}
       <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.headerBand), cornerRadius(8)]}>
         <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
