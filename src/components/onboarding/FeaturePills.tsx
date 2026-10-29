@@ -24,11 +24,8 @@ const PILLS: { label: string; icon: LucideIcon; color: string; light: string; da
   { label: 'Focalyst AI', icon: Sparkles, color: '#818CF8', light: '#C7D2FE', dark: '#3730A3' },
   { label: 'Widgets', icon: LayoutGrid, color: '#2DD4BF', light: '#99F6E4', dark: '#115E59' },
   { label: 'App blocking', icon: ShieldCheck, color: '#F87171', light: '#FECACA', dark: '#991B1B' },
-  { label: 'Claude and ChatGPT', icon: Plug, color: '#CBD5E1', light: '#E2E8F0', dark: '#334155' },
+  { label: 'MCP server', icon: Plug, color: '#CBD5E1', light: '#E2E8F0', dark: '#334155' },
 ];
-
-/** On narrow phones only the first 9 pills show. */
-const NARROW_COUNT = 9;
 
 export function FeaturePills({
   onDark = false, still = false, phone = false, className = '',
@@ -37,7 +34,7 @@ export function FeaturePills({
   onDark?: boolean;
   /** No float (screen 3). */
   still?: boolean;
-  /** Phone above the title: at most 4 rows, the first 9 pills on narrow phones. */
+  /** Phones: above the title, with 8 px of padding so the glow is never clipped. */
   phone?: boolean;
   className?: string;
 }) {
@@ -45,20 +42,20 @@ export function FeaturePills({
     <ul
       role="list"
       aria-label="Focalyst features"
-      className={`ob-pills flex flex-wrap justify-center gap-2.5 ${onDark ? 'ob-pills-dark' : ''} ${phone ? 'ob-pills-phone' : ''} ${className}`}
+      className={`ob-pills flex flex-wrap justify-center gap-2 lg:gap-2.5 ${onDark ? 'ob-pills-dark' : ''} ${phone ? 'p-2' : ''} ${className}`}
     >
       {PILLS.map((p, i) => (
         <li
           key={p.label}
-          className={`ob-pill-in ${phone && i >= NARROW_COUNT ? 'max-[379px]:hidden' : ''}`}
+          className="ob-pill-in"
           style={{ animationDelay: `${i * 40}ms` }}
         >
           <span
-            className={`ob-pill inline-flex h-9 items-center gap-2 rounded-full pl-1.5 pr-4 text-[14px] font-medium lg:h-10 lg:text-[15px] ${still ? '' : 'ob-pill-float'}`}
+            className={`ob-pill inline-flex h-[34px] items-center gap-2 rounded-full pl-[5px] pr-[14px] text-[14px] font-medium max-[359px]:h-8 max-[359px]:text-[13px] lg:h-10 lg:pl-1.5 lg:pr-4 lg:text-[15px] ${still ? '' : 'ob-pill-float'}`}
             style={{ '--pill': p.color, '--pill-light': p.light, '--pill-dark': p.dark, animationDelay: `${-(i * 0.5)}s` } as CSSProperties}
           >
-            <span className="ob-pill-dot flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full">
-              <p.icon className="h-3.5 w-3.5" aria-hidden />
+            <span className="ob-pill-dot flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full max-[359px]:h-5 max-[359px]:w-5 lg:h-[26px] lg:w-[26px]">
+              <p.icon className="h-3 w-3 lg:h-3.5 lg:w-3.5" aria-hidden />
             </span>
             {p.label}
           </span>

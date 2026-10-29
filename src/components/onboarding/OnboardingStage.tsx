@@ -174,8 +174,10 @@ function FooterButtons({
 export function StepFrame({
   titleId, title, subtitle, statement = false, notice, body, primary, secondary, showBack, onBack,
   inlineFooterOnPhone = false, focusTitle = true, direction, desktopExtra, eyebrow, wide = false, overline, overlineTitle = false, centered = false, aside,
-  readingWidth = false, scrollFade = false, secondaryStart = false, footerNote,
+  readingWidth = false, scrollFade = false, secondaryStart = false, footerNote, phoneCentered = false,
 }: {
+  /** Phones: the content is vertically centred between the top bar and the button, and scrolls when taller (screen 2). */
+  phoneCentered?: boolean;
   /** Desktop reading width 560 instead of 440 (screen 28). */
   readingWidth?: boolean;
   /** Desktop: hidden scrollbar and a 24 px fade under the top bar (screen 28). */
@@ -221,6 +223,8 @@ export function StepFrame({
       {/* Only the content slides; the footer stays put (a transform would break its fixed position on phones). */}
       <div
         className={`${direction === 'fwd' ? 'ob-step-fwd' : 'ob-step-back'} flex-1 px-5 pt-5 lg:overflow-y-auto lg:px-14 lg:pb-6 lg:pt-8 ${
+          phoneCentered ? 'max-lg:flex max-lg:flex-col max-lg:justify-center ' : ''
+        }${
           scrollFade ? 'lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden lg:[mask-image:linear-gradient(to_bottom,transparent,black_24px)] ' : ''
         }${
           inlineFooterOnPhone ? 'pb-10' : 'pb-[calc(140px+env(safe-area-inset-bottom))]'

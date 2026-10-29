@@ -67,19 +67,16 @@ function Screen2({ ctx }: { ctx: ScreenCtx }) {
   const primary = { label: 'Continue', onClick: ctx.goNext };
   useStepKeys(ctx, primary);
   return (
-    <>
-      <div className="px-5 pb-2 pt-8 lg:hidden">
-        <FeaturePills phone className="mx-auto max-w-[440px]" />
-      </div>
-      <StepFrame
-        {...frameProps(ctx)}
-        titleId={titleId}
-        statement
-        title="One calm place for your day."
-        subtitle="Tasks, habits, focus and notes, together and in sync with your phone."
-        primary={primary}
-      />
-    </>
+    <StepFrame
+      {...frameProps(ctx)}
+      titleId={titleId}
+      statement
+      phoneCentered
+      title="One calm place for your day."
+      subtitle="Tasks, habits, focus and notes, together and in sync with your phone."
+      primary={primary}
+      eyebrow={<div className="mb-8 lg:hidden"><FeaturePills phone /></div>}
+    />
   );
 }
 

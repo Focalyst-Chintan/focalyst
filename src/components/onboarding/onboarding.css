@@ -156,10 +156,6 @@ html[data-hidden] .ob-float,
 }
 /* The plan panel is dark in both themes: the icon takes the dark canvas colour there */
 .ob-pills-dark .ob-pill-dot { color: #05070F; }
-/* Phones: at most 4 rows (36 px rows, 10 px gaps); the padding keeps the glow from being clipped */
-@media (max-width: 1023px) {
-  .ob-pills-phone { max-height: calc(4 * 36px + 3 * 10px + 36px); overflow: hidden; padding: 18px; margin: -18px; }
-}
 @keyframes ob-pill-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
 .ob-pill-in { animation: ob-pill-in 260ms var(--ease) both; }
 @keyframes ob-pill-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
