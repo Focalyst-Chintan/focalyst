@@ -147,7 +147,7 @@ function FooterButtons({
         </button>
       )}
       {secondary && !start && (
-        <Button variant={secondary.variant ?? 'ghost'} size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 w-full lg:order-none lg:w-auto">
+        <Button variant={secondary.variant ?? 'ghost'} size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 h-[52px] w-full rounded-full lg:order-none lg:h-12 lg:w-auto lg:rounded-[14px]">
           {secondary.label}
         </Button>
       )}
