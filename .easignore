@@ -1,0 +1,40 @@
+# EAS upload rules. While this file exists EAS ignores every .gitignore, so it must be complete.
+# Only the Expo app is uploaded; the Next.js web app and Capacitor shell at the repo root are not.
+/*
+!/Focalyst
+
+# Dependencies and caches (EAS installs these itself)
+node_modules/
+Focalyst/.expo/
+Focalyst/dist/
+Focalyst/web-build/
+.metro-health-check*
+*.tsbuildinfo
+
+# Native: the ios/ project IS uploaded (it holds the Screen Time extensions); its build output is not.
+Focalyst/ios/Pods/
+Focalyst/ios/build/
+Focalyst/ios/.xcode.env.local
+**/xcuserdata/
+Focalyst/android/
+
+# Secrets and signing material never leave this machine
+.env
+.env.*
+*.p8
+*.p12
+*.key
+*.jks
+*.pem
+*.mobileprovision
+
+# Noise
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local Expo modules: keep their android/ and ios/ sources, never their build output.
+Focalyst/modules/*/android/build/
+Focalyst/modules/*/android/.gradle/
+Focalyst/modules/*/android/.cxx/
