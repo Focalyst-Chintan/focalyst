@@ -2,6 +2,10 @@ import { supabase } from '../utils/supabase';
 import { LEVEL_BENCHMARKS } from '../utils/xpService';
 import { calculateProductivityScore } from '../utils/analytics';
 import { queryCache } from '../utils/queryCache';
+import { calculateHabitStreak } from '../utils/streak';
+import { getDisplayName } from '../utils/displayName';
+import { aiBlockingSummary } from '../blocking/history';
+import { loadBlockingHistory } from './blockingTelemetrySync';
 
 export interface AuthorizedUserContext {
   user: {
@@ -95,6 +99,8 @@ export interface AuthorizedUserContext {
       was_completed: boolean;
     }>;
   };
+  /** On-device distraction blocking stats (exact counts from the local session history). */
+  distraction_blocking: ReturnType<typeof aiBlockingSummary> & { data_note: string };
   xp_logs: Array<{
     amount: number;
     source: string;
@@ -314,6 +320,7 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
 
   // Extract user profile safely
   const userData = userResult.status === 'fulfilled' && userResult.value.data ? userResult.value.data : null;
+  const userTimezone = userData?.timezone || 'Asia/Kolkata';
   const rawPlan = userData?.plan || 'free';
   const totalXp = Number(userData?.total_xp || 0);
 
@@ -380,54 +387,6 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
     });
   }
 
-  // Streak calculator identical to HabitList.tsx
-  const computeExactStreak = (completedDatesArray: string[], todayFormatted: string): number => {
-    if (!completedDatesArray || completedDatesArray.length === 0) return 0;
-    const dateSet = new Set(completedDatesArray.map((d) => String(d).slice(0, 10)));
-
-    const parseToNoon = (ymd: string) => {
-      const [y, m, d] = String(ymd).slice(0, 10).split('-').map(Number);
-      return new Date(y, m - 1, d, 12, 0, 0);
-    };
-    const formatYMD = (date: Date) => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    };
-
-    const checkDate = parseToNoon(todayFormatted);
-    const today = formatYMD(checkDate);
-    checkDate.setDate(checkDate.getDate() - 1);
-    const yesterday = formatYMD(checkDate);
-
-    let currentStreak = 0;
-    let startDate: Date;
-
-    if (dateSet.has(today)) {
-      currentStreak = 1;
-      startDate = parseToNoon(todayFormatted);
-      startDate.setDate(startDate.getDate() - 1);
-    } else if (dateSet.has(yesterday)) {
-      currentStreak = 0;
-      startDate = parseToNoon(todayFormatted);
-      startDate.setDate(startDate.getDate() - 1);
-    } else {
-      return 0;
-    }
-
-    while (true) {
-      const checkStr = formatYMD(startDate);
-      if (dateSet.has(checkStr)) {
-        currentStreak += 1;
-        startDate.setDate(startDate.getDate() - 1);
-      } else {
-        break;
-      }
-    }
-    return currentStreak;
-  };
-
   const habitItems = habitsRaw.map((habit) => {
     const completedDates = completionMap.get(habit.id) || new Set<string>();
     const allTimeCompletedDates = allTimeCompletionMap.get(habit.id) || new Set<string>();
@@ -482,9 +441,13 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
       }
     }
 
-    // Match exact streak calculation from HabitList.tsx with fallback to column
-    const computedStreak = computeExactStreak(completedDatesList, todayStr);
-    const currentStreakDays = computedStreak > 0 ? computedStreak : Number(habit.current_streak || 0);
+    const calculatedStreak = calculateHabitStreak(
+      { frequency: habit.frequency, custom_days: habit.custom_days },
+      completedDatesList,
+      todayStr
+    );
+    const currentStreakDays = calculatedStreak.currentStreak;
+    const longestStreakDays = calculatedStreak.bestStreak;
     const totalDaysAllTime = Math.max(allTimeCompletedDates.size, totalCompleted);
 
     return {
@@ -493,7 +456,7 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
       frequency: habit.frequency || 'daily',
       custom_days: habit.custom_days,
       current_streak: currentStreakDays,
-      longest_streak: habit.longest_streak || 0,
+      longest_streak: longestStreakDays,
       exact_current_streak_days: currentStreakDays,
       exact_total_completed_days_all_time: totalDaysAllTime,
       tracking_mode_note: 'Focalyst tracks daily completion status, current streak days, and total completed days. It does NOT track per-habit session duration or standard deviation.',
@@ -611,10 +574,10 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
     };
   }
 
-  const userTimezone = userData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
   // Compute exact last 7 days completed tasks
   const completedTasksLast7Days = completedTasks.filter((t) => t.completed_at && t.completed_at >= sevenDaysAgo);
+  const blockingHistory = await loadBlockingHistory();
+
   const exactFocusHours = Math.floor(weeklyFocusMinutes / 60);
   const exactFocusRemainingMins = weeklyFocusMinutes % 60;
   const exactFocusFormatted = `${exactFocusHours}h ${exactFocusRemainingMins}m`;
@@ -622,7 +585,7 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
   return {
     user: {
       id: userId,
-      full_name: userData?.full_name || null,
+      full_name: getDisplayName(userData),
       profile_type: userData?.profile_type || null,
       plan: rawPlan,
       isProEntitled,
@@ -694,6 +657,11 @@ export async function fetchAuthorizedUserContext(userId: string): Promise<Author
         completed_at: s.completed_at,
         was_completed: s.was_completed,
       })),
+    },
+    distraction_blocking: {
+      ...aiBlockingSummary(blockingHistory),
+      data_note:
+        'Attempts are times the user opened a blocked app during a blocked session. App names come from the shield screen. Use these exact numbers; null means no data.',
     },
     xp_logs: xpLogs.map((x) => ({
       amount: x.amount,

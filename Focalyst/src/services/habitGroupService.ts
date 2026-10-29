@@ -1,5 +1,7 @@
 import { DeviceEventEmitter } from 'react-native';
 import { supabase } from '../utils/supabase';
+import { calculateHabitStreak } from '../utils/streak';
+import { getDisplayName } from '../utils/displayName';
 
 export const HABIT_GROUP_UPDATED_EVENT = 'FOCALYST_HABIT_GROUP_UPDATED';
 
@@ -323,27 +325,36 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
 
     const { data: habitsData } = await supabase
       .from('habits')
-      .select('id, name, current_streak')
+      .select('id, name, current_streak, frequency, custom_days')
       .in('id', habitIds);
 
     const habitMap = new Map((habitsData || []).map((h: any) => [h.id, h]));
 
     const { data: logsData } = await supabase
       .from('habit_logs')
-      .select('habit_id')
+      .select('habit_id, completed_date')
       .in('habit_id', habitIds);
 
-    const logCountMap = new Map<string, number>();
+    const logsByHabit = new Map<string, string[]>();
     (logsData || []).forEach((l: any) => {
-      logCountMap.set(l.habit_id, (logCountMap.get(l.habit_id) || 0) + 1);
+      if (!logsByHabit.has(l.habit_id)) logsByHabit.set(l.habit_id, []);
+      if (l.completed_date) {
+        logsByHabit.get(l.habit_id)!.push(String(l.completed_date).slice(0, 10));
+      }
     });
+
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
     const members: GroupLeaderboardMember[] = allGroupMembers.map((m: any) => {
       const isMe = m.user_id === userId;
       const h = m.habit_id ? habitMap.get(m.habit_id) : null;
       const fallbackName = isMe
-        ? authData?.user?.user_metadata?.full_name || userMap.get(m.user_id) || 'You'
+        ? getDisplayName({ full_name: userMap.get(m.user_id) }, authData?.user) || 'You'
         : userMap.get(m.user_id) || 'Member';
+
+      const habitDates = m.habit_id ? logsByHabit.get(m.habit_id) || [] : [];
+      const streak = h ? calculateHabitStreak(h, habitDates, todayStr).currentStreak : 0;
 
       return {
         user_id: m.user_id,
@@ -351,8 +362,8 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
         display_name: fallbackName,
         habit_id: m.habit_id,
         habit_name: h?.name || 'Active Habit',
-        streak: h?.current_streak || 0,
-        total_days: m.habit_id ? logCountMap.get(m.habit_id) || 0 : 0,
+        streak,
+        total_days: habitDates.length,
       };
     });
 

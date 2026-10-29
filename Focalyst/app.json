@@ -9,8 +9,14 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "online.focalyst",
+      "entitlements": {
+        "com.apple.security.application-groups": [
+          "group.online.focalyst"
+        ],
+        "com.apple.developer.family-controls": true
+      },
       "supportsTablet": false,
-      "buildNumber": "55",
+      "buildNumber": "57",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat.",
@@ -18,17 +24,25 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
-              "com.googleusercontent.apps.1084227702891-b1e8erh6bqpjclur38t02p3gcoo1j979"
+              "com.googleusercontent.apps.1084227702891-b1e8erh6bqpjclur38t02p3gcoo1j979",
+              "focalyst"
             ]
           }
-        ]
+        ],
+        "NSFamilyControlsUsageDescription": "Focalyst needs Screen Time access to lock distracting apps during your focus sessions."
       }
     },
     "android": {
       "package": "online.focalyst",
-      "versionCode": 5,
+      "versionCode": 40,
       "version": "1.1.0",
-      "edgeToEdgeEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "category": ["DEFAULT", "BROWSABLE"],
+          "data": [{ "scheme": "focalyst" }]
+        }
+      ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/app-icon.png",
         "backgroundColor": "#2E5478"
@@ -53,6 +67,81 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "expo-widgets",
+        {
+          "groupIdentifier": "group.online.focalyst",
+          "enableAndroid": true,
+          "widgets": [
+            {
+              "name": "StreakWidget",
+              "displayName": "Habit Streak",
+              "description": "Track your active streak and total habit days.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "HeatmapWidget",
+              "displayName": "Monthly Consistency",
+              "description": "Visualize your monthly habit heatmap squares.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "TodoWidget",
+              "displayName": "To-Do List",
+              "description": "Interactive task list you can tick off from your home screen.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "CountdownWidget",
+              "displayName": "Day Countdown",
+              "description": "Count down days, hours, and minutes to your next milestone.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "PomodoroWidget",
+              "displayName": "Focus Timer",
+              "description": "Quick-start and track your Pomodoro focus sessions.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "CalendarWidget",
+              "displayName": "Calendar & Reminders",
+              "description": "View today’s date, calendar schedule, and reminder events.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall",
+                  "systemMedium"
+                ]
+              }
+            }
+          ]
+        }
+      ],
       "expo-router",
       [
         "expo-splash-screen",
@@ -93,10 +182,15 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "extraProguardRules": "-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod\n-keepclassmembers class * {\n  @com.facebook.react.uimanager.annotations.ReactProp <methods>;\n  @com.facebook.react.uimanager.annotations.ReactPropGroup <methods>;\n}\n-keep class com.facebook.react.bridge.JavaScriptModule { *; }\n-keep class com.facebook.react.bridge.NativeModule { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-dontwarn com.facebook.react.**\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**"
+            "extraProguardRules": "-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod\n-keepclassmembers class * {\n  @com.facebook.react.uimanager.annotations.ReactProp <methods>;\n  @com.facebook.react.uimanager.annotations.ReactPropGroup <methods>;\n}\n-keep class com.facebook.react.bridge.JavaScriptModule { *; }\n-keep class com.facebook.react.bridge.NativeModule { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-dontwarn com.facebook.react.**\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**\n# Distraction blocker: services, shield activity and receiver are reached by reflection and the manifest.\n-keep class expo.modules.screentimeblocker.** { *; }"
+          },
+          "ios": {
+            "deploymentTarget": "16.4"
           }
         }
-      ]
+      ],
+      "expo-dev-client",
+      "./plugins/withScreenTimeBlocker"
     ],
     "experiments": {
       "typedRoutes": true
@@ -104,7 +198,45 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "1ed8f19c-1e10-4ec1-a390-7c4d4c6211a3"
+        "projectId": "1ed8f19c-1e10-4ec1-a390-7c4d4c6211a3",
+        "build": {
+          "experimental": {
+            "ios": {
+              "appExtensions": [
+                {
+                  "targetName": "FocalystShieldConfiguration",
+                  "bundleIdentifier": "online.focalyst.ShieldConfiguration",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.online.focalyst"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "FocalystShieldAction",
+                  "bundleIdentifier": "online.focalyst.ShieldAction",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.online.focalyst"
+                    ]
+                  }
+                },
+                {
+                  "targetName": "FocalystDeviceActivityMonitor",
+                  "bundleIdentifier": "online.focalyst.DeviceActivityMonitor",
+                  "entitlements": {
+                    "com.apple.developer.family-controls": true,
+                    "com.apple.security.application-groups": [
+                      "group.online.focalyst"
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        }
       }
     }
   }

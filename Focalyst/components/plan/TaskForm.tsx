@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
+import * as Crypto from 'expo-crypto';
 import { queryCache } from '../../src/utils/queryCache';
 import { useNotifications } from '../../src/hooks/useNotifications';
 
@@ -148,6 +149,7 @@ export default function TaskForm({
   }, [isOpen, editingTask]);
 
   const handleSubmit = async () => {
+    if (submitting) return;
     if (!taskDescription.trim()) {
       Alert.alert('Validation Error', 'Please describe what you need to do.');
       return;
@@ -192,6 +194,7 @@ export default function TaskForm({
       };
 
       if (editingTask) {
+        payload.id = editingTask.id;
         const { error } = await supabase
           .from('tasks')
           .update(payload)
@@ -199,11 +202,13 @@ export default function TaskForm({
 
         if (error) throw error;
       } else {
+        const taskId = Crypto.randomUUID();
+        payload.id = taskId;
         payload.is_completed = false;
         payload.position = 0;
         const { error } = await supabase
           .from('tasks')
-          .insert([payload]);
+          .upsert([payload], { onConflict: 'id' });
 
         if (error) throw error;
       }
@@ -262,7 +267,12 @@ export default function TaskForm({
             </Text>
           </View>
 
-          <TouchableOpacity onPress={handleSave} style={{ padding: 4 }} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
+          <TouchableOpacity
+            onPress={handleSave}
+            disabled={submitting}
+            style={{ padding: 4, opacity: submitting ? 0.4 : 1 }}
+            hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+          >
             <Ionicons name="checkmark" size={28} color="#FF6B00" />
           </TouchableOpacity>
         </View>

@@ -15,6 +15,7 @@ import {
   AppState,
   Platform,
   DeviceEventEmitter,
+  Linking,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -30,8 +31,51 @@ import { recordMilestoneForReview } from '../../src/services/reviewPromptService
 import { queryCache } from '../../src/utils/queryCache';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { SeamlessRadialTimerDial } from '../../components/focus/SeamlessRadialTimerDial';
+import { BlockDistractionsCard } from '../../components/blocking/BlockDistractionsCard';
+import { BlockingStatusStrip } from '../../components/blocking/BlockingStatusStrip';
+import { Dialog } from '../../components/blocking/Overlays';
+import { SessionSummaryModal } from '../../components/blocking/SessionSummaryModal';
+import { useHideDevFab } from '../../src/blocking/devFab';
+import { formatClock } from '../../src/blocking/levels';
+import { useBlocking } from '../../src/blocking/BlockingContext';
+import { ORANGE_FILL } from '../../constants/blockingTheme';
+import {
+  ensureWidgetStateHydrated,
+  formatDateDMY,
+  getWidgetPayload,
+  POMODORO_SESSION_STORAGE_KEY,
+  reconcileWidgetsToApp,
+  registerWidgetPomodoroSyncHandler,
+  subscribeToWidgetPayload,
+  syncAllWidgetsFromApp,
+} from '../../src/services/widgetSync';
 
 type ActiveView = 'config' | 'pomodoro' | 'break';
+
+export interface CountdownItem {
+  id: string;
+  user_id?: string;
+  event_name: string;
+  target_date: string;
+  is_active?: boolean;
+  showHoursMinutes?: boolean;
+  created_at?: string;
+  [key: string]: any;
+}
+
+const getCountdownParts = (targetDateInput: string | number | Date) => {
+  const targetMs = new Date(targetDateInput).getTime();
+  const diffMs = Math.max(0, targetMs - Date.now());
+  const totalDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+  const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return {
+    totalDays,
+    hours: pad(hours),
+    minutes: pad(minutes),
+  };
+};
 
 function getDaysRemaining(targetDateStr: string): number {
   if (!targetDateStr) return 0;
@@ -91,10 +135,11 @@ export default function FocusTab() {
     });
     return () => sub.remove();
   }, []);
-  const params = useLocalSearchParams();
+  const params = useLocalSearchParams<{ section?: string; action?: string; autoStart?: string }>();
   const router = useRouter();
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
+  const scrollViewRef = useRef<ScrollView>(null);
   
   // App View State machine
   const [activeView, setActiveView] = useState<ActiveView>('config');
@@ -175,34 +220,276 @@ export default function FocusTab() {
     }
   }, [focusDurationMin, activeView]);
 
+  const timerRunningRef = useRef(timerRunning);
   useEffect(() => {
-    if (params?.action === 'startSession') {
+    timerRunningRef.current = timerRunning;
+  }, [timerRunning]);
+
+  const endTimeMsRef = useRef<number | null>(null);
+  const isPausedRef = useRef(false);
+  // Widget, deep link and route "end" requests obey the blocking level like the End button does.
+  const requestExternalEndRef = useRef<() => void>(() => {});
+  // Set when every set finished, so the summary can tell "complete" from "ended early".
+  const sessionCompletedRef = useRef(false);
+  const lastTimerViewRef = useRef<ActiveView>('config');
+  const blocking = useBlocking();
+  const blockingArmed = blocking.supported && !!blocking.config.setupCompletedAt && blocking.config.enabled;
+
+  const startTimer = useCallback((customSeconds?: number) => {
+    try {
+      const remainingSeconds = customSeconds ?? focusDuration;
+      const now = Date.now();
+      const targetEndTime = now + remainingSeconds * 1000;
+      endTimeMsRef.current = targetEndTime;
+
       sessionStartedAtRef.current = new Date().toISOString();
-      sessionIdRef.current = `${userId || 'user'}_${Date.now()}`;
+      sessionIdRef.current = `${userId || 'user'}_${now}`;
       loggedMinutesRef.current = 0;
+      isPausedRef.current = false;
+      sessionCompletedRef.current = false;
       setCurrentSet(1);
       setActiveView('pomodoro');
-      setTimeLeft(focusDuration);
+      setTimeLeft(remainingSeconds);
       setTimerRunning(true);
-      router.setParams({ action: '' });
-    }
-  }, [params?.action, focusDuration, userId]);
 
-  // Blocker Switch State
-  const [distractionsBlocked, setDistractionsBlocked] = useState(false);
+      const pomoState = {
+        taskLabel: 'Focus',
+        durationSeconds: remainingSeconds,
+        isRunning: true,
+        endTimeMs: targetEndTime,
+        updatedAtMs: now,
+      };
+
+      AsyncStorage.setItem(POMODORO_SESSION_STORAGE_KEY, JSON.stringify(pomoState)).catch(() => {});
+      syncAllWidgetsFromApp({
+        pomodoro: pomoState,
+      });
+
+      if (notifPrefs.pomodoro_alerts_enabled) {
+        schedulePomodoroAlert(remainingSeconds).then((id) => {
+          pomodoroNotifIdRef.current = id;
+        });
+      }
+    } catch (e) {
+      console.warn('Error in startTimer:', e);
+    }
+  }, [focusDuration, userId, notifPrefs.pomodoro_alerts_enabled, schedulePomodoroAlert]);
+
+  const stopTimer = useCallback(() => {
+    try {
+      endTimeMsRef.current = null;
+      isPausedRef.current = false;
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimerRunning(false);
+      setTimeLeft(focusDurationMin * 60);
+      setActiveView('config');
+      sessionIdRef.current = null;
+
+      const pomoState = {
+        taskLabel: 'Focus',
+        durationSeconds: 1500,
+        isRunning: false,
+        endTimeMs: 0,
+        updatedAtMs: Date.now(),
+      };
+
+      AsyncStorage.setItem(POMODORO_SESSION_STORAGE_KEY, JSON.stringify(pomoState)).catch(() => {});
+      syncAllWidgetsFromApp({
+        pomodoro: pomoState,
+      });
+
+      if (pomodoroNotifIdRef.current) {
+        cancelNotification(pomodoroNotifIdRef.current);
+        pomodoroNotifIdRef.current = null;
+      }
+    } catch (e) {
+      console.warn('Error in stopTimer:', e);
+    }
+  }, [focusDurationMin, cancelNotification]);
+
+  const syncFromWidgetState = useCallback(
+    (pomoOverride?: any) => {
+      try {
+        // The widget only knows the original end time; it must not un-pause a paused timer.
+        if (isPausedRef.current) return;
+        const pomo = pomoOverride ?? getWidgetPayload().pomodoro;
+        if (pomo.isRunning && pomo.endTimeMs && pomo.endTimeMs > Date.now()) {
+          const remainingSecs = Math.max(1, Math.ceil((pomo.endTimeMs - Date.now()) / 1000));
+          endTimeMsRef.current = pomo.endTimeMs;
+          if (!sessionIdRef.current) {
+            sessionIdRef.current = `${userId || 'user'}_${Date.now()}`;
+            sessionStartedAtRef.current = new Date().toISOString();
+          }
+          setActiveView('pomodoro');
+          setTimeLeft(remainingSecs);
+          setTimerRunning(true);
+
+          // Instantly start the countdown interval and display the active timer screen
+          if (timerRef.current) clearInterval(timerRef.current);
+          timerRef.current = setInterval(() => {
+            if (endTimeMsRef.current) {
+              const rem = Math.max(0, Math.ceil((endTimeMsRef.current - Date.now()) / 1000));
+              setTimeLeft(rem);
+            }
+          }, 1000);
+        } else if (!pomo.isRunning) {
+          endTimeMsRef.current = null;
+          if (timerRef.current) clearInterval(timerRef.current);
+          setTimerRunning(false);
+          setTimeLeft(focusDurationMin * 60);
+          setActiveView('config');
+          sessionIdRef.current = null;
+        }
+      } catch (e) {
+        console.warn('Error in syncFromWidgetState:', e);
+      }
+    },
+    [focusDurationMin, userId]
+  );
+
+  // Sync state whenever the Focus tab is focused
+  useFocusEffect(
+    useCallback(() => {
+      reconcileWidgetsToApp().then(() => {
+        syncFromWidgetState();
+      });
+      syncFromWidgetState();
+    }, [syncFromWidgetState])
+  );
+
+  // Synchronize Pomodoro state from widget or storage on mount and when app becomes active
+  // Blocking follows the Pomodoro only after the timer state is restored, so a session that is
+  // still running isn't mistaken for "ended" during the initial 'config' render.
+  const [pomodoroHydrated, setPomodoroHydrated] = useState(false);
+
+  useEffect(() => {
+    const initAndSync = async () => {
+      try {
+        await ensureWidgetStateHydrated();
+        await reconcileWidgetsToApp();
+        syncFromWidgetState();
+      } catch {}
+      setPomodoroHydrated(true);
+    };
+
+    initAndSync();
+
+    const unsubPomoSync = registerWidgetPomodoroSyncHandler((pomo) => {
+      syncFromWidgetState(pomo);
+    });
+
+    const unsubPayload = subscribeToWidgetPayload(() => {
+      syncFromWidgetState();
+    });
+
+    const startSub = DeviceEventEmitter.addListener('FOCALYST_POMODORO_START', () => startTimer());
+    const autoStartSub = DeviceEventEmitter.addListener('FOCALYST_POMODORO_AUTOSTART', () => startTimer());
+    const endSub = DeviceEventEmitter.addListener('FOCALYST_POMODORO_END', () => requestExternalEndRef.current());
+
+    return () => {
+      unsubPomoSync();
+      unsubPayload();
+      startSub.remove();
+      autoStartSub.remove();
+      endSub.remove();
+    };
+  }, [startTimer, stopTimer, syncFromWidgetState]);
+
+  useEffect(() => {
+    if (!params) return;
+    try {
+      const action = params.action;
+      if (action === 'start' || action === 'startSession' || params.autoStart === 'true') {
+        if (!timerRunningRef.current) {
+          startTimer();
+        }
+      } else if (action === 'end' || action === 'stop') {
+        requestExternalEndRef.current();
+      }
+    } catch (e) {
+      console.warn('Error handling params in focus:', e);
+    }
+  }, [params?.action, params?.autoStart, startTimer, stopTimer]);
+
+  // Scroll to Countdown section when targeted
+  useEffect(() => {
+    if (params?.section === 'countdown') {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 150);
+    }
+  }, [params?.section]);
+
+  // Robust Deep Link Listener for WidgetKit actions (e.g. focalyst://focus?action=start, view=countdown)
+  useEffect(() => {
+    let subscription: any = null;
+    try {
+      const handleIncomingUrl = (urlStr: string | null) => {
+        if (!urlStr) return;
+        try {
+          const urlLower = urlStr.toLowerCase();
+          if (urlLower.includes('action=start') || urlLower.includes('action=startsession')) {
+            if (!timerRunningRef.current) {
+              startTimer();
+            }
+          } else if (urlLower.includes('action=end') || urlLower.includes('action=stop')) {
+            requestExternalEndRef.current();
+          } else if (urlLower.includes('view=countdown') || urlLower.includes('section=countdown')) {
+            setTimeout(() => {
+              scrollViewRef.current?.scrollToEnd({ animated: true });
+            }, 150);
+          }
+        } catch (err) {
+          console.warn('[FocusTab] deep link parse error:', err);
+        }
+      };
+
+      Linking.getInitialURL()
+        .then((url) => {
+          if (url) handleIncomingUrl(url);
+        })
+        .catch((err) => {
+          console.warn('[FocusTab] Linking.getInitialURL error:', err);
+        });
+
+      subscription = Linking.addEventListener('url', (event) => {
+        handleIncomingUrl(event.url);
+      });
+    } catch (e) {
+      console.warn('[FocusTab] Deep linking listener setup error:', e);
+    }
+
+    return () => {
+      try {
+        if (subscription) subscription.remove();
+      } catch {}
+    };
+  }, [startTimer, stopTimer]);
 
   // Countdown States
-  const [countdowns, setCountdowns] = useState<any[]>([]);
+  const [countdowns, setCountdowns] = useState<CountdownItem[]>([]);
   const [activeMenuCountdownId, setActiveMenuCountdownId] = useState<string | null>(null);
+  const [nowTick, setNowTick] = useState<number>(Date.now());
+
+  // Keep hours & minutes live in real time
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 15000);
+    return () => clearInterval(timer);
+  }, []);
   
   // Countdown Form Overlay States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingCountdown, setEditingCountdown] = useState<any | null>(null);
   const [eventName, setEventName] = useState('');
   const [targetDate, setTargetDate] = useState('2026-05-31');
-  const [targetDateObject, setTargetDateObject] = useState<Date>(new Date(2026, 4, 31)); // May is index 4
+  const [targetDateObject, setTargetDateObject] = useState<Date>(new Date(2026, 4, 31));
   const [targetTime, setTargetTime] = useState('11:00 AM');
+  const [targetTimeObject, setTargetTimeObject] = useState<Date>(() => {
+    const d = new Date(2026, 4, 31, 11, 0, 0);
+    return d;
+  });
   const [showDatePicker, setShowDatePicker] = useState(Platform.OS === 'ios');
+  const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
   const [getReminders, setGetReminders] = useState(false);
   const [submittingCountdown, setSubmittingCountdown] = useState(false);
 
@@ -229,10 +516,46 @@ export default function FocusTab() {
       );
 
       if (freshCountdowns) {
-        setCountdowns(freshCountdowns);
+        // Hydrate showHoursMinutes from local storage
+        let savedPrefs: Record<string, boolean> = {};
+        try {
+          const raw = await AsyncStorage.getItem(`@countdowns_hours_mins_prefs_${uid}`);
+          if (raw) savedPrefs = JSON.parse(raw);
+        } catch {}
+
+        const merged: CountdownItem[] = freshCountdowns.map((c: any) => ({
+          ...c,
+          showHoursMinutes: Boolean(savedPrefs[c.id] ?? c.showHoursMinutes ?? false),
+        }));
+        setCountdowns(merged);
       }
     } catch (e) {
       console.warn('Error loading countdowns:', e);
+    }
+  };
+
+  const toggleCountdownHoursMinutes = async (countdownId: string) => {
+    const updated = countdowns.map((c) =>
+      c.id === countdownId ? { ...c, showHoursMinutes: !c.showHoursMinutes } : c
+    );
+    setCountdowns(updated);
+
+    try {
+      const targetUid = currentUserId || userId;
+      if (targetUid) {
+        const prefsMap: Record<string, boolean> = {};
+        updated.forEach((c) => {
+          if (c.showHoursMinutes !== undefined) {
+            prefsMap[c.id] = c.showHoursMinutes;
+          }
+        });
+        await AsyncStorage.setItem(
+          `@countdowns_hours_mins_prefs_${targetUid}`,
+          JSON.stringify(prefsMap)
+        );
+      }
+    } catch (err) {
+      console.warn('Error saving countdown hours/mins preference:', err);
     }
   };
 
@@ -244,6 +567,21 @@ export default function FocusTab() {
       fetchCountdowns(currentUserId);
     }
   }, [currentUserId]);
+
+  // Synchronize Countdown Widget
+  useEffect(() => {
+    if (countdowns && countdowns.length > 0) {
+      const first = countdowns[0];
+      const targetIso = first.target_date || new Date().toISOString();
+      syncAllWidgetsFromApp({
+        countdown: {
+          title: first.event_name || first.title || first.name || first.description || 'Audit',
+          dateLabel: formatDateDMY(targetIso),
+          targetDateIso: targetIso,
+        },
+      });
+    }
+  }, [countdowns]);
 
   // ─── Local YYYY-MM-DD Date Formatter (Prevents UTC midnight backward shift) ──
   const getLocalYMD = (d: Date = new Date()): string => {
@@ -383,48 +721,45 @@ export default function FocusTab() {
     }
   };
 
-  // ─── Task 3: Background-resilient timer via AppState ──────────────────────
+  // ─── Background-resilient timer via AppState & exact endTimeMs ──────────────
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         if (timerRunning) {
           backgroundTimestampRef.current = Date.now();
         }
-      } else if (nextAppState === 'active' && backgroundTimestampRef.current !== null) {
-        const elapsedMs = Date.now() - backgroundTimestampRef.current;
-        const elapsedSeconds = Math.floor(elapsedMs / 1000);
+      } else if (nextAppState === 'active') {
         backgroundTimestampRef.current = null;
+        reconcileWidgetsToApp().then(() => {
+          syncFromWidgetState();
+        });
+        if (timerRunning && endTimeMsRef.current) {
+          const rem = Math.max(0, Math.ceil((endTimeMsRef.current - Date.now()) / 1000));
+          if (rem <= 0) {
+            clearInterval(timerRef.current!);
+            setTimerRunning(false);
+            endTimeMsRef.current = null;
 
-        if (timerRunning) {
-          setTimeLeft(prev => {
-            const newTime = prev - elapsedSeconds;
-            if (newTime <= 0) {
-              // Timer would have finished in background
-              clearInterval(timerRef.current!);
-              setTimerRunning(false);
+            if (activeView === 'pomodoro') {
+              logPomodoroSession(focusDurationMin, currentSet >= totalSets, 1);
+              loggedMinutesRef.current += focusDurationMin;
 
-              if (activeView === 'pomodoro') {
-                logPomodoroSession(focusDurationMin, currentSet >= totalSets, 1);
-                loggedMinutesRef.current += focusDurationMin;
-
-                if (currentSet < totalSets) {
-                  Alert.alert('Focus Session Complete!', 'Well done! Time for a short break.');
-                  setActiveView('break');
-                  setTimeLeft(breakDuration);
-                  setTimerRunning(true);
-                } else {
-                  Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.');
-                  resetFocusSession();
-                }
-                return 0;
-              } else if (activeView === 'break') {
-                logPomodoroSession(0, false, 0, breakDurationMin);
-                handleNextSession();
+              if (currentSet < totalSets) {
+                Alert.alert('Focus Session Complete!', 'Well done! Time for a short break.');
+                setActiveView('break');
+                setTimeLeft(breakDuration);
+                setTimerRunning(true);
+              } else {
+                Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.'); sessionCompletedRef.current = true;
+                resetFocusSession();
               }
-              return 0;
+            } else if (activeView === 'break') {
+              logPomodoroSession(0, false, 0, breakDurationMin);
+              handleNextSession();
             }
-            return newTime;
-          });
+          } else {
+            setTimeLeft(rem);
+          }
         }
       }
     });
@@ -436,35 +771,62 @@ export default function FocusTab() {
   useEffect(() => {
     if (timerRunning) {
       timerRef.current = setInterval(() => {
-        setTimeLeft(prev => {
-          if (prev <= 1) {
+        if (endTimeMsRef.current) {
+          const rem = Math.max(0, Math.ceil((endTimeMsRef.current - Date.now()) / 1000));
+          if (rem <= 0) {
             clearInterval(timerRef.current!);
             setTimerRunning(false);
-            
+            endTimeMsRef.current = null;
+
             if (activeView === 'pomodoro') {
               logPomodoroSession(focusDurationMin, currentSet >= totalSets, 1);
               loggedMinutesRef.current += focusDurationMin;
 
               if (currentSet < totalSets) {
-                // Transition to break timer
                 Alert.alert('Focus Session Complete!', 'Well done! Time for a short break.');
                 setActiveView('break');
                 setTimeLeft(breakDuration);
-                setTimerRunning(true); // Automatically run break timer
+                setTimerRunning(true);
               } else {
-                Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.');
+                Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.'); sessionCompletedRef.current = true;
                 resetFocusSession();
               }
-              return 0;
             } else if (activeView === 'break') {
-              // Break finished, record completed break minutes and advance set
               logPomodoroSession(0, false, 0, breakDurationMin);
               handleNextSession();
             }
-            return 0;
+            setTimeLeft(0);
+            return;
           }
-          return prev - 1;
-        });
+          setTimeLeft(rem);
+        } else {
+          setTimeLeft((prev) => {
+            if (prev <= 1) {
+              clearInterval(timerRef.current!);
+              setTimerRunning(false);
+              
+              if (activeView === 'pomodoro') {
+                logPomodoroSession(focusDurationMin, currentSet >= totalSets, 1);
+                loggedMinutesRef.current += focusDurationMin;
+
+                if (currentSet < totalSets) {
+                  Alert.alert('Focus Session Complete!', 'Well done! Time for a short break.');
+                  setActiveView('break');
+                  setTimeLeft(breakDuration);
+                  setTimerRunning(true);
+                } else {
+                  Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.'); sessionCompletedRef.current = true;
+                  resetFocusSession();
+                }
+              } else if (activeView === 'break') {
+                logPomodoroSession(0, false, 0, breakDurationMin);
+                handleNextSession();
+              }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
       }, 1000);
     } else if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -483,7 +845,7 @@ export default function FocusTab() {
       setTimeLeft(focusDuration);
       setTimerRunning(true);
     } else {
-      Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.');
+      Alert.alert('All sets complete!', 'Fantastic focus session today! You are all set.'); sessionCompletedRef.current = true;
       resetFocusSession();
     }
   };
@@ -542,35 +904,65 @@ export default function FocusTab() {
   };
 
   const startFocusSession = async () => {
-    sessionStartedAtRef.current = new Date().toISOString();
-    sessionIdRef.current = `${userId || 'user'}_${Date.now()}`;
-    loggedMinutesRef.current = 0;
-    setCurrentSet(1);
-    setActiveView('pomodoro');
-    setTimeLeft(focusDuration);
-    setTimerRunning(true);
-
-    // Schedule a local notification for when this focus session ends
-    if (notifPrefs.pomodoro_alerts_enabled) {
-      const notifId = await schedulePomodoroAlert(focusDuration);
-      pomodoroNotifIdRef.current = notifId;
-    }
+    startTimer();
   };
 
-  const resetFocusSession = async () => {
-    // Cancel any scheduled pomodoro notification
-    if (pomodoroNotifIdRef.current) {
-      await cancelNotification(pomodoroNotifIdRef.current);
-      pomodoroNotifIdRef.current = null;
-    }
-
+  // Pausing freezes the remaining time; resuming moves the end time forward by the pause length.
+  const pauseTimer = () => {
+    isPausedRef.current = true;
+    endTimeMsRef.current = null;
     setTimerRunning(false);
-    if (timerRef.current) clearInterval(timerRef.current);
-    setActiveView('config');
-    setCurrentSet(1);
-    setTimeLeft(focusDuration);
-    sessionIdRef.current = null;
-    loggedMinutesRef.current = 0;
+  };
+
+  const resumeTimer = () => {
+    const now = Date.now();
+    const targetEndTime = now + timeLeft * 1000;
+    isPausedRef.current = false;
+    endTimeMsRef.current = targetEndTime;
+    setTimerRunning(true);
+
+    const pomoState = {
+      taskLabel: 'Focus',
+      durationSeconds: timeLeft,
+      isRunning: true,
+      endTimeMs: targetEndTime,
+      updatedAtMs: now,
+    };
+    AsyncStorage.setItem(POMODORO_SESSION_STORAGE_KEY, JSON.stringify(pomoState)).catch(() => {});
+    syncAllWidgetsFromApp({ pomodoro: pomoState });
+  };
+
+  // Keep native blocking in step with the Pomodoro: start, break, next set, pause and end.
+  const timeLeftRef = useRef(timeLeft);
+  timeLeftRef.current = timeLeft;
+  useEffect(() => {
+    if (!pomodoroHydrated) return;
+    const previousView = lastTimerViewRef.current;
+    lastTimerViewRef.current = activeView;
+    const justEnded = activeView === 'config' && previousView !== 'config';
+    const completedAll = sessionCompletedRef.current;
+    blocking.syncPomodoro({
+      ended: justEnded
+        ? {
+            focusMinutes: loggedMinutesRef.current,
+            completedAll,
+            completedSets: completedAll ? totalSets : previousView === 'break' ? currentSet : Math.max(0, currentSet - 1),
+          }
+        : undefined,
+      view: activeView,
+      running: timerRunning,
+      timeLeftSec: timeLeftRef.current,
+      currentSet,
+      totalSets,
+      focusMin: focusDurationMin,
+      breakMin: breakDurationMin,
+    });
+    // Only phase changes matter here; per-second ticks are read from the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pomodoroHydrated, activeView, timerRunning, currentSet]);
+
+  const resetFocusSession = async () => {
+    stopTimer();
   };
 
   const handlePresetSelect = (presetName: string, fMin: number, bMin: number, sets: number) => {
@@ -589,21 +981,20 @@ export default function FocusTab() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Switch Blocker toggle alert
-  const handleBlockerToggle = (value: boolean) => {
-    Alert.alert('Upcoming Feature', 'Block distractions will be available in a future update.');
-    setDistractionsBlocked(false); // Force switch to remain false
-  };
-
   // Open creation countdown sheet
   const handleOpenNewCountdown = () => {
     setEditingCountdown(null);
     setEventName('');
-    const defaultDate = new Date(2026, 4, 31);
+    const defaultDate = new Date();
+    defaultDate.setDate(defaultDate.getDate() + 7);
+    defaultDate.setHours(11, 0, 0, 0);
     setTargetDateObject(defaultDate);
-    setTargetDate('2026-05-31');
-    setTargetTime('11:00 AM');
+    const formattedDate = `${defaultDate.getFullYear()}-${String(defaultDate.getMonth() + 1).padStart(2, '0')}-${String(defaultDate.getDate()).padStart(2, '0')}`;
+    setTargetDate(formattedDate);
+    setTargetTimeObject(defaultDate);
+    setTargetTime(defaultDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
     setShowDatePicker(Platform.OS === 'ios');
+    setShowTimePicker(Platform.OS === 'ios');
     setGetReminders(false);
     setIsFormOpen(true);
   };
@@ -612,17 +1003,25 @@ export default function FocusTab() {
   const handleOpenEditCountdown = (item: any) => {
     setEditingCountdown(item);
     setEventName(item.event_name);
-    // Parse target date 'YYYY-MM-DD'
     const dateStr = item.target_date ? item.target_date.split('T')[0] : '2026-05-31';
     setTargetDate(dateStr);
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      setTargetDateObject(new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10)));
-    } else {
-      setTargetDateObject(new Date(2026, 4, 31));
+    let parsedDate = new Date(2026, 4, 31, 11, 0, 0);
+    if (item.target_date) {
+      const fullDate = new Date(item.target_date);
+      if (!isNaN(fullDate.getTime())) {
+        parsedDate = fullDate;
+      } else {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+          parsedDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 11, 0, 0);
+        }
+      }
     }
-    setTargetTime('11:00 AM');
+    setTargetDateObject(parsedDate);
+    setTargetTimeObject(parsedDate);
+    setTargetTime(parsedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
     setShowDatePicker(Platform.OS === 'ios');
+    setShowTimePicker(Platform.OS === 'ios');
     setGetReminders(false);
     setIsFormOpen(true);
   };
@@ -641,8 +1040,16 @@ export default function FocusTab() {
         throw new Error('Active user session not found.');
       }
 
-      // target_date format YYYY-MM-DD
-      const dateString = targetDate.trim();
+      // Combine targetDateObject and targetTimeObject
+      const combinedTarget = new Date(
+        targetDateObject.getFullYear(),
+        targetDateObject.getMonth(),
+        targetDateObject.getDate(),
+        targetTimeObject.getHours(),
+        targetTimeObject.getMinutes(),
+        0
+      );
+      const dateString = combinedTarget.toISOString();
 
       if (editingCountdown) {
         // Update countdown
@@ -680,20 +1087,21 @@ export default function FocusTab() {
         Alert.alert('Success', 'New countdown saved!');
       }
 
+      // Immediately sync with CountdownWidget
+      syncAllWidgetsFromApp({
+        countdown: {
+          title: eventName.trim() || 'Audit',
+          dateLabel: formatDateDMY(combinedTarget),
+          targetDateIso: dateString,
+        },
+      });
+
       setIsFormOpen(false);
       await fetchCountdowns(currentUserId);
 
-      // Schedule countdown alert 2 hours before target date (10 PM the day before)
-      if (notifPrefs.task_reminders_enabled && dateString) {
-        const parts = dateString.split('-');
-        if (parts.length === 3) {
-          const targetDateObj = new Date(
-            parseInt(parts[0], 10),
-            parseInt(parts[1], 10) - 1,
-            parseInt(parts[2], 10)
-          );
-          await scheduleCountdownAlert(eventName.trim(), targetDateObj);
-        }
+      // Schedule countdown alert
+      if (notifPrefs.task_reminders_enabled) {
+        await scheduleCountdownAlert(eventName.trim(), combinedTarget);
       }
     } catch (e: any) {
       Alert.alert('Database Error', e.message || 'Failed to save countdown.');
@@ -719,6 +1127,8 @@ export default function FocusTab() {
   };
 
   const isTimerRunning = activeView === 'pomodoro' || activeView === 'break';
+  const [confirmEndEarly, setConfirmEndEarly] = useState(false);
+  useHideDevFab(isTimerRunning);
   const theme = {
     background: isDarkMode ? '#0B1021' : '#F4F6FA',
     colors: {
@@ -726,15 +1136,36 @@ export default function FocusTab() {
     }
   };
   const progress = 1 - (timeLeft / focusDuration);
+  // Short phones (iPhone SE, 667pt) shrink the dial ~12% so pill, dial, bar and buttons all fit.
+  const isCompactHeight = height < 720;
+
+  // Distraction blocking on the timer screen: a status strip, and Pause/End follow the level.
+  const showBlockingStrip = blockingArmed || !!blocking.session || blocking.shield.active;
+  const sessionRulesLevel =
+    blocking.session && blocking.session.phase !== 'timer_only' ? blocking.session.level : 'gentle';
+  const lockedUntilLabel = formatClock(blocking.session?.plannedEndAt ?? Date.now() + timeLeft * 1000);
+  const requestEndSession = () => {
+    if (sessionRulesLevel === 'firm') setConfirmEndEarly(true);
+    else handleEndFocusSession();
+  };
+  requestExternalEndRef.current = () => {
+    if (!timerRunningRef.current && activeView === 'config') return;
+    if (sessionRulesLevel === 'locked') {
+      blocking.showSnackbar(`Locked until ${lockedUntilLabel}`);
+      return;
+    }
+    requestEndSession();
+  };
   const dialSize = isLandscape
     ? Math.max(200, Math.min(height - 135, 240))
     : Math.min(width * 0.85, 340);
+  const stripDialSize = Math.round(Math.min(dialSize, 300) * (isCompactHeight ? 0.88 : 1));
 
   // Main Config settings view
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <View style={[styles.container, isDarkMode && { backgroundColor: '#0B1021' }, { flex: 1 }]}>
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+      <ScrollView ref={scrollViewRef} contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
         
 
 
@@ -869,24 +1300,14 @@ export default function FocusTab() {
           })()}
         </View>
 
-        {/* Shield Block Distractions switch toggle */}
-        <View style={[styles.shieldCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-          <View style={styles.shieldDetails}>
-            <View style={[styles.shieldIconContainer, isDarkMode && { backgroundColor: '#222A41' }]}>
-              <Ionicons name="shield-half-outline" size={20} color="#ff6b2b" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.shieldTitle, isDarkMode && { color: '#FFFFFF' }]}>{t('focus.block')}</Text>
-              <Text style={[styles.shieldSubtitle, isDarkMode && { color: '#8E95A9' }]}>{t('focus.offMessage')}</Text>
-            </View>
-          </View>
-          <Switch
-            value={distractionsBlocked}
-            onValueChange={handleBlockerToggle}
-            trackColor={{ false: isDarkMode ? '#222D47' : '#cbd5e1', true: '#4a6c8c' }}
-            thumbColor={distractionsBlocked ? '#ffffff' : (isDarkMode ? '#8E95A9' : '#f1f5f9')}
-          />
-        </View>
+        {/* S1: Block distractions (setup, on/off, permission and quick block states) */}
+        <BlockDistractionsCard
+          containerStyle={[
+            styles.shieldCard,
+            styles.shieldCardStacked,
+            isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' },
+          ]}
+        />
 
         {/* Countdown list component widget */}
         <View style={{ width: '100%' }}>
@@ -898,7 +1319,7 @@ export default function FocusTab() {
             </View>
           ) : (
             countdowns.map(item => {
-              const daysLeft = getDaysRemaining(item.target_date);
+              const parts = getCountdownParts(item.target_date);
               const formattedDateStr = item.target_date ? new Date(item.target_date.split('T')[0] + 'T00:00:00').toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
@@ -909,10 +1330,39 @@ export default function FocusTab() {
               return (
                 <View key={item.id} style={[styles.countdownCard, isDarkMode && { backgroundColor: '#151B2E' }]}>
                   <View style={styles.countdownCardRow}>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                      <Text style={[styles.daysNumberText, isDarkMode && { color: '#FFFFFF' }]}>{daysLeft}</Text>
-                      <Text style={[styles.daysLabelText, isDarkMode && { color: '#8E95A9' }]}> total days</Text>
-                    </View>
+                    {!item.showHoursMinutes ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+                        <Text style={[styles.daysNumberText, isDarkMode && { color: '#FFFFFF' }]}>
+                          {parts.totalDays}
+                        </Text>
+                        <Text style={[styles.daysLabelText, isDarkMode && { color: '#8E95A9' }]}>
+                          {' '}total days
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap' }}>
+                        <Text style={{ fontSize: 34, fontWeight: '800', color: isDarkMode ? '#FFFFFF' : '#0F172A' }}>
+                          {parts.totalDays}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#94A3B8', marginLeft: 4, marginRight: 14 }}>
+                          days
+                        </Text>
+
+                        <Text style={{ fontSize: 34, fontWeight: '800', color: isDarkMode ? '#FFFFFF' : '#0F172A' }}>
+                          {parts.hours}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#94A3B8', marginLeft: 4, marginRight: 14 }}>
+                          hrs
+                        </Text>
+
+                        <Text style={{ fontSize: 34, fontWeight: '800', color: isDarkMode ? '#FFFFFF' : '#0F172A' }}>
+                          {parts.minutes}
+                        </Text>
+                        <Text style={{ fontSize: 12, fontWeight: '600', color: '#94A3B8', marginLeft: 4 }}>
+                          mins
+                        </Text>
+                      </View>
+                    )}
                     <TouchableOpacity
                       onPress={() => setActiveMenuCountdownId(isMenuOpen ? null : item.id)}
                       activeOpacity={0.7}
@@ -925,48 +1375,6 @@ export default function FocusTab() {
                   <Text style={[styles.countdownMetaText, isDarkMode && { color: '#8E95A9' }]}>
                     {formattedDateStr} • {item.event_name}
                   </Text>
-
-                  {/* Absolute menu selection centered modal popup inside relative list element to avoid clippings */}
-                  <Modal
-                    transparent={true}
-                    visible={isMenuOpen}
-                    animationType="fade"
-                    onRequestClose={() => setActiveMenuCountdownId(null)}
-                  >
-                    <Pressable
-                      style={[styles.modalOverlay, isDarkMode && { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
-                      onPress={() => setActiveMenuCountdownId(null)}
-                    >
-                      <View style={styles.modalCenterContainer}>
-                        <Pressable
-                          onPress={(e) => e.stopPropagation()}
-                          style={[styles.modalDropdownMenu, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}
-                        >
-                          <Text style={[styles.modalMenuTitle, isDarkMode && { color: '#8E95A9' }]}>{item.event_name}</Text>
-                          <View style={[styles.menuDivider, isDarkMode && { backgroundColor: '#222A41' }]} />
-                          <TouchableOpacity
-                            onPress={() => {
-                              setActiveMenuCountdownId(null);
-                              handleOpenEditCountdown(item);
-                            }}
-                            style={styles.menuItem}
-                          >
-                            <Text style={[styles.menuItemText, isDarkMode && { color: '#FFFFFF' }]}>Edit</Text>
-                          </TouchableOpacity>
-                          <View style={[styles.menuDivider, isDarkMode && { backgroundColor: '#222A41' }]} />
-                          <TouchableOpacity
-                            onPress={() => {
-                              setActiveMenuCountdownId(null);
-                              handleDeleteCountdown(item.id);
-                            }}
-                            style={styles.menuItem}
-                          >
-                            <Text style={[styles.menuItemText, styles.menuItemDelete]}>Delete</Text>
-                          </TouchableOpacity>
-                        </Pressable>
-                      </View>
-                    </Pressable>
-                  </Modal>
                 </View>
               );
             })
@@ -982,24 +1390,104 @@ export default function FocusTab() {
           </TouchableOpacity>
         </View>
 
+        {/* Single Countdown Action Menu Modal */}
+        {(() => {
+          const activeItem = countdowns.find((c) => c.id === activeMenuCountdownId);
+          if (!activeItem) return null;
+          return (
+            <Modal
+              transparent={true}
+              visible={true}
+              animationType="fade"
+              onRequestClose={() => setActiveMenuCountdownId(null)}
+            >
+              <Pressable
+                style={[styles.modalOverlay, isDarkMode && { backgroundColor: 'rgba(0, 0, 0, 0.4)' }]}
+                onPress={() => setActiveMenuCountdownId(null)}
+              >
+                <View style={styles.modalCenterContainer}>
+                  <Pressable
+                    onPress={(e) => e.stopPropagation()}
+                    style={[styles.modalDropdownMenu, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}
+                  >
+                    <Text style={[styles.modalMenuTitle, isDarkMode && { color: '#8E95A9' }]}>{activeItem.event_name}</Text>
+                    <View style={[styles.menuDivider, isDarkMode && { backgroundColor: '#222A41' }]} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        setActiveMenuCountdownId(null);
+                        handleOpenEditCountdown(activeItem);
+                      }}
+                      style={styles.menuItem}
+                    >
+                      <Text style={[styles.menuItemText, isDarkMode && { color: '#FFFFFF' }]}>Edit</Text>
+                    </TouchableOpacity>
+
+                    {/* Show hours & minutes toggle row */}
+                    <View style={[styles.menuDivider, isDarkMode && { backgroundColor: '#222A41' }]} />
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 14,
+                        paddingHorizontal: 20,
+                        borderBottomWidth: 1,
+                        borderBottomColor: isDarkMode ? '#222A41' : 'rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 16, fontWeight: '500', color: isDarkMode ? '#FFFFFF' : '#0F172A' }}>
+                        Show hours & minutes
+                      </Text>
+                      <Switch
+                        value={Boolean(activeItem?.showHoursMinutes)}
+                        onValueChange={() => {
+                          if (activeItem) {
+                            toggleCountdownHoursMinutes(activeItem.id);
+                          }
+                        }}
+                        trackColor={{ false: '#334155', true: '#FF6B00' }}
+                        thumbColor="#FFFFFF"
+                      />
+                    </View>
+
+                    <View style={[styles.menuDivider, isDarkMode && { backgroundColor: '#222A41' }]} />
+                    <TouchableOpacity
+                      onPress={() => {
+                        const id = activeItem.id;
+                        setActiveMenuCountdownId(null);
+                        handleDeleteCountdown(id);
+                      }}
+                      style={styles.menuItem}
+                    >
+                      <Text style={[styles.menuItemText, styles.menuItemDelete]}>Delete</Text>
+                    </TouchableOpacity>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Modal>
+          );
+        })()}
       </ScrollView>
     </View>
 
-    {/* Bulletproof full-screen Pomodoro Modal — renders on the topmost native layer, covering tab bar */}
-    <Modal 
-      visible={isTimerRunning} 
-      animationType="fade" 
-      presentationStyle="fullScreen"
-      supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
-      onRequestClose={handleEndFocusSession}
-    >
+    {/* Full-screen Pomodoro View — fills screen and covers tab bar with zero native UIViewController collisions */}
+    {isTimerRunning && (
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.background, zIndex: 9999, elevation: 10 }]}>
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.background, justifyContent: 'center', alignItems: 'center' }}>
-        {activeView === 'pomodoro' ? (
-          <View style={[styles.timerContent, isLandscape && styles.timerContentLandscape]}>
+        {activeView === 'pomodoro' || (activeView === 'break' && showBlockingStrip) ? (
+          <View
+            style={[
+              styles.timerContent,
+              showBlockingStrip && !isLandscape && (isCompactHeight ? styles.timerContentCompact : styles.timerContentWithStrip),
+              isLandscape && styles.timerContentLandscape,
+            ]}
+          >
             {/* Top section: Pill Header Indicator + Set Tracker */}
             <View style={[styles.timerTopHeader, isLandscape && styles.timerTopHeaderLandscape]}>
               <View style={[styles.focusPill, isLandscape && styles.focusPillLandscape]}>
-                <Text style={[styles.focusPillText, isLandscape && styles.focusPillTextLandscape]}>{t('focus.focusTime')}</Text>
+                <Text style={[styles.focusPillText, isLandscape && styles.focusPillTextLandscape]}>
+                  {activeView === 'break' ? 'BREAK TIME' : t('focus.focusTime')}
+                </Text>
               </View>
               <Text style={[styles.setTrackerText, isDarkMode ? { color: '#8E95A9' } : { color: '#64748b' }, isLandscape && styles.setTrackerTextLandscape]}>
                 {t('focus.setCount', { current: currentSet, total: totalSets })}
@@ -1007,10 +1495,10 @@ export default function FocusTab() {
             </View>
 
             {/* Middle section: Seamless Feathered Blue Radial Gradient Dial with centered countdown digits */}
-            <View style={isLandscape ? styles.dialContainerLandscape : styles.dialContainerPortrait}>
+            <View style={isLandscape ? styles.dialContainerLandscape : [styles.dialContainerPortrait, showBlockingStrip && styles.dialFlex]}>
               <SeamlessRadialTimerDial
-                progress={progress}
-                size={dialSize}
+                progress={activeView === 'break' ? 1 - timeLeft / Math.max(1, breakDuration) : progress}
+                size={showBlockingStrip && !isLandscape ? stripDialSize : dialSize}
                 isDark={isDarkMode}
               >
                 <Text
@@ -1029,27 +1517,49 @@ export default function FocusTab() {
               </SeamlessRadialTimerDial>
             </View>
 
-            {/* Bottom section: Media Buttons Row Controls */}
+            {/* Blocking bar and buttons share one container so their edges line up exactly */}
+            <View style={isLandscape ? undefined : styles.sessionActions}>
+            {showBlockingStrip && !isLandscape && (
+              <BlockingStatusStrip
+                isBreak={activeView === 'break'}
+                isPaused={activeView === 'pomodoro' && !timerRunning}
+                timeLeftSec={timeLeft}
+                onAutoEnd={handleEndFocusSession}
+              />
+            )}
+
+            {/* Bottom section: Media Buttons Row Controls (strictness rules decide what's allowed) */}
             <View style={[styles.timerControlsRow, isLandscape && styles.timerControlsRowLandscape]}>
-              <TouchableOpacity
-                style={[styles.pauseBtn, isDarkMode && { backgroundColor: '#151B2E' }, isLandscape && styles.controlBtnLandscape]}
-                onPress={() => setTimerRunning(!timerRunning)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.pauseBtnText, isDarkMode && { color: '#FFFFFF' }, isLandscape && styles.controlBtnTextLandscape]}>
-                  {timerRunning ? t('focus.pause') : t('focus.resume')}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.resetBtn, isDarkMode && { backgroundColor: '#151B2E' }, isLandscape && styles.controlBtnLandscape]}
-                onPress={handleEndFocusSession}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.resetBtnText, isDarkMode && { color: '#FFFFFF' }, isLandscape && styles.controlBtnTextLandscape]}>
-                  End
-                </Text>
-              </TouchableOpacity>
+              {sessionRulesLevel === 'locked' && timerRunning ? (
+                <View style={[styles.resetBtn, styles.lockedUntilBtn, isDarkMode && styles.sessionBtnDark]}>
+                  <Text style={[styles.resetBtnText, isDarkMode && { color: '#9AA0B4' }]}>
+                    Locked until {lockedUntilLabel}
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.pauseBtn, isDarkMode && styles.sessionBtnDark, isLandscape && styles.controlBtnLandscape]}
+                    onPress={activeView === 'break' ? skipBreak : timerRunning ? pauseTimer : resumeTimer}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.pauseBtnText, isDarkMode && { color: '#FFFFFF' }, isLandscape && styles.controlBtnTextLandscape]}>
+                      {activeView === 'break' ? t('focus.skip') : timerRunning ? t('focus.pause') : t('focus.resume')}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.resetBtn, isDarkMode && styles.sessionBtnDark, isLandscape && styles.controlBtnLandscape]}
+                    onPress={requestEndSession}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.resetBtnText, isDarkMode && { color: '#FFFFFF' }, isLandscape && styles.controlBtnTextLandscape]}>
+                      End
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
             </View>
           </View>
         ) : (
@@ -1082,7 +1592,43 @@ export default function FocusTab() {
           </View>
         )}
       </SafeAreaView>
-    </Modal>
+      </View>
+    )}
+
+    {/* S12: session summary after a Pomodoro with blocking */}
+    {blocking.lastSummary && (
+      <SessionSummaryModal
+        record={blocking.lastSummary}
+        onClose={blocking.dismissSummary}
+        onStartNext={() => {
+          blocking.dismissSummary();
+          setTimeout(() => startTimer(), 300);
+        }}
+        onViewInsights={() => {
+          blocking.dismissSummary();
+          router.push('/(tabs)/insights?section=distractions');
+        }}
+      />
+    )}
+
+    {/* S13b: Firm end-early confirmation */}
+    {isTimerRunning && (
+      <Dialog
+        visible={confirmEndEarly}
+        title="End this session early?"
+        body="Your apps unlock now and this counts as an unfinished session."
+        primary={{ label: 'Keep going', onPress: () => setConfirmEndEarly(false) }}
+        secondary={{
+          label: 'End session',
+          danger: true,
+          onPress: () => {
+            setConfirmEndEarly(false);
+            handleEndFocusSession();
+          },
+        }}
+        onClose={() => setConfirmEndEarly(false)}
+      />
+    )}
 
     {/* Countdown Form overlay slider state sheets */}
     <Modal
@@ -1127,7 +1673,7 @@ export default function FocusTab() {
                         {
                           justifyContent: 'center',
                           alignItems: 'flex-start',
-                          backgroundColor: '#FFFFFF',
+                          backgroundColor: isDarkMode ? '#141824' : '#FFFFFF',
                           borderColor: isDarkMode ? '#222A41' : '#cbd5e1',
                         },
                       ]}
@@ -1138,13 +1684,15 @@ export default function FocusTab() {
                           onPress={() => setShowDatePicker(true)}
                           activeOpacity={0.8}
                         >
-                          <Text style={{ fontSize: 14, fontWeight: '500', color: '#1E2229' }}>{targetDate}</Text>
+                          <Text style={{ fontSize: 14, fontWeight: '500', color: isDarkMode ? '#FFFFFF' : '#1E2229' }}>{targetDate}</Text>
                         </TouchableOpacity>
                       ) : (
                         <DateTimePicker
                           value={targetDateObject}
                           mode="date"
-                          themeVariant="light"
+                          themeVariant={isDarkMode ? 'dark' : 'light'}
+                          textColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                          accentColor="#FF6B00"
                           display="compact"
                           onChange={(event, date) => {
                             if (date) {
@@ -1170,6 +1718,9 @@ export default function FocusTab() {
                       value={targetDateObject}
                       mode="date"
                       display="default"
+                      themeVariant={isDarkMode ? 'dark' : 'light'}
+                      textColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                      accentColor="#FF6B00"
                       onChange={(event, date) => {
                         setShowDatePicker(false);
                         if (date) {
@@ -1185,15 +1736,67 @@ export default function FocusTab() {
               <View style={styles.formColumn}>
                 <Text style={[styles.formLabel, isDarkMode && { color: '#FFFFFF' }]}>Time</Text>
                 <View style={styles.inputIconWrapper}>
-                  <TextInput
-                    style={[styles.formIconInput, isDarkMode && { backgroundColor: '#FFFFFF', color: '#1E2229', borderColor: '#222A41' }]}
-                    placeholder="11:00 AM"
-                    placeholderTextColor="#94a3b8"
-                    value={targetTime}
-                    onChangeText={setTargetTime}
+                  <View
+                    style={[
+                      styles.formIconInput,
+                      {
+                        justifyContent: 'center',
+                        backgroundColor: isDarkMode ? '#141824' : '#FFFFFF',
+                        borderColor: isDarkMode ? '#222A41' : '#cbd5e1',
+                      },
+                    ]}
+                  >
+                    {Platform.OS === 'android' ? (
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}
+                        onPress={() => setShowTimePicker(true)}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={{ fontSize: 14, fontWeight: '500', color: isDarkMode ? '#FFFFFF' : '#1E2229' }}>{targetTime}</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <DateTimePicker
+                        value={targetTimeObject}
+                        mode="time"
+                        themeVariant={isDarkMode ? 'dark' : 'light'}
+                        textColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                        accentColor="#FF6B00"
+                        display="compact"
+                        onChange={(event, date) => {
+                          if (date) {
+                            setTargetTimeObject(date);
+                            setTargetTime(date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
+                          }
+                        }}
+                        style={{ height: 36, alignSelf: 'flex-start' }}
+                      />
+                    )}
+                  </View>
+                  <Ionicons
+                    name="time-outline"
+                    size={16}
+                    color={isDarkMode ? '#8E95A9' : '#64748b'}
+                    style={styles.rightIcon}
+                    pointerEvents="none"
                   />
-                  <Ionicons name="time-outline" size={16} color={isDarkMode ? '#8E95A9' : '#64748b'} style={styles.rightIcon} />
                 </View>
+                {Platform.OS === 'android' && showTimePicker && (
+                  <DateTimePicker
+                    value={targetTimeObject}
+                    mode="time"
+                    display="default"
+                    themeVariant={isDarkMode ? 'dark' : 'light'}
+                    textColor={isDarkMode ? '#FFFFFF' : '#000000'}
+                    accentColor="#FF6B00"
+                    onChange={(event, date) => {
+                      setShowTimePicker(false);
+                      if (date) {
+                        setTargetTimeObject(date);
+                        setTargetTime(date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }));
+                      }
+                    }}
+                  />
+                )}
               </View>
             </View>
 
@@ -1280,11 +1883,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   startBtn: {
-    backgroundColor: '#ff6b2b', // CTA Accent Orange Start button
+    backgroundColor: ORANGE_FILL, // Deepened orange so the white label passes contrast
     borderRadius: 12,
     paddingHorizontal: 24,
     paddingVertical: 8,
-    shadowColor: '#ff6b2b',
+    shadowColor: ORANGE_FILL,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -1381,6 +1984,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  shieldCardStacked: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'flex-start',
+  },
   shieldDetails: {
     flex: 1,
     flexDirection: 'row',
@@ -1469,11 +2077,11 @@ const styles = StyleSheet.create({
   orangeAddBtn: {
     width: '100%',
     height: 48,
-    backgroundColor: '#ff6b2b', // Accent orange full-width CTA button
+    backgroundColor: ORANGE_FILL, // Deepened orange so the white label passes contrast
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#ff6b2b',
+    shadowColor: ORANGE_FILL,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 4,
@@ -1663,6 +2271,19 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   dialContainerPortrait: {},
+  dialFlex: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  timerContentWithStrip: {
+    paddingTop: 48,
+    paddingBottom: 40,
+  },
+  timerContentCompact: {
+    paddingTop: 24,
+    paddingBottom: 24,
+  },
   dialContainerLandscape: {
     marginVertical: 0,
     flexShrink: 1,
@@ -1670,7 +2291,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   focusPill: {
-    backgroundColor: '#4b6c8d', // dark slate-blue pill
+    backgroundColor: '#4A6583', // dusty-blue pill
     borderRadius: 99,
     paddingHorizontal: 20,
     paddingVertical: 7,
@@ -1707,12 +2328,13 @@ const styles = StyleSheet.create({
   },
   timerControlsRow: {
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     width: '100%',
     justifyContent: 'center',
     alignItems: 'center',
   },
   controlBtnLandscape: {
+    flex: 0,
     height: 34,
     minWidth: 86,
     paddingHorizontal: 18,
@@ -1727,11 +2349,11 @@ const styles = StyleSheet.create({
   },
   pauseBtn: {
     backgroundColor: '#4a6c8c', // brand color pause
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minWidth: 100,
+    borderRadius: 16,
+    flex: 1,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   pauseBtnText: {
     color: '#ffffff',
@@ -1740,11 +2362,22 @@ const styles = StyleSheet.create({
   },
   resetBtn: {
     backgroundColor: '#e2e8f0', // light blue-gray reset
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    minWidth: 100,
+    borderRadius: 16,
+    flex: 1,
+    height: 52,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionActions: {
+    width: '100%',
+    maxWidth: 316,
+    alignSelf: 'center',
+  },
+  sessionBtnDark: {
+    backgroundColor: '#14192B', // dark navy surface for the active-session buttons
+  },
+  lockedUntilBtn: {
+    paddingHorizontal: 24,
   },
   resetBtnText: {
     color: '#4a6c8c',

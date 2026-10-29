@@ -1,8 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 import { queryCache } from './queryCache';
+import { isProPlan } from './plan';
+import { BLOCKING_HISTORY_UPDATED } from '../services/blockingTelemetrySync';
 
 export interface UserProfile {
   id: string;
@@ -28,6 +30,24 @@ interface UserContextType {
 }
 
 const BOOT_USER_KEY = '@focalyst_boot_user_v1';
+
+/**
+ * AsyncStorage keys (or prefixes) holding one account's data, cleared on sign-out and account switch
+ * so nothing of the previous user shows, or syncs, under the next one. Device preferences (theme,
+ * language, blocking rules) and keys already scoped by user id are deliberately not listed.
+ */
+const USER_SCOPED_KEY_PREFIXES = [
+  BOOT_USER_KEY,
+  '@focalyst_snap:',
+  '@focalyst_blocking_sessions_history_v1',
+  // Unsynced blocking sessions would otherwise upload under the next account.
+  '@focalyst_blocking_pending_sync_v1',
+  // Queued offline writes belong to the account that made them.
+  '@focalyst_offline_queue_v1',
+  '@focalyst_pomodoro_session_v1',
+  '@focalyst_widget_completed_task_ids',
+  '@focalyst_calendar_events_widget_v1',
+];
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
@@ -67,6 +87,21 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
+  /** Boot snapshot, query cache and every per-user AsyncStorage key, so the next account starts clean. */
+  const clearUserLocalData = React.useCallback(async () => {
+    await clearBootSnapshot();
+    queryCache.clearAll();
+    try {
+      const keys = await AsyncStorage.getAllKeys();
+      const userKeys = keys.filter((k) => USER_SCOPED_KEY_PREFIXES.some((p) => k.startsWith(p)));
+      if (userKeys.length) await AsyncStorage.multiRemove(userKeys);
+    } catch (e) {
+      console.warn('[UserContext] Failed to clear user storage:', e);
+    }
+    // Screens holding the old account's distraction history reload it (now empty).
+    DeviceEventEmitter.emit(BLOCKING_HISTORY_UPDATED);
+  }, [clearBootSnapshot]);
+
   const fetchUserProfile = React.useCallback(async (userId: string, currentUser?: any): Promise<UserProfile | null> => {
     if (!userId || isFetchingProfileRef.current === userId) return null;
     isFetchingProfileRef.current = userId;
@@ -83,8 +118,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         .maybeSingle();
 
       if (!error && data) {
+        // The user switched accounts while this request was in flight: drop it.
+        if (userRef.current?.id && userRef.current.id !== userId) return null;
         const rawPlan = data.plan || 'free';
-        const isPlanActive = rawPlan !== 'free' && (!data.plan_expires_at || new Date(data.plan_expires_at) >= new Date());
+        const isPlanActive = isProPlan(rawPlan, data.plan_expires_at);
         const uProfile: UserProfile = {
           id: data.id,
           email: data.email || '',
@@ -148,8 +185,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           if (parsed?.user?.id) {
             hasCachedSession = true;
             setUser(parsed.user);
-            if (parsed.profile) {
-              setProfile(parsed.profile);
+            // Only trust a cached profile that belongs to the cached user.
+            if (parsed.profile?.id === parsed.user.id) {
+              setProfile({ ...parsed.profile, isPro: isProPlan(parsed.profile.plan, parsed.profile.plan_expires_at) });
             }
             setLoading(false);
             clearTimeout(safetyTimer);
@@ -231,20 +269,27 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       if (event === 'SIGNED_OUT') {
-        // Explicit sign out: wipe boot snapshot, cache, and state
-        await clearBootSnapshot();
-        queryCache.clearAll();
+        // Explicit sign out: wipe boot snapshot, cache, per-user storage and state
+        await clearUserLocalData();
+        userRef.current = null;
+        profileRef.current = null;
         setUser(null);
         setProfile(null);
       } else if (nextSession?.user) {
-        // If switching accounts or logging in as a different user, isolate caches completely
-        const previousUserId = userRef.current?.id;
-        if (previousUserId && previousUserId !== nextSession.user.id) {
-          queryCache.clearAll();
-        }
+        // Switching accounts (or signing in after someone else): drop everything of the previous user.
+        const previousUserId = userRef.current?.id ?? profileRef.current?.id;
+        const switched = !!previousUserId && previousUserId !== nextSession.user.id;
+        if (switched) await clearUserLocalData();
 
+        userRef.current = nextSession.user;
         setUser(nextSession.user);
-        void persistBootSnapshot(nextSession.user, profileRef.current);
+        // Never pair the new user with another account's profile, in memory or on disk.
+        const keptProfile = profileRef.current?.id === nextSession.user.id ? profileRef.current : null;
+        if (!keptProfile) {
+          profileRef.current = null;
+          setProfile(null);
+        }
+        void persistBootSnapshot(nextSession.user, keptProfile);
         await queryCache.hydrateUserSnapshots(nextSession.user.id);
         void fetchUserProfile(nextSession.user.id, nextSession.user);
       }
@@ -260,18 +305,18 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = React.useCallback(async () => {
     try {
-      await clearBootSnapshot();
-      queryCache.clearAll();
+      await clearUserLocalData();
       await supabase.auth.signOut();
     } catch (err) {
       console.warn('[UserContext] Error during signOut:', err);
     } finally {
-      await clearBootSnapshot();
-      queryCache.clearAll();
+      await clearUserLocalData();
+      userRef.current = null;
+      profileRef.current = null;
       setUser(null);
       setProfile(null);
     }
-  }, [clearBootSnapshot]);
+  }, [clearUserLocalData]);
 
   return (
     <UserContext.Provider value={{ user, profile, loading, refreshProfile, signOut }}>

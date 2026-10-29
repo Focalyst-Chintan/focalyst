@@ -24,11 +24,40 @@ import * as Linking from 'expo-linking';
 // Required for web browser behavior in auth session
 WebBrowser.maybeCompleteAuthSession();
 
+// The `focalyst` scheme is registered in CFBundleURLTypes and the Android intent filter.
+const GOOGLE_REDIRECT_TO = 'focalyst://auth/callback';
+
+// Fills users.full_name only when it is empty, never with an email. An existing name always wins.
+async function fillMissingName(userId: string, candidate: string | null | undefined) {
+  const name = candidate?.trim();
+  if (!name || name.includes('@')) return;
+  try {
+    const { data: row } = await supabase.from('users').select('full_name').eq('id', userId).maybeSingle();
+    if (!row || row.full_name?.trim()) return;
+    await supabase.from('users').update({ full_name: name }).eq('id', userId).or('full_name.is.null,full_name.eq.');
+  } catch {}
+}
+
 export default function AuthScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setEmail('');
+    setPassword('');
+  }, []);
+
+  const handleEmailChange = (text: string) => {
+    if (text.includes('FunctionCallException') || text.includes('ReactFabric')) return;
+    setEmail(text.trim());
+  };
+
+  const handlePasswordChange = (text: string) => {
+    if (text.includes('FunctionCallException') || text.includes('ReactFabric')) return;
+    setPassword(text);
+  };
 
   const theme = {
     colors: {
@@ -44,7 +73,11 @@ export default function AuthScreen() {
     setIsGoogleLoading(true);
     setMessage('');
     try {
-      const redirectTo = Linking.createURL('auth/callback');
+      // Must match an entry on the Supabase Redirect URLs allow list exactly. Linking.createURL
+      // builds it from the app.json scheme (online.focalyst://, exp+…:// in dev), which is not
+      // on that list, so Supabase fell back to the Site URL (focalyst.online).
+      const redirectTo = GOOGLE_REDIRECT_TO;
+      if (__DEV__) console.log('[auth] google redirectTo:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -81,6 +114,8 @@ export default function AuthScreen() {
           // Verify session and route to authenticated screen
           const { data: userData } = await supabase.auth.getUser();
           if (userData?.user) {
+            const meta = userData.user.user_metadata ?? {};
+            await fillMissingName(userData.user.id, meta.full_name || meta.name);
             const { data: profile } = await supabase
               .from('users')
               .select('onboarding_done')
@@ -205,6 +240,10 @@ export default function AuthScreen() {
       if (error) {
         setMessage(error.message);
       } else if (data?.user) {
+        // Apple only sends the name on the very first sign-in.
+        const appleName = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
+        const meta = data.user.user_metadata ?? {};
+        await fillMissingName(data.user.id, appleName || meta.full_name || meta.name);
         // Route based on onboarding status (same pattern as email login)
         const { data: profile } = await supabase
           .from('users')
@@ -310,9 +349,14 @@ export default function AuthScreen() {
                 placeholder="Enter your email"
                 placeholderTextColor="#94a3b8"
                 value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
+                onChangeText={handleEmailChange}
+                clearButtonMode="always"
                 autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                textContentType="emailAddress"
+                contextMenuHidden={false}
+                editable={true}
               />
               <View style={{ flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#1e293b', position: 'relative' }}>
                 <TextInput 
@@ -321,8 +365,11 @@ export default function AuthScreen() {
                   placeholder="Password"
                   placeholderTextColor="#94a3b8"
                   value={password}
-                  onChangeText={setPassword}
+                  onChangeText={handlePasswordChange}
                   autoCapitalize="none"
+                  autoCorrect={false}
+                  contextMenuHidden={false}
+                  editable={true}
                 />
                 <TouchableOpacity 
                   style={{ position: 'absolute', right: 10 }}
@@ -331,6 +378,15 @@ export default function AuthScreen() {
                   <Ionicons name={passwordVisible ? "eye-off" : "eye"} size={22} color={theme.colors.gray} />
                 </TouchableOpacity>
               </View>
+
+              {/* Forgot Password Link */}
+              <TouchableOpacity
+                style={styles.forgotPasswordButton}
+                onPress={() => router.push({ pathname: '/forgot-password', params: email ? { email } : {} } as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+              </TouchableOpacity>
 
               {/* Action Buttons */}
               <View style={styles.actionRow}>
@@ -481,6 +537,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     color: '#ffffff',
     fontSize: 14,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: 2,
+    marginBottom: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  forgotPasswordText: {
+    color: '#3b82f6',
+    fontSize: 13,
+    textDecorationLine: 'underline',
   },
   actionRow: {
     flexDirection: 'row',

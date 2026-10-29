@@ -15,6 +15,7 @@ import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import DraggableFlatList, { ScaleDecorator } from 'react-native-draggable-flatlist';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import * as Crypto from 'expo-crypto';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 
 function getPriorityBadgeStyle(priority: string | undefined, isDark: boolean = false) {
@@ -86,7 +87,16 @@ export default function TodoList({
         .eq('is_completed', false)
         .order('position', { ascending: true })
         .order('created_at', { ascending: false });
-      if (data) setTasks(data);
+      if (data) {
+        const seen = new Set<string>();
+        const unique = data.filter((t: any) => {
+          const idStr = String(t.id);
+          if (seen.has(idStr)) return false;
+          seen.add(idStr);
+          return true;
+        });
+        setTasks(unique);
+      }
     } catch (e) {
       console.error('Error fetching tasks:', e);
     } finally {
@@ -186,15 +196,31 @@ export default function TodoList({
   };
 
   const handleAddTask = async () => {
+    if (submitting) return;
     if (!newTitle.trim()) { setIsAdding(false); return; }
     setSubmitting(true);
     try {
+      const taskId = Crypto.randomUUID();
+      const newTask = {
+        id: taskId,
+        user_id: userId,
+        title: newTitle.trim(),
+        is_completed: false,
+        tags: [],
+        position: 0,
+      };
       const { data, error } = await supabase
         .from('tasks')
-        .insert([{ user_id: userId, title: newTitle.trim(), is_completed: false, tags: [] }])
+        .upsert([newTask], { onConflict: 'id' })
         .select();
       if (error) throw error;
-      if (data) { setTasks(prev => [data[0], ...prev]); setNewTitle(''); setIsAdding(false); }
+      const created = (data && data[0]) ? data[0] : newTask;
+      setTasks(prev => {
+        const remaining = prev.filter(t => t.id !== created.id);
+        return [created, ...remaining];
+      });
+      setNewTitle('');
+      setIsAdding(false);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to add task');
     } finally {
@@ -259,7 +285,7 @@ export default function TodoList({
                 {submitting
                   ? <ActivityIndicator size="small" color="#4a6c8c" style={{ padding: 4 }} />
                   : (
-                    <TouchableOpacity onPress={handleAddTask} style={styles.checkButton}>
+                    <TouchableOpacity onPress={handleAddTask} disabled={submitting} style={[styles.checkButton, submitting && { opacity: 0.5 }]}>
                       <Ionicons name="checkmark-circle" size={22} color="#4a6c8c" />
                     </TouchableOpacity>
                   )}

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, ScrollView, StyleSheet, LogBox } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { View, Text, ScrollView, StyleSheet, LogBox, DeviceEventEmitter, AppState } from 'react-native';
 
 
 import '../global.css';
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -27,12 +27,21 @@ import '../src/lib/i18n';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useColorScheme } from '@/components/useColorScheme';
 import { UserProvider } from '../src/utils/UserContext';
+import { BlockingProvider } from '../src/blocking/BlockingContext';
 import XpPopup from '../components/XpPopup';
+import McpDailyBonus from '../components/McpDailyBonus';
 import * as Linking from 'expo-linking';
 import { supabase } from '../src/utils/supabase';
 import { initOutageResilience } from '../src/services/outageResilienceService';
 import { OutageStatusBanner } from '../components/OutageStatusBanner';
 import { AppReviewModal } from '../components/AppReviewModal';
+import { UpdateModal } from '../components/UpdateModal';
+import {
+  getWidgetPayload,
+  initializeWidgetListeners,
+  reconcileWidgetsToApp,
+  subscribeToWidgetPayload,
+} from '../src/services/widgetSync';
 
 // Configure how notifications are handled when app is in foreground
 Notifications.setNotificationHandler({
@@ -82,6 +91,7 @@ export default function RootLayout() {
 }
 
 function RootLayoutNav() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const [bootTimeoutReached, setBootTimeoutReached] = useState(false);
 
@@ -102,6 +112,11 @@ function RootLayoutNav() {
   useEffect(() => {
     const handleIncomingUrl = async (event: Linking.EventType) => {
       if (!event.url) return;
+      // Only the OAuth callback may carry auth tokens. Accepting them from any link would let a
+      // crafted URL sign the user into someone else's account.
+      const { hostname, path } = Linking.parse(event.url);
+      const isAuthCallback = [hostname, path].filter(Boolean).join('/').replace(/^\/+/, '').startsWith('auth/callback');
+      if (isAuthCallback) {
       try {
         const timeoutPromise = new Promise<{ data: null; error: Error }>((_, reject) =>
           setTimeout(() => reject(new Error('OAuth deep link resolution timeout')), 4000)
@@ -140,6 +155,25 @@ function RootLayoutNav() {
       } catch (oauthErr) {
         console.warn('[RootLayout] OAuth deep link resolution error:', oauthErr);
       }
+      }
+
+      // Check for calendar deep link (?view=calendar) and route to Plan tab
+      if (event.url.includes('view=calendar')) {
+        try {
+          router.navigate('/(tabs)/plan?view=calendar' as any);
+        } catch (navErr) {
+          console.warn('[RootLayout] Calendar deep link navigation error:', navErr);
+        }
+      } else if (event.url.includes('view=countdown')) {
+        // Switch directly to the Focus tab where the Countdown section lives
+        setTimeout(() => {
+          try {
+            router.navigate('/(tabs)/focus?section=countdown' as any);
+          } catch (navErr) {
+            console.warn('[RootLayout] Countdown deep link navigation error:', navErr);
+          }
+        }, 50);
+      }
     };
 
     // Check if app was opened directly from a deep link state
@@ -150,30 +184,69 @@ function RootLayoutNav() {
     // Actively listen for incoming background redirect links
     const linkSubscription = Linking.addEventListener('url', handleIncomingUrl);
     return () => linkSubscription.remove();
-  }, []);
+  }, [router]);
 
   // Initialize Outage Resilience Service (local cache snapshots, 30s auto-check & remote banner)
   useEffect(() => {
     initOutageResilience(supabase);
   }, []);
 
+  // Initialize Home Screen Widget Bi-directional & System Theme listeners
+  useEffect(() => {
+    const unsubWidgets = initializeWidgetListeners();
+
+    const checkAndNavigateToActivePomodoro = async () => {
+      try {
+        await reconcileWidgetsToApp();
+        const payload = getWidgetPayload();
+        if (payload.pomodoro.isRunning && (payload.pomodoro.endTimeMs ?? 0) > Date.now()) {
+          router.navigate('/(tabs)/focus' as any);
+        }
+      } catch {}
+    };
+
+    // Check on startup
+    checkAndNavigateToActivePomodoro();
+
+    // Check whenever app becomes active from background / home screen widget tap
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        checkAndNavigateToActivePomodoro();
+      }
+    });
+
+    return () => {
+      unsubWidgets();
+      appStateSub.remove();
+    };
+  }, [router]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <UserProvider>
+            <BlockingProvider>
             <OutageStatusBanner />
             <AppReviewModal />
+            <UpdateModal />
             <XpPopup />
+            <McpDailyBonus />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="auth" options={{ headerShown: false }} />
+              <Stack.Screen name="forgot-password" options={{ headerShown: false, presentation: 'card' }} />
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
               <Stack.Screen name="profile" options={{ headerShown: false, presentation: 'card' }} />
+              <Stack.Screen name="widgets" options={{ headerShown: false, presentation: 'card' }} />
+              <Stack.Screen name="mcp-credits" options={{ headerShown: false, presentation: 'card' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
               <Stack.Screen name="onboarding/name" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="onboarding/profile-type" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="blocking" options={{ headerShown: false, presentation: 'card' }} />
             </Stack>
+            </BlockingProvider>
           </UserProvider>
         </ThemeProvider>
       </SafeAreaProvider>
