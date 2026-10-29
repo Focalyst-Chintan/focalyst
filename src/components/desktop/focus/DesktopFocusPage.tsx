@@ -35,6 +35,9 @@ import { Switch } from '@/components/desktop/ui/Switch';
 import CountdownForm from '@/components/focus/CountdownForm';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { Countdown } from '@/types';
+import { isPaidPlan } from '@/lib/featureGates';
+import { takeRecommendedPreset } from '@/lib/onboarding/plan';
+import { PendingCountdownCard } from '@/components/onboarding/PendingCountdownCard';
 
 type PomodoroPhase = 'focus' | 'short_break' | 'long_break';
 
@@ -644,6 +647,21 @@ export function DesktopFocusPage() {
     setCustomPopoverOpen(false);
   };
 
+  // The onboarding plan's rhythm, selected once (7.1). 25/5 is already the default; 45/10 and 60/15 are Pro custom timers.
+  useEffect(() => {
+    if (!profile || isActive) return;
+    const p = takeRecommendedPreset(isPaidPlan(plan));
+    if (!p || p.focusMinutes === 25) return;
+    setFocusMins(p.focusMinutes);
+    setShortBreakMins(p.breakMinutes);
+    setCustomFocusTemp(p.focusMinutes);
+    setCustomBreakTemp(p.breakMinutes);
+    setActivePreset('custom');
+    if (phase === 'focus') setPausedTimeLeft(p.focusMinutes * 60);
+    // Runs when the profile arrives, so the plan check uses the real plan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile]);
+
   const handleSelectPreset = (focus: number, brk: number, key: string) => {
     setFocusMins(focus);
     setShortBreakMins(brk);
@@ -1105,6 +1123,8 @@ export function DesktopFocusPage() {
                   <span>Add</span>
                 </Button>
               </div>
+
+              <PendingCountdownCard className="mb-4" />
 
               {parsedCountdowns.length === 0 ? (
                 <div className="py-12 flex flex-col items-center justify-center text-center gap-2">

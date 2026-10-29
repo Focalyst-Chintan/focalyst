@@ -8,10 +8,10 @@ import { hasPro } from '@/lib/billing/proStatus';
 import { isNativeApp } from '@/lib/billing/checkout';
 import { GlobalToastContainer, useToast } from '@/components/desktop/ui/Toast';
 import {
-  clearDraft, clearPendingFinish, firstName, readDraft, setPendingFinish, setPostCookie, writeDraft, writePostState,
-  type OnboardingPostState,
+  clearDraft, clearPendingFinish, firstName, readDraft, setPendingFinish, setPostCookie, writeDraft, writePendingCountdown,
+  writePostState, type OnboardingPostState,
 } from '@/lib/onboarding/draft';
-import { runGroupStep } from '@/lib/onboarding/groupStep';
+import { groupHabitId, runGroupStep } from '@/lib/onboarding/groupStep';
 import { buildOnboardingPayload } from '@/lib/onboarding/payload';
 import { buildPlan, saveRecommendedPreset } from '@/lib/onboarding/plan';
 import { hasStoreLinkEnv } from '@/lib/onboarding/steps';
@@ -118,10 +118,17 @@ export default function FinishFlow() {
         group: null,
         countdownPending: Boolean(result.countdown_pending),
         checkoutPending: null,
+        answers,
+        skipped: draft.skipped,
+        plan,
+        groupHabitId: groupHabitId(g, Array.isArray(result.habit_ids) ? result.habit_ids : []),
       };
       clearDraft();
       clearPendingFinish();
       writePostState(post);
+      if (result.countdown_pending && answers.countdown) {
+        writePendingCountdown({ name: answers.countdown.name, date: answers.countdown.date, status: 'pending' });
+      }
       try { await refreshRef.current(); } catch { /* the context refreshes on its own later */ }
 
       const group = await runGroupStep(g, Array.isArray(result.habit_ids) ? result.habit_ids : []);

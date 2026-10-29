@@ -68,12 +68,23 @@ export interface OnboardingPostState {
   countdownPending: boolean;
   checkoutPending: string | null;
   savedAt: number;
+  /** The saved answers, for the plan panel and the screen 28 chat preview (the draft is gone by then). */
+  answers?: OnboardingAnswers;
+  skipped?: AnswerKey[];
+  plan?: OnboardingPlan | null;
+  /** The habit the group step used, for a real Try again on screen 31. */
+  groupHabitId?: string | null;
+  /** Set by the payment success page or an already_pro checkout: Pro from now on. */
+  purchased?: boolean;
+  /** The screen 28 reply has typed in once. */
+  chatShown?: boolean;
 }
 
 export const DRAFT_KEY = 'onboarding:draft:v1';
 export const POST_KEY = 'onboarding:post:v1';
 export const PENDING_FINISH_KEY = 'onboarding:pendingFinish';
 export const PENDING_GROUP_KEY = 'onboarding:pendingGroup';
+export const PENDING_COUNTDOWN_KEY = 'onboarding:pendingCountdown';
 /** Lets an onboarded account open /start for screens 28 to 32 after the save (read by the middleware). */
 export const POST_COOKIE = 'onboarding_post';
 const DAY = 24 * 60 * 60 * 1000;
@@ -169,6 +180,10 @@ export function clearPendingFinish() {
   removeItem(PENDING_FINISH_KEY);
 }
 
+export function hasPendingFinish(): boolean {
+  return getItem(PENDING_FINISH_KEY) === '1';
+}
+
 export interface PendingGroup { mode: 'create' | 'join'; habitId: string; code?: string }
 
 /** The group step was offline or timed out: retried once per later app visit (8.5). */
@@ -178,6 +193,51 @@ export function writePendingGroup(g: PendingGroup) {
 
 export function clearPendingGroup() {
   removeItem(PENDING_GROUP_KEY);
+}
+
+export function readPendingGroup(): PendingGroup | null {
+  const g = readJson<PendingGroup>(PENDING_GROUP_KEY);
+  if (!g || (g.mode !== 'create' && g.mode !== 'join') || typeof g.habitId !== 'string') return null;
+  return g;
+}
+
+/**
+ * A countdown complete_onboarding saved as pending (8.6). Kept on this device so the follow-ups know
+ * to call claim_pending_countdown, and so the needs_pro card can name it.
+ */
+export interface PendingCountdown {
+  name: string;
+  date: string;
+  status: 'pending' | 'needs_pro' | 'created';
+  /** "Remove" on the needs_pro card: hidden on this device. */
+  dismissed?: boolean;
+}
+
+export const PENDING_COUNTDOWN_EVENT = 'fx:onboarding-countdown';
+
+export function readPendingCountdown(): PendingCountdown | null {
+  return parsePendingCountdown(getItem(PENDING_COUNTDOWN_KEY));
+}
+
+/** The stored string, stable between reads (for useSyncExternalStore). */
+export function readPendingCountdownRaw(): string | null {
+  return getItem(PENDING_COUNTDOWN_KEY);
+}
+
+export function parsePendingCountdown(raw: string | null): PendingCountdown | null {
+  if (!raw) return null;
+  try {
+    const c = JSON.parse(raw) as PendingCountdown;
+    return c && typeof c.name === 'string' ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+export function writePendingCountdown(c: PendingCountdown | null) {
+  if (c) setItem(PENDING_COUNTDOWN_KEY, JSON.stringify(c));
+  else removeItem(PENDING_COUNTDOWN_KEY);
+  try { window.dispatchEvent(new CustomEvent(PENDING_COUNTDOWN_EVENT)); } catch { /* ignore */ }
 }
 
 export function setPostCookie() {

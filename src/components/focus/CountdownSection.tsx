@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
 import { Countdown } from '@/types'
+import { PendingCountdownCard } from '@/components/onboarding/PendingCountdownCard'
 
 export default function CountdownSection({ userId, userPlan }: { userPlan: string, userId: string }) {
     const router = useRouter()
@@ -41,6 +42,7 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
     return (
         <section className="mt-8">
             <h2 className="text-[20px] font-bold text-navy dark:text-slate-100 mb-4">{t('focus.countdown')}</h2>
+            <PendingCountdownCard className="mb-4" />
 
             {loading ? (
                 <div className="animate-pulse space-y-4">

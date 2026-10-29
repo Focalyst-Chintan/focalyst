@@ -2,7 +2,7 @@
 import {
   fetchMyGroupLeaderboard, formOrUpdateHabitGroup, joinHabitGroupByCode,
 } from '@/lib/services/habitGroupService';
-import { writePendingGroup, type GroupStepResult, type OnboardingGroup } from './draft';
+import { writePendingGroup, type GroupStepResult, type OnboardingGroup, type PendingGroup } from './draft';
 
 export const GROUP_STEP_MS = 4000;
 
@@ -44,7 +44,7 @@ async function attempt(group: OnboardingGroup, habitId: string): Promise<GroupSt
  */
 export async function runGroupStep(group: OnboardingGroup | undefined, habitIds: string[]): Promise<GroupStepResult | null> {
   if (!group || (group.mode !== 'create' && group.mode !== 'join')) return null;
-  const habitId = habitIds[group.habit_index] ?? habitIds[0];
+  const habitId = groupHabitId(group, habitIds);
   if (!habitId) return null;
 
   const pending = () => {
@@ -59,5 +59,27 @@ export async function runGroupStep(group: OnboardingGroup | undefined, habitIds:
   } catch (e) {
     if (offline()) return pending();
     return { status: 'failed', mode: group.mode, error: e instanceof Error ? e.message : 'failed' };
+  }
+}
+
+/** The habit the group step uses: the picked one, else the first (8.5 step 1). */
+export function groupHabitId(group: OnboardingGroup | undefined, habitIds: string[]): string | null {
+  if (!group || (group.mode !== 'create' && group.mode !== 'join')) return null;
+  return habitIds[group.habit_index] ?? habitIds[0] ?? null;
+}
+
+/**
+ * One more real attempt (screen 31 "Try again", or the pending group on a later visit).
+ * Returns null while still offline or timed out, so the caller can keep it pending.
+ */
+export async function retryGroup(g: PendingGroup): Promise<GroupStepResult | null> {
+  if (offline()) return null;
+  const group: OnboardingGroup = { mode: g.mode, habit_index: 0, code: g.code };
+  try {
+    const r = await withLimit(attempt(group, g.habitId), GROUP_STEP_MS);
+    return r === TIMED_OUT ? null : r;
+  } catch (e) {
+    if (offline()) return null;
+    return { status: 'failed', mode: g.mode, error: e instanceof Error ? e.message : 'failed' };
   }
 }

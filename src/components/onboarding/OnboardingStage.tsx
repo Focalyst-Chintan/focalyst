@@ -104,6 +104,8 @@ export interface FooterAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
+  /** Secondary button only: ghost by default (screen 32 uses a secondary one). */
+  variant?: 'ghost' | 'secondary';
 }
 
 function FooterButtons({
@@ -127,7 +129,7 @@ function FooterButtons({
         </div>
       )}
       {secondary && (
-        <Button variant="ghost" size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 w-full lg:order-none lg:w-auto">
+        <Button variant={secondary.variant ?? 'ghost'} size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 w-full lg:order-none lg:w-auto">
           {secondary.label}
         </Button>
       )}

@@ -25,12 +25,31 @@ export const SAVE_PLAN_URL = '/login?mode=save-plan&next=%2Fonboarding%2Ffinish'
 
 const GREETING_MS = 900;
 
+function postFromDraft(d: OnboardingDraft): OnboardingPostState {
+  const habits = d.answers.habits ?? [];
+  return {
+    step: d.step,
+    name: firstName(d.answers.name),
+    preset: d.plan?.presetLabel ?? null,
+    habitName: habits[d.answers.group?.habit_index === 1 ? 1 : 0]?.name ?? habits[0]?.name ?? null,
+    group: null,
+    countdownPending: false,
+    checkoutPending: null,
+    savedAt: d.updatedAt,
+    answers: d.answers,
+    skipped: d.skipped,
+    plan: d.plan,
+  };
+}
+
 export default function StartFlow({ collageImages }: { collageImages: boolean[] }) {
   const router = useRouter();
   const { user, isLoading, plan } = useAuth();
   const [draft, setDraft] = useState<OnboardingDraft | null>(null);
   // After the save (screens 28 to 32) the draft is gone and this small state drives the flow (2.3).
   const [post, setPost] = useState<OnboardingPostState | null>(null);
+  // complete_onboarding kept failing (8.3): the draft stays for the retry and 28 to 32 run from it in memory.
+  const [memPost, setMemPost] = useState<OnboardingPostState | null>(null);
   const [native, setNative] = useState(false);
   const [direction, setDirection] = useState<'fwd' | 'back'>('fwd');
   const [notice, setNotice] = useState<{ step: number; text: string } | null>(null);
@@ -140,17 +159,35 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     });
   }, [flowOf]);
 
+  const homePath = () => (window.matchMedia('(min-width: 1024px)').matches ? '/today' : '/plan');
+
   if (!draft && post) {
     return (
       <PostScreens
         post={post}
         isPro={isPro}
         native={native}
-        onStep={(s) => setPost(writePostState({ ...post, step: s }))}
-        onDone={() => {
+        onChange={(patch) => setPost((p) => (p ? writePostState({ ...p, ...patch }) : p))}
+        onDone={(to) => {
           clearPostState();
-          router.push(window.matchMedia('(min-width: 1024px)').matches ? '/today' : '/plan');
+          router.push(to === '/focus' ? '/focus' : homePath());
         }}
+      />
+    );
+  }
+
+  if (draft && draft.step >= 28) {
+    const mp = memPost ?? postFromDraft(draft);
+    return (
+      <PostScreens
+        post={mp}
+        isPro={isPro}
+        native={native}
+        onChange={(patch) => {
+          setMemPost({ ...mp, ...patch });
+          if (patch.step) setDraft((d) => (d ? { ...d, step: patch.step as number } : d));
+        }}
+        onDone={(to) => router.push(to === '/focus' ? '/focus' : homePath())}
       />
     );
   }

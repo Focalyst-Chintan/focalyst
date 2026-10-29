@@ -1,7 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useRef, useState, Suspense } from 'react';
 import Link from 'next/link';
+import { readPostState, writePostState, type OnboardingPostState } from '@/lib/onboarding/draft';
+import { claimPendingCountdown } from '@/lib/onboarding/useOnboardingFollowUps';
 import { createClient } from '@/lib/supabase';
 import { isPaidPlan } from '@/lib/featureGates';
 import { emitDataChanged } from '@/lib/events';
@@ -11,7 +13,16 @@ function SuccessContent() {
   const [status, setStatus] = useState<'checking' | 'done' | 'slow'>('checking');
   const [elapsed, setElapsed] = useState(0);
   const [onboardingDone, setOnboardingDone] = useState(true);
+  // Back from Polar during the web onboarding (9.4): continue at screen 31 or 32.
+  const [post] = useState<OnboardingPostState | null>(() => (typeof window === 'undefined' ? null : readPostState()));
+  const claimed = useRef(false);
   const supabase = createClient();
+
+  useEffect(() => {
+    if (status !== 'done' || !post || claimed.current) return;
+    claimed.current = true;
+    claimPendingCountdown();
+  }, [status, post]);
 
   function isPro(data: { plan?: string | null; plan_expires_at?: string | null }) {
     return isPaidPlan(data.plan, data.plan_expires_at);
@@ -125,10 +136,13 @@ function SuccessContent() {
               Your Pro membership is now active. All limits unlocked.
             </p>
             <Link
-              href={!onboardingDone ? '/onboarding/name' : '/today'}
+              href={post ? '/start' : !onboardingDone ? '/onboarding/name' : '/today'}
+              onClick={() => {
+                if (post) writePostState({ ...post, step: post.group ? 31 : 32, checkoutPending: null, purchased: true });
+              }}
               className="mt-8 inline-flex h-12 px-8 items-center justify-center rounded-[14px] bg-primary hover:bg-primary-hover text-snow font-medium text-[15px] transition-all shadow-[var(--shadow-1)] cursor-pointer active:scale-[0.98]"
             >
-              {!onboardingDone ? 'Finish setting up' : 'Start using Pro'}
+              {post ? 'Continue setting up' : !onboardingDone ? 'Finish setting up' : 'Start using Pro'}
             </Link>
           </div>
         )}

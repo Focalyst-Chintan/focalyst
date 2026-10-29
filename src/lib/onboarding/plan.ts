@@ -97,3 +97,26 @@ export const FOCUS_TIME_SUGGESTIONS: Record<BestFocusTime, string[]> = {
 export function focusTimeSuggestions(best?: BestFocusTime): string[] {
   return FOCUS_TIME_SUGGESTIONS[best ?? 'evening'];
 }
+
+/**
+ * The Focus page selects the recommended preset once (7.1): the key is removed when read, and a rhythm
+ * longer than 25/5 is returned only when the plan allows it.
+ */
+export function takeRecommendedPreset(isPro: boolean): FocusPreset | null {
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(RECOMMENDED_PRESET_KEY);
+    if (raw) window.localStorage.removeItem(RECOMMENDED_PRESET_KEY);
+  } catch { return null; }
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw) as Partial<FocusPreset>;
+    const match = Object.values(PRESETS).find(
+      (x) => x.focusMinutes === p.focusMinutes && x.breakMinutes === p.breakMinutes && x.sets === p.sets
+    );
+    if (!match) return null;
+    return match.focusMinutes === 25 || isPro ? match : null;
+  } catch {
+    return null;
+  }
+}
