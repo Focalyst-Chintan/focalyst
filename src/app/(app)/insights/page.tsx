@@ -193,9 +193,8 @@ export default function InsightsPage() {
     if (isDesktop) {
         return (
             <>
-                <StartingReportCard position="top" className="mx-auto mb-6 max-w-[1280px]" />
                 <DesktopInsightsView />
-                <StartingReportCard position="end" className="mx-auto mb-16 max-w-[1280px]" />
+                <StartingReportCard className="mx-auto -mt-10 mb-16 max-w-[1280px]" />
             </>
         )
     }
@@ -211,8 +210,6 @@ export default function InsightsPage() {
     return (
         <main className="flex-1 p-4 md:p-8 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-5">
             <InsightsHeader formattedDate={formattedDate} />
-
-            <StartingReportCard position="top" />
 
             <InsightsLevelWrapper totalXP={totalXP} />
 
@@ -235,7 +232,7 @@ export default function InsightsPage() {
             {/* Weekly Productivity Report — fetches data client-side from the API */}
             <WeeklyReportView userPlan={userPlan} />
 
-            <StartingReportCard position="end" />
+            <StartingReportCard />
         </main>
     )
 }

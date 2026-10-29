@@ -1,5 +1,5 @@
 'use client';
-// "Your starting report" card on Insights (WEB_ONBOARDING_REPORT.md R7): at the top for the first 30 days, then at the end.
+// "Your starting report" card on Insights (WEB_ONBOARDING_REPORT.md R7), at the end of the page, below the Catalyst report.
 import { useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { FileText, Lock } from 'lucide-react';
@@ -8,20 +8,13 @@ import { hasPro } from '@/lib/billing/proStatus';
 import { isNativeApp } from '@/lib/billing/checkout';
 import { useStartingReportRow } from '@/lib/onboarding/useStartingReportRow';
 
-const TOP_DAYS = 30;
 const noSubscribe = () => () => {};
 
-export function StartingReportCard({ position, className = '' }: { position: 'top' | 'end'; className?: string }) {
+export function StartingReportCard({ className = '' }: { className?: string }) {
   const { plan } = useAuth();
   const { row } = useStartingReportRow();
   const native = useSyncExternalStore(noSubscribe, isNativeApp, () => false);
-  const now = useSyncExternalStore(noSubscribe, () => Math.floor(Date.now() / 3600000), () => null);
-  if (!row?.completed_at || now === null) return null;
-
-  const completed = Date.parse(row.completed_at);
-  if (Number.isNaN(completed)) return null;
-  const recent = now * 3600000 - completed < TOP_DAYS * 86400000;
-  if ((position === 'top') !== recent) return null;
+  if (!row?.completed_at) return null;
   const locked = !hasPro({ plan }) && !native;
 
   return (
