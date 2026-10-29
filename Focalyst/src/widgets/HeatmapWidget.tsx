@@ -1,5 +1,5 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { background, cornerRadius, font, foregroundStyle, frame, padding } from '@expo/ui/swift-ui/modifiers';
+import { aspectRatio, background, cornerRadius, font, foregroundStyle, frame, padding } from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
 import type { HeatmapWidgetProps, WidgetEnv } from './types';
 
@@ -67,9 +67,16 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 
   const rows = [0, 1, 2, 3, 4];
   const cols = [0, 1, 2, 3, 4, 5, 6];
+  // The fixed 13.5pt grid with default stack spacing (~165 x 170pt overall) is larger than a small
+  // widget on smaller iPhones (148pt), so it was centred and clipped on every edge. Cells now share
+  // the space left under the header: flexible slots, square cells, a fixed 3pt gap, and a grid kept
+  // at the 7:5 shape (cell 14 + gap 3) so horizontal and vertical gaps stay equal. Grid is centred.
+  const gap = 3;
+  const gridRatio = (7 * 14 + 6 * gap) / (5 * 14 + 4 * gap);
+  const fill = 1000; // "as large as offered": Infinity does not survive the JSON bridge
 
   return (
-    <VStack modifiers={[padding({ all: 11 })]}>
+    <VStack spacing={8} modifiers={[padding({ all: 11 })]}>
       <HStack modifiers={[padding({ horizontal: 8, vertical: 4 }), background(p.pill), cornerRadius(8)]}>
         {hasMultiple ? (
           <Button
@@ -91,25 +98,31 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
         </Text>
       </HStack>
 
-      <Spacer />
-
-      <VStack>
-        {rows.map((r) => (
-          <HStack key={`row-${r}`} modifiers={[padding({ vertical: 1.5 })]}>
-            {cols.map((c) => {
-              const idx = r * 7 + c;
-              const lvl = Math.max(0, Math.min(4, activeHabit.gridLevels?.[idx] ?? 0));
-              return (
-                <VStack
-                  key={`cell-${idx}`}
-                  modifiers={[frame({ width: 13.5, height: 13.5 }), background(p.heat[lvl]), cornerRadius(3.5), ...(lvl > 0 ? accentable : [])]}
-                >
-                  {null}
-                </VStack>
-              );
-            })}
-          </HStack>
-        ))}
+      <VStack modifiers={[frame({ maxWidth: fill, maxHeight: fill })]}>
+        <VStack spacing={gap} modifiers={[aspectRatio({ ratio: gridRatio, contentMode: 'fit' })]}>
+          {rows.map((r) => (
+            <HStack key={`row-${r}`} spacing={gap}>
+              {cols.map((c) => {
+                const idx = r * 7 + c;
+                const lvl = Math.max(0, Math.min(4, activeHabit.gridLevels?.[idx] ?? 0));
+                return (
+                  <VStack
+                    key={`cell-${idx}`}
+                    modifiers={[
+                      frame({ minWidth: 4, maxWidth: fill, minHeight: 4, maxHeight: fill }),
+                      aspectRatio({ ratio: 1, contentMode: 'fit' }),
+                      background(p.heat[lvl]),
+                      cornerRadius(3.5),
+                      ...(lvl > 0 ? accentable : []),
+                    ]}
+                  >
+                    {null}
+                  </VStack>
+                );
+              })}
+            </HStack>
+          ))}
+        </VStack>
       </VStack>
     </VStack>
   );
