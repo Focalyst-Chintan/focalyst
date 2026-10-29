@@ -47,15 +47,15 @@ export function OnboardingStage({
       <div className="relative z-10 flex min-h-dvh flex-col lg:items-center lg:justify-center lg:p-8">
         <div
           className={`flex w-full flex-1 flex-col lg:max-w-[1120px] lg:flex-none lg:h-[min(760px,calc(100dvh-64px))] lg:overflow-hidden lg:rounded-[28px] lg:glass-strong lg:liquid ${
-            wide ? '' : 'lg:grid lg:grid-cols-[380px_minmax(0,1fr)] min-[1180px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]'
+            wide ? '' : 'lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:max-[1179px]:grid-cols-[380px_minmax(0,1fr)]'
           }`}
         >
           {!wide && (
             <aside className="ob-brand relative hidden min-h-0 flex-col overflow-hidden p-12 text-snow lg:flex" aria-label="Your plan">
               <div className="ambient-grain pointer-events-none" aria-hidden />
-              <p className="relative text-[13px] font-semibold tracking-[0.32em] text-snow">FOCALYST</p>
-              <div className="relative my-8 flex min-h-0 flex-1 items-center">{planPanel}</div>
-              <div className="relative"><ChapterList step={step} /></div>
+              <p className="relative shrink-0 text-[13px] font-semibold tracking-[0.32em] text-snow">FOCALYST</p>
+              <div className="relative my-6 flex min-h-0 flex-1 flex-col">{planPanel}</div>
+              <div className="relative shrink-0"><ChapterList step={step} /></div>
             </aside>
           )}
 
@@ -84,6 +84,17 @@ export function OnboardingStage({
             {children}
           </section>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Plan panel middle for <PlanPreview/>: scrolls inside with a hidden scrollbar and a 24 px fade at the bottom edge. */
+export function PlanPanelScroll({ children }: { children: ReactNode }) {
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto pb-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [mask-image:linear-gradient(to_bottom,black_calc(100%-24px),transparent)]">
+      <div className="flex min-h-full flex-col">
+        <div className="my-auto">{children}</div>
       </div>
     </div>
   );

@@ -225,7 +225,7 @@ Notes:
 **2. One calm place**
 - **Title:** One calm place for your day.
 - **Subtitle:** Tasks, habits, focus and notes, together and in sync with your phone.
-- **Visual:** `public/landing/app-preview.png` in a glass frame (radius 20) with 3 small glass chips floating around it over 6 s: "Focus 25 min", "Read · 6 day streak", "NEET in 128 days". Example values, not claims. Desktop: in the plan panel. Phone: above the title.
+- **Visual:** `public/landing/app-preview.png` in a glass frame (radius 20) with 3 small glass chips floating around it over 6 s: "Focus 25 min", "Read · 6 day streak", "Exam in 128 days". Example values, not claims. Desktop: in the plan panel. Phone: above the title.
 - **Button:** Continue.
 
 **3. Focalyst helps you**
@@ -830,3 +830,6 @@ Record every change made while building this, in this table, so the native redes
 | 9 | 2026-10-29 | Step transition | The new content fades and slides 12 px in; the old content isn't kept for a cross-fade out | framer-motion isn't installed; CSS and React state only | Not applicable |
 | 10 | 2026-10-29 | PlanPreview | "Just me" shows as "Just me"; a 360-minute goal shows as "6+ hours"; the Working towards row hides once the role isn't student | The spec gave no value for these cases | Yes, for the compact tablet version |
 | 11 | 2026-10-29 | `/start` page | `page.tsx` is a server wrapper (metadata, plus a build-time check that both collage files exist) around the client `StartFlow` inside `<Suspense>` | A client page can't export metadata; static export stays safe | Not applicable |
+| 12 | 2026-10-29 | Screen 2 | Floating chip reads "Exam in 128 days" instead of "NEET in 128 days" | Fits every visitor, not only NEET students | Yes |
+| 13 | 2026-10-29 | PlanPreview | Compact rows: one line, 40 tall, label column 136 px, value right aligned and truncated (full value in the title and accessible label); multi-value rows show the first item plus "+n"; a Pro rhythm shows as a small second line only when the card is wide enough, otherwise just the Pro chip; header 32/36, truncated | Long answers broke mid-word and made the card taller than the panel | Yes, wherever the plan card appears |
+| 14 | 2026-10-29 | PlanPreview | Shows every filled or skipped row, plus the empty rows of the current and the next chapter only; later rows appear when their chapter is reached. The panel middle scrolls inside (hidden scrollbar, 24 px fade) between the fixed wordmark and chapter list | Keeps the card short so nothing overlaps down to a 700 px window | Yes, wherever the plan card appears |

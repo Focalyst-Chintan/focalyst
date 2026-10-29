@@ -10,7 +10,7 @@ import {
 import {
   NO_BACK_STEPS, WIDE_STEPS, hasStoreLinkEnv, isVisible, next, prev, type FlowState,
 } from '@/lib/onboarding/steps';
-import { OnboardingStage } from '@/components/onboarding/OnboardingStage';
+import { OnboardingStage, PlanPanelScroll } from '@/components/onboarding/OnboardingStage';
 import { PlanPreview } from '@/components/onboarding/PlanPreview';
 import { StepScreen, type ScreenCtx } from '@/components/onboarding/screens';
 import { AppPreview, Collage } from '@/components/onboarding/visuals';
@@ -133,15 +133,17 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
 
   const planPanel =
     step === 1 ? (
-      <div className="relative h-full w-full overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]">
+      <div className="relative min-h-0 w-full flex-1 overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]">
         <Collage columns={2} images={collageImages} />
       </div>
     ) : step === 2 ? (
-      <AppPreview className="mx-auto max-w-[440px]" />
+      <AppPreview className="m-auto max-w-[440px]" />
     ) : step === 3 ? (
-      <AppPreview dimmed className="mx-auto max-w-[440px]" />
+      <AppPreview dimmed className="m-auto max-w-[440px]" />
     ) : (
-      <PlanPreview answers={draft.answers} skipped={draft.skipped} isPro={isPro} className="ob-fade-slow" />
+      <PlanPanelScroll>
+        <PlanPreview answers={draft.answers} skipped={draft.skipped} isPro={isPro} step={step} className="ob-fade-slow" />
+      </PlanPanelScroll>
     );
 
   return (

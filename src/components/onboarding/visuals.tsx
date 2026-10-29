@@ -102,7 +102,7 @@ export function Collage({ columns, images, className = '' }: { columns: 2 | 3; i
 const PREVIEW_CHIPS: { text: string; icon: LucideIcon; pos: string; delay: string }[] = [
   { text: 'Focus 25 min', icon: Timer, pos: '-left-3 top-[12%]', delay: '0s' },
   { text: 'Read · 6 day streak', icon: Repeat, pos: '-right-3 top-[46%]', delay: '-2s' },
-  { text: 'NEET in 128 days', icon: Hourglass, pos: 'left-[14%] -bottom-4', delay: '-4s' },
+  { text: 'Exam in 128 days', icon: Hourglass, pos: 'left-[14%] -bottom-4', delay: '-4s' },
 ];
 
 /** The app preview in a glass frame with 3 floating example chips (screen 2), dimmed on screen 3. */
