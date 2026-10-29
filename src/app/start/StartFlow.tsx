@@ -1,11 +1,13 @@
 'use client';
 // The /start journey: loads the draft, resumes at the saved step and renders it.
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { hasPro } from '@/lib/billing/proStatus';
 import { isNativeApp } from '@/lib/billing/checkout';
 import {
-  emptyDraft, firstName, readDraft, writeDraft, type AnswerKey, type OnboardingAnswers, type OnboardingDraft,
+  clearPostState, emptyDraft, firstName, readDraft, readPostState, writeDraft, writePostState,
+  type AnswerKey, type OnboardingAnswers, type OnboardingDraft, type OnboardingPostState,
 } from '@/lib/onboarding/draft';
 import type { OnboardingPlan } from '@/lib/onboarding/plan';
 import type { ReportSnapshot } from '@/lib/onboarding/report';
@@ -16,12 +18,19 @@ import { OnboardingStage, PlanPanelScroll } from '@/components/onboarding/Onboar
 import { PlanPreview } from '@/components/onboarding/PlanPreview';
 import { StepScreen, type ScreenCtx } from '@/components/onboarding/screens';
 import { AppPreview, Collage } from '@/components/onboarding/visuals';
+import { PostScreens } from '@/components/onboarding/postScreens';
+
+/** Screen 27: the login page in save-plan mode, which returns to /onboarding/finish. */
+export const SAVE_PLAN_URL = '/login?mode=save-plan&next=%2Fonboarding%2Ffinish';
 
 const GREETING_MS = 900;
 
 export default function StartFlow({ collageImages }: { collageImages: boolean[] }) {
+  const router = useRouter();
   const { user, isLoading, plan } = useAuth();
   const [draft, setDraft] = useState<OnboardingDraft | null>(null);
+  // After the save (screens 28 to 32) the draft is gone and this small state drives the flow (2.3).
+  const [post, setPost] = useState<OnboardingPostState | null>(null);
   const [native, setNative] = useState(false);
   const [direction, setDirection] = useState<'fwd' | 'back'>('fwd');
   const [notice, setNotice] = useState<{ step: number; text: string } | null>(null);
@@ -41,6 +50,11 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     if (draftRef.current) return;
     setNative(isNativeApp());
     const saved = readDraft();
+    const savedPost = saved ? null : readPostState();
+    if (savedPost) {
+      setPost(savedPost);
+      return;
+    }
     if (saved) {
       // A saved step that can't be shown (for example 21 on the web) moves to the next visible one.
       const f: FlowState = { answers: saved.answers, signedIn: Boolean(user), isPro: false, native: isNativeApp(), hasStoreLink: hasStoreLinkEnv() };
@@ -112,6 +126,11 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     });
   }, [flowOf]);
 
+  // "Save my plan" (25 or 26): signed-in, not-onboarded users skip 27 and save at once.
+  const savePlan = useCallback(() => {
+    router.push(signedIn ? '/onboarding/finish' : SAVE_PLAN_URL);
+  }, [router, signedIn]);
+
   const goBack = useCallback((from: number) => {
     setDirection('back');
     setDraft((d) => {
@@ -120,6 +139,21 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
       return p ? { ...d, step: p } : d;
     });
   }, [flowOf]);
+
+  if (!draft && post) {
+    return (
+      <PostScreens
+        post={post}
+        isPro={isPro}
+        native={native}
+        onStep={(s) => setPost(writePostState({ ...post, step: s }))}
+        onDone={() => {
+          clearPostState();
+          router.push(window.matchMedia('(min-width: 1024px)').matches ? '/today' : '/plan');
+        }}
+      />
+    );
+  }
 
   if (!draft) return <div className="min-h-dvh bg-canvas" aria-busy="true" />;
 
@@ -144,6 +178,7 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     storeReport,
     countedUp: draft.countedUp,
     markCountedUp,
+    savePlan,
   };
 
   const planPanel =

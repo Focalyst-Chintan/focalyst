@@ -51,12 +51,20 @@ export interface OnboardingDraft {
   updatedAt: number;
 }
 
+/** Outcome of the group step in /onboarding/finish (8.5), shown on screen 31. */
+export type GroupStepResult =
+  | { status: 'created'; mode: 'create'; code: string | null; groupId: string | null }
+  | { status: 'existing'; mode: GroupMode; code: string | null; groupId: string | null }
+  | { status: 'joined'; mode: 'join'; groupId: string | null }
+  | { status: 'failed'; mode: GroupMode; error: string }
+  | { status: 'offline'; mode: GroupMode };
+
 export interface OnboardingPostState {
   step: number;
   name: string;
   preset: string | null;
   habitName: string | null;
-  group: Record<string, unknown> | null;
+  group: GroupStepResult | null;
   countdownPending: boolean;
   checkoutPending: string | null;
   savedAt: number;
@@ -64,6 +72,10 @@ export interface OnboardingPostState {
 
 export const DRAFT_KEY = 'onboarding:draft:v1';
 export const POST_KEY = 'onboarding:post:v1';
+export const PENDING_FINISH_KEY = 'onboarding:pendingFinish';
+export const PENDING_GROUP_KEY = 'onboarding:pendingGroup';
+/** Lets an onboarded account open /start for screens 28 to 32 after the save (read by the middleware). */
+export const POST_COOKIE = 'onboarding_post';
 const DAY = 24 * 60 * 60 * 1000;
 export const DRAFT_TTL = 30 * DAY;
 export const POST_TTL = 7 * DAY;
@@ -145,6 +157,38 @@ export function writePostState(state: Omit<OnboardingPostState, 'savedAt'>): Onb
 
 export function clearPostState() {
   removeItem(POST_KEY);
+  clearPostCookie();
+}
+
+/** complete_onboarding kept failing: the draft stays and the save is retried on a later app visit (8.3). */
+export function setPendingFinish() {
+  setItem(PENDING_FINISH_KEY, '1');
+}
+
+export function clearPendingFinish() {
+  removeItem(PENDING_FINISH_KEY);
+}
+
+export interface PendingGroup { mode: 'create' | 'join'; habitId: string; code?: string }
+
+/** The group step was offline or timed out: retried once per later app visit (8.5). */
+export function writePendingGroup(g: PendingGroup) {
+  setItem(PENDING_GROUP_KEY, JSON.stringify(g));
+}
+
+export function clearPendingGroup() {
+  removeItem(PENDING_GROUP_KEY);
+}
+
+export function setPostCookie() {
+  try {
+    const secure = window.location.protocol === 'https:' ? '; secure' : '';
+    document.cookie = `${POST_COOKIE}=1; path=/; max-age=${POST_TTL / 1000}; samesite=lax${secure}`;
+  } catch { /* ignore */ }
+}
+
+export function clearPostCookie() {
+  try { document.cookie = `${POST_COOKIE}=; path=/; max-age=0; samesite=lax`; } catch { /* ignore */ }
 }
 
 /** First word of the name, for greetings (section 5). */

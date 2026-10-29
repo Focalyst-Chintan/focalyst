@@ -41,6 +41,10 @@ export async function GET(request: Request) {
             if (isOAuthReturn(next)) {
                 return NextResponse.redirect(`${origin}${next}`)
             }
+            // Web onboarding save (screen 27): /onboarding/finish handles both onboarding states itself
+            if (next === '/onboarding/finish') {
+                return NextResponse.redirect(`${origin}${next}`)
+            }
             // Check if user has completed onboarding
             const { data: { user } } = await supabase.auth.getUser()
             if (user) {

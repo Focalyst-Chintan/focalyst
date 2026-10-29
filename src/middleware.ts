@@ -95,8 +95,10 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(url)
         }
 
-        // Logged in and onboarded → /start goes to the normal home
-        if (onboardingDone && isStartRoute) {
+        // Logged in and onboarded → /start goes to the normal home,
+        // except right after /onboarding/finish (its cookie keeps screens 28 to 32 on /start)
+        const justSaved = request.cookies.get('onboarding_post')?.value === '1'
+        if (onboardingDone && isStartRoute && !justSaved) {
             const url = request.nextUrl.clone()
             url.pathname = '/plan'
             url.search = ''
@@ -113,7 +115,9 @@ export async function middleware(request: NextRequest) {
         // Logged in and onboarded → redirect away from onboarding
         // Exception: /onboarding/plans is always accessible for plan management
         const isPlansPage = pathname === '/onboarding/plans'
-        if (onboardingDone && isOnboardingRoute && !isPlansPage) {
+        // /onboarding/finish is reachable in both states: it saves the plan, or keeps an existing one ("Welcome back")
+        const isFinishPage = pathname === '/onboarding/finish'
+        if (onboardingDone && isOnboardingRoute && !isPlansPage && !isFinishPage) {
             const url = request.nextUrl.clone()
             url.pathname = '/plan'
             return NextResponse.redirect(url)

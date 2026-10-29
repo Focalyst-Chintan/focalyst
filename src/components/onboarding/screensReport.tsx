@@ -233,9 +233,9 @@ export function Screen24({ ctx }: { ctx: ScreenCtx }) {
 export function Screen25({ ctx }: { ctx: ScreenCtx }) {
   const titleId = useId();
   const plan = ctx.plan ?? buildPlan(ctx.answers, ctx.flow.isPro);
-  // "Save my plan" when screen 26 is skipped. It leads to screen 27, which P3 connects.
+  // "Save my plan" when screen 26 is skipped.
   const save = !isVisible(26, ctx.flow);
-  const primary = { label: save ? 'Save my plan' : 'Continue', onClick: ctx.goNext };
+  const primary = { label: save ? 'Save my plan' : 'Continue', onClick: save ? ctx.savePlan : ctx.goNext };
   useStepKeys(ctx, primary);
   return (
     <StepFrame
@@ -264,7 +264,7 @@ export function Screen25({ ctx }: { ctx: ScreenCtx }) {
 
 export function Screen26({ ctx }: { ctx: ScreenCtx }) {
   const titleId = useId();
-  const primary = { label: 'Save my plan', onClick: ctx.goNext };
+  const primary = { label: 'Save my plan', onClick: ctx.savePlan };
   useStepKeys(ctx, primary);
   const app = (ctx.answers.distracting_apps ?? []).find((a) => a !== 'Other');
 

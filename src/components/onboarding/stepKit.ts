@@ -28,6 +28,8 @@ export interface ScreenCtx {
   /** Screens whose count-up has already played (3.7). */
   countedUp: number[];
   markCountedUp: (step: number) => void;
+  /** "Save my plan": the login page in save-plan mode, or /onboarding/finish when already signed in. */
+  savePlan: () => void;
 }
 
 export const ADVANCE_MS = 250;

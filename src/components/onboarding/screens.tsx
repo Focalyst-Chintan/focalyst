@@ -266,6 +266,22 @@ function Screen12({ ctx }: { ctx: ScreenCtx }) {
   );
 }
 
+/** Screen 27 is the login page in save-plan mode; a draft resumed here offers the same button. */
+function Screen27({ ctx }: { ctx: ScreenCtx }) {
+  const titleId = useId();
+  const primary = { label: 'Save my plan', onClick: ctx.savePlan };
+  useStepKeys(ctx, primary);
+  return (
+    <StepFrame
+      {...frameProps(ctx)}
+      titleId={titleId}
+      title="Save your plan."
+      subtitle="Synced across this browser and the phone app."
+      primary={primary}
+    />
+  );
+}
+
 function PlaceholderScreen({ ctx }: { ctx: ScreenCtx }) {
   const titleId = useId();
   useStepKeys(ctx, null);
@@ -300,6 +316,7 @@ export function StepScreen({ ctx }: { ctx: ScreenCtx }) {
     case 24: return <Screen24 ctx={ctx} />;
     case 25: return <Screen25 ctx={ctx} />;
     case 26: return <Screen26 ctx={ctx} />;
+    case 27: return <Screen27 ctx={ctx} />;
     default: return <PlaceholderScreen ctx={ctx} />;
   }
 }
