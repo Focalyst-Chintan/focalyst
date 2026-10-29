@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { hasPro } from '@/lib/billing/proStatus';
 import { isNativeApp } from '@/lib/billing/checkout';
 import {
-  clearPostState, emptyDraft, firstName, readDraft, readPostState, writeDraft, writePostState,
+  clearPostState, emptyDraft, firstName, hasPendingFinish, readDraft, readPostState, writeDraft, writePostState,
   type AnswerKey, type OnboardingAnswers, type OnboardingDraft, type OnboardingPostState,
 } from '@/lib/onboarding/draft';
 import type { OnboardingPlan } from '@/lib/onboarding/plan';
@@ -24,6 +24,7 @@ import { PostScreens } from '@/components/onboarding/postScreens';
 export const SAVE_PLAN_URL = '/login?mode=save-plan&next=%2Fonboarding%2Ffinish';
 
 const GREETING_MS = 900;
+const FINISH_RETRY_KEY = 'onboarding:finishRetried';
 
 function postFromDraft(d: OnboardingDraft): OnboardingPostState {
   const habits = d.answers.habits ?? [];
@@ -83,6 +84,17 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     }
     if (!isLoading) setDraft(emptyDraft(user ? 4 : 1));
   }, [isLoading, user]);
+
+  // The save failed earlier (8.3): not-onboarded accounts now always land here, so retry it once per tab session.
+  useEffect(() => {
+    if (!user || !draft || draft.step < 28 || !hasPendingFinish()) return;
+    let first = false;
+    try {
+      first = window.sessionStorage.getItem(FINISH_RETRY_KEY) !== '1';
+      if (first) window.sessionStorage.setItem(FINISH_RETRY_KEY, '1');
+    } catch { /* storage blocked: the buttons on 32 still retry */ }
+    if (first) router.replace('/onboarding/finish');
+  }, [user, draft, router]);
 
   // Save on every change, so a refresh resumes on the same screen with the same answers.
   useEffect(() => { if (draft) writeDraft(draft); }, [draft]);
@@ -187,7 +199,8 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
           setMemPost({ ...mp, ...patch });
           if (patch.step) setDraft((d) => (d ? { ...d, step: patch.step as number } : d));
         }}
-        onDone={(to) => router.push(to === '/focus' ? '/focus' : homePath())}
+        // The account isn't saved yet: leaving retries the save instead of bouncing back here.
+        onDone={() => router.push('/onboarding/finish')}
       />
     );
   }

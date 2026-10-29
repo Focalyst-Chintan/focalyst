@@ -122,16 +122,11 @@ export default function WidgetPreview({
 
   return (
     <div
-      className="relative h-[500px] w-[244px] shrink-0 overflow-hidden rounded-[44px] border border-line-strong p-3 shadow-[0_24px_60px_-20px_rgba(3,25,91,0.45)]"
-      style={{
-        backgroundColor: '#050B24',
-        backgroundImage:
-          'radial-gradient(ellipse at 10% 90%, rgba(25,81,252,0.55) 0%, rgba(25,81,252,0) 55%), radial-gradient(ellipse at 90% 10%, rgba(55,129,252,0.40) 0%, rgba(55,129,252,0) 50%)',
-      }}
+      className="ob-phone-screen relative h-[500px] w-[244px] shrink-0 overflow-hidden rounded-[44px] border border-line-strong p-3 shadow-[0_24px_60px_-20px_rgba(3,25,91,0.45)]"
       role="group"
       aria-label="Widget preview"
     >
-      <div className="mx-auto mt-1 h-6 w-24 rounded-full bg-[#000]" aria-hidden />
+      <div className="ob-phone-notch mx-auto mt-1 h-6 w-24 rounded-full" aria-hidden />
       <div className="mt-3 flex justify-center">
         <span className="rounded-full bg-snow/15 px-2.5 py-0.5 text-[11px] font-semibold text-snow">Preview</span>
       </div>

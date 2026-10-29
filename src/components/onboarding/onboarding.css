@@ -130,3 +130,12 @@ html[data-hidden] .ob-float,
   .ob-tile-pulse, .ob-shake, .ob-float, .ob-drift, .ob-pulse { animation: none; }
   .ob-greet { animation: ob-fade 120ms linear both; }
 }
+
+/* Screen 26 phone mock-up: a dark wallpaper in both themes, like a real lock screen */
+.ob-phone-screen {
+  background-color: #050B24;
+  background-image:
+    radial-gradient(ellipse at 10% 90%, rgba(25, 81, 252, 0.55) 0%, rgba(25, 81, 252, 0) 55%),
+    radial-gradient(ellipse at 90% 10%, rgba(55, 129, 252, 0.40) 0%, rgba(55, 129, 252, 0) 50%);
+}
+.ob-phone-notch { background-color: #000; }

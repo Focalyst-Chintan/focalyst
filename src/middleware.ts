@@ -91,7 +91,7 @@ export async function middleware(request: NextRequest) {
             if (next) {
                 return NextResponse.redirect(new URL(next, request.url))
             }
-            url.pathname = onboardingDone ? '/plan' : '/onboarding/plans'
+            url.pathname = onboardingDone ? '/plan' : '/start'
             return NextResponse.redirect(url)
         }
 
@@ -105,10 +105,11 @@ export async function middleware(request: NextRequest) {
             return NextResponse.redirect(url)
         }
 
-        // Logged in but not onboarded → redirect to onboarding (except onboarding routes)
+        // Logged in but not onboarded → the new onboarding at /start (screen 4, or the saved draft)
         if (!onboardingDone && isAppRoute) {
             const url = request.nextUrl.clone()
-            url.pathname = '/onboarding/plans'
+            url.pathname = '/start'
+            url.search = ''
             return NextResponse.redirect(url)
         }
 

@@ -210,7 +210,7 @@ export function PaywallScreen({
     : plan === 'lifetime'
       ? 'Get lifetime'
       : trial
-        ? trialDays === 7 ? 'Start my free week' : `Start my ${trialDays}-day free trial`
+        ? `Start my ${trialDays}-day free trial`
         : 'Continue';
   const primary = { label, onClick: buy, disabled: busy || !prices };
 

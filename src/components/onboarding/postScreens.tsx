@@ -28,9 +28,13 @@ const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG),
   loading: () => <Skeleton className="h-[160px] w-[160px]" />,
 });
 
-/** NEXT_PUBLIC_WEB_TRIAL_DAYS as a positive whole number; 0 means no trial on the web. */
+/** The yearly free trial in days: 7 unless NEXT_PUBLIC_WEB_TRIAL_DAYS says otherwise ("0" turns the trial wording off). */
+export const DEFAULT_WEB_TRIAL_DAYS = 7;
+
 export function webTrialDays(): number {
-  const n = Math.floor(Number(process.env.NEXT_PUBLIC_WEB_TRIAL_DAYS));
+  const raw = process.env.NEXT_PUBLIC_WEB_TRIAL_DAYS;
+  if (raw === undefined || raw.trim() === '') return DEFAULT_WEB_TRIAL_DAYS;
+  const n = Math.floor(Number(raw));
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
@@ -82,7 +86,7 @@ function Screen28({ c }: { c: PostCtx }) {
   const primary = mode === 'locked'
     ? { label: 'Unlock my full report', onClick: unlock }
     : { label: 'Continue', onClick: () => c.go(c.after(28)) };
-  const secondary = mode === 'locked' ? { label: 'Maybe later', onClick: () => c.go(c.after(30)) } : null;
+  const secondary = mode === 'locked' ? { label: "I'll miss this chance", onClick: () => c.go(c.after(30)) } : null;
   useFooterKeys(primary);
   return (
     <StepFrame
