@@ -3,41 +3,62 @@ import { background, cornerRadius, font, foregroundStyle, frame, padding } from 
 import { safeCreateWidget } from './safeCreateWidget';
 import type { PomodoroWidgetProps, WidgetEnv } from './types';
 
-const PomodoroWidget = (props: PomodoroWidgetProps, env?: WidgetEnv) => {
+const PomodoroWidget = (rawProps: PomodoroWidgetProps, env?: WidgetEnv) => {
   'widget';
-  const scheme = env?.colorScheme ?? props.systemScheme ?? 'dark';
-  const isDark = scheme === 'dark';
+  // Gallery and placeholder entries arrive without props: show a realistic sample instead.
+  const props = { taskLabel: 'Focus', durationSeconds: 1500, isRunning: false, ...(rawProps as Partial<PomodoroWidgetProps>) };
   const preset = props.preset ?? 'cobalt';
+  const isDark = (env?.colorScheme ?? props.systemScheme ?? 'dark') === 'dark';
+  const mode = env?.widgetRenderingMode;
+  const isAccented = mode === 'accented' || mode === 'vibrant';
+  const rgba = (rgb: string, alpha: number) => `rgba(${rgb}, ${alpha})`;
 
-  const getPalette = () => {
-    if (preset === 'white' || (preset === 'monochrome' && !isDark)) {
-      return { bg: '#F8FAFC', topGlow: '#E2E8F0', text: '#090A0F', muted: '#475569', startBg: '#090A0F', startText: '#FFFFFF', endBg: '#DC2626', endText: '#FFFFFF' };
+  // Clear and Tinted render in the accented mode, which keeps only opacity: every fill there is
+  // white at a fixed alpha. Colours are rgba() because natively an 8-digit hex reads as RRGGBBAA.
+  // The background itself is the widget's containerBackground (FocalystThemeBackground in Swift).
+  const makePalette = () => {
+    const WHITE = '255, 255, 255';
+    const INK = '11, 11, 15';
+    if (isAccented) {
+      return {
+        text: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.14),
+        button: rgba(WHITE, 0.18), buttonText: '#FFFFFF', stop: rgba(WHITE, 0.18), stopText: '#FFFFFF',
+      };
     }
     if (preset === 'monochrome') {
       return isDark
-        ? { bg: '#090A0F', topGlow: '#181B24', text: '#FFFFFF', muted: '#94A3B8', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' }
-        : { bg: '#F8FAFC', topGlow: '#E2E8F0', text: '#090A0F', muted: '#64748B', startBg: '#090A0F', startText: '#FFFFFF', endBg: '#DC2626', endText: '#FFFFFF' };
+        ? {
+            text: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.1),
+            button: '#FFFFFF', buttonText: '#0B0B0F', stop: '#EF4444', stopText: '#FFFFFF',
+          }
+        : {
+            text: '#0B0B0F', secondaryText: rgba(INK, 0.55), pill: rgba(INK, 0.06),
+            button: '#0B0B0F', buttonText: '#FFFFFF', stop: '#DC2626', stopText: '#FFFFFF',
+          };
     }
-    const map: Record<string, any> = {
-      ember: { bg: '#160804', topGlow: '#6E220D', text: '#FFFFFF', muted: '#FDBA74', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' },
-      cobalt: { bg: '#060D1F', topGlow: '#1A3F99', text: '#FFFFFF', muted: '#93C5FD', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' },
-      emerald: { bg: '#05140F', topGlow: '#114F3A', text: '#FFFFFF', muted: '#6EE7B7', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' },
-      violet: { bg: '#0C061C', topGlow: '#432091', text: '#FFFFFF', muted: '#C4B5FD', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' },
-      crimson: { bg: '#190509', topGlow: '#751728', text: '#FFFFFF', muted: '#FDA4AF', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#F43F5E', endText: '#FFFFFF' },
-      amber: { bg: '#170F04', topGlow: '#6B420D', text: '#FFFFFF', muted: '#FDE68A', startBg: '#FFFFFF', startText: '#090A0F', endBg: '#EF4444', endText: '#FFFFFF' },
+    if (preset === 'white') {
+      return {
+        text: '#090A0F', secondaryText: '#475569', pill: rgba('9, 10, 15', 0.06),
+        button: '#090A0F', buttonText: '#FFFFFF', stop: '#DC2626', stopText: '#FFFFFF',
+      };
+    }
+    const themes: Record<string, { secondaryText: string; stop: string }> = {
+      ember: { secondaryText: '#FDBA74', stop: '#EF4444' },
+      cobalt: { secondaryText: '#93C5FD', stop: '#EF4444' },
+      emerald: { secondaryText: '#6EE7B7', stop: '#EF4444' },
+      violet: { secondaryText: '#C4B5FD', stop: '#EF4444' },
+      crimson: { secondaryText: '#FDA4AF', stop: '#F43F5E' },
+      amber: { secondaryText: '#FDE68A', stop: '#EF4444' },
     };
-    return map[preset] ?? map.cobalt;
+    const theme = themes[preset] ?? themes.cobalt;
+    return {
+      text: '#FFFFFF', secondaryText: theme.secondaryText, pill: rgba(WHITE, 0.1),
+      button: '#FFFFFF', buttonText: '#090A0F', stop: theme.stop, stopText: '#FFFFFF',
+    };
   };
 
-  // Tinted and Clear home screens render widgets in the accented mode: fixed colours and opaque
-  // fills turn into solid tiles there, so use hierarchical styles and alpha-only fills instead.
-  const tinted = env?.widgetRenderingMode === 'accented' || env?.widgetRenderingMode === 'vibrant';
-  const accent = tinted ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const primary = { type: 'hierarchical', style: 'primary' };
-  const secondary = { type: 'hierarchical', style: 'secondary' };
-  const p = tinted
-    ? { bg: '', topGlow: '#1FFFFFFF', text: primary, muted: secondary, startBg: '#33FFFFFF', startText: primary, endBg: '#33FFFFFF', endText: primary }
-    : getPalette();
+  const p = makePalette();
+  const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
   const totalSecs = Math.max(0, props.durationSeconds ?? 1500);
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
@@ -45,19 +66,19 @@ const PomodoroWidget = (props: PomodoroWidgetProps, env?: WidgetEnv) => {
 
   return (
     <VStack modifiers={[padding({ all: 12 })]}>
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.topGlow), cornerRadius(8)]}>
+      <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.pill), cornerRadius(8)]}>
         <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
           {props.taskLabel || 'Focus'}
         </Text>
         <Spacer />
-        <Text modifiers={[font({ size: 9, weight: 'bold' }), foregroundStyle(p.muted)]}>
+        <Text modifiers={[font({ size: 9, weight: 'bold' }), foregroundStyle(p.secondaryText)]}>
           {props.isRunning ? 'ACTIVE' : 'READY'}
         </Text>
       </HStack>
 
       <Spacer />
 
-      <Text modifiers={[font({ size: 30, weight: 'bold' }), foregroundStyle(p.text), ...accent]}>
+      <Text modifiers={[font({ size: 30, weight: 'bold' }), foregroundStyle(p.text), ...accentable]}>
         {formattedTime}
       </Text>
 
@@ -66,22 +87,22 @@ const PomodoroWidget = (props: PomodoroWidgetProps, env?: WidgetEnv) => {
       <HStack
         modifiers={[
           frame({ width: 112, height: 30 }),
-          background(props.isRunning ? p.endBg : p.startBg),
+          background(props.isRunning ? p.stop : p.button),
           cornerRadius(15),
-          ...accent,
+          ...accentable,
         ]}
       >
         <Button
           label={props.isRunning ? 'End' : 'Start'}
           modifiers={[
             font({ size: 13, weight: 'bold' }),
-            foregroundStyle(props.isRunning ? p.endText : p.startText),
+            foregroundStyle(props.isRunning ? p.stopText : p.buttonText),
           ]}
           onPress={() => {
             const now = Date.now();
-            if (props.isRunning) {
+            if (rawProps.isRunning) {
               return {
-                ...props,
+                ...rawProps,
                 isRunning: false,
                 durationSeconds: 1500,
                 endTimeMs: 0,
@@ -91,9 +112,9 @@ const PomodoroWidget = (props: PomodoroWidgetProps, env?: WidgetEnv) => {
               };
             }
             const startSecs =
-              props.durationSeconds && props.durationSeconds > 0 ? props.durationSeconds : 1500;
+              rawProps.durationSeconds && rawProps.durationSeconds > 0 ? rawProps.durationSeconds : 1500;
             return {
-              ...props,
+              ...rawProps,
               isRunning: true,
               durationSeconds: startSecs,
               endTimeMs: now + startSecs * 1000,

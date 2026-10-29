@@ -3,50 +3,62 @@ import { background, cornerRadius, font, foregroundStyle, frame, padding } from 
 import { safeCreateWidget } from './safeCreateWidget';
 import type { StreakWidgetProps, WidgetEnv } from './types';
 
-const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
+const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
   'widget';
-  const scheme = env?.colorScheme ?? props.systemScheme ?? 'dark';
-  const isDark = scheme === 'dark';
+  // Gallery and placeholder entries arrive without props: show a realistic sample instead.
+  const props = { habitName: 'Yoga', streakDays: 26, totalDays: 48, goalDays: 30, ...(rawProps as Partial<StreakWidgetProps>) };
   const preset = props.preset ?? 'ember';
+  const isDark = (env?.colorScheme ?? props.systemScheme ?? 'dark') === 'dark';
+  const mode = env?.widgetRenderingMode;
+  const isAccented = mode === 'accented' || mode === 'vibrant';
+  const rgba = (rgb: string, alpha: number) => `rgba(${rgb}, ${alpha})`;
 
-  const getPalette = () => {
-    if (preset === 'white' || (preset === 'monochrome' && !isDark)) {
-      return { outerBg: '#F8FAFC', glowBand: '#E2E8F0', text: '#090A0F', muted: '#475569', accent: '#0F172A', track: '#CBD5E1' };
+  // Clear and Tinted render in the accented mode, which keeps only opacity: every fill there is
+  // white at a fixed alpha. Colours are rgba() because natively an 8-digit hex reads as RRGGBBAA.
+  // The background itself is the widget's containerBackground (FocalystThemeBackground in Swift).
+  const makePalette = () => {
+    const WHITE = '255, 255, 255';
+    const INK = '11, 11, 15';
+    if (isAccented) {
+      return { text: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.14), track: rgba(WHITE, 0.18), accent: '#FFFFFF' };
     }
     if (preset === 'monochrome') {
-      return { outerBg: '#090A0F', glowBand: '#181B24', text: '#FFFFFF', muted: '#94A3B8', accent: '#FFFFFF', track: '#262936' };
+      return isDark
+        ? { text: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.1), track: rgba(WHITE, 0.14), accent: '#FFFFFF' }
+        : { text: '#0B0B0F', secondaryText: rgba(INK, 0.55), pill: rgba(INK, 0.06), track: rgba(INK, 0.1), accent: '#0B0B0F' };
     }
-    const map: Record<string, any> = {
-      ember: { outerBg: '#160804', glowBand: '#5E1E0C', text: '#FFFFFF', muted: '#FDBA74', accent: '#FF5500', track: '#3E160B' },
-      cobalt: { outerBg: '#060D1F', glowBand: '#153480', text: '#FFFFFF', muted: '#93C5FD', accent: '#3B82F6', track: '#172B5C' },
-      emerald: { outerBg: '#05140F', glowBand: '#0F4230', text: '#FFFFFF', muted: '#6EE7B7', accent: '#10B981', track: '#12382B' },
-      violet: { outerBg: '#0C061C', glowBand: '#37197A', text: '#FFFFFF', muted: '#C4B5FD', accent: '#8B5CF6', track: '#271552' },
-      crimson: { outerBg: '#190509', glowBand: '#631321', text: '#FFFFFF', muted: '#FDA4AF', accent: '#F43F5E', track: '#47101A' },
-      amber: { outerBg: '#170F04', glowBand: '#59370B', text: '#FFFFFF', muted: '#FDE68A', accent: '#F59E0B', track: '#422B0B' },
+    if (preset === 'white') {
+      return { text: '#090A0F', secondaryText: '#475569', pill: rgba('9, 10, 15', 0.06), track: rgba('9, 10, 15', 0.1), accent: '#0F172A' };
+    }
+    const themes: Record<string, { secondaryText: string; accent: string }> = {
+      ember: { secondaryText: '#FDBA74', accent: '#FF5500' },
+      cobalt: { secondaryText: '#93C5FD', accent: '#3B82F6' },
+      emerald: { secondaryText: '#6EE7B7', accent: '#10B981' },
+      violet: { secondaryText: '#C4B5FD', accent: '#8B5CF6' },
+      crimson: { secondaryText: '#FDA4AF', accent: '#F43F5E' },
+      amber: { secondaryText: '#FDE68A', accent: '#F59E0B' },
     };
-    return map[preset] ?? map.ember;
+    const theme = themes[preset] ?? themes.ember;
+    return { text: '#FFFFFF', secondaryText: theme.secondaryText, pill: rgba(WHITE, 0.1), track: rgba(WHITE, 0.14), accent: theme.accent };
   };
 
-  // Tinted and Clear home screens render widgets in the accented mode: fixed colours and opaque
-  // fills turn into solid tiles there, so use hierarchical styles and alpha-only fills instead.
-  const tinted = env?.widgetRenderingMode === 'accented' || env?.widgetRenderingMode === 'vibrant';
-  const accent = tinted ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const primary = { type: 'hierarchical', style: 'primary' };
-  const secondary = { type: 'hierarchical', style: 'secondary' };
-  const p = tinted
-    ? { outerBg: '', glowBand: '#1FFFFFFF', text: primary, muted: secondary, accent: '#FFFFFFFF', track: '#33FFFFFF' }
-    : getPalette();
+  const p = makePalette();
+  const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
   const goal = props.goalDays && props.goalDays > 0 ? props.goalDays : 30;
-  const fillWidth = Math.max(18, Math.min(120, Math.round((props.streakDays / goal) * 120)));
+  const trackWidth = 120;
+  const barHeight = 6;
+  const progress = Math.max(0, Math.min(1, props.streakDays / goal));
+  // At least the bar's height, so a small streak still shows as a dot.
+  const fillWidth = Math.max(barHeight, Math.round(trackWidth * progress));
 
   return (
     <VStack modifiers={[padding({ all: 12 })]}>
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 6 }), background(p.glowBand), cornerRadius(10)]}>
+      <HStack modifiers={[padding({ horizontal: 8, vertical: 6 }), background(p.pill), cornerRadius(10)]}>
         <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.text)]}>
           {`🔥 ${props.habitName}`}
         </Text>
         <Spacer />
-        <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.muted)]}>
+        <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
           {`${props.totalDays}d`}
         </Text>
       </HStack>
@@ -54,18 +66,20 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
       <Spacer />
 
       <VStack>
-        <Text modifiers={[font({ size: 11, weight: 'medium' }), foregroundStyle(p.muted)]}>
+        <Text modifiers={[font({ size: 11, weight: 'medium' }), foregroundStyle(p.secondaryText)]}>
           Streak Days
         </Text>
-        <Text modifiers={[font({ size: 34, weight: 'bold' }), foregroundStyle(p.text), ...accent]}>
+        <Text modifiers={[font({ size: 34, weight: 'bold' }), foregroundStyle(p.text), ...accentable]}>
           {`${props.streakDays}`}
         </Text>
       </VStack>
 
       <Spacer />
 
-      <HStack modifiers={[frame({ width: 120, height: 6 }), background(p.track), cornerRadius(4)]}>
-        <HStack modifiers={[frame({ width: fillWidth, height: 6 }), background(p.accent), cornerRadius(4), ...accent]}>
+      <HStack modifiers={[frame({ width: trackWidth, height: barHeight }), background(p.track), cornerRadius(barHeight / 2)]}>
+        <HStack
+          modifiers={[frame({ width: fillWidth, height: barHeight }), background(p.accent), cornerRadius(barHeight / 2), ...accentable]}
+        >
           {null}
         </HStack>
         <Spacer />

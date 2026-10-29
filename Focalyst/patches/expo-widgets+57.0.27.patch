@@ -227,10 +227,10 @@ index 050c3e0..81b1218 100644
      return try ActivityBackgroundTintModifier(from: params, appContext: appContext)
    }
 diff --git a/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js b/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
-index d1b5da9..64d9462 100644
+index d1b5da9..0904e80 100644
 --- a/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
 +++ b/node_modules/expo-widgets/plugin/build/ios/withWidgetSourceFiles.js
-@@ -107,6 +107,57 @@ const withWidgetSourceFiles = (config, { widgets, targetName, onFilesGenerated,
+@@ -107,6 +107,62 @@ const withWidgetSourceFiles = (config, { widgets, targetName, onFilesGenerated,
          },
      ]);
  };
@@ -254,8 +254,12 @@ index d1b5da9..64d9462 100644
 +  let widget: String
 +  let props: [String: Any]?
 +  @Environment(\\.colorScheme) private var colorScheme
++  @Environment(\\.widgetRenderingMode) private var renderingMode
 +
 +  var body: some View {
++    if renderingMode == .accented || renderingMode == .vibrant {
++      return Color.clear
++    }
 +    let hex = backgroundHex
 +    return Color(
 +      red: Double((hex >> 16) & 0xFF) / 255,
@@ -272,11 +276,12 @@ index d1b5da9..64d9462 100644
 +    default: fallback = "cobalt"
 +    }
 +    let preset = (props?["preset"] as? String) ?? fallback
-+    if preset == "white" || (preset == "monochrome" && colorScheme != .dark) {
-+      return widget == "CalendarWidget" ? 0xFFFFFF : 0xF8FAFC
-+    }
 +    if preset == "monochrome" {
-+      return 0x090A0F
++      // Auto light/dark: follows the home screen's colour scheme.
++      return colorScheme == .dark ? 0x0B0B0F : 0xFFFFFF
++    }
++    if preset == "white" {
++      return widget == "CalendarWidget" ? 0xFFFFFF : 0xF8FAFC
 +    }
 +    let palette: [String: UInt32] = widget == "HeatmapWidget"
 +      ? ["ember": 0x140703, "cobalt": 0x060C1A, "emerald": 0x04120D, "violet": 0x0A0517, "crimson": 0x160408, "amber": 0x140D03]
@@ -288,7 +293,7 @@ index d1b5da9..64d9462 100644
  const createIndexSwift = (widgets, targetPath) => {
      const indexFilePath = path.join(targetPath, `index.swift`);
      const numberOfWidgets = widgets.length;
-@@ -127,6 +178,7 @@ internal import ExpoWidgets
+@@ -127,6 +183,7 @@ internal import ExpoWidgets
      else {
          output += addIndexSwiftChunk([], 0, true);
      }
@@ -296,7 +301,7 @@ index d1b5da9..64d9462 100644
      fs.writeFileSync(indexFilePath, output);
      return indexFilePath;
  };
-@@ -180,12 +232,22 @@ struct ${widget.name}: Widget {
+@@ -180,12 +237,22 @@ struct ${widget.name}: Widget {
    let name: String = "${widget.name}"
  
    var body: some WidgetConfiguration {
@@ -305,7 +310,7 @@ index d1b5da9..64d9462 100644
 +    let config = StaticConfiguration(kind: name, provider: WidgetsTimelineProvider(name: name)) { entry in
 +      ${widget.name === 'PomodoroWidget' ? 'let isRunning = (entry.props?["isRunning"] as? Bool) ?? false\n      let action = isRunning ? "end" : "start"\n      ' : ''}let view = WidgetsEntryView(entry: entry)
 +        .frame(maxWidth: .infinity, maxHeight: .infinity)
-+${widget.name === 'PomodoroWidget' ? '\n        .widgetURL(URL(string: "focalyst://focus?action=\\(action)"))' : widget.name === 'CalendarWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=calendar"))' : widget.name === 'CountdownWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=countdown"))' : ''}
++        .unredacted()${widget.name === 'PomodoroWidget' ? '\n        .widgetURL(URL(string: "focalyst://focus?action=\\(action)"))' : widget.name === 'CalendarWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=calendar"))' : widget.name === 'CountdownWidget' ? '\n        .widgetURL(URL(string: "focalyst://?view=countdown"))' : ''}
 +
 +      view.focalystWidgetBackground(FocalystThemeBackground(widget: name, props: entry.props))
      }
@@ -322,7 +327,7 @@ index d1b5da9..64d9462 100644
    }
  }`;
      return `import WidgetKit
-@@ -341,6 +403,7 @@ struct ${widget.name}: Widget {
+@@ -341,6 +408,7 @@ struct ${widget.name}: Widget {
    var body: some WidgetConfiguration {
      return AppIntentConfiguration(kind: name, intent: ${widget.name}ConfigurationAppIntent.self, provider: ${widget.name}TimelineProvider()) { entry in
        ${widget.name}EntryView(entry: entry)

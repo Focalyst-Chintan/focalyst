@@ -49,11 +49,16 @@ export const WidgetThemePicker: React.FC = () => {
   const activePreset = PRESETS.find((p) => p.id === payload.preset) ?? PRESETS[0];
   const isLight = payload.preset === 'white' || (payload.preset === 'monochrome' && systemScheme === 'light');
 
-  const cardBg = isLight ? '#F8FAFC' : activePreset.bg;
-  const bandBg = isLight ? '#E2E8F0' : activePreset.topGlow;
-  const primaryText = isLight ? '#090A0F' : '#FFFFFF';
-  const mutedText = isLight ? '#475569' : '#94A3B8';
-  const accentColor = isLight ? '#090A0F' : activePreset.accent;
+  // Monochrome follows the system light/dark appearance, exactly like the home screen widgets.
+  const isMono = payload.preset === 'monochrome';
+  const monoInk = systemScheme === 'light' ? '11, 11, 15' : '255, 255, 255';
+  const cardBg = isMono ? (systemScheme === 'light' ? '#FFFFFF' : '#0B0B0F') : isLight ? '#F8FAFC' : activePreset.bg;
+  const bandBg = isMono
+    ? `rgba(${monoInk}, ${systemScheme === 'light' ? 0.06 : 0.1})`
+    : isLight ? '#E2E8F0' : activePreset.topGlow;
+  const primaryText = isMono ? (systemScheme === 'light' ? '#0B0B0F' : '#FFFFFF') : isLight ? '#090A0F' : '#FFFFFF';
+  const mutedText = isMono ? `rgba(${monoInk}, ${systemScheme === 'light' ? 0.55 : 0.6})` : isLight ? '#475569' : '#94A3B8';
+  const accentColor = isMono ? primaryText : isLight ? '#090A0F' : activePreset.accent;
 
   const toggleTask = (id: string) => {
     const nextTasks = payload.tasks.map((t) =>
@@ -232,7 +237,7 @@ export const WidgetThemePicker: React.FC = () => {
               }
               if (payload.preset === 'monochrome' && systemScheme === 'dark') {
                 return {
-                  bg: '#090A0F',
+                  bg: '#0B0B0F',
                   weekdayColor: '#94A3B8',
                   dayNumberColor: '#FFFFFF',
                   primaryCardBg: '#181B24',
