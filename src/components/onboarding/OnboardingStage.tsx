@@ -109,14 +109,17 @@ export interface FooterAction {
 }
 
 function FooterButtons({
-  primary, secondary, showBack, onBack, phoneInline,
+  primary, secondary, showBack, onBack, phoneInline, secondaryStart = false,
 }: {
   primary: FooterAction | null;
   secondary?: FooterAction | null;
   showBack: boolean;
   onBack: () => void;
   phoneInline?: boolean;
+  /** Desktop: the secondary sits on the left; phones: a text link above the primary (screen 28). */
+  secondaryStart?: boolean;
 }) {
+  const start = secondaryStart && secondary ? secondary : null;
   return (
     <div className="mx-auto flex w-full max-w-[440px] flex-col gap-2 lg:mx-0 lg:max-w-none lg:flex-row lg:items-center">
       {!phoneInline && (
@@ -126,9 +129,24 @@ function FooterButtons({
               Back
             </Button>
           )}
+          {start && (
+            <Button variant={start.variant ?? 'ghost'} size="lg" onClick={start.onClick} disabled={start.disabled}>
+              {start.label}
+            </Button>
+          )}
         </div>
       )}
-      {secondary && (
+      {start && (
+        <button
+          type="button"
+          onClick={start.onClick}
+          disabled={start.disabled}
+          className="mx-auto rounded-[8px] px-2 py-1.5 text-[14px] font-medium text-ink-2 hover:text-ink cursor-pointer focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] lg:hidden"
+        >
+          {start.label}
+        </button>
+      )}
+      {secondary && !start && (
         <Button variant={secondary.variant ?? 'ghost'} size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 w-full lg:order-none lg:w-auto">
           {secondary.label}
         </Button>
@@ -156,7 +174,15 @@ function FooterButtons({
 export function StepFrame({
   titleId, title, subtitle, statement = false, notice, body, primary, secondary, showBack, onBack,
   inlineFooterOnPhone = false, focusTitle = true, direction, desktopExtra, eyebrow, wide = false, overline, overlineTitle = false, centered = false, aside,
+  readingWidth = false, scrollFade = false, secondaryStart = false, footerNote,
 }: {
+  /** Desktop reading width 560 instead of 440 (screen 28). */
+  readingWidth?: boolean;
+  /** Desktop: hidden scrollbar and a 24 px fade under the top bar (screen 28). */
+  scrollFade?: boolean;
+  secondaryStart?: boolean;
+  /** A short line above the footer buttons (the paywall's "No payment today"). */
+  footerNote?: ReactNode;
   titleId: string;
   title: string;
   subtitle?: ReactNode;
@@ -195,6 +221,8 @@ export function StepFrame({
       {/* Only the content slides; the footer stays put (a transform would break its fixed position on phones). */}
       <div
         className={`${direction === 'fwd' ? 'ob-step-fwd' : 'ob-step-back'} flex-1 px-5 pt-5 lg:overflow-y-auto lg:px-14 lg:pb-6 lg:pt-8 ${
+          scrollFade ? 'lg:[scrollbar-width:none] lg:[&::-webkit-scrollbar]:hidden lg:[mask-image:linear-gradient(to_bottom,transparent,black_24px)] ' : ''
+        }${
           inlineFooterOnPhone ? 'pb-10' : 'pb-[calc(140px+env(safe-area-inset-bottom))]'
         }`}
       >
@@ -202,7 +230,7 @@ export function StepFrame({
           className={`${
             wide
               ? `mx-auto w-full max-lg:glass max-lg:rounded-[20px] max-lg:p-5 ${centered ? 'lg:max-w-[520px]' : 'lg:max-w-none'}`
-              : 'mx-auto w-full max-w-[440px] lg:mx-0'
+              : `mx-auto w-full lg:mx-0 ${readingWidth ? 'max-w-[560px]' : 'max-w-[440px]'}`
           }${aside ? ' flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12' : ''}`}
         >
           {aside && <div className="order-first lg:order-none lg:col-start-2 lg:row-start-1">{aside}</div>}
@@ -245,7 +273,10 @@ export function StepFrame({
       <div
         className={`${inlineFooterOnPhone ? 'hidden lg:block' : 'fixed inset-x-0 bottom-0 z-20'} bg-[linear-gradient(to_bottom,transparent,var(--canvas)_32px)] px-5 pb-[calc(16px+env(safe-area-inset-bottom))] pt-8 lg:static lg:bg-none lg:px-14 lg:pb-10 lg:pt-4`}
       >
-        <FooterButtons primary={primary} secondary={secondary} showBack={showBack} onBack={onBack} />
+        {footerNote && (
+          <p className="mx-auto mb-2 max-w-[440px] text-center text-[13px] leading-[18px] text-ink-2 lg:mx-0 lg:max-w-none lg:text-right">{footerNote}</p>
+        )}
+        <FooterButtons primary={primary} secondary={secondary} showBack={showBack} onBack={onBack} secondaryStart={secondaryStart} />
       </div>
     </div>
   );

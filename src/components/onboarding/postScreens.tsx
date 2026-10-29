@@ -1,29 +1,27 @@
 'use client';
 // Screens 28 to 32 after the save (WEB_ONBOARDING_DESIGN.md 4 and 9).
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import type { LucideIcon } from 'lucide-react';
-import {
-  ChartColumn, Check, ChevronRight, Copy, Hourglass, Plug, QrCode, Repeat, Share2, Sparkles, Timer,
-} from 'lucide-react';
+import { ChevronRight, Copy, Plug, QrCode, Share2 } from 'lucide-react';
 import { Button, GlobalToastContainer, Skeleton, useToast } from '@/components/desktop/ui';
 import type { PlanKey } from '@/lib/billing/checkout';
 import { firstName, type GroupStepResult, type OnboardingPostState } from '@/lib/onboarding/draft';
 import { retryGroup } from '@/lib/onboarding/groupStep';
 import { announceCreatedCountdown } from '@/lib/onboarding/useOnboardingFollowUps';
+import { buildStartingReport } from '@/lib/onboarding/startingReport';
 import { hasStoreLinkEnv } from '@/lib/onboarding/steps';
-import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
 import { fetchMyGroupLeaderboard, type GroupLeaderboardMember } from '@/lib/services/habitGroupService';
 import { OnboardingStage, PlanPanelScroll, StepFrame, type FooterAction } from './OnboardingStage';
 import { PlanPreview } from './PlanPreview';
-import { ChatPreview } from './ChatPreview';
+import { StartingReport, type ReportMode } from './StartingReport';
 import { MiniLeaderboard } from './groupVisuals';
 import { PaywallScreen } from './PaywallScreen';
 import { GET_APP_URL, StoreButtons, usePlatform } from './StoreButtons';
 import { TextField } from './patterns';
 import { useOnboardingKeys } from './useOnboardingKeys';
-import { daysUntil, formatNumber } from './copy';
+import { formatNumber } from './copy';
 
 const QRCodeSVG = dynamic(() => import('qrcode.react').then((m) => m.QRCodeSVG), {
   ssr: false,
@@ -36,9 +34,11 @@ export function webTrialDays(): number {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
+/** 28 for everyone with saved answers, 30 for free web users, 31 with a group. 29 is gone (REPORT R1). */
 export function postSteps(post: OnboardingPostState, isPro: boolean, native: boolean): number[] {
-  return [28, 29, 30, 31, 32].filter((s) => {
-    if (s >= 28 && s <= 30) return !isPro && !native;
+  return [28, 30, 31, 32].filter((s) => {
+    if (s === 28) return Boolean(post.answers && Object.keys(post.answers).length);
+    if (s === 30) return !isPro && !native;
     if (s === 31) return post.group !== null;
     return true;
   });
@@ -61,127 +61,44 @@ function useFooterKeys(primary: FooterAction | null) {
   useOnboardingKeys({ canContinue: Boolean(primary && !primary.disabled), onEnter: primary?.onClick });
 }
 
-function CheckLine({ children }: { children: ReactNode }) {
-  return (
-    <li className="flex gap-2.5 text-[14px] leading-[20px] text-ink">
-      <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" aria-hidden />
-      <span>{children}</span>
-    </li>
-  );
-}
-
-// ---------- 28 · Your AI, with your plan ----------
+// ---------- 28 · Your starting report (WEB_ONBOARDING_REPORT.md R1 and R3) ----------
 
 function Screen28({ c }: { c: PostCtx }) {
   const titleId = useId();
-  const primary = { label: 'Continue', onClick: () => c.go(c.after(28)) };
+  const saved = c.post.answers;
+  const answers = useMemo(() => saved ?? {}, [saved]);
+  const report = useMemo(
+    () => buildStartingReport({
+      answers,
+      report: c.post.report,
+      isPro: c.pro,
+      today: new Date(),
+      locale: typeof navigator !== 'undefined' ? navigator.language : undefined,
+    }),
+    [answers, c.post.report, c.pro]
+  );
+  const mode: ReportMode = c.native ? 'free-only' : c.pro ? 'full' : 'locked';
+  const unlock = () => c.go(30);
+  const primary = mode === 'locked'
+    ? { label: 'Unlock my full report', onClick: unlock }
+    : { label: 'Continue', onClick: () => c.go(c.after(28)) };
+  const secondary = mode === 'locked' ? { label: 'Maybe later', onClick: () => c.go(c.after(30)) } : null;
   useFooterKeys(primary);
   return (
     <StepFrame
       titleId={titleId}
-      overline="WITH PRO"
-      title="Ask Claude or ChatGPT about your plan."
-      primary={primary}
-      showBack={false}
-      onBack={() => {}}
-      direction="fwd"
-      body={
-        <div className="flex flex-col gap-5">
-          <ChatPreview
-            answers={c.post.answers ?? {}}
-            plan={c.post.plan}
-            animate={!c.post.chatShown}
-            onTyped={() => c.change({ chatShown: true })}
-          />
-          <ul className="flex flex-col gap-2.5">
-            <CheckLine>Ask about your tasks, habits, focus time and notes</CheckLine>
-            <CheckLine>Add a task or log a habit by chat, only when you say so</CheckLine>
-            <CheckLine>Each AI app sees only your account. Disconnect any time.</CheckLine>
-          </ul>
-          <p className="text-[12px] leading-[18px] text-ink-3">
-            Pro includes {MCP_PRO_MONTHLY_CREDITS} AI connection credits a month, plus {MCP_DAILY_BONUS} for each day you open
-            Focalyst. Credits refill on your billing date.
-          </p>
-        </div>
-      }
-    />
-  );
-}
-
-// ---------- 29 · Pro ----------
-
-function BenefitRow({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
-  return (
-    <li className="frost flex items-center gap-3 rounded-[14px] px-4 py-3">
-      <span aria-hidden className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[10px] bg-primary-soft text-primary-text">
-        <Icon className="h-4 w-4" />
-      </span>
-      <span className="text-[14px] font-medium leading-[20px] text-ink">{children}</span>
-    </li>
-  );
-}
-
-function proBenefits(post: OnboardingPostState): { icon: LucideIcon; text: string }[] {
-  const list: { icon: LucideIcon; text: string }[] = [];
-  const plan = post.plan;
-  if (plan?.idealMinutes) list.push({ icon: Timer, text: `${plan.idealMinutes}-minute deep sessions, matched to how you focus` });
-  const cd = post.answers?.countdown;
-  const days = cd ? daysUntil(cd.date) : null;
-  if (post.countdownPending && cd && days !== null && days > 0) {
-    list.push({ icon: Hourglass, text: `Your ${cd.name} countdown, ${formatNumber(days, 0)} ${days === 1 ? 'day' : 'days'} away` });
-  }
-  list.push({ icon: Plug, text: 'Claude and ChatGPT, connected to your plan' });
-  list.push({ icon: Repeat, text: 'More habits, notes and countdowns' });
-  list.push({ icon: Sparkles, text: 'More Focalyst AI messages every day' });
-  list.push({ icon: ChartColumn, text: 'The detailed Catalyst weekly report' });
-  return list.slice(0, 4);
-}
-
-function Timeline({ days }: { days: number }) {
-  const steps = [
-    { when: 'Today', what: 'Full Pro access, free' },
-    { when: `Before day ${days}`, what: 'Cancel any time from Settings › Pro' },
-    { when: `Day ${days}`, what: 'Your yearly plan starts, unless you cancel' },
-  ];
-  return (
-    <ol className="flex flex-col">
-      {steps.map((s, i) => (
-        <li key={s.when} className="relative flex gap-3 pb-4 last:pb-0">
-          {i < steps.length - 1 && <span aria-hidden className="absolute left-[5px] top-4 h-[calc(100%-8px)] w-0.5 bg-line" />}
-          <span aria-hidden className={`mt-1 h-3 w-3 shrink-0 rounded-full ${i === 0 ? 'bg-primary' : 'border-2 border-line-strong bg-surface'}`} />
-          <span className="text-[14px] leading-[20px]">
-            <span className="font-semibold text-ink">{s.when}</span>
-            <span className="text-ink-2"> · {s.what}</span>
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
-function Screen29({ c }: { c: PostCtx }) {
-  const titleId = useId();
-  const days = webTrialDays();
-  const primary = { label: days ? 'Continue' : 'See plans', onClick: () => c.go(30) };
-  const secondary = { label: 'Maybe later', onClick: () => c.go(c.after(30)) };
-  useFooterKeys(primary);
-  return (
-    <StepFrame
-      titleId={titleId}
-      title={days ? `Try Pro free for ${days} days.` : 'Get more from your plan with Pro.'}
+      overline={report.overline}
+      title={report.title}
+      subtitle={<span className="text-[13px] text-ink-3">{report.subtitle}</span>}
       primary={primary}
       secondary={secondary}
+      secondaryStart
+      readingWidth
+      scrollFade
       showBack={false}
       onBack={() => {}}
       direction="fwd"
-      body={
-        <div className="flex flex-col gap-6">
-          <ul className="flex flex-col gap-2">
-            {proBenefits(c.post).map((b) => <BenefitRow key={b.text} icon={b.icon}>{b.text}</BenefitRow>)}
-          </ul>
-          {days > 0 && <Timeline days={days} />}
-        </div>
-      }
+      body={<StartingReport report={report} mode={mode} answers={answers} plan={c.post.plan ?? null} onUnlock={unlock} header={false} />}
     />
   );
 }
@@ -562,13 +479,12 @@ export function PostScreens({
       >
         <div key={step} className="flex min-h-0 flex-1 flex-col">
           {step === 28 && <Screen28 c={c} />}
-          {step === 29 && <Screen29 c={c} />}
           {step === 30 && (
             <PaywallScreen
               post={post}
               trialDays={webTrialDays()}
               onLeave={(plan: PlanKey) => onChange({ step: 30, checkoutPending: plan })}
-              onAlreadyPro={() => onChange({ purchased: true, checkoutPending: null, step: after(30) ?? 32 })}
+              onAlreadyPro={() => onChange({ purchased: true, checkoutPending: null, step: steps.includes(28) ? 28 : after(30) ?? 32 })}
               onClose={() => onChange({ checkoutPending: null, step: after(30) ?? 32 })}
             />
           )}

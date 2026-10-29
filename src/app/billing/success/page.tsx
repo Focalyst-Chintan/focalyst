@@ -138,7 +138,7 @@ function SuccessContent() {
             <Link
               href={post ? '/start' : !onboardingDone ? '/onboarding/name' : '/today'}
               onClick={() => {
-                if (post) writePostState({ ...post, step: post.group ? 31 : 32, checkoutPending: null, purchased: true });
+                if (post) writePostState({ ...post, step: 28, checkoutPending: null, purchased: true });
               }}
               className="mt-8 inline-flex h-12 px-8 items-center justify-center rounded-[14px] bg-primary hover:bg-primary-hover text-snow font-medium text-[15px] transition-all shadow-[var(--shadow-1)] cursor-pointer active:scale-[0.98]"
             >

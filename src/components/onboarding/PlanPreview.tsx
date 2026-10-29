@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import {
   BellRing, CircleAlert, Flag, Hourglass, ListChecks, Repeat, Smartphone, Target, Timer, UserRound, Users,
 } from 'lucide-react';
-import { firstName, type AnswerKey, type OnboardingAnswers } from '@/lib/onboarding/draft';
+import { firstName, readDraft, readPostState, type AnswerKey, type OnboardingAnswers } from '@/lib/onboarding/draft';
 import { rhythmFor } from '@/lib/onboarding/plan';
 import { chapterOf } from '@/lib/onboarding/steps';
 import { ROLE_LABELS, LIFE_STAGE_SHORT, formatTime, daysUntil, hoursText } from './copy';
@@ -45,6 +45,19 @@ function ProChip({ variant }: { variant: Variant }) {
       Pro
     </span>
   );
+}
+
+function hasAnswers(a?: OnboardingAnswers | null): a is OnboardingAnswers {
+  return Boolean(a && Object.keys(a).length);
+}
+
+/** No answers passed (after sign-up): the draft, else the answers kept in onboarding:post:v1 (REPORT R2). */
+function storedAnswers(): { answers: OnboardingAnswers; skipped: AnswerKey[] } | null {
+  if (typeof window === 'undefined') return null;
+  const d = readDraft();
+  if (hasAnswers(d?.answers)) return { answers: d.answers, skipped: d.skipped };
+  const p = readPostState();
+  return hasAnswers(p?.answers) ? { answers: p.answers, skipped: p.skipped ?? [] } : null;
 }
 
 function buildRows(a: OnboardingAnswers, skipped: AnswerKey[], isPro: boolean, variant: Variant): RowData[] {
@@ -168,7 +181,7 @@ function Row({ row, variant, delayMs }: { row: RowData; variant: Variant; delayM
 }
 
 export function PlanPreview({
-  answers, skipped = [], isPro = false, variant = 'panel', onlyFilled = false, step, rhythmNote, className = '',
+  answers: propAnswers, skipped: propSkipped = [], isPro = false, variant = 'panel', onlyFilled = false, step, rhythmNote, className = '',
 }: {
   answers: OnboardingAnswers;
   skipped?: AnswerKey[];
@@ -182,6 +195,10 @@ export function PlanPreview({
   rhythmNote?: string;
   className?: string;
 }) {
+  const [stored] = useState(() => (hasAnswers(propAnswers) ? null : storedAnswers()));
+  const fromStorage = !hasAnswers(propAnswers) && stored !== null;
+  const answers = fromStorage ? stored.answers : propAnswers;
+  const skipped = fromStorage ? stored.skipped : propSkipped;
   const name = firstName(answers.name);
   const current = step !== undefined ? chapterOf(step) : null;
   const rows = buildRows(answers, skipped, isPro, variant).filter((r) => {

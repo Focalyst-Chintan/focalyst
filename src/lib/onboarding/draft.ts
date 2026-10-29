@@ -72,6 +72,8 @@ export interface OnboardingPostState {
   answers?: OnboardingAnswers;
   skipped?: AnswerKey[];
   plan?: OnboardingPlan | null;
+  /** The report snapshot (screen 22), for the starting report on 28. */
+  report?: ReportSnapshot | null;
   /** The habit the group step used, for a real Try again on screen 31. */
   groupHabitId?: string | null;
   /** Set by the payment success page or an already_pro checkout: Pro from now on. */

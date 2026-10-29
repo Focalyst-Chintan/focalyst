@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { hasPro } from '@/lib/billing/proStatus';
-import { isNativeApp } from '@/lib/billing/checkout';
 import { GlobalToastContainer, useToast } from '@/components/desktop/ui/Toast';
 import {
   clearDraft, clearPendingFinish, firstName, readDraft, setPendingFinish, setPostCookie, writeDraft, writePendingCountdown,
@@ -80,7 +79,6 @@ export default function FinishFlow() {
       }
 
       const pro = hasPro(row);
-      const native = isNativeApp();
       const payload = buildOnboardingPayload(draft, { hasFullName: Boolean(row?.full_name?.trim()) });
 
       // 3. Call complete_onboarding, retrying 3 times. The function never creates duplicates.
@@ -121,6 +119,7 @@ export default function FinishFlow() {
         answers,
         skipped: draft.skipped,
         plan,
+        report: draft.report,
         groupHabitId: groupHabitId(g, Array.isArray(result.habit_ids) ? result.habit_ids : []),
       };
       clearDraft();
@@ -132,7 +131,8 @@ export default function FinishFlow() {
       try { await refreshRef.current(); } catch { /* the context refreshes on its own later */ }
 
       const group = await runGroupStep(g, Array.isArray(result.habit_ids) ? result.habit_ids : []);
-      const step = pro || native ? (group ? 31 : 32) : 28;
+      // 28 is the starting report for everyone (REPORT R1).
+      const step = 28;
       writePostState({ ...post, step, group });
       setPostCookie();
       router.replace('/start');

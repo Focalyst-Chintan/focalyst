@@ -1,5 +1,5 @@
 'use client';
-// Screen 30, the paywall (WEB_ONBOARDING_DESIGN.md 9). Never rendered inside the native app.
+// Screen 30, the paywall (WEB_ONBOARDING_DESIGN.md 9, WEB_ONBOARDING_REPORT.md R6). Never rendered inside the native app.
 import { useEffect, useId, useState } from 'react';
 import Link from 'next/link';
 import { Check, X } from 'lucide-react';
@@ -7,6 +7,7 @@ import { IconButton, Skeleton, useToast } from '@/components/desktop/ui';
 import { isNativeApp, startCheckout, type PlanKey } from '@/lib/billing/checkout';
 import { PRICES, useCurrency } from '@/lib/billing/useCurrency';
 import type { OnboardingPostState } from '@/lib/onboarding/draft';
+import { SHOW_NO_PAYMENT_TODAY } from '@/lib/onboarding/flags';
 import { StepFrame } from './OnboardingStage';
 import { rovingKeyDown, useOnboardingKeys } from './useOnboardingKeys';
 
@@ -58,6 +59,9 @@ function PriceText({ value, className = '' }: { value: string | null; className?
   return <span className={className}>{value}</span>;
 }
 
+const SOLID_CHIP = 'rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-snow';
+const SOFT_CHIP = 'rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary-text';
+
 function PlanCard({
   plan, selected, onPick, tabIndex, prices, trialDays, number,
 }: {
@@ -74,7 +78,14 @@ function PlanCard({
   const price = !prices
     ? null
     : plan === 'monthly' ? `${prices.monthly} a month` : plan === 'yearly' ? `${prices.yearly} a year` : `${prices.lifetime} once`;
-  const line = plan === 'yearly' ? (prices ? `${perMonth(prices)} a month` : null) : plan === 'lifetime' ? 'One payment. Yours for good.' : '';
+  const line =
+    plan === 'yearly'
+      ? prices
+        ? trialDays > 0
+          ? `${trialDays} days free, then ${perMonth(prices)} a month, billed yearly`
+          : `${perMonth(prices)} a month`
+        : null
+      : plan === 'lifetime' ? 'One payment. Yours for good.' : '';
 
   return (
     <button
@@ -99,13 +110,15 @@ function PlanCard({
       </span>
       {plan === 'yearly' && (
         <span className="mt-2 flex flex-wrap gap-1.5">
-          <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-snow">Best value</span>
-          {trialDays > 0 && (
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary-text">{trialDays} days free</span>
+          {trialDays > 0 ? (
+            <>
+              <span className={SOLID_CHIP}>{trialDays} days free</span>
+              <span className={SOFT_CHIP}>Best value</span>
+            </>
+          ) : (
+            <span className={SOLID_CHIP}>Best value</span>
           )}
-          {save >= 10 && (
-            <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-semibold text-primary-text">Save {save}%</span>
-          )}
+          {save >= 10 && <span className={SOFT_CHIP}>Save {save}%</span>}
         </span>
       )}
       <PriceText value={price} className="mt-3 text-[20px] font-semibold tabular-nums text-ink" />
@@ -116,6 +129,42 @@ function PlanCard({
       ) : null}
     </button>
   );
+}
+
+/** Yearly with a trial: 3 small steps, one row on desktop, stacked on phones (R6.2). */
+function TrialTimeline({ days, yearly }: { days: number; yearly: string | null }) {
+  const steps: { when: string; what: string | null }[] = [
+    { when: 'Today', what: 'Full Pro access' },
+    { when: `Before day ${days}`, what: 'Cancel anytime from Settings › Pro' },
+    { when: `Day ${days}`, what: yearly ? `${yearly} a year starts` : null },
+  ];
+  return (
+    <ol className="flex flex-col gap-3 lg:flex-row lg:gap-6" aria-label="Your free trial">
+      {steps.map((s, i) => (
+        <li key={s.when} className="flex flex-1 items-start gap-2.5">
+          <span aria-hidden className={`mt-1 h-2.5 w-2.5 shrink-0 rounded-full ${i === 0 ? 'bg-primary' : 'border-2 border-line-strong bg-surface'}`} />
+          <span className="text-[13px] leading-[18px]">
+            <span className="block font-semibold text-ink">{s.when}</span>
+            {s.what === null ? <Skeleton className="mt-1 h-3.5 w-24" /> : <span className="block text-ink-2">{s.what}</span>}
+          </span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** "Also with Pro" (R6.1), with its conditions. */
+function alsoWithPro(post: OnboardingPostState): string[] {
+  const list: string[] = [];
+  const ideal = post.plan?.idealMinutes ?? (post.plan && post.plan.minutes > 25 ? post.plan.minutes : null);
+  if (ideal && ideal > 25) list.push(`${ideal}-minute sessions, matched to how you focus`);
+  const cd = post.answers?.countdown;
+  if (post.countdownPending && cd?.name) list.push(`Your ${cd.name} countdown on your plan now`);
+  list.push('Claude and ChatGPT, connected to your plan');
+  list.push('More habits, notes and countdowns');
+  list.push('More Focalyst AI messages every day');
+  list.push('The detailed Catalyst weekly report');
+  return list;
 }
 
 export function PaywallScreen({
@@ -139,11 +188,13 @@ export function PaywallScreen({
   );
   const [busy, setBusy] = useState(false);
   const order = desktop ? DESKTOP_ORDER : PHONE_ORDER;
+  const trial = plan === 'yearly' && trialDays > 0;
 
   const buy = async () => {
     if (busy || isNativeApp()) return;
     setBusy(true);
     onLeave(plan);
+    // The trial comes from the Polar product itself; checkout is the same call either way.
     const r = await startCheckout(plan);
     if (r.ok || r.code === 'auth') return; // leaving the site
     if (r.code === 'already_pro') {
@@ -158,8 +209,8 @@ export function PaywallScreen({
     ? 'Opening checkout'
     : plan === 'lifetime'
       ? 'Get lifetime'
-      : plan === 'yearly' && trialDays > 0
-        ? trialDays === 7 ? 'Start my free week' : `Start my free ${trialDays} days`
+      : trial
+        ? trialDays === 7 ? 'Start my free week' : `Start my ${trialDays}-day free trial`
         : 'Continue';
   const primary = { label, onClick: buy, disabled: busy || !prices };
 
@@ -175,20 +226,21 @@ export function PaywallScreen({
   const legal =
     plan === 'lifetime'
       ? 'One-time payment. No subscription.'
-      : plan === 'yearly' && trialDays > 0
-        ? prices ? `${trialDays} days free, then ${prices.yearly} a year. Renews automatically. Cancel any time from Settings › Pro before the trial ends.` : null
+      : trial
+        ? prices ? `${trialDays} days free, then ${prices.yearly} a year. Renews automatically. Cancel anytime from Settings › Pro before the trial ends.` : null
         : 'Renews automatically. Cancel any time from Settings › Pro.';
 
   return (
     <StepFrame
       wide
       titleId={titleId}
-      title="Unlock your full plan."
-      subtitle="Everything you set up, with nothing held back."
+      title="Unlock your full report."
+      subtitle="Your full plan, and everything else in Pro."
       primary={primary}
       showBack={false}
       onBack={() => {}}
       direction="fwd"
+      footerNote={trial && SHOW_NO_PAYMENT_TODAY ? `No payment today. Cancel anytime before day ${trialDays}.` : undefined}
       eyebrow={
         <div className="-ml-2 mb-4">
           <IconButton label="Close" variant="ghost" onClick={onClose}>
@@ -216,6 +268,18 @@ export function PaywallScreen({
                 number={order.indexOf(p) + 1}
               />
             ))}
+          </div>
+          {trial && <TrialTimeline days={trialDays} yearly={prices?.yearly ?? null} />}
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-ink">Also with Pro</p>
+            <ul className="grid gap-1.5 lg:grid-cols-2">
+              {alsoWithPro(post).map((t) => (
+                <li key={t} className="flex gap-2 text-[14px] leading-[20px] text-ink">
+                  <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary-text" aria-hidden />
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
           </div>
           <div className="flex flex-col gap-1 text-[12px] leading-[18px] text-ink-2">
             <p>Final price and any taxes are shown at checkout.</p>

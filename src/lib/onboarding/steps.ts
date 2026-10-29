@@ -19,7 +19,7 @@ export const STEP_NAMES: Record<number, string> = {
   9: 'What gets in the way', 10: 'Apps', 11: 'Phone time', 12: 'Got it', 13: 'Drift time', 14: 'Best time',
   15: 'Habits', 16: 'Habit group', 17: 'Countdown', 18: 'Tomorrow', 19: 'Daily goal', 20: 'Daily focus time', 21: 'Blocking',
   22: 'Building your plan', 23: 'Where your time goes', 24: "What's possible", 25: 'Your plan', 26: 'Your plan goes with you',
-  27: 'Save your plan', 28: 'Your AI, with your plan', 29: 'Pro', 30: 'Paywall', 31: 'Your group', 32: "You're all set",
+  27: 'Save your plan', 28: 'Your starting report', 30: 'Paywall', 31: 'Your group', 32: "You're all set",
 };
 
 /** Screens that use wide mode (3.1). */
@@ -49,7 +49,9 @@ export function isVisible(step: number, s: FlowState): boolean {
     case 21: return false;
     case 26: return s.hasStoreLink && !s.native;
     case 27: return !s.signedIn;
-    case 28: case 29: case 30: return !s.isPro && !s.native;
+    // 28 is the starting report for everyone (free, Pro and native); 29 no longer exists (REPORT R1).
+    case 29: return false;
+    case 30: return !s.isPro && !s.native;
     case 31: return (a.habits?.length ?? 0) > 0 && (a.group?.mode === 'create' || a.group?.mode === 'join');
     default: return true;
   }
