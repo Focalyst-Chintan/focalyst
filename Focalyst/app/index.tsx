@@ -34,7 +34,7 @@ export default function Index() {
           }
         } catch {}
         setLoading(false);
-        router.replace('/auth' as any);
+        router.replace('/onboarding' as any);
       }
     }, 9000);
 
@@ -87,7 +87,7 @@ export default function Index() {
 
             const { data: profile } = await Promise.race([profilePromise, profileTimeout]);
             if (profile?.onboarding_done === false) {
-              router.replace('/paywall' as any);
+              router.replace({ pathname: '/onboarding', params: { signedIn: '1' } } as any);
             } else {
               router.replace(targetDestination as any);
             }
@@ -98,7 +98,7 @@ export default function Index() {
           redirected = true;
           clearTimeout(fallbackTimer);
           setLoading(false);
-          router.replace('/auth' as any);
+          router.replace('/onboarding' as any);
         }
       } catch (e) {
         console.warn('[Index] Auth verification error:', e);
@@ -118,7 +118,7 @@ export default function Index() {
             }
           } catch {}
           setLoading(false);
-          router.replace('/auth' as any);
+          router.replace('/onboarding' as any);
         }
       }
     }
