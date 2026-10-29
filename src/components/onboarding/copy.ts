@@ -136,3 +136,63 @@ export function gotItLine(distractions: string[] = [], apps: string[] = []) {
   const mostly = topApps.length ? `, mostly on ${joinAnd(topApps)}` : '';
   return `${joinAnd(top)}${mostly}. We'll plan around ${pronoun}.`;
 }
+
+// ---------- Chapter 4 · Your setup ----------
+
+/** Screen 15. The emoji is the habit icon (the user's pick). */
+export const HABIT_OPTIONS: { name: string; icon: string }[] = [
+  { name: 'Read 20 minutes', icon: '📚' },
+  { name: 'Revise notes', icon: '📝' },
+  { name: 'Workout', icon: '💪' },
+  { name: 'Meditate', icon: '🧘' },
+  { name: 'Drink water', icon: '💧' },
+  { name: 'Sleep by 11', icon: '🌙' },
+  { name: 'No phone for the first hour', icon: '📵' },
+  { name: 'Journal', icon: '✍️' },
+];
+
+export const OTHER_HABIT = { label: 'Something else', icon: '➕' };
+/** Icon saved with a habit typed into "Something else". */
+export const CUSTOM_HABIT_ICON = '✨';
+
+/** Students see "Revise notes" first. */
+export function habitOptionsFor(role?: ProfileType) {
+  if (role !== 'student') return HABIT_OPTIONS;
+  const revise = HABIT_OPTIONS.find((h) => h.name === 'Revise notes')!;
+  return [revise, ...HABIT_OPTIONS.filter((h) => h !== revise)];
+}
+
+/** Screen 17 name field, pre-filled from life stage. */
+export function countdownNameFor(stage?: LifeStage) {
+  switch (stage) {
+    case 'competitive_exam': return 'My exam';
+    case 'school_exams': return 'Board exams';
+    case 'college': return 'Semester exams';
+    case 'degree': return 'Final exams';
+    default: return '';
+  }
+}
+
+/** Screen 18 placeholder. */
+export function taskPlaceholder(role?: ProfileType) {
+  return role === 'student' ? 'Revise chapter 4' : 'Finish the proposal';
+}
+
+/** Screen 19, in minutes (360 = "6 hours or more"). */
+export const GOAL_OPTIONS: ChoiceOption<number>[] = [
+  { value: 60, label: '1 hour' },
+  { value: 120, label: '2 hours' },
+  { value: 180, label: '3 hours' },
+  { value: 240, label: '4 hours' },
+  { value: 360, label: '6 hours or more' },
+];
+
+/** Numbers in the visitor's locale (section 5), so Indian visitors get "1,00,000" style grouping. */
+export function formatNumber(n: number, maxFractionDigits = 1) {
+  try {
+    const lang = typeof navigator !== 'undefined' ? navigator.language : undefined;
+    return new Intl.NumberFormat(lang, { maximumFractionDigits: maxFractionDigits }).format(n);
+  } catch {
+    return String(n);
+  }
+}

@@ -106,6 +106,10 @@ html[data-hidden] .ob-float,
 .ob-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 5px var(--ring); }
 .ob-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 5px var(--ring); }
 
+/* Screen 26 widget preview: Start pulses once */
+@keyframes ob-pulse { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+.ob-pulse { animation: ob-pulse 320ms var(--ease) 1; }
+
 /* Gradient text exception (3.7), for 40 px or larger only */
 .ob-gradient-text {
   background: linear-gradient(135deg, #1951FC, #0B2CB1);
@@ -123,6 +127,6 @@ html[data-hidden] .ob-float,
   .ob-step-fwd, .ob-step-back, .ob-fade-up, .ob-gather, .ob-stagger, .ob-fade-slow {
     animation: ob-fade 120ms linear both;
   }
-  .ob-tile-pulse, .ob-shake, .ob-float, .ob-drift { animation: none; }
+  .ob-tile-pulse, .ob-shake, .ob-float, .ob-drift, .ob-pulse { animation: none; }
   .ob-greet { animation: ob-fade 120ms linear both; }
 }

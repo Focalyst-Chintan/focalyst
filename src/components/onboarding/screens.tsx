@@ -1,60 +1,21 @@
 'use client';
-// Screens 1 to 14 (WEB_ONBOARDING_DESIGN.md 4). Screens 15 onwards are a placeholder in P1.
+// Screens 1 to 14 (WEB_ONBOARDING_DESIGN.md 4). 15 to 20 live in screensSetup, 22 to 26 in screensReport.
 import { useEffect, useId, useRef } from 'react';
 import Link from 'next/link';
 import type { AnswerKey, OnboardingAnswers } from '@/lib/onboarding/draft';
 import { firstName } from '@/lib/onboarding/draft';
-import type { FlowState } from '@/lib/onboarding/steps';
-import { StepFrame, type FooterAction } from './OnboardingStage';
+import { StepFrame } from './OnboardingStage';
 import { Chips, PhoneHoursSlider, SingleChoice, TextField, type ChoiceOption } from './patterns';
-import { useOnboardingKeys } from './useOnboardingKeys';
+import { frameProps, useAdvanceAfterPick, useStepKeys, type ScreenCtx } from './stepKit';
+import { Screen15, Screen16, Screen17, Screen18, Screen19, Screen20 } from './screensSetup';
+import { Screen22, Screen23, Screen24, Screen25, Screen26 } from './screensReport';
 import { AppPreview, BenefitCards, Collage, GatheredChips } from './visuals';
 import {
   APPS, BEST_TIME_OPTIONS, DISTRACTIONS, DRIFT_OPTIONS, LIFE_STAGE_OPTIONS, ROLE_OPTIONS, SOURCE_OPTIONS,
   gotItLine, studyWord,
 } from './copy';
 
-export interface ScreenCtx {
-  step: number;
-  answers: OnboardingAnswers;
-  skipped: AnswerKey[];
-  flow: FlowState;
-  set: <K extends AnswerKey>(key: K, value: OnboardingAnswers[K]) => void;
-  skip: (key: AnswerKey) => void;
-  goNext: () => void;
-  goBack: () => void;
-  showBack: boolean;
-  direction: 'fwd' | 'back';
-  notice: string | null;
-  collageImages: boolean[];
-}
-
-const ADVANCE_MS = 250;
-
-/** Common footer and keyboard wiring for a step. */
-function useStepKeys(ctx: ScreenCtx, primary: FooterAction | null, pick?: { count: number; onPick: (i: number) => void }) {
-  useOnboardingKeys({
-    canContinue: Boolean(primary && !primary.disabled),
-    onEnter: primary?.onClick,
-    onBack: ctx.showBack ? ctx.goBack : undefined,
-    optionCount: pick?.count ?? 0,
-    onPick: pick?.onPick,
-  });
-}
-
-/** Pick, save at once, then advance after 250 ms. */
-function useAdvanceAfterPick(goNext: () => void) {
-  const timer = useRef<number | null>(null);
-  useEffect(() => () => { if (timer.current) window.clearTimeout(timer.current); }, []);
-  return () => {
-    if (timer.current) window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(goNext, ADVANCE_MS);
-  };
-}
-
-function frameProps(ctx: ScreenCtx) {
-  return { showBack: ctx.showBack, onBack: ctx.goBack, direction: ctx.direction, notice: ctx.notice };
-}
+export type { ScreenCtx } from './stepKit';
 
 // ---------- Chapter 1 · Welcome ----------
 
@@ -328,6 +289,17 @@ export function StepScreen({ ctx }: { ctx: ScreenCtx }) {
     case 12: return <Screen12 ctx={ctx} />;
     case 13: return <ChoiceScreen ctx={ctx} field="focus_drift_minutes" title="How long can you focus before your mind drifts?" options={DRIFT_OPTIONS} />;
     case 14: return <ChoiceScreen ctx={ctx} field="best_focus_time" title={`When do you ${studyWord(role)} best?`} options={BEST_TIME_OPTIONS} />;
+    case 15: return <Screen15 ctx={ctx} />;
+    case 16: return <Screen16 ctx={ctx} />;
+    case 17: return <Screen17 ctx={ctx} />;
+    case 18: return <Screen18 ctx={ctx} />;
+    case 19: return <Screen19 ctx={ctx} />;
+    case 20: return <Screen20 ctx={ctx} />;
+    case 22: return <Screen22 ctx={ctx} />;
+    case 23: return <Screen23 ctx={ctx} />;
+    case 24: return <Screen24 ctx={ctx} />;
+    case 25: return <Screen25 ctx={ctx} />;
+    case 26: return <Screen26 ctx={ctx} />;
     default: return <PlaceholderScreen ctx={ctx} />;
   }
 }

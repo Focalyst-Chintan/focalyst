@@ -7,6 +7,8 @@ import { isNativeApp } from '@/lib/billing/checkout';
 import {
   emptyDraft, firstName, readDraft, writeDraft, type AnswerKey, type OnboardingAnswers, type OnboardingDraft,
 } from '@/lib/onboarding/draft';
+import type { OnboardingPlan } from '@/lib/onboarding/plan';
+import type { ReportSnapshot } from '@/lib/onboarding/report';
 import {
   NO_BACK_STEPS, WIDE_STEPS, hasStoreLinkEnv, isVisible, next, prev, type FlowState,
 } from '@/lib/onboarding/steps';
@@ -87,6 +89,14 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     });
   }, []);
 
+  const storeReport = useCallback((report: ReportSnapshot, plan: OnboardingPlan) => {
+    setDraft((d) => (d ? { ...d, report, plan } : d));
+  }, []);
+
+  const markCountedUp = useCallback((s: number) => {
+    setDraft((d) => (d && !d.countedUp.includes(s) ? { ...d, countedUp: [...d.countedUp, s] } : d));
+  }, []);
+
   const goNext = useCallback((from: number) => {
     const cur = draftRef.current;
     if (!cur || cur.step !== from) return;
@@ -129,6 +139,11 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
     direction,
     notice: notice?.step === step ? notice.text : null,
     collageImages,
+    report: draft.report,
+    plan: draft.plan,
+    storeReport,
+    countedUp: draft.countedUp,
+    markCountedUp,
   };
 
   const planPanel =

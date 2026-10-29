@@ -62,6 +62,8 @@ export function useOnboardingKeys(h: OnboardingKeyHandlers) {
 export function rovingKeyDown(e: React.KeyboardEvent<HTMLElement>) {
   const keys = ['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
   if (!keys.includes(e.key) || e.altKey) return;
+  // Only from an option itself: a follow-up's text field or segmented control keeps its own arrow keys.
+  if (!(e.target instanceof HTMLElement) || !e.target.hasAttribute('data-ob-option')) return;
   const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('[data-ob-option]'));
   if (!items.length) return;
   const i = items.indexOf(document.activeElement as HTMLElement);

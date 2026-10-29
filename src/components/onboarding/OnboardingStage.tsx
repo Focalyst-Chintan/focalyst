@@ -140,7 +140,7 @@ function FooterButtons({
           className="order-1 h-[52px] w-full rounded-full lg:order-none lg:h-12 lg:w-auto lg:min-w-[180px] lg:rounded-[14px]"
         >
           {primary.label}
-          <Kbd className="hidden border-snow/30 bg-transparent text-snow opacity-70 shadow-none lg:inline-flex" aria-hidden>Enter</Kbd>
+          <span className="hidden opacity-70 lg:inline-flex" aria-hidden><Kbd className="border-snow/30 bg-transparent text-snow shadow-none">Enter</Kbd></span>
         </Button>
       )}
     </div>
@@ -153,7 +153,7 @@ function FooterButtons({
  */
 export function StepFrame({
   titleId, title, subtitle, statement = false, notice, body, primary, secondary, showBack, onBack,
-  inlineFooterOnPhone = false, focusTitle = true, direction, desktopExtra, eyebrow,
+  inlineFooterOnPhone = false, focusTitle = true, direction, desktopExtra, eyebrow, wide = false, overline, overlineTitle = false, centered = false, aside,
 }: {
   titleId: string;
   title: string;
@@ -172,6 +172,16 @@ export function StepFrame({
   desktopExtra?: ReactNode;
   /** Shown above the title (the phone wordmark on screen 1). */
   eyebrow?: ReactNode;
+  /** Wide mode (3.1): full panel width on desktop, a full-width card on phones. */
+  wide?: boolean;
+  /** Micro label above the title (screen 24). */
+  overline?: string;
+  /** The title itself is the micro overline (screen 23, where the hero number leads). */
+  overlineTitle?: boolean;
+  /** Wide mode only: a centred 520 px column (screen 25). */
+  centered?: boolean;
+  /** Wide mode only: a visual on the right on desktop, above the title on phones (screen 26). */
+  aside?: ReactNode;
 }) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -186,10 +196,25 @@ export function StepFrame({
           inlineFooterOnPhone ? 'pb-10' : 'pb-[calc(140px+env(safe-area-inset-bottom))]'
         }`}
       >
-        <div className="mx-auto w-full max-w-[440px] lg:mx-0">
+        <div
+          className={`${
+            wide
+              ? `mx-auto w-full max-lg:glass max-lg:rounded-[20px] max-lg:p-5 ${centered ? 'lg:max-w-[520px]' : 'lg:max-w-none'}`
+              : 'mx-auto w-full max-w-[440px] lg:mx-0'
+          }${aside ? ' flex flex-col gap-6 lg:grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-12' : ''}`}
+        >
+          {aside && <div className="order-first lg:order-none lg:col-start-2 lg:row-start-1">{aside}</div>}
+          <div className={aside ? 'min-w-0 lg:col-start-1 lg:row-start-1' : 'contents'}>
           {eyebrow}
           {notice && <p className="ob-greet mb-3 text-[14px] font-medium text-primary-text" role="status">{notice}</p>}
-          {statement ? (
+          {overline && !overlineTitle && (
+            <p className="mb-2 text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-ink-3">{overline}</p>
+          )}
+          {overlineTitle ? (
+            <h1 ref={titleRef} id={titleId} tabIndex={-1} className="text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-ink-3 outline-none">
+              {title}
+            </h1>
+          ) : statement ? (
             <div className="text-center lg:text-left">
               <h1 ref={titleRef} id={titleId} tabIndex={-1} className="font-display text-[44px] leading-[48px] tracking-[-0.015em] text-ink outline-none">
                 {title}
@@ -198,7 +223,7 @@ export function StepFrame({
             </div>
           ) : (
             <>
-              <h1 ref={titleRef} id={titleId} tabIndex={-1} className="font-display text-[28px] leading-[34px] text-ink outline-none lg:text-[32px] lg:leading-[38px]">
+              <h1 ref={titleRef} id={titleId} tabIndex={-1} className={`font-display text-[28px] leading-[34px] text-ink outline-none lg:text-[32px] lg:leading-[38px] ${centered ? 'text-center' : ''}`}>
                 {title}
               </h1>
               {subtitle && <p className="mt-2 text-[14px] leading-[22px] text-ink-2">{subtitle}</p>}
@@ -211,6 +236,7 @@ export function StepFrame({
               <FooterButtons primary={primary} secondary={secondary} showBack={showBack} onBack={onBack} phoneInline />
             </div>
           )}
+          </div>
         </div>
       </div>
 

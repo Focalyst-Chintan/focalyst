@@ -1,6 +1,6 @@
 'use client';
 // The live plan card (WEB_ONBOARDING_DESIGN.md 3.4). Shows only what the user answered.
-import { useState, type ReactNode } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   BellRing, CircleAlert, Flag, Hourglass, ListChecks, Repeat, Smartphone, Target, Timer, UserRound, Users,
@@ -168,7 +168,7 @@ function Row({ row, variant, delayMs }: { row: RowData; variant: Variant; delayM
 }
 
 export function PlanPreview({
-  answers, skipped = [], isPro = false, variant = 'panel', onlyFilled = false, step, className = '',
+  answers, skipped = [], isPro = false, variant = 'panel', onlyFilled = false, step, rhythmNote, className = '',
 }: {
   answers: OnboardingAnswers;
   skipped?: AnswerKey[];
@@ -178,6 +178,8 @@ export function PlanPreview({
   onlyFilled?: boolean;
   /** Current step: empty rows show only for the current and the next chapter. Omit to show every row. */
   step?: number;
+  /** Screen 25: the note under the focus rhythm (7.1). */
+  rhythmNote?: string;
   className?: string;
 }) {
   const name = firstName(answers.name);
@@ -202,7 +204,17 @@ export function PlanPreview({
       </h2>
       <ul className="mt-4 flex flex-col">
         {rows.map((r, i) => (
-          <Row key={r.key} row={r} variant={variant} delayMs={onlyFilled ? i * 40 : null} />
+          <Fragment key={r.key}>
+            <Row row={r} variant={variant} delayMs={onlyFilled ? i * 40 : null} />
+            {r.key === 'rhythm' && rhythmNote && r.value !== null && (
+              <li
+                className={`-mt-1 mb-1 pl-10 text-[12px] leading-[16px] ${panel ? 'text-snow/70' : 'text-ink-2'} ${onlyFilled ? 'ob-stagger' : ''}`}
+                style={onlyFilled ? { animationDelay: `${i * 40}ms` } : undefined}
+              >
+                {rhythmNote}
+              </li>
+            )}
+          </Fragment>
         ))}
       </ul>
     </section>

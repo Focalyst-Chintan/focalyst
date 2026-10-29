@@ -60,8 +60,11 @@ export function next(step: number, s: FlowState): number | null {
   return null;
 }
 
+/** Screen 22 (the loader) only runs going forward; Back from 23 returns to the last question. */
+export const LOADER_STEP = 22;
+
 export function prev(step: number, s: FlowState): number | null {
-  for (let k = step - 1; k >= FIRST_STEP; k--) if (isVisible(k, s)) return k;
+  for (let k = step - 1; k >= FIRST_STEP; k--) if (k !== LOADER_STEP && isVisible(k, s)) return k;
   return null;
 }
 

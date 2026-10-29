@@ -1,6 +1,8 @@
 // Onboarding draft and post-save state (WEB_ONBOARDING_DESIGN.md 2.3).
 // Every storage access is wrapped in try/catch, with an in-memory fallback
 // for private windows, blocked storage and quota errors.
+import type { OnboardingPlan } from './plan';
+import type { ReportSnapshot } from './report';
 
 export type ProfileType = 'student' | 'professional' | 'freelancer' | 'creator' | 'entrepreneur';
 export type LifeStage = 'school_exams' | 'college' | 'competitive_exam' | 'degree' | 'other';
@@ -41,9 +43,11 @@ export interface OnboardingDraft {
   answers: OnboardingAnswers;
   /** Answers the user skipped with a ghost Skip button. */
   skipped: AnswerKey[];
-  report: Record<string, unknown> | null;
-  /** Stops the report count-ups replaying on back and forward (3.7). */
-  countedUp: boolean;
+  /** Computed on screen 22 (sections 6 and 7). */
+  report: ReportSnapshot | null;
+  plan: OnboardingPlan | null;
+  /** Screens whose count-up has played (23, 24), so back and forward don't replay it (3.7). */
+  countedUp: number[];
   updatedAt: number;
 }
 
@@ -91,7 +95,7 @@ function readJson<T>(key: string): T | null {
 }
 
 export function emptyDraft(step = 1): OnboardingDraft {
-  return { step, answers: {}, skipped: [], report: null, countedUp: false, updatedAt: Date.now() };
+  return { step, answers: {}, skipped: [], report: null, plan: null, countedUp: [], updatedAt: Date.now() };
 }
 
 /** Returns the saved draft, or null when there is none or it is older than 30 days. */
@@ -107,7 +111,8 @@ export function readDraft(): OnboardingDraft | null {
     answers: d.answers && typeof d.answers === 'object' ? d.answers : {},
     skipped: Array.isArray(d.skipped) ? d.skipped : [],
     report: d.report ?? null,
-    countedUp: Boolean(d.countedUp),
+    plan: d.plan ?? null,
+    countedUp: Array.isArray(d.countedUp) ? d.countedUp.filter((n) => typeof n === 'number') : [],
     updatedAt: d.updatedAt,
   };
 }

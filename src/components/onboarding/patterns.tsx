@@ -53,10 +53,10 @@ function OptionCard({
         ) : square ? (
           <>
             <span className="h-[22px] w-[22px] shrink-0 rounded-[6px] border border-line-strong lg:hidden" aria-hidden />
-            <Kbd className="hidden lg:inline-flex" aria-hidden>{number}</Kbd>
+            <span className="hidden lg:inline-flex" aria-hidden><Kbd>{number}</Kbd></span>
           </>
         ) : (
-          <Kbd className="hidden lg:inline-flex" aria-hidden>{number}</Kbd>
+          <span className="hidden lg:inline-flex" aria-hidden><Kbd>{number}</Kbd></span>
         )}
       </button>
       {children}
@@ -178,13 +178,15 @@ export function Chips({
 
 /** Multi choice cards with a square check and an enforced maximum. */
 export function MultiCards({
-  options, value, onChange, max, labelledBy,
+  options, value, onChange, max, labelledBy, followUp,
 }: {
   options: ChoiceOption<string>[];
   value: string[];
   onChange: (v: string[]) => void;
   max: number;
   labelledBy?: string;
+  /** Shown inside a selected card (screen 15 "Something else" opens an inline field). */
+  followUp?: (v: string) => ReactNode | null;
 }) {
   const [shake, setShake] = useState(0);
   const toggle = (v: string) => {
@@ -213,7 +215,9 @@ export function MultiCards({
             selected={value.includes(o.value)}
             tabIndex={i === 0 ? 0 : -1}
             onClick={() => toggle(o.value)}
-          />
+          >
+            {followUp && value.includes(o.value) ? <div className="px-4 pb-4">{followUp(o.value)}</div> : null}
+          </OptionCard>
         ))}
       </div>
       {shake > 0 && <p className="mt-3 text-[13px] text-ink-2" role="status">You can pick up to {max}</p>}
@@ -332,9 +336,10 @@ function ymd(d: Date) {
 }
 
 /** Date: a native date input, min today, max 10 years ahead. */
-export function DateField({
-  value, onChange, ...props
-}: { value: string | undefined; onChange: (v: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>) {
+export const DateField = forwardRef<
+  HTMLInputElement,
+  { value: string | undefined; onChange: (v: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'>
+>(function DateField({ value, onChange, ...props }, ref) {
   // The flow renders only after mount, so reading the clock here is safe.
   const [bounds] = useState(() => {
     const now = new Date();
@@ -344,6 +349,7 @@ export function DateField({
   });
   return (
     <input
+      ref={ref}
       type="date"
       value={value ?? ''}
       min={bounds?.min}
@@ -353,7 +359,7 @@ export function DateField({
       {...props}
     />
   );
-}
+});
 
 /** Statement: display serif title, one body line, optional visual. Centred on phones, left on desktop. */
 export const Statement = forwardRef<HTMLHeadingElement, { title: string; line?: ReactNode; id?: string; children?: ReactNode }>(
