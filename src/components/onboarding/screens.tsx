@@ -9,7 +9,8 @@ import { Chips, PhoneHoursSlider, SingleChoice, TextField, type ChoiceOption } f
 import { frameProps, useAdvanceAfterPick, useStepKeys, type ScreenCtx } from './stepKit';
 import { Screen15, Screen16, Screen17, Screen18, Screen19, Screen20 } from './screensSetup';
 import { Screen22, Screen23, Screen24, Screen25, Screen26 } from './screensReport';
-import { AppPreview, BenefitCards, Collage, GatheredChips } from './visuals';
+import { BenefitCards, Collage, GatheredChips } from './visuals';
+import { FeaturePills } from './FeaturePills';
 import {
   APPS, BEST_TIME_OPTIONS, DISTRACTIONS, DRIFT_OPTIONS, LIFE_STAGE_OPTIONS, ROLE_OPTIONS, SOURCE_OPTIONS,
   gotItLine, studyWord,
@@ -67,8 +68,8 @@ function Screen2({ ctx }: { ctx: ScreenCtx }) {
   useStepKeys(ctx, primary);
   return (
     <>
-      <div className="px-8 pb-2 pt-8 lg:hidden">
-        <AppPreview className="mx-auto max-w-[400px]" />
+      <div className="px-5 pb-2 pt-8 lg:hidden">
+        <FeaturePills phone className="mx-auto max-w-[440px]" />
       </div>
       <StepFrame
         {...frameProps(ctx)}

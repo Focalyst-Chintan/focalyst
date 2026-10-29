@@ -1,10 +1,10 @@
 'use client';
-// Chapter 1 visuals: the collage (screen 1), the app preview (2 and 3) and the benefit cards (3).
+// Chapter 1 visuals: the collage (screen 1) and the benefit cards (3). Screens 2 and 3 use FeaturePills.
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import type { LucideIcon } from 'lucide-react';
 import {
-  CalendarCheck, CalendarDays, ChartColumn, Hourglass, LayoutGrid, MessageCircle, Plug, Repeat, Timer, Trophy,
+  CalendarCheck, CalendarDays, ChartColumn, LayoutGrid, MessageCircle, Plug, Timer, Trophy,
 } from 'lucide-react';
 import { BENEFITS } from './copy';
 
@@ -94,47 +94,6 @@ export function Collage({ columns, images, className = '' }: { columns: 2 | 3; i
     <div className={`flex h-full ${columns === 2 ? 'gap-4' : 'gap-2.5'} ${hidden ? 'ob-paused' : ''} ${className}`} aria-label="Focalyst screens" role="img">
       {cols.map((items, i) => (
         <CollageColumn key={i} items={items} tileH={tileH} gap={gap} offset={i / cols.length} images={images} eager={[0, 1]} />
-      ))}
-    </div>
-  );
-}
-
-const PREVIEW_CHIPS: { text: string; icon: LucideIcon; pos: string; delay: string }[] = [
-  { text: 'Focus 25 min', icon: Timer, pos: '-left-3 top-[12%]', delay: '0s' },
-  { text: 'Read · 6 day streak', icon: Repeat, pos: '-right-3 top-[46%]', delay: '-2s' },
-  { text: 'Exam in 128 days', icon: Hourglass, pos: 'left-[14%] -bottom-4', delay: '-4s' },
-];
-
-/** The app preview in a glass frame with 3 floating example chips (screen 2), dimmed on screen 3. */
-export function AppPreview({ dimmed = false, chips = true, className = '' }: { dimmed?: boolean; chips?: boolean; className?: string }) {
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className={`relative w-full ${dimmed ? 'opacity-60' : ''} ${className}`}>
-      <div className="glass liquid overflow-hidden rounded-[20px] p-1.5">
-        {failed ? (
-          <div className="frost aspect-[1604/956] w-full rounded-[16px]" aria-hidden />
-        ) : (
-          <Image
-            src="/landing/app-preview.png"
-            alt="The Focalyst Today screen"
-            width={1604}
-            height={956}
-            sizes="(min-width: 1024px) 440px, 90vw"
-            className="h-auto w-full rounded-[16px]"
-            onError={() => setFailed(true)}
-          />
-        )}
-      </div>
-      {chips && PREVIEW_CHIPS.map((c) => (
-        <span
-          key={c.text}
-          className={`glass ob-float absolute inline-flex h-8 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium text-ink ${c.pos}`}
-          style={{ animationDelay: c.delay }}
-          aria-hidden
-        >
-          <c.icon className="h-3.5 w-3.5 text-primary-text" />
-          {c.text}
-        </span>
       ))}
     </div>
   );

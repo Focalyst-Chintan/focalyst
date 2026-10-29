@@ -17,7 +17,8 @@ import {
 import { OnboardingStage, PlanPanelScroll } from '@/components/onboarding/OnboardingStage';
 import { PlanPreview } from '@/components/onboarding/PlanPreview';
 import { StepScreen, type ScreenCtx } from '@/components/onboarding/screens';
-import { AppPreview, Collage } from '@/components/onboarding/visuals';
+import { Collage } from '@/components/onboarding/visuals';
+import { FeaturePills } from '@/components/onboarding/FeaturePills';
 import { PostScreens } from '@/components/onboarding/postScreens';
 
 /** Screen 27: the login page in save-plan mode, which returns to /onboarding/finish. */
@@ -237,9 +238,9 @@ export default function StartFlow({ collageImages }: { collageImages: boolean[] 
         <Collage columns={2} images={collageImages} />
       </div>
     ) : step === 2 ? (
-      <AppPreview className="m-auto max-w-[440px]" />
+      <FeaturePills onDark className="m-auto max-w-[440px]" />
     ) : step === 3 ? (
-      <AppPreview dimmed className="m-auto max-w-[440px]" />
+      <FeaturePills onDark still className="m-auto max-w-[440px] opacity-50" />
     ) : (
       <PlanPanelScroll>
         <PlanPreview answers={draft.answers} skipped={draft.skipped} isPro={isPro} step={step} className="ob-fade-slow" />
