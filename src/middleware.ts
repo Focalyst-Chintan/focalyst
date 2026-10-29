@@ -60,6 +60,9 @@ export async function middleware(request: NextRequest) {
     // Onboarding routes
     const isOnboardingRoute = pathname.startsWith('/onboarding')
 
+    // /start and /get-app are public (they are in neither protected list above)
+    const isStartRoute = pathname === '/start'
+
     // If not logged in and trying to access protected routes
     if (!user && (isAppRoute || isOnboardingRoute)) {
         const url = request.nextUrl.clone()
@@ -89,6 +92,14 @@ export async function middleware(request: NextRequest) {
                 return NextResponse.redirect(new URL(next, request.url))
             }
             url.pathname = onboardingDone ? '/plan' : '/onboarding/plans'
+            return NextResponse.redirect(url)
+        }
+
+        // Logged in and onboarded → /start goes to the normal home
+        if (onboardingDone && isStartRoute) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/plan'
+            url.search = ''
             return NextResponse.redirect(url)
         }
 

@@ -1,0 +1,215 @@
+'use client';
+// Desktop split stage, wide mode and phone layout (WEB_ONBOARDING_DESIGN.md 3.1, 3.2), switched with lg: classes.
+import { useEffect, useRef, type ReactNode } from 'react';
+import { ArrowLeft, Check, ChevronLeft } from 'lucide-react';
+import AmbientBackground from '@/components/desktop/AmbientBackground';
+import { Button, Kbd } from '@/components/desktop/ui';
+import { CHAPTERS, chapterOf, type FlowState } from '@/lib/onboarding/steps';
+import { ProgressBar } from './ProgressBar';
+import './onboarding.css';
+
+function ChapterList({ step }: { step: number }) {
+  const current = chapterOf(step);
+  return (
+    <ol className="flex flex-col gap-2" aria-label="Chapters">
+      {CHAPTERS.map((c, i) => (
+        <li
+          key={c.name}
+          aria-current={i === current ? 'step' : undefined}
+          className={`flex items-center gap-2 text-[13px] leading-[18px] ${
+            i < current ? 'text-snow/70' : i === current ? 'font-semibold text-snow' : 'text-snow/40'
+          }`}
+        >
+          {i < current ? <Check className="h-3.5 w-3.5" aria-hidden /> : <span className="h-3.5 w-3.5" aria-hidden />}
+          {c.name}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function OnboardingStage({
+  step, flow, wide = false, showBack, onBack, planPanel, children,
+}: {
+  step: number;
+  flow: FlowState;
+  wide?: boolean;
+  showBack: boolean;
+  onBack: () => void;
+  /** Desktop plan panel middle: a visual on chapter 1, <PlanPreview/> afterwards. */
+  planPanel: ReactNode;
+  children: ReactNode;
+}) {
+  const chapter = CHAPTERS[chapterOf(step)];
+  return (
+    <div className="relative min-h-dvh font-ui text-ink">
+      <AmbientBackground />
+      <div className="relative z-10 flex min-h-dvh flex-col lg:items-center lg:justify-center lg:p-8">
+        <div
+          className={`flex w-full flex-1 flex-col lg:max-w-[1120px] lg:flex-none lg:h-[min(760px,calc(100dvh-64px))] lg:overflow-hidden lg:rounded-[28px] lg:glass-strong lg:liquid ${
+            wide ? '' : 'lg:grid lg:grid-cols-[380px_minmax(0,1fr)] min-[1180px]:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]'
+          }`}
+        >
+          {!wide && (
+            <aside className="ob-brand relative hidden min-h-0 flex-col overflow-hidden p-12 text-snow lg:flex" aria-label="Your plan">
+              <div className="ambient-grain pointer-events-none" aria-hidden />
+              <p className="relative text-[13px] font-semibold tracking-[0.32em] text-snow">FOCALYST</p>
+              <div className="relative my-8 flex min-h-0 flex-1 items-center">{planPanel}</div>
+              <div className="relative"><ChapterList step={step} /></div>
+            </aside>
+          )}
+
+          <section className={`relative flex min-h-0 flex-1 flex-col ${wide ? 'ob-wide' : 'lg:bg-surface'}`}>
+            {/* Phone top bar */}
+            <header className="glass sticky top-0 z-20 flex h-14 items-center gap-3 rounded-none border-x-0 border-t-0 px-5 lg:hidden">
+              {showBack ? (
+                <button
+                  type="button"
+                  onClick={onBack}
+                  aria-label="Back"
+                  className="-ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink hover:bg-surface-2 cursor-pointer focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)]"
+                >
+                  <ChevronLeft className="h-5 w-5" aria-hidden />
+                </button>
+              ) : null}
+              <ProgressBar step={step} flow={flow} />
+            </header>
+
+            {/* Desktop top: chapter label and progress */}
+            <div className="hidden px-14 pt-14 lg:block">
+              <p className="mb-3 text-[11px] font-medium uppercase leading-[14px] tracking-[0.08em] text-ink-3">{chapter.label}</p>
+              <ProgressBar step={step} flow={flow} className="max-w-[440px]" />
+            </div>
+
+            {children}
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export interface FooterAction {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+}
+
+function FooterButtons({
+  primary, secondary, showBack, onBack, phoneInline,
+}: {
+  primary: FooterAction | null;
+  secondary?: FooterAction | null;
+  showBack: boolean;
+  onBack: () => void;
+  phoneInline?: boolean;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-[440px] flex-col gap-2 lg:mx-0 lg:max-w-none lg:flex-row lg:items-center">
+      {!phoneInline && (
+        <div className="hidden lg:mr-auto lg:block">
+          {showBack && (
+            <Button variant="ghost" size="lg" onClick={onBack} icon={<ArrowLeft className="h-4 w-4" aria-hidden />}>
+              Back
+            </Button>
+          )}
+        </div>
+      )}
+      {secondary && (
+        <Button variant="ghost" size="lg" onClick={secondary.onClick} disabled={secondary.disabled} className="order-2 w-full lg:order-none lg:w-auto">
+          {secondary.label}
+        </Button>
+      )}
+      {primary && (
+        <Button
+          variant="primary"
+          size="lg"
+          onClick={primary.onClick}
+          disabled={primary.disabled}
+          className="order-1 h-[52px] w-full rounded-full lg:order-none lg:h-12 lg:w-auto lg:min-w-[180px] lg:rounded-[14px]"
+        >
+          {primary.label}
+          <Kbd className="hidden border-snow/30 bg-transparent text-snow opacity-70 shadow-none lg:inline-flex" aria-hidden>Enter</Kbd>
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One step's content: optional notice, title, subtitle, body and the footer row.
+ * Focus moves to the title on mount (3.6), unless the screen focuses its own field.
+ */
+export function StepFrame({
+  titleId, title, subtitle, statement = false, notice, body, primary, secondary, showBack, onBack,
+  inlineFooterOnPhone = false, focusTitle = true, direction, desktopExtra, eyebrow,
+}: {
+  titleId: string;
+  title: string;
+  subtitle?: ReactNode;
+  statement?: boolean;
+  notice?: string | null;
+  body?: ReactNode;
+  primary: FooterAction | null;
+  secondary?: FooterAction | null;
+  showBack: boolean;
+  onBack: () => void;
+  /** Text-input screens: on phones the button sits right under the field (3.2). */
+  inlineFooterOnPhone?: boolean;
+  focusTitle?: boolean;
+  direction: 'fwd' | 'back';
+  desktopExtra?: ReactNode;
+  /** Shown above the title (the phone wordmark on screen 1). */
+  eyebrow?: ReactNode;
+}) {
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (focusTitle) titleRef.current?.focus({ preventScroll: true });
+  }, [focusTitle]);
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Only the content slides; the footer stays put (a transform would break its fixed position on phones). */}
+      <div
+        className={`${direction === 'fwd' ? 'ob-step-fwd' : 'ob-step-back'} flex-1 px-5 pt-5 lg:overflow-y-auto lg:px-14 lg:pb-6 lg:pt-8 ${
+          inlineFooterOnPhone ? 'pb-10' : 'pb-[calc(140px+env(safe-area-inset-bottom))]'
+        }`}
+      >
+        <div className="mx-auto w-full max-w-[440px] lg:mx-0">
+          {eyebrow}
+          {notice && <p className="ob-greet mb-3 text-[14px] font-medium text-primary-text" role="status">{notice}</p>}
+          {statement ? (
+            <div className="text-center lg:text-left">
+              <h1 ref={titleRef} id={titleId} tabIndex={-1} className="font-display text-[44px] leading-[48px] tracking-[-0.015em] text-ink outline-none">
+                {title}
+              </h1>
+              {subtitle && <p className="mt-3 text-[14px] leading-[22px] text-ink-2">{subtitle}</p>}
+            </div>
+          ) : (
+            <>
+              <h1 ref={titleRef} id={titleId} tabIndex={-1} className="font-display text-[28px] leading-[34px] text-ink outline-none lg:text-[32px] lg:leading-[38px]">
+                {title}
+              </h1>
+              {subtitle && <p className="mt-2 text-[14px] leading-[22px] text-ink-2">{subtitle}</p>}
+            </>
+          )}
+          {desktopExtra && <div className="hidden lg:block">{desktopExtra}</div>}
+          {body && <div className="mt-6">{body}</div>}
+          {inlineFooterOnPhone && (
+            <div className="mt-6 lg:hidden">
+              <FooterButtons primary={primary} secondary={secondary} showBack={showBack} onBack={onBack} phoneInline />
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        className={`${inlineFooterOnPhone ? 'hidden lg:block' : 'fixed inset-x-0 bottom-0 z-20'} bg-[linear-gradient(to_bottom,transparent,var(--canvas)_32px)] px-5 pb-[calc(16px+env(safe-area-inset-bottom))] pt-8 lg:static lg:bg-none lg:px-14 lg:pb-10 lg:pt-4`}
+      >
+        <FooterButtons primary={primary} secondary={secondary} showBack={showBack} onBack={onBack} />
+      </div>
+    </div>
+  );
+}
+
+export default OnboardingStage;

@@ -1,0 +1,128 @@
+/* Web onboarding motion and brand surfaces (WEB_ONBOARDING_DESIGN.md 3). Tokens only. */
+
+.ob-brand {
+  background-color: #03195B;
+  background-image:
+    radial-gradient(ellipse at 0% 100%, #1951FC 0%, rgba(25, 81, 252, 0) 55%),
+    radial-gradient(ellipse at 100% 0%, #0B2CB1 0%, rgba(11, 44, 177, 0) 45%);
+}
+
+/* Wide mode (desktop only; on phones wide screens are plain full-width cards) */
+@media (min-width: 1024px) {
+  .ob-wide { background: var(--surface); }
+  .dark .ob-wide {
+    background-color: #03195B;
+    background-image:
+      radial-gradient(ellipse at 0% 100%, #1951FC 0%, rgba(25, 81, 252, 0) 55%),
+      radial-gradient(ellipse at 100% 0%, #0B2CB1 0%, rgba(11, 44, 177, 0) 45%);
+  }
+}
+
+/* Step transition (3.7): content slides 12 px and fades in */
+@keyframes ob-in-fwd { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@keyframes ob-in-back { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: none; } }
+.ob-step-fwd { animation: ob-in-fwd 220ms var(--ease) both; }
+.ob-step-back { animation: ob-in-back 220ms var(--ease) both; }
+
+/* Generic fades */
+@keyframes ob-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes ob-fade-up { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ob-fade-up-8 { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ob-fade-slow { animation: ob-fade 420ms var(--ease) both; }
+.ob-fade-up { animation: ob-fade-up 220ms var(--ease) both; }
+.ob-gather { animation: ob-fade-up-8 220ms var(--ease) both; }
+.ob-stagger { animation: ob-fade-up-8 260ms var(--ease) both; }
+
+/* PlanPreview row fill (3.4) */
+@keyframes ob-tile-pulse {
+  0% { background-color: rgba(255, 255, 255, 0.10); }
+  50% { background-color: rgba(255, 255, 255, 0.25); }
+  100% { background-color: rgba(255, 255, 255, 0.10); }
+}
+.ob-tile-pulse { animation: ob-tile-pulse 440ms var(--ease) 1; }
+
+/* Greeting line on screen 6 */
+@keyframes ob-greet {
+  0% { opacity: 0; transform: translateY(4px); }
+  20%, 75% { opacity: 1; transform: none; }
+  100% { opacity: 0; }
+}
+.ob-greet { animation: ob-greet 900ms var(--ease) both; }
+
+/* Option shake when a maximum is hit (3.5) */
+@keyframes ob-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  75% { transform: translateX(6px); }
+}
+.ob-shake { animation: ob-shake 120ms linear 2; }
+
+/* Floating chips on screen 2 */
+@keyframes ob-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+.ob-float { animation: ob-float 6s ease-in-out infinite; }
+
+/* Collage drift (screen 1): a column of duplicated tiles moving up */
+@keyframes ob-drift-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+.ob-drift { animation: ob-drift-up linear infinite; will-change: transform; }
+html[data-hidden] .ob-drift,
+html[data-hidden] .ob-float,
+.ob-paused .ob-drift { animation-play-state: paused; }
+
+/* Range slider (3.5 Slider) */
+.ob-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 24px;
+  background: transparent;
+  cursor: pointer;
+}
+.ob-range::-webkit-slider-runnable-track {
+  height: 6px;
+  border-radius: 9999px;
+  background: linear-gradient(to right, var(--primary) 0 var(--fill, 0%), var(--surface-3) var(--fill, 0%) 100%);
+}
+.ob-range::-moz-range-track { height: 6px; border-radius: 9999px; background: var(--surface-3); }
+.ob-range::-moz-range-progress { height: 6px; border-radius: 9999px; background: var(--primary); }
+.ob-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  margin-top: -9px;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 4px var(--primary-soft), 0 0 12px var(--ring);
+}
+.ob-range::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: var(--primary);
+  border: 3px solid var(--surface);
+  box-shadow: 0 0 0 4px var(--primary-soft), 0 0 12px var(--ring);
+}
+.ob-range:focus-visible { outline: none; }
+.ob-range:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 5px var(--ring); }
+.ob-range:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 2px var(--canvas), 0 0 0 5px var(--ring); }
+
+/* Gradient text exception (3.7), for 40 px or larger only */
+.ob-gradient-text {
+  background: linear-gradient(135deg, #1951FC, #0B2CB1);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.dark .ob-gradient-text { background: linear-gradient(135deg, #3781FC, #CBE9FD); -webkit-background-clip: text; background-clip: text; }
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .ob-gradient-text { color: var(--primary-text); background: none; }
+}
+
+/* Reduce motion: no slides, drift or pulses; everything fades in over 120 ms */
+@media (prefers-reduced-motion: reduce) {
+  .ob-step-fwd, .ob-step-back, .ob-fade-up, .ob-gather, .ob-stagger, .ob-fade-slow {
+    animation: ob-fade 120ms linear both;
+  }
+  .ob-tile-pulse, .ob-shake, .ob-float, .ob-drift { animation: none; }
+  .ob-greet { animation: ob-fade 120ms linear both; }
+}
