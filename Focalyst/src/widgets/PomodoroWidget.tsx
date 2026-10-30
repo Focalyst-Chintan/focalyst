@@ -59,7 +59,9 @@ const PomodoroWidget = (rawProps: PomodoroWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const totalSecs = Math.max(0, props.durationSeconds ?? 1500);
+  // Whole, finite seconds only: NaN or fractions would print as "NaN:NaN" or "25:0.5".
+  const rawSecs = Number(props.durationSeconds ?? 1500);
+  const totalSecs = Number.isFinite(rawSecs) ? Math.max(0, Math.floor(rawSecs)) : 1500;
   const mins = Math.floor(totalSecs / 60);
   const secs = totalSecs % 60;
   const formattedTime = `${mins < 10 ? `0${mins}` : mins}:${secs < 10 ? `0${secs}` : secs}`;

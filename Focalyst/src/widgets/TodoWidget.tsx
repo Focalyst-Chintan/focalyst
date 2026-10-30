@@ -53,7 +53,7 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const safeTasks = Array.isArray(props.tasks) ? props.tasks : [];
+  const safeTasks = Array.isArray(props.tasks) ? props.tasks.filter((t) => t && typeof t === 'object') : [];
   const pendingTasks = safeTasks.filter((t) => !t.completed);
   const maxChars = isMedium ? 32 : 15;
   const visibleTasks = pendingTasks.slice(0, 3);
@@ -84,8 +84,8 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
       ) : (
         <VStack modifiers={[padding({ top: 6 })]}>
           {visibleTasks.map((task) => {
-            const labelText =
-              task.title.length > maxChars ? `${task.title.slice(0, maxChars)}…` : task.title;
+            const title = `${task.title ?? ''}`;
+            const labelText = title.length > maxChars ? `${title.slice(0, maxChars)}…` : title;
             return (
               <HStack key={task.id} modifiers={[padding({ vertical: 2 })]}>
                 <Button

@@ -51,9 +51,14 @@ const CountdownWidget = (rawProps: CountdownWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const pad = (n: number) => (n < 10 ? `0${n}` : `${n}`);
+  // Whole, non-negative numbers only: a past date or bad value never prints "0-3" or NaN.
+  const whole = (n: unknown) => Math.max(0, Math.floor(Number(n) || 0));
+  const pad = (n: unknown) => {
+    const v = whole(n);
+    return v < 10 ? `0${v}` : `${v}`;
+  };
 
-  const titleText = (props.eventTitle && props.eventTitle.trim().length > 0
+  const titleText = (typeof props.eventTitle === 'string' && props.eventTitle.trim().length > 0
     ? props.eventTitle
     : 'Countdown'
   ).toUpperCase();
@@ -75,7 +80,7 @@ const CountdownWidget = (rawProps: CountdownWidgetProps, env?: WidgetEnv) => {
         </HStack>
         <HStack>
           <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(p.text)]}>
-            {`${props.daysLeft ?? 0} days left`}
+            {`${whole(props.daysLeft)} days left`}
           </Text>
           <Spacer />
         </HStack>

@@ -47,7 +47,9 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
   const goal = props.goalDays && props.goalDays > 0 ? props.goalDays : 30;
   const trackWidth = 120;
   const barHeight = 6;
-  const progress = Math.max(0, Math.min(1, props.streakDays / goal));
+  // A missing streak is 0, so the bar width is never NaN.
+  const streakDays = Math.max(0, Math.floor(Number(props.streakDays) || 0));
+  const progress = Math.max(0, Math.min(1, streakDays / goal));
   // At least the bar's height, so a small streak still shows as a dot.
   const fillWidth = Math.max(barHeight, Math.round(trackWidth * progress));
 
@@ -59,7 +61,7 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
         </Text>
         <Spacer />
         <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
-          {`${props.totalDays}d`}
+          {`${Math.max(0, Math.floor(Number(props.totalDays) || 0))}d`}
         </Text>
       </HStack>
 
@@ -70,7 +72,7 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
           Streak Days
         </Text>
         <Text modifiers={[font({ size: 34, weight: 'bold' }), foregroundStyle(p.text), ...accentable]}>
-          {`${props.streakDays}`}
+          {`${streakDays}`}
         </Text>
       </VStack>
 

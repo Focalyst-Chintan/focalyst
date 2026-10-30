@@ -61,7 +61,8 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
     ? props.habits
     : [{ id: 'default', habitName: props.habitName || 'Yoga', totalDays: props.totalDays ?? 0, gridLevels: props.gridLevels || [] }];
 
-  const currentIndex = (props.activeHabitIndex ?? 0) % habitList.length;
+  // Bad or negative indexes from storage wrap safely instead of reading past the list.
+  const currentIndex = Math.abs(Math.floor(Number(props.activeHabitIndex) || 0)) % habitList.length;
   const activeHabit = habitList[currentIndex] || habitList[0];
   const hasMultiple = habitList.length > 1;
 
@@ -80,7 +81,7 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
       <HStack modifiers={[padding({ horizontal: 8, vertical: 4 }), background(p.pill), cornerRadius(8)]}>
         {hasMultiple ? (
           <Button
-            label={`${activeHabit.habitName} ▸`}
+            label={`${activeHabit.habitName ?? ''} ▸`}
             modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.text)]}
             onPress={() => ({
               ...rawProps,
@@ -89,12 +90,12 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
           />
         ) : (
           <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
-            {activeHabit.habitName}
+            {`${activeHabit.habitName ?? ''}`}
           </Text>
         )}
         <Spacer />
         <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
-          {`${activeHabit.totalDays}d`}
+          {`${Math.max(0, Math.floor(Number(activeHabit.totalDays) || 0))}d`}
         </Text>
       </HStack>
 
@@ -104,7 +105,9 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
             <HStack key={`row-${r}`} spacing={gap}>
               {cols.map((c) => {
                 const idx = r * 7 + c;
-                const lvl = Math.max(0, Math.min(4, activeHabit.gridLevels?.[idx] ?? 0));
+                // A missing or non-numeric level is 0, so p.heat is never indexed with NaN.
+                const raw = Number(activeHabit.gridLevels?.[idx]);
+                const lvl = Number.isFinite(raw) ? Math.max(0, Math.min(4, Math.round(raw))) : 0;
                 return (
                   <VStack
                     key={`cell-${idx}`}

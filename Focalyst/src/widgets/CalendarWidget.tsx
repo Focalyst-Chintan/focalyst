@@ -70,7 +70,7 @@ const CalendarWidget = (rawProps: CalendarWidgetProps, env?: WidgetEnv) => {
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
   const safeEvents = Array.isArray(props.events)
-    ? props.events.filter((e) => !e.completed)
+    ? props.events.filter((e) => e && typeof e === 'object' && !e.completed)
     : [];
   const visibleEvents = safeEvents.slice(0, 2);
   const maxChars = isMedium ? 28 : 14;
@@ -114,8 +114,8 @@ const CalendarWidget = (rawProps: CalendarWidgetProps, env?: WidgetEnv) => {
                 : isFirst
                 ? p.barPrimary
                 : p.barSecondary;
-            const cleanTitle =
-              ev.title.length > maxChars ? `${ev.title.slice(0, maxChars)}…` : ev.title;
+            const title = `${ev.title ?? ''}`;
+            const cleanTitle = title.length > maxChars ? `${title.slice(0, maxChars)}…` : title;
 
             return (
               <HStack
