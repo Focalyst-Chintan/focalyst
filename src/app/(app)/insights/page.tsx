@@ -16,6 +16,7 @@ import HabitGroupLeaderboardSection from '@/components/insights/HabitGroupLeader
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 import { Skeleton } from '@/components/desktop/ui/Skeleton'
 import dynamic from 'next/dynamic'
+import { StartingReportCard } from '@/components/onboarding/StartingReportCard'
 
 const DesktopInsightsView = dynamic(
   () => import('@/components/desktop/insights/DesktopInsightsView'),
@@ -190,7 +191,12 @@ export default function InsightsPage() {
     }
 
     if (isDesktop) {
-        return <DesktopInsightsView />
+        return (
+            <>
+                <DesktopInsightsView />
+                <StartingReportCard className="mx-auto -mt-10 mb-16 max-w-[1280px]" />
+            </>
+        )
     }
 
     if (loading) {
@@ -225,6 +231,8 @@ export default function InsightsPage() {
 
             {/* Weekly Productivity Report — fetches data client-side from the API */}
             <WeeklyReportView userPlan={userPlan} />
+
+            <StartingReportCard />
         </main>
     )
 }

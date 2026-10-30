@@ -60,6 +60,9 @@ export async function middleware(request: NextRequest) {
     // Onboarding routes
     const isOnboardingRoute = pathname.startsWith('/onboarding')
 
+    // /start and /get-app are public (they are in neither protected list above)
+    const isStartRoute = pathname === '/start'
+
     // If not logged in and trying to access protected routes
     if (!user && (isAppRoute || isOnboardingRoute)) {
         const url = request.nextUrl.clone()
@@ -88,21 +91,34 @@ export async function middleware(request: NextRequest) {
             if (next) {
                 return NextResponse.redirect(new URL(next, request.url))
             }
-            url.pathname = onboardingDone ? '/plan' : '/onboarding/plans'
+            url.pathname = onboardingDone ? '/plan' : '/start'
             return NextResponse.redirect(url)
         }
 
-        // Logged in but not onboarded → redirect to onboarding (except onboarding routes)
+        // Logged in and onboarded → /start goes to the normal home,
+        // except right after /onboarding/finish (its cookie keeps screens 28 to 32 on /start)
+        const justSaved = request.cookies.get('onboarding_post')?.value === '1'
+        if (onboardingDone && isStartRoute && !justSaved) {
+            const url = request.nextUrl.clone()
+            url.pathname = '/plan'
+            url.search = ''
+            return NextResponse.redirect(url)
+        }
+
+        // Logged in but not onboarded → the new onboarding at /start (screen 4, or the saved draft)
         if (!onboardingDone && isAppRoute) {
             const url = request.nextUrl.clone()
-            url.pathname = '/onboarding/plans'
+            url.pathname = '/start'
+            url.search = ''
             return NextResponse.redirect(url)
         }
 
         // Logged in and onboarded → redirect away from onboarding
         // Exception: /onboarding/plans is always accessible for plan management
         const isPlansPage = pathname === '/onboarding/plans'
-        if (onboardingDone && isOnboardingRoute && !isPlansPage) {
+        // /onboarding/finish is reachable in both states: it saves the plan, or keeps an existing one ("Welcome back")
+        const isFinishPage = pathname === '/onboarding/finish'
+        if (onboardingDone && isOnboardingRoute && !isPlansPage && !isFinishPage) {
             const url = request.nextUrl.clone()
             url.pathname = '/plan'
             return NextResponse.redirect(url)

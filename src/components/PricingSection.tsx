@@ -88,7 +88,7 @@ export default function PricingSection({
 
     const handleFreeClick = () => {
         if (mode === 'landing' || mode === 'pricing') {
-            router.push('/login');
+            router.push('/start');
         } else if (onFree) {
             onFree();
         }

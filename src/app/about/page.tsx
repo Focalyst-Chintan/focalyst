@@ -217,7 +217,7 @@ export default function AboutPage() {
           </h2>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <Link
-              href="/login?mode=signup"
+              href="/start"
               className="inline-flex h-11 items-center justify-center rounded-[14px] bg-primary px-6 text-[14px] font-medium text-snow transition-colors hover:bg-primary-hover"
             >
               Get started

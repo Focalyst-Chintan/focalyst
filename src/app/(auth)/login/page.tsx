@@ -10,6 +10,12 @@ import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { saveCheckoutIntent, peekCheckoutIntent, IntentPlan } from '@/lib/billing/checkoutIntent';
 import CheckInboxPanel from '@/components/auth/CheckInboxPanel';
 import { safeNext, isOAuthReturn } from '@/lib/auth/safeNext';
+import { PlanPreview } from '@/components/onboarding/PlanPreview';
+import SavePlanCheckEmail from '@/components/onboarding/SavePlanCheckEmail';
+import { readDraft } from '@/lib/onboarding/draft';
+
+/** Web onboarding screen 27 (?mode=save-plan) returns here after any sign-in. */
+const SAVE_PLAN_NEXT = '/onboarding/finish';
 
 function isEmailNotConfirmedError(err: any): boolean {
   if (!err) return false;
@@ -64,12 +70,15 @@ function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-  const nextPath = safeNext(searchParams.get('next'));
+  // Save-plan mode only changes presentation and the return path; the auth calls are the same.
+  const [savePlan] = useState(() => searchParams.get('mode') === 'save-plan');
+  const [planDraft] = useState(() => (savePlan ? readDraft() : null));
+  const nextPath = savePlan ? SAVE_PLAN_NEXT : safeNext(searchParams.get('next'));
 
-  const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'login';
+  const initialMode = searchParams.get('mode') === 'signup' || savePlan ? 'signup' : 'login';
   const [mode, setMode] = useState<'login' | 'signup' | 'reset'>(initialMode);
 
-  const [fullName, setFullName] = useState('');
+  const [fullName, setFullName] = useState(() => (savePlan ? planDraft?.answers.name ?? '' : ''));
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -123,12 +132,16 @@ function LoginContent() {
     setExistingAccountMismatch(false);
     setLoginInvalidCreds(false);
     const url = new URL(window.location.href);
-    url.searchParams.set('mode', newMode);
+    url.searchParams.set('mode', savePlan ? 'save-plan' : newMode);
     window.history.replaceState({}, '', url.toString());
   };
 
   const handleAuthSuccess = async () => {
     router.refresh();
+    if (savePlan) {
+      router.push(SAVE_PLAN_NEXT);
+      return;
+    }
     if (isOAuthReturn(nextPath)) {
       router.push(nextPath!);
       return;
@@ -437,7 +450,14 @@ function LoginContent() {
             <h1 className="text-ink text-[24px] font-bold tracking-[0.15em]">
               FOCALYST
             </h1>
-            <p className="text-ink-2 text-sm mt-1">Own your time.</p>
+            {savePlan ? (
+              <>
+                <h2 className="font-display text-[28px] leading-[34px] text-ink mt-4">Save your plan.</h2>
+                <p className="text-ink-2 text-sm mt-1">Synced across this browser and the phone app.</p>
+              </>
+            ) : (
+              <p className="text-ink-2 text-sm mt-1">Own your time.</p>
+            )}
           </div>
 
           {/* Checkout Intent Banner (Mobile) */}
@@ -449,7 +469,11 @@ function LoginContent() {
             </div>
           )}
 
-          {showCheckInbox ? (
+          {showCheckInbox && savePlan ? (
+            <div className="w-full bg-surface border border-line rounded-[20px] p-6 shadow-[var(--shadow-1)]">
+              <SavePlanCheckEmail email={email} onUseDifferentEmail={() => setShowCheckInbox(false)} />
+            </div>
+          ) : showCheckInbox ? (
             <div className="w-full bg-surface border border-line rounded-[20px] p-6 shadow-[var(--shadow-1)]">
               <CheckInboxPanel
                 email={email}
@@ -702,7 +726,12 @@ function LoginContent() {
               </Link>
             </div>
 
-            {/* Bottom Block */}
+            {savePlan && planDraft ? (
+              <div className="relative z-10 mt-auto">
+                <PlanPreview answers={planDraft.answers} skipped={planDraft.skipped} step={27} />
+              </div>
+            ) : (
+            /* Bottom Block */
             <div className="relative z-10 mt-auto">
               <h2 className="font-display text-[48px]/[52px] text-snow">
                 Own your time.
@@ -756,6 +785,7 @@ function LoginContent() {
                 </div>
               </div>
             </div>
+            )}
           </div>
 
           {/* RIGHT PANEL */}
@@ -771,7 +801,9 @@ function LoginContent() {
               )}
 
               {/* CHECK INBOX PANEL (Shared component replaces form area) */}
-              {showCheckInbox ? (
+              {showCheckInbox && savePlan ? (
+                <SavePlanCheckEmail email={email} onUseDifferentEmail={() => setShowCheckInbox(false)} />
+              ) : showCheckInbox ? (
                 <CheckInboxPanel
                   email={email}
                   onUseDifferentEmail={() => {
@@ -785,14 +817,18 @@ function LoginContent() {
                 <>
                   {/* Form Title & Subtitle */}
                   <h1 className="font-ui text-[26px]/[32px] font-semibold text-ink">
-                    {mode === 'login'
+                    {savePlan && mode !== 'reset'
+                      ? 'Save your plan.'
+                      : mode === 'login'
                       ? 'Welcome back'
                       : mode === 'reset'
                       ? 'Reset password'
                       : 'Create your account'}
                   </h1>
                   <p className="mt-1.5 text-[14px] text-ink-2">
-                    {mode === 'login'
+                    {savePlan && mode !== 'reset'
+                      ? 'Synced across this browser and the phone app.'
+                      : mode === 'login'
                       ? 'Log in to continue to Focalyst.'
                       : mode === 'reset'
                       ? 'Enter your email to receive a password reset link.'

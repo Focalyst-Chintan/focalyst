@@ -91,12 +91,12 @@ export default function LandingClient() {
               {user ? 'Open app' : 'Log in'}
             </Link>
             <span className="h-4 w-[1.5px] bg-snow/50" />
-            <a
-              href="https://focalyst.online/app"
+            <Link
+              href="/start"
               className="rounded-full border border-snow/65 bg-snow/10 px-4 py-2 text-[13px] font-medium text-snow backdrop-blur-md transition-all hover:bg-snow/20"
             >
               Get started
-            </a>
+            </Link>
           </div>
 
           {/* Mobile Right Controls: Hamburger Only */}
@@ -149,13 +149,13 @@ export default function LandingClient() {
               >
                 {user ? 'Open app' : 'Log in'}
               </Link>
-              <a
-                href="https://focalyst.online/app"
+              <Link
+                href="/start"
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex h-12 items-center justify-center rounded-full bg-snow text-[#05070F] text-[15px] font-semibold"
               >
                 Get started
-              </a>
+              </Link>
             </div>
           </div>
         )}
@@ -177,7 +177,7 @@ export default function LandingClient() {
           <div className="mt-8 hidden lg:flex items-center gap-4">
             <Link
               className="inline-flex h-12 items-center justify-center rounded-full border border-snow/80 bg-snow/15 px-7 text-[15px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_32px_rgba(0,0,0,0.37)] transition-all hover:bg-snow hover:text-[#05070F] hover:shadow-[0_12px_40px_rgba(0,0,0,0.5)]"
-              href="/today"
+              href="/start"
             >
               Continue on Desktop
             </Link>
@@ -193,7 +193,7 @@ export default function LandingClient() {
           <div className="flex lg:hidden flex-col items-center gap-3.5 w-full max-w-[340px] mx-auto mt-6">
             <Link
               className="inline-flex h-[52px] w-full items-center justify-center rounded-full border border-snow/90 bg-snow/20 text-[16px] font-semibold text-snow backdrop-blur-md shadow-[0_8px_28px_rgba(0,0,0,0.3)] transition-all hover:bg-snow hover:text-[#05070F]"
-              href="/today"
+              href="/start"
             >
               Continue on Desktop
             </Link>

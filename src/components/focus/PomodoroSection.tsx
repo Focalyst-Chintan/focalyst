@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
+import { takeRecommendedPreset } from '@/lib/onboarding/plan'
 
 const POMODORO_PRESETS = [
     { label: '25/5×4', focusMinutes: 25, breakMinutes: 5, sets: 4 },
@@ -26,9 +27,11 @@ export default function PomodoroSection({ userPlan }: { userPlan: string }) {
     const { t } = useTranslation()
     const isFree = userPlan === 'free'
 
-    const [focusDuration, setFocusDuration] = useState('25')
-    const [breakDuration, setBreakDuration] = useState('5')
-    const [sets, setSets] = useState('4')
+    // The onboarding plan's rhythm, selected once (7.1), when the plan allows it
+    const [recommended] = useState(() => (typeof window === 'undefined' ? null : takeRecommendedPreset(!isFree)))
+    const [focusDuration, setFocusDuration] = useState(String(recommended?.focusMinutes ?? 25))
+    const [breakDuration, setBreakDuration] = useState(String(recommended?.breakMinutes ?? 5))
+    const [sets, setSets] = useState(String(recommended?.sets ?? 4))
     const [toast, setToast] = useState<string | null>(null)
 
     useEffect(() => {
