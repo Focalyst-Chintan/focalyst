@@ -35,7 +35,6 @@ function Screen1({ ctx }: { ctx: ScreenCtx }) {
         titleId={titleId}
         statement
         title="Own your time."
-        subtitle="Productivity and mindful living."
         primary={primary}
         body={
           <div className="flex flex-col items-center gap-6 lg:items-start">
