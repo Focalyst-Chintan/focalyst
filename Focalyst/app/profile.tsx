@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
@@ -527,6 +528,20 @@ export default function ProfileScreen() {
         {/* ═══ Support ═══ */}
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{t('settings.support')}</Text>
         <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.borderColor }]}>
+          {/* How to use Row (in-app browser; public page, nothing appended to the URL) */}
+          <TouchableOpacity
+            style={styles.supportRow}
+            activeOpacity={0.6}
+            accessibilityRole="link"
+            accessibilityLabel="How to use Focalyst, opens the guides"
+            onPress={() => WebBrowser.openBrowserAsync('https://focalyst.online/guides').catch(() => {})}
+          >
+            <Text style={[styles.supportLabel, { color: theme.textPrimary }]}>How to use</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
+
           {/* Help & FAQ Accordion Row */}
           <TouchableOpacity
             style={styles.supportRow}
