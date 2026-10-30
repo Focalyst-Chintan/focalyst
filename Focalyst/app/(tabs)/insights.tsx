@@ -427,9 +427,6 @@ export default function InsightsTab() {
         keyboardShouldPersistTaps="handled"
         scrollEnabled={true}
       >
-        {/* Starting report: at the top for 30 days after onboarding */}
-        <StartingReportCard position="top" isDark={isDarkMode} />
-
         {/* Gamification Level Banner */}
         <TouchableOpacity
           activeOpacity={0.95}
@@ -775,8 +772,8 @@ export default function InsightsTab() {
           </View>
         )}
 
-        {/* Starting report: at the end after its first 30 days */}
-        <StartingReportCard position="end" isDark={isDarkMode} />
+        {/* Starting report: always last, below the weekly report */}
+        <StartingReportCard isDark={isDarkMode} />
       </ScrollView>
 
       {/* Level Up Achievement Modal */}

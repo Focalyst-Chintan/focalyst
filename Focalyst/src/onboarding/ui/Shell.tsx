@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import MaskedView from '@react-native-masked-view/masked-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   useAnimatedStyle,
@@ -119,35 +120,48 @@ export function StepLayout({
   /** Statement screens centre their content. */
   centered?: boolean;
 }) {
-  const t = useOnboardingTheme();
   const insets = useSafeAreaInsets();
   const bottomPad = insets.bottom + 16;
+  const pinned = !footerInline && !!footer;
+
+  const scroll = (
+    <ScrollView
+      style={styles.flex}
+      contentContainerStyle={[
+        styles.content,
+        centered && styles.centered,
+        footerInline && { paddingBottom: bottomPad },
+        // Keep resting content clear of the 32 pt fade.
+        !footerInline && footer ? { paddingBottom: 36 } : null,
+      ]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {children}
+      {footerInline && footer ? <View style={styles.inlineFooter}>{footer}</View> : null}
+    </ScrollView>
+  );
 
   return (
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView
-        style={styles.flex}
-        contentContainerStyle={[
-          styles.content,
-          centered && styles.centered,
-          footerInline && { paddingBottom: bottomPad },
-        ]}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {children}
-        {footerInline && footer ? <View style={styles.inlineFooter}>{footer}</View> : null}
-      </ScrollView>
-      {!footerInline && footer ? (
-        <View style={[styles.footer, { paddingBottom: bottomPad }]}>
-          <LinearGradient
-            pointerEvents="none"
-            colors={[t.dark ? 'rgba(6,10,26,0)' : 'rgba(245,248,255,0)', t.canvas]}
-            style={styles.fade}
-          />
-          {footer}
-        </View>
-      ) : null}
+      {pinned ? (
+        // The content itself fades out above the pinned button, so the ambient background behind
+        // it shows through untouched (painting a canvas-coloured fade left a visible band).
+        <MaskedView
+          style={styles.flex}
+          maskElement={
+            <View style={styles.flex}>
+              <View style={[styles.flex, styles.maskSolid]} />
+              <LinearGradient colors={['#000000', 'rgba(0,0,0,0)']} style={styles.maskFade} />
+            </View>
+          }
+        >
+          {scroll}
+        </MaskedView>
+      ) : (
+        scroll
+      )}
+      {pinned ? <View style={[styles.footer, { paddingBottom: bottomPad }]}>{footer}</View> : null}
     </KeyboardAvoidingView>
   );
 }
@@ -177,5 +191,6 @@ const styles = StyleSheet.create({
   centered: { justifyContent: 'center' },
   inlineFooter: { marginTop: 24 },
   footer: { paddingHorizontal: GUTTER, paddingTop: 8 },
-  fade: { position: 'absolute', left: 0, right: 0, top: -32, height: 32 },
+  maskSolid: { backgroundColor: '#000000' },
+  maskFade: { height: 32 },
 });

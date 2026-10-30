@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import {
   CalendarRange,
   Gauge,
@@ -92,7 +93,7 @@ function SectionCard({ section, locked }: { section: ReportSection; locked: bool
   const t = useOnboardingTheme();
   const [first, ...rest] = section.blocks;
   return (
-    <GlassCard style={styles.section}>
+    <GlassCard style={[styles.section, locked && styles.sectionLocked]}>
       <View style={styles.sectionHead}>
         <IconTile icon={ICONS[section.icon]} size={28} iconSize={15} />
         <Text style={[styles.sectionTitle, { color: t.ink }]} accessibilityRole="header">
@@ -112,7 +113,7 @@ function SectionCard({ section, locked }: { section: ReportSection; locked: bool
             // The locked text isn't exposed to VoiceOver; it reads the label instead.
             <View accessible accessibilityLabel="Locked. Included with Pro." style={styles.lockedWrap}>
               <View
-                style={[styles.blocks, { opacity: 0.15 }]}
+                style={[styles.blocks, { opacity: 0.55 }]}
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
               >
@@ -120,11 +121,18 @@ function SectionCard({ section, locked }: { section: ReportSection; locked: bool
                   <Block key={i} block={b} />
                 ))}
               </View>
-              <LinearGradient
-                pointerEvents="none"
-                colors={[t.dark ? 'rgba(6,10,26,0)' : 'rgba(245,248,255,0)', t.dark ? 'rgba(6,10,26,0.85)' : 'rgba(245,248,255,0.85)']}
-                style={StyleSheet.absoluteFill}
-              />
+              {/* A frosted panel out to the card's edges (the card clips it), so the real text is
+                  unreadable and there is no inner box edge. */}
+              <BlurView
+                intensity={t.dark ? 32 : 40}
+                tint={t.dark ? 'systemUltraThinMaterialDark' : 'systemUltraThinMaterialLight'}
+                style={styles.frost}
+              >
+                <View style={[styles.lockPill, { backgroundColor: t.surfaceStrong, borderColor: t.surfaceBorder }]}>
+                  <Lock size={14} color={t.primaryText} />
+                  <Text style={[styles.lockPillText, { color: t.ink }]}>Included with Pro</Text>
+                </View>
+              </BlurView>
             </View>
           ) : null}
         </>
@@ -192,7 +200,20 @@ const styles = StyleSheet.create({
   sectionTitle: { flex: 1, fontSize: 18, fontWeight: '700' },
   lockBadge: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   blocks: { gap: 12 },
-  lockedWrap: { overflow: 'hidden', borderRadius: 8 },
+  sectionLocked: { overflow: 'hidden' },
+  // Out to the card's edges: the section's 20 pt padding on the sides and bottom.
+  lockedWrap: { marginHorizontal: -20, marginBottom: -20, paddingHorizontal: 20, paddingBottom: 20, paddingTop: 4 },
+  frost: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  lockPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  lockPillText: { fontSize: 14, fontWeight: '600' },
   text: { fontSize: 15, lineHeight: 22 },
   bold: { fontWeight: '700' },
   footnote: { fontSize: 12, lineHeight: 17 },

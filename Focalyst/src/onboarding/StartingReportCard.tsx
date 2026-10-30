@@ -3,12 +3,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { FileText, Lock } from 'lucide-react-native';
 import { useUser } from '../utils/UserContext';
-import { fetchOnboardingProfile, isRecent } from './onboardingProfile';
+import { fetchOnboardingProfile } from './onboardingProfile';
 
-// Section 7.6: the Insights card. Rendered twice by Insights (top and end); each instance
-// only shows in its slot: the top for 30 days after onboarding, the end after that.
+// Section 7.6: the Insights card, placed at the very end of Insights (below the weekly report).
 
-export function StartingReportCard({ position, isDark }: { position: 'top' | 'end'; isDark: boolean }) {
+export function StartingReportCard({ isDark }: { isDark: boolean }) {
   const router = useRouter();
   const { user, profile } = useUser();
   const [completedAt, setCompletedAt] = useState<string | null>(null);
@@ -26,7 +25,6 @@ export function StartingReportCard({ position, isDark }: { position: 'top' | 'en
   );
 
   if (!completedAt) return null;
-  if ((position === 'top') !== isRecent(completedAt)) return null;
 
   const ink = isDark ? '#FFFFFF' : '#0A1033';
   const ink2 = isDark ? '#B7C0D8' : '#3D4566';
@@ -68,7 +66,7 @@ export function StartingReportCard({ position, isDark }: { position: 'top' | 'en
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 20, borderWidth: 1, padding: 16, gap: 14, marginBottom: 16 },
+  card: { borderRadius: 20, borderWidth: 1, padding: 16, gap: 14, marginTop: 16 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   flex: { flex: 1 },
   tile: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },

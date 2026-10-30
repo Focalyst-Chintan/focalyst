@@ -10,6 +10,7 @@ import { StartingReportView } from './ui/StartingReportView';
 import { haptics } from './ui/haptics';
 import { useUser } from '../utils/UserContext';
 import { supabase } from '../utils/supabase';
+import { setReportPaywallOpen } from './paywallIntent';
 
 // Chapter 6 · Save and Pro (screens 27 and 28).
 
@@ -40,6 +41,7 @@ function YourStartingReport({ answers, report, isPro, goNext }: ScreenProps) {
     useCallback(() => {
       if (!paywallOpen.current) return;
       paywallOpen.current = false;
+      setReportPaywallOpen(false);
       (async () => {
         const profile = await refreshProfile().catch(() => null);
         if (!profile?.isPro) return;
@@ -57,6 +59,7 @@ function YourStartingReport({ answers, report, isPro, goNext }: ScreenProps) {
   // The same call the app uses everywhere else to open the paywall.
   const unlock = () => {
     paywallOpen.current = true;
+    setReportPaywallOpen(true);
     router.push('/paywall');
   };
 

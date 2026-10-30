@@ -10,9 +10,6 @@ export interface OnboardingProfileRow {
   completed_at: string;
 }
 
-/** Days the card stays at the top of Insights after onboarding (7.6). */
-export const STARTING_REPORT_TOP_DAYS = 30;
-
 export async function fetchOnboardingProfile(userId: string): Promise<OnboardingProfileRow | null> {
   try {
     const { data, error } = await supabase
@@ -25,8 +22,4 @@ export async function fetchOnboardingProfile(userId: string): Promise<Onboarding
   } catch {
     return null;
   }
-}
-
-export function isRecent(completedAt: string, now = Date.now()): boolean {
-  return now - new Date(completedAt).getTime() < STARTING_REPORT_TOP_DAYS * 86_400_000;
 }
