@@ -17,7 +17,6 @@ import {
   Briefcase,
   Camera,
   CloudSun,
-  Construction,
   Ellipsis,
   GraduationCap,
   LayoutGrid,
@@ -36,7 +35,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
-import type { BestFocusTime, LifeStage, OnboardingAnswers, OnboardingReport, ProfileType } from './draft';
+import type { BestFocusTime, LifeStage, OnboardingAnswers, OnboardingPostState, OnboardingReport, ProfileType } from './draft';
 import type { StepId } from './steps';
 import {
   APP_OPTIONS,
@@ -52,13 +51,14 @@ import {
   studyWord,
 } from './copy';
 import { StepLayout } from './ui/Shell';
-import { GhostButton, GlassCard, IconTile, PrimaryButton } from './ui/primitives';
+import { GhostButton, GlassCard, PrimaryButton } from './ui/primitives';
 import { BenefitCards, Chip, Chips, PhoneHoursSlider, SingleChoice, Statement, Subtitle, TextField, Title } from './ui/patterns';
 import { FeaturePills } from './ui/FeaturePills';
 import { useOnboardingTheme } from './ui/theme';
 import { SETUP_SCREENS } from './setupScreens';
 import { REPORT_SCREENS } from './reportScreens';
 import { SAVE_SCREENS } from './saveScreens';
+import { DONE_SCREENS } from './doneScreens';
 
 export interface ScreenProps {
   step: StepId;
@@ -77,6 +77,9 @@ export interface ScreenProps {
   /** Keys of count-ups that already ran. */
   countedUp: string[];
   markCountedUp: (key: string) => void;
+  /** After saving: the post state (group result, habit IDs). Null before. */
+  post: OnboardingPostState | null;
+  updatePost: (patch: Partial<OnboardingPostState>) => void;
 }
 
 // ─── Chapter 1 · Welcome ───────────────────────────────────────────────────────
@@ -420,20 +423,7 @@ function BestTime({ answers, update, goNext }: ScreenProps) {
   );
 }
 
-// ─── Screens 31 and 32 arrive in P4 ────────────────────────────────────
-
-function ComingSoon() {
-  return (
-    <StepLayout centered>
-      <View style={styles.soon}>
-        <IconTile icon={Construction} size={72} iconSize={32} />
-      </View>
-      <Statement title="Coming soon." line="Your group and next steps arrive in the next update." />
-    </StepLayout>
-  );
-}
-
-const SCREENS: Partial<Record<StepId, (props: ScreenProps) => React.ReactElement>> = {
+const SCREENS: Partial<Record<StepId, (props: ScreenProps) => React.ReactElement | null>> = {
   1: Welcome,
   2: OneCalmPlace,
   3: HelpsYou,
@@ -451,11 +441,12 @@ const SCREENS: Partial<Record<StepId, (props: ScreenProps) => React.ReactElement
   ...SETUP_SCREENS,
   ...REPORT_SCREENS,
   ...SAVE_SCREENS,
+  ...DONE_SCREENS,
 };
 
 export function OnboardingScreen(props: ScreenProps) {
-  const Screen = SCREENS[props.step] ?? ComingSoon;
-  return <Screen {...props} />;
+  const Screen = SCREENS[props.step];
+  return Screen ? <Screen {...props} /> : null;
 }
 
 const styles = StyleSheet.create({
@@ -478,5 +469,4 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 15, fontWeight: '600' },
   hint: { fontSize: 14, marginTop: 28, textAlign: 'center' },
   gathered: { marginTop: 28, padding: 14, flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center' },
-  soon: { alignItems: 'center', marginBottom: 24 },
 });

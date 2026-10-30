@@ -266,7 +266,7 @@ export default function ProfileScreen() {
           {user?.full_name ? (
             <Text style={[styles.userName, { color: theme.textPrimary }]}>{user.full_name}</Text>
           ) : (
-            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/onboarding/name?isEditing=true')}>
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/profile-edit/name?isEditing=true')}>
               <Text style={[styles.userName, { color: theme.textSecondary }]}>Add your name</Text>
             </TouchableOpacity>
           )}
@@ -275,7 +275,7 @@ export default function ProfileScreen() {
           <TouchableOpacity 
             style={[styles.editProfileButton, { borderColor: theme.borderButtonColor }]} 
             activeOpacity={0.7}
-            onPress={() => router.push('/onboarding/name?isEditing=true')}
+            onPress={() => router.push('/profile-edit/name?isEditing=true')}
           >
             <Text style={[styles.editProfileText, { color: theme.textPrimary }]}>{t('settings.editProfile')}</Text>
           </TouchableOpacity>

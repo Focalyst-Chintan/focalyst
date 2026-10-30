@@ -51,7 +51,14 @@ export default function OnboardingFlow() {
   // Set once the plan is saved: screens 28 to 32 persist to onboarding:post:v1.
   const postRef = useRef<OnboardingPostState | null>(null);
 
-  const ctxOf = useCallback((d: OnboardingDraft): StepContext => ({ answers: d.answers, signedIn }), [signedIn]);
+  const ctxOf = useCallback(
+    (d: OnboardingDraft): StepContext => ({
+      answers: d.answers,
+      signedIn,
+      hasGroupResult: postRef.current ? postRef.current.group !== null : undefined,
+    }),
+    [signedIn],
+  );
 
   const persist = useCallback((d: OnboardingDraft) => {
     if (postRef.current) {
@@ -154,6 +161,14 @@ export default function OnboardingFlow() {
 
   const setReport = useCallback((report: OnboardingReport) => commit((d) => ({ ...d, report })), [commit]);
 
+  const [, setPostVersion] = useState(0);
+  const updatePost = useCallback((patch: Partial<OnboardingPostState>) => {
+    if (!postRef.current) return;
+    postRef.current = { ...postRef.current, ...patch };
+    savePostState(postRef.current);
+    setPostVersion((v) => v + 1);
+  }, []);
+
   const markCountedUp = useCallback(
     (key: string) => commit((d) => (d.countedUp.includes(key) ? d : { ...d, countedUp: [...d.countedUp, key] })),
     [commit],
@@ -197,6 +212,8 @@ export default function OnboardingFlow() {
           setReport={setReport}
           countedUp={draft.countedUp}
           markCountedUp={markCountedUp}
+          post={postRef.current}
+          updatePost={updatePost}
         />
       </StepTransition>
     </View>

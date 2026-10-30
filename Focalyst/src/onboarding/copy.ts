@@ -154,3 +154,11 @@ export function namedApps(answers: OnboardingAnswers): string[] {
 export function joinWithAnd(items: string[]): string {
   return joinAnd(items);
 }
+
+/** Exactly what the existing join form accepts (components/plan/HabitGroupModals.tsx). */
+export const cleanGroupCode = (text: string) => text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+
+/** The app's existing invite text (components/plan/HabitGroupModals.tsx), kept identical. */
+export function groupInviteMessage(inviteCode: string): string {
+  return `Join my Focalyst Habit Group with code ${inviteCode}! Let's track our daily streaks together on the leaderboard.\n\nDownload Focalyst: https://focalyst.online/app`;
+}

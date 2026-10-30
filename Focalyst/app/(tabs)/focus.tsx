@@ -34,6 +34,9 @@ import { SeamlessRadialTimerDial } from '../../components/focus/SeamlessRadialTi
 import { BlockDistractionsCard } from '../../components/blocking/BlockDistractionsCard';
 import { BlockingStatusStrip } from '../../components/blocking/BlockingStatusStrip';
 import { Dialog } from '../../components/blocking/Overlays';
+import { PendingCountdownCard } from '../../src/onboarding/PendingCountdownCard';
+import { useRecommendedPreset } from '../../src/onboarding/useRecommendedPreset';
+import { FREE_COUNTDOWN_MAX_DAYS } from '../../src/onboarding/plan';
 import { SessionSummaryModal } from '../../components/blocking/SessionSummaryModal';
 import { useHideDevFab } from '../../src/blocking/devFab';
 import { formatClock } from '../../src/blocking/levels';
@@ -492,6 +495,20 @@ export default function FocusTab() {
   const [showTimePicker, setShowTimePicker] = useState(Platform.OS === 'ios');
   const [getReminders, setGetReminders] = useState(false);
   const [submittingCountdown, setSubmittingCountdown] = useState(false);
+  // Free plan: countdowns can be up to 30 days away (design doc section 9).
+  const [countdownProSheet, setCountdownProSheet] = useState(false);
+
+  // The plan's preset from onboarding, once (design doc 6.1).
+  useRecommendedPreset({
+    ready: !!profile,
+    isPro,
+    busy: timerRunning || !pomodoroHydrated,
+    apply: (fMin, bMin, sets) => {
+      setFocusDurationMin(fMin);
+      setBreakDurationMin(bMin);
+      setTotalSets(sets);
+    },
+  });
 
   // Load user and countdowns with SWR caching
   const fetchCountdowns = async (uid: string, forceRefresh: boolean = false) => {
@@ -1051,6 +1068,12 @@ export default function FocusTab() {
       );
       const dateString = combinedTarget.toISOString();
 
+      // Free plan: at most 30 days away. Pro: no date limit.
+      if (!isPro && combinedTarget.getTime() - Date.now() > FREE_COUNTDOWN_MAX_DAYS * 24 * 60 * 60 * 1000) {
+        setCountdownProSheet(true);
+        return;
+      }
+
       if (editingCountdown) {
         // Update countdown
         const { error } = await supabase
@@ -1311,6 +1334,7 @@ export default function FocusTab() {
 
         {/* Countdown list component widget */}
         <View style={{ width: '100%' }}>
+          <PendingCountdownCard isDark={isDarkMode} isPro={isPro} />
           <Text style={[styles.sectionSubtitle, isDarkMode && { color: '#FFFFFF' }]}>{t('focus.countdown')}</Text>
 
           {countdowns.length === 0 ? (
@@ -1826,6 +1850,22 @@ export default function FocusTab() {
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
+        {/* Free plan: countdowns beyond 30 days are part of Pro */}
+        <Dialog
+          visible={countdownProSheet}
+          title="Countdowns beyond 30 days are part of Pro."
+          body="Pick a date within 30 days, or see Pro for countdowns with no date limit."
+          primary={{
+            label: 'See Pro',
+            onPress: () => {
+              setCountdownProSheet(false);
+              setIsFormOpen(false);
+              router.push('/paywall');
+            },
+          }}
+          secondary={{ label: 'Not now', onPress: () => setCountdownProSheet(false) }}
+          onClose={() => setCountdownProSheet(false)}
+        />
       </SafeAreaProvider>
     </Modal>
     </View>

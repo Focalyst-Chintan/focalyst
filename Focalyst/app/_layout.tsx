@@ -37,6 +37,7 @@ import { OutageStatusBanner } from '../components/OutageStatusBanner';
 import { AppReviewModal } from '../components/AppReviewModal';
 import { UpdateModal } from '../components/UpdateModal';
 import { OnboardingAuthRouter } from '../src/onboarding/AuthRouter';
+import { OnboardingFollowUps } from '../src/onboarding/followUps';
 import {
   getWidgetPayload,
   initializeWidgetListeners,
@@ -234,6 +235,7 @@ function RootLayoutNav() {
             <XpPopup />
             <McpDailyBonus />
             <OnboardingAuthRouter />
+            <OnboardingFollowUps />
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="auth" options={{ headerShown: false }} />
@@ -243,8 +245,8 @@ function RootLayoutNav() {
               <Stack.Screen name="widgets" options={{ headerShown: false, presentation: 'card' }} />
               <Stack.Screen name="mcp-credits" options={{ headerShown: false, presentation: 'card' }} />
               <Stack.Screen name="paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
-              <Stack.Screen name="onboarding/name" options={{ headerShown: false, gestureEnabled: false }} />
-              <Stack.Screen name="onboarding/profile-type" options={{ headerShown: false, gestureEnabled: false }} />
+              <Stack.Screen name="profile-edit/name" options={{ headerShown: false }} />
+              <Stack.Screen name="profile-edit/profession" options={{ headerShown: false }} />
               <Stack.Screen name="onboarding/index" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="onboarding/finish" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />

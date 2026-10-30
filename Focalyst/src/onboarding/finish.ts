@@ -98,6 +98,7 @@ function postFrom(
     plan: { effective: plan.effective.key, ideal: plan.ideal.key, proLocked: plan.proLocked, note: plan.note },
     group: null,
     countdownPending: result ? result.countdown_pending : countdownPending(draft.answers, isPro),
+    habitIds: result?.habit_ids ?? [],
     savedAt: Date.now(),
   };
 }

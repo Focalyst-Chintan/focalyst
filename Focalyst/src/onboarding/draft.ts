@@ -70,6 +70,8 @@ export interface OnboardingPostState {
   plan: { effective: RhythmKey; ideal: RhythmKey; proLocked: boolean; note: string } | null;
   /** The group step's result (8.3); null when there was no group to set up. */
   group: GroupOutcome | null;
+  /** Habits created by complete_onboarding, so screen 31 can retry a join. */
+  habitIds?: string[];
   countdownPending: boolean;
   savedAt: number;
 }

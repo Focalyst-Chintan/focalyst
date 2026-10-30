@@ -11,6 +11,8 @@ export interface StepContext {
   answers: OnboardingAnswers;
   /** Signed in before or during the flow: screens 1 to 3 and 27 are skipped. */
   signedIn: boolean;
+  /** After saving: false when the group step had nothing to set up, so screen 31 is skipped. */
+  hasGroupResult?: boolean;
 }
 
 const CHAPTERS: readonly (readonly StepId[])[] = [
@@ -33,7 +35,7 @@ export function isStepId(value: unknown): value is StepId {
   return typeof value === 'number' && (STEPS as readonly number[]).includes(value);
 }
 
-export function isSkipped(step: StepId, { answers, signedIn }: StepContext): boolean {
+export function isSkipped(step: StepId, { answers, signedIn, hasGroupResult }: StepContext): boolean {
   const hasHabits = (answers.habits?.length ?? 0) > 0;
   switch (step) {
     case 1:
@@ -46,7 +48,7 @@ export function isSkipped(step: StepId, { answers, signedIn }: StepContext): boo
     case 16:
       return !hasHabits;
     case 31:
-      return !hasHabits || !answers.group || answers.group.mode === 'none';
+      return !hasHabits || !answers.group || answers.group.mode === 'none' || hasGroupResult === false;
     default:
       return false;
   }

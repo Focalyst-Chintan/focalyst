@@ -14,6 +14,7 @@ import {
   habitOptions,
   joinWithAnd,
   namedApps,
+  cleanGroupCode,
 } from './copy';
 import { SHOW_GROUP_PRIVACY_LINE } from './flags';
 import {
@@ -141,9 +142,6 @@ function Habits({ answers, update, goNext }: ScreenProps) {
 }
 
 // ─── 16. Habit group ───────────────────────────────────────────────────────────
-
-/** Exactly what the existing join form accepts (components/plan/HabitGroupModals.tsx). */
-const cleanGroupCode = (text: string) => text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
 
 function MiniLeaderboard({ name, habit }: { name: string; habit?: HabitChoice }) {
   const t = useOnboardingTheme();

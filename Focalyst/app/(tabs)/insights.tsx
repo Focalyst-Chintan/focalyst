@@ -28,6 +28,7 @@ import { LEVEL_BENCHMARKS, LevelBenchmark } from '../../src/utils/xpService';
 import { queryCache } from '../../src/utils/queryCache';
 import WeeklyReportSheet from '../../components/WeeklyReportSheet';
 import HabitGroupLeaderboardSection from '../../components/insights/HabitGroupLeaderboardSection';
+import { StartingReportCard } from '../../src/onboarding/StartingReportCard';
 import DistractionsSection from '../../components/insights/DistractionsSection';
 import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService';
 import { ScreenSkeleton, ErrorRetryBanner } from '../../components/ui/ScreenSkeleton';
@@ -426,6 +427,9 @@ export default function InsightsTab() {
         keyboardShouldPersistTaps="handled"
         scrollEnabled={true}
       >
+        {/* Starting report: at the top for 30 days after onboarding */}
+        <StartingReportCard position="top" isDark={isDarkMode} />
+
         {/* Gamification Level Banner */}
         <TouchableOpacity
           activeOpacity={0.95}
@@ -770,6 +774,9 @@ export default function InsightsTab() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Starting report: at the end after its first 30 days */}
+        <StartingReportCard position="end" isDark={isDarkMode} />
       </ScrollView>
 
       {/* Level Up Achievement Modal */}
