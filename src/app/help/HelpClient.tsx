@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Search, Mail } from 'lucide-react';
+import { Search, Mail, BookOpen, ArrowUpRight } from 'lucide-react';
 import PublicLayout from '@/components/desktop/public/PublicLayout';
 import FaqAccordion from '@/components/desktop/public/FaqAccordion';
 import { FAQ_CATEGORIES } from '@/data/faqData';
@@ -71,6 +71,21 @@ export default function HelpClient() {
             />
           </div>
         </div>
+
+        {/* Guides card: step-by-step guides live at /guides */}
+        <Link
+          href="/guides"
+          className="group frost mx-auto mb-10 flex max-w-3xl items-center gap-4 rounded-[20px] p-5 transition-[transform,border-color] duration-150 hover:-translate-y-px hover:border-line-strong motion-reduce:hover:translate-y-0 focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)]"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-primary-soft text-primary-text">
+            <BookOpen size={20} aria-hidden />
+          </span>
+          <span className="flex-1">
+            <span className="block text-[15px] font-semibold text-ink">Step-by-step guides for every feature</span>
+            <span className="mt-0.5 block text-[13px] text-ink-2">How to use Focalyst on the web and the phone app</span>
+          </span>
+          <ArrowUpRight size={18} className="shrink-0 text-ink-3 group-hover:text-ink" aria-hidden />
+        </Link>
 
         {/* Category Pills Bar */}
         <div className="mx-auto max-w-3xl border-b border-line pb-4">

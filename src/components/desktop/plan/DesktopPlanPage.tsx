@@ -47,25 +47,24 @@ export function DesktopPlanPage() {
       ? '+ New reminder'
       : '+ New habit';
 
-  const { isContextPanelOpen, setIsContextPanelOpen } = useDesktopShell();
+  const { isContextPanelOpen, setIsContextPanelOpen, toggleContextPanel } = useDesktopShell();
 
-  // Remember open/closed per view in localStorage
-  React.useEffect(() => {
-    try {
-      const saved = localStorage.getItem(`fx-panel-${currentView}`);
-      if (saved !== null) {
-        setIsContextPanelOpen(saved === 'true');
-      }
-    } catch {}
+  // The details panel starts closed when Plan opens and on every switch between
+  // Habits, Tasks and Calendar. It opens only on purpose: clicking a habit, a
+  // task or a day, or ⌘ . (layout effect, so it closes before the views fill it).
+  React.useLayoutEffect(() => {
+    setIsContextPanelOpen(false);
   }, [currentView, setIsContextPanelOpen]);
 
-  const togglePanel = () => {
-    const next = !isContextPanelOpen;
-    setIsContextPanelOpen(next);
+  // Remember the last open or close, whichever way it happened (X, Esc, ⌘ .)
+  const prevPanelOpen = React.useRef(isContextPanelOpen);
+  React.useEffect(() => {
+    if (prevPanelOpen.current === isContextPanelOpen) return;
+    prevPanelOpen.current = isContextPanelOpen;
     try {
-      localStorage.setItem(`fx-panel-${currentView}`, String(next));
+      localStorage.setItem('plan:detailsOpen', isContextPanelOpen ? '1' : '0');
     } catch {}
-  };
+  }, [isContextPanelOpen]);
 
   return (
     <div className="w-full flex flex-col gap-6">
@@ -90,7 +89,7 @@ export function DesktopPlanPage() {
             tooltip={isContextPanelOpen ? 'Hide details ⌘.' : 'Show details ⌘.'}
             size="md"
             variant="ghost"
-            onClick={togglePanel}
+            onClick={toggleContextPanel}
           >
             <PanelRight size={18} />
           </IconButton>

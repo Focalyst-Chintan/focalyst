@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -1284,6 +1285,12 @@ export function DesktopFocusPage() {
                 <div>
                   <h4 className="text-[15px] font-semibold text-ink">Distraction blocker</h4>
                   <p className="text-[13px] text-ink-2 mt-0.5">Stay focused during your blocks</p>
+                  <Link
+                    href="/how-to/block-distracting-apps"
+                    className="mt-1 inline-block text-[13px] font-medium text-primary-text underline-offset-2 hover:underline focus-visible:outline-none focus-visible:underline"
+                  >
+                    How blocking works
+                  </Link>
                 </div>
               </div>
 

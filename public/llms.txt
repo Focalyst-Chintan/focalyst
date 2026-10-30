@@ -19,3 +19,22 @@ Key facts:
 - [MCP](https://focalyst.online/mcp-preview): connect Focalyst to ChatGPT, Claude or Gemini (Pro)
 - [Privacy Policy](https://focalyst.online/privacy)
 - [Terms of Service](https://focalyst.online/terms)
+
+## Guides
+- [How to use Focalyst](https://focalyst.online/guides): step-by-step guides for the web app and the phone app
+- [Add a task](https://focalyst.online/guides/add-a-task): How do I add a task in Focalyst?
+- [Reorder your tasks](https://focalyst.online/guides/reorder-tasks): How do I change the order of my tasks?
+- [Add a habit](https://focalyst.online/guides/add-a-habit): How do I add a habit in Focalyst?
+- [See how a habit is going](https://focalyst.online/guides/habit-progress): How do I see my habit streak and completion rate?
+- [Add a calendar event](https://focalyst.online/guides/add-a-calendar-event): How do I add an event or reminder to my Focalyst calendar?
+- [Start a focus session](https://focalyst.online/guides/start-a-focus-session): How do I start a Pomodoro focus session in Focalyst?
+- [Block distracting apps](https://focalyst.online/guides/block-distracting-apps): How do I block distracting apps with Focalyst?
+- [Add a countdown](https://focalyst.online/guides/add-a-countdown): How do I add a countdown to an exam or event?
+- [Write a note](https://focalyst.online/guides/write-a-note): How do I write a note in Focalyst?
+- [Record a voice note](https://focalyst.online/guides/record-a-voice-note): How do I record a voice note and get a transcript?
+- [Check your insights](https://focalyst.online/guides/check-your-insights): Where can I see my focus time, streaks and weekly report?
+- [Ask Focalyst AI](https://focalyst.online/guides/ask-focalyst-ai): How do I use Focalyst AI?
+- [Add home screen widgets](https://focalyst.online/guides/add-widgets): How do I add Focalyst widgets to my home screen?
+- [Switch to dark mode](https://focalyst.online/guides/dark-mode): How do I turn on dark mode in Focalyst?
+- [Change the language](https://focalyst.online/guides/change-language): How do I change the language in Focalyst?
+- [Connect Claude, ChatGPT or Gemini](https://focalyst.online/guides/connect-ai-apps): How do I connect Focalyst to Claude, ChatGPT or Gemini?

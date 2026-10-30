@@ -83,6 +83,9 @@ export default function LandingClient() {
             <Link href="/about" className="transition-colors hover:text-snow">
               About
             </Link>
+            <Link href="/guides" className="transition-colors hover:text-snow">
+              Guides
+            </Link>
           </nav>
 
           {/* Desktop Right Auth / App Actions */}
@@ -136,6 +139,9 @@ export default function LandingClient() {
               </Link>
               <Link href="/about" onClick={() => setMobileMenuOpen(false)}>
                 About
+              </Link>
+              <Link href="/guides" onClick={() => setMobileMenuOpen(false)}>
+                Guides
               </Link>
               <Link href="/help" onClick={() => setMobileMenuOpen(false)}>
                 Help and FAQ
@@ -378,6 +384,7 @@ export default function LandingClient() {
               <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/60">Support</div>
               <ul className="mt-3 space-y-2.5 text-[14px] text-snow/80">
                 <li><Link href="/help" className="hover:text-snow">Help and FAQ</Link></li>
+                <li><Link href="/guides" className="hover:text-snow">Guides</Link></li>
                 <li><Link href="/privacy" className="hover:text-snow">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-snow">Terms of Service</Link></li>
               </ul>

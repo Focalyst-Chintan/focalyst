@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: '/blog', label: 'Blog' },
   { href: '/mcp-preview', label: 'MCP' },
   { href: '/about', label: 'About' },
+  { href: '/guides', label: 'Guides' },
 ];
 
 export default function PublicLayout({
@@ -66,7 +67,7 @@ export default function PublicLayout({
           {/* Desktop Center Links */}
           <div className="hidden md:flex items-center gap-7">
             {NAV_LINKS.map((link) => {
-              const active = pathname === link.href;
+              const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
@@ -198,6 +199,7 @@ export default function PublicLayout({
               <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">Support</div>
               <ul className="mt-3 space-y-2.5 text-[14px] text-ink-2">
                 <li><Link href="/help" className="hover:text-ink">Help and FAQ</Link></li>
+                <li><Link href="/guides" className="hover:text-ink">Guides</Link></li>
                 <li><Link href="/privacy" className="hover:text-ink">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-ink">Terms of Service</Link></li>
               </ul>

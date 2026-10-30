@@ -24,6 +24,7 @@ import { onDataChanged, emitDataChanged } from '@/lib/events';
 import { useData } from '@/lib/data/useData';
 import { useSWRConfig } from 'swr';
 import { useToast } from '@/components/desktop/ui/Toast';
+import { normalizeReminderRows, logReminderQueryError } from '@/lib/utils/reminders';
 
 const MONTH_NAMES = [
   'January',
@@ -51,8 +52,18 @@ const TAG_COLORS: Record<string, string> = {
   Personal: '#F97316',
 };
 
-// Parity with mobile doesReminderOccurOnDate
-function doesReminderOccurOnDate(rem: any, targetYMD: string): boolean {
+// Parity with mobile doesReminderOccurOnDate. Reads both the phone format
+// ("Every Week", "Custom") and the older web format ("weekly", "custom").
+// A row that can't be read never shows instead of breaking the calendar.
+function doesReminderOccurOnDate(rem: unknown, targetYMD: string): boolean {
+  try {
+    return occursOnDate(rem, targetYMD);
+  } catch {
+    return false;
+  }
+}
+
+function occursOnDate(rem: any, targetYMD: string): boolean {
   const originYMD = String(rem.date || rem.day || '').slice(0, 10);
   if (!originYMD) return false;
   if (originYMD === targetYMD) return true;
@@ -64,27 +75,27 @@ function doesReminderOccurOnDate(rem: any, targetYMD: string): boolean {
   const targetDate = new Date(targY, targM - 1, targD, 12, 0, 0);
   const diffDays = Math.round((targetDate.getTime() - originDate.getTime()) / 86400000);
 
-  const rep = rem.repeat || rem.repeat_mode || 'Never';
-  if (rep === 'Never') return false;
-  if (rep === 'Every Day' || rep === 'Daily') return true;
-  if (rep === 'Every Week' || rep === 'Weekly') return diffDays % 7 === 0;
-  if (rep === 'Every 2 Weeks') return diffDays % 14 === 0;
-  if (rep === 'Every Month' || rep === 'Monthly') return originDate.getDate() === targetDate.getDate();
-  if (rep === 'Every Year' || rep === 'Yearly') {
+  const rep = String(rem.repeat || rem.repeat_mode || 'Never').trim().toLowerCase();
+  if (rep === 'never') return false;
+  if (rep === 'every day' || rep === 'daily') return true;
+  if (rep === 'every week' || rep === 'weekly') return diffDays % 7 === 0;
+  if (rep === 'every 2 weeks') return diffDays % 14 === 0;
+  if (rep === 'every month' || rep === 'monthly') return originDate.getDate() === targetDate.getDate();
+  if (rep === 'every year' || rep === 'yearly') {
     return originDate.getDate() === targetDate.getDate() && originDate.getMonth() === targetDate.getMonth();
   }
-  if (rep === 'Custom') {
+  if (rep === 'custom') {
     const every = Math.max(1, Number(rem.custom_every || rem.custom_interval || 1));
-    const unit = String(rem.custom_unit || rem.custom_frequency || 'Daily');
-    if (unit === 'Daily' || unit === 'day') return diffDays % every === 0;
-    if (unit === 'Weekly' || unit === 'week') return diffDays % (every * 7) === 0;
-    if (unit === 'Monthly' || unit === 'month') {
+    const unit = String(rem.custom_unit || rem.custom_frequency || 'Daily').toLowerCase();
+    if (unit === 'daily' || unit === 'day') return diffDays % every === 0;
+    if (unit === 'weekly' || unit === 'week') return diffDays % (every * 7) === 0;
+    if (unit === 'monthly' || unit === 'month') {
       const monthsDiff =
         (targetDate.getFullYear() - originDate.getFullYear()) * 12 +
         (targetDate.getMonth() - originDate.getMonth());
       return monthsDiff >= 0 && monthsDiff % every === 0 && originDate.getDate() === targetDate.getDate();
     }
-    if (unit === 'Yearly' || unit === 'year') {
+    if (unit === 'yearly' || unit === 'year') {
       const yearsDiff = targetDate.getFullYear() - originDate.getFullYear();
       return (
         yearsDiff >= 0 &&
@@ -136,18 +147,21 @@ export function CalendarDesktopView() {
   const toast = useToast();
   const { mutate } = useSWRConfig();
 
-  // Fetch full reminders table with tags, color overrides, stars etc.
+  // Fetch the user's reminders. select('*') on purpose: the phone app, the web
+  // and Focalyst AI write different optional columns, and naming a column that
+  // doesn't exist (the date column is `day`, the tag column is `tag`) fails the
+  // whole query.
   const remindersFetcher = async () => {
     if (!user) return [];
     const { data, error } = await supabase
       .from('reminders')
-      .select('id, user_id, title, date, start_time, end_time, all_day, repeat, is_completed, is_starred, tags, color')
+      .select('*')
       .eq('user_id', user.id);
     if (error) {
-      console.error('Error fetching reminders:', error);
+      logReminderQueryError(error);
       throw error;
     }
-    return data || [];
+    return normalizeReminderRows(data);
   };
 
   const remindersKey = user ? `reminders:${user.id}` : null;
@@ -194,6 +208,12 @@ export function CalendarDesktopView() {
     } else {
       setCurrentMonth((m) => m + 1);
     }
+  };
+
+  // Clicking a day is a purposeful open of its agenda in the details panel
+  const selectDay = (ymd: string) => {
+    setSelectedDayYMD(ymd);
+    setIsContextPanelOpen(true);
   };
 
   const jumpToToday = () => {
@@ -415,12 +435,10 @@ export function CalendarDesktopView() {
         </div>
       </div>
     );
-    setIsContextPanelOpen(true);
   }, [
     selectedDayYMD,
     selectedDayReminders,
     setContextPanel,
-    setIsContextPanelOpen,
     openNewReminderModal,
     openEditReminderModal,
   ]);
@@ -561,7 +579,7 @@ export function CalendarDesktopView() {
               return (
                 <div
                   key={cell.dateStr}
-                  onClick={() => setSelectedDayYMD(cell.dateStr)}
+                  onClick={() => selectDay(cell.dateStr)}
                   className={`min-h-[112px] p-2 flex flex-col justify-between cursor-pointer transition-colors ${
                     cell.isSelected ? 'bg-primary-soft/40' : 'hover:bg-surface-2/40'
                   }`}
@@ -630,7 +648,7 @@ export function CalendarDesktopView() {
                   <button
                     key={wd.dateStr}
                     type="button"
-                    onClick={() => setSelectedDayYMD(wd.dateStr)}
+                    onClick={() => selectDay(wd.dateStr)}
                     className={`py-2.5 text-center flex flex-col items-center gap-0.5 transition-colors ${
                       isSelected ? 'bg-primary-soft/40' : 'hover:bg-surface-2/40'
                     }`}
@@ -692,7 +710,7 @@ export function CalendarDesktopView() {
                 return (
                   <div
                     key={wd.dateStr}
-                    onClick={() => setSelectedDayYMD(wd.dateStr)}
+                    onClick={() => selectDay(wd.dateStr)}
                     className="relative h-[864px] transition-colors"
                   >
                     {/* Events absolutely positioned by start_time/end_time */}
