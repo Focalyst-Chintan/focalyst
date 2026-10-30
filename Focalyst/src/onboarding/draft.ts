@@ -50,6 +50,8 @@ export interface OnboardingAnswers {
 }
 
 import type { OnboardingReport } from './report';
+import type { RhythmKey } from './plan';
+import type { GroupOutcome } from './finish';
 export type { OnboardingReport };
 
 export interface OnboardingDraft {
@@ -65,8 +67,9 @@ export interface OnboardingPostState {
   step: StepId;
   answers: OnboardingAnswers;
   report: OnboardingReport | null;
-  plan: Record<string, unknown> | null;
-  group: Record<string, unknown> | null;
+  plan: { effective: RhythmKey; ideal: RhythmKey; proLocked: boolean; note: string } | null;
+  /** The group step's result (8.3); null when there was no group to set up. */
+  group: GroupOutcome | null;
   countdownPending: boolean;
   savedAt: number;
 }

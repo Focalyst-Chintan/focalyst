@@ -58,6 +58,7 @@ import { FeaturePills } from './ui/FeaturePills';
 import { useOnboardingTheme } from './ui/theme';
 import { SETUP_SCREENS } from './setupScreens';
 import { REPORT_SCREENS } from './reportScreens';
+import { SAVE_SCREENS } from './saveScreens';
 
 export interface ScreenProps {
   step: StepId;
@@ -419,7 +420,7 @@ function BestTime({ answers, update, goNext }: ScreenProps) {
   );
 }
 
-// ─── Screens 27 onwards arrive in P3 ────────────────────────────────────
+// ─── Screens 31 and 32 arrive in P4 ────────────────────────────────────
 
 function ComingSoon() {
   return (
@@ -427,7 +428,7 @@ function ComingSoon() {
       <View style={styles.soon}>
         <IconTile icon={Construction} size={72} iconSize={32} />
       </View>
-      <Statement title="Coming soon." line="Saving your plan arrives in the next update." />
+      <Statement title="Coming soon." line="Your group and next steps arrive in the next update." />
     </StepLayout>
   );
 }
@@ -449,6 +450,7 @@ const SCREENS: Partial<Record<StepId, (props: ScreenProps) => React.ReactElement
   14: BestTime,
   ...SETUP_SCREENS,
   ...REPORT_SCREENS,
+  ...SAVE_SCREENS,
 };
 
 export function OnboardingScreen(props: ScreenProps) {

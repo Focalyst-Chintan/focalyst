@@ -119,7 +119,7 @@ function TimeGoes({ answers, report: saved, countedUp, markCountedUp, goNext }: 
         </View>
       ) : null}
       <Text style={[styles.footnote, { color: t.ink3 }]}>
-        {`Estimate from your answers: ${formatNumber(report.H)} hours a day, 365 days, 16 waking hours a day.`}
+        {`Estimate from your answers: ${formatNumber(report.H)} ${report.H === 1 ? 'hour' : 'hours'} a day, 365 days, 16 waking hours a day.`}
       </Text>
     </StepLayout>
   );
