@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/utils/supabase';
 
 export default function Index() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ view?: string }>();
   const [loading, setLoading] = useState(true);
+  const targetDestination = params?.view === 'countdown'
+    ? '/(tabs)/focus?section=countdown'
+    : params?.view
+    ? `/(tabs)/plan?view=${params.view}`
+    : '/(tabs)/plan';
 
   useEffect(() => {
     let redirected = false;
@@ -22,13 +28,13 @@ export default function Index() {
             const parsed = JSON.parse(rawBoot);
             if (parsed?.user?.id) {
               setLoading(false);
-              router.replace('/(tabs)/plan' as any);
+              router.replace(targetDestination as any);
               return;
             }
           }
         } catch {}
         setLoading(false);
-        router.replace('/auth' as any);
+        router.replace('/onboarding' as any);
       }
     }, 9000);
 
@@ -81,18 +87,18 @@ export default function Index() {
 
             const { data: profile } = await Promise.race([profilePromise, profileTimeout]);
             if (profile?.onboarding_done === false) {
-              router.replace('/paywall' as any);
+              router.replace({ pathname: '/onboarding', params: { signedIn: '1' } } as any);
             } else {
-              router.replace('/(tabs)/plan' as any);
+              router.replace(targetDestination as any);
             }
           } catch {
-            router.replace('/(tabs)/plan' as any);
+            router.replace(targetDestination as any);
           }
         } else {
           redirected = true;
           clearTimeout(fallbackTimer);
           setLoading(false);
-          router.replace('/auth' as any);
+          router.replace('/onboarding' as any);
         }
       } catch (e) {
         console.warn('[Index] Auth verification error:', e);
@@ -106,13 +112,13 @@ export default function Index() {
               const parsed = JSON.parse(rawBoot);
               if (parsed?.user?.id) {
                 setLoading(false);
-                router.replace('/(tabs)/plan' as any);
+                router.replace(targetDestination as any);
                 return;
               }
             }
           } catch {}
           setLoading(false);
-          router.replace('/auth' as any);
+          router.replace('/onboarding' as any);
         }
       }
     }

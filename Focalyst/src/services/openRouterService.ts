@@ -5,6 +5,7 @@ import { AuthorizedUserContext } from './focalystContextService';
 import { supabase } from '../utils/supabase';
 import { awardXP } from '../utils/xpService';
 import { queryCache } from '../utils/queryCache';
+import * as Crypto from 'expo-crypto';
 
 export class AIRateLimitError extends Error {
   public reason: string;
@@ -467,7 +468,9 @@ export async function executeTool(
         const startTime = sanitizeTime(args.start_time);
         const endTime = sanitizeTime(args.end_time);
 
+        const taskId = Crypto.randomUUID();
         const payload: any = {
+          id: taskId,
           user_id: userId,
           title,
           description: args.description?.trim() || null,
@@ -481,7 +484,11 @@ export async function executeTool(
           position: 0,
         };
 
-        const { data, error } = await supabase.from('tasks').insert([payload]).select().single();
+        const { data, error } = await supabase
+          .from('tasks')
+          .upsert([payload], { onConflict: 'id' })
+          .select()
+          .single();
         if (error) throw error;
 
         // Invalidate Plan tab cache immediately so newly created task is visible instantly

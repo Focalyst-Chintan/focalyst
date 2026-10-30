@@ -28,6 +28,8 @@ import { LEVEL_BENCHMARKS, LevelBenchmark } from '../../src/utils/xpService';
 import { queryCache } from '../../src/utils/queryCache';
 import WeeklyReportSheet from '../../components/WeeklyReportSheet';
 import HabitGroupLeaderboardSection from '../../components/insights/HabitGroupLeaderboardSection';
+import { StartingReportCard } from '../../src/onboarding/StartingReportCard';
+import DistractionsSection from '../../components/insights/DistractionsSection';
 import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService';
 import { ScreenSkeleton, ErrorRetryBanner } from '../../components/ui/ScreenSkeleton';
 
@@ -35,9 +37,11 @@ export default function InsightsTab() {
   const { t } = useTranslation();
   const params = useLocalSearchParams();
   const router = useRouter();
-  const { user, profile } = useUser();
+  const { user, profile, refreshProfile } = useUser();
   const currentUserId = user?.id || profile?.id || null;
-  const isPro = profile?.isPro || false;
+  // Only the signed-in account's own profile counts (never a previous account's cached one).
+  const isPro = !!profile?.isPro && (!user?.id || profile.id === user.id);
+  const lastProfileRefresh = useRef(0);
 
   // Compute today's date key for SWR cache lookup
   const now = new Date();
@@ -48,6 +52,8 @@ export default function InsightsTab() {
   const [loading, setLoading] = useState(!cachedData);
   const [userId, setUserId] = useState<string | null>(currentUserId);
   const isFetchingRef = useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const distractionsY = useRef<number | null>(null);
   const hasLoadedRef = useRef(false);
   
   // Theme State
@@ -75,6 +81,11 @@ export default function InsightsTab() {
 
       // Always force-refresh insights data when switching to the Insights tab
       fetchInsights(true);
+      // Plan changes (a Lifetime purchase, a restore) unlock Pro sections without a restart.
+      if (Date.now() - lastProfileRefresh.current > 30_000) {
+        lastProfileRefresh.current = Date.now();
+        void refreshProfile();
+      }
 
       return () => {
         isMounted = false;
@@ -103,9 +114,6 @@ export default function InsightsTab() {
     };
   }, [currentUserId]);
   
-  // Subscription Plan
-  const [plan, setPlan] = useState<'free' | 'pro'>(profile?.isPro ? 'pro' : 'free');
-
   // Chart View (Weekly vs Monthly)
   const [chartView, setChartView] = useState<'weekly' | 'monthly'>('weekly');
 
@@ -152,6 +160,16 @@ export default function InsightsTab() {
     }
   }, [params]);
 
+  // S12 "View in Insights" lands on the Distractions section.
+  useEffect(() => {
+    if (params?.section !== 'distractions') return;
+    const id = setTimeout(() => {
+      if (distractionsY.current != null) scrollRef.current?.scrollTo({ y: distractionsY.current - 16, animated: true });
+      router.setParams({ section: '' });
+    }, 400);
+    return () => clearTimeout(id);
+  }, [params?.section]);
+
   // Load and refresh insights with queryCache & strict date bounds
   const fetchInsights = async (forceRefresh: boolean = false) => {
     const uid = currentUserId || userId;
@@ -162,10 +180,6 @@ export default function InsightsTab() {
       if (!queryCache.getSync(`user:${uid}:insights:${todayKeyStr}`)) {
         if (isMountedRef.current) setLoading(true);
       }
-
-      // 1. Subscription Plan from profile state
-      const userPlan = profile ? (profile.isPro ? 'pro' : 'free') : 'free';
-      setPlan(userPlan);
 
       const activeCacheKey = `user:${uid}:insights:${todayKeyStr}`;
 
@@ -400,6 +414,7 @@ export default function InsightsTab() {
       style={[styles.container, { backgroundColor: isDarkMode ? '#0B1021' : '#f8fafc' }]}
     >
       <ScrollView
+        ref={scrollRef}
         style={{ flex: 1, width: '100%' }}
         contentContainerStyle={{
           flexGrow: 1,
@@ -715,6 +730,11 @@ export default function InsightsTab() {
           onRefreshInsights={() => fetchInsights(false)}
         />
 
+        {/* Distractions: blocked attempts, tempting apps, time of day, unlock reasons */}
+        <View onLayout={(e) => (distractionsY.current = e.nativeEvent.layout.y)}>
+          <DistractionsSection isDarkMode={isDarkMode} isPro={isPro} />
+        </View>
+
         {/* 7. Persistent Weekly Productivity Report Entry Card */}
         {!isPro ? (
           <View style={[styles.weeklyReportEntryCard, styles.lockedReportCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41', opacity: 0.85 }]}>
@@ -751,6 +771,9 @@ export default function InsightsTab() {
             </TouchableOpacity>
           </View>
         )}
+
+        {/* Starting report: always last, below the weekly report */}
+        <StartingReportCard isDark={isDarkMode} />
       </ScrollView>
 
       {/* Level Up Achievement Modal */}

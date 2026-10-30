@@ -1,3 +1,4 @@
+import * as WebBrowser from 'expo-web-browser';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
@@ -17,14 +18,19 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/utils/supabase';
+import { isProPlan } from '../src/utils/plan';
+import { getDisplayName } from '../src/utils/displayName';
+import { formatMcpApps, useMcpSummary } from '../src/hooks/useMcpStatus';
+import { openMcpConnections as openMcpConnectionsPage } from '../src/utils/openMcpConnections';
 import { useTranslation } from 'react-i18next';
 import { changeLanguage } from '../src/lib/i18n';
 import { queryCache } from '../src/utils/queryCache';
 import { FAQ_DATA, PRIVACY_DATA, TERMS_DATA } from '../constants/supportCopy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { WIDGETS_ENABLED_KEY } from './widgets';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT_ORANGE = '#FF6B00';
@@ -52,6 +58,7 @@ interface UserProfile {
   email: string | null;
   avatar_url: string | null;
   plan: string | null;
+  plan_expires_at?: string | null;
   task_reminders_enabled?: boolean;
   habit_reminders_enabled?: boolean;
   pomodoro_alerts_enabled?: boolean;
@@ -67,9 +74,35 @@ export default function ProfileScreen() {
   const [taskReminders, setTaskReminders] = useState(true);
   const [habitReminders, setHabitReminders] = useState(true);
   const [pomodoroAlerts, setPomodoroAlerts] = useState(false);
+  const [widgetsEnabled, setWidgetsEnabled] = useState(true);
   const [darkMode, setDarkMode] = useState(true); // Default dark mode to true
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+
+  // Same check as everywhere else (src/utils/plan.ts): lifetime always, other paid plans until they expire.
+  const isPro = isProPlan(user?.plan, user?.plan_expires_at);
+  const mcp = useMcpSummary(isPro);
+  const refreshMcp = mcp.refresh;
+
+  const openMcpConnections = useCallback(async () => {
+    // Resolves when the in-app browser is closed (iOS), so a new connection shows straight away
+    await openMcpConnectionsPage();
+    refreshMcp();
+  }, [refreshMcp]);
+
+  useEffect(() => {
+    AsyncStorage.getItem(WIDGETS_ENABLED_KEY).then((val) => {
+      if (val !== null) setWidgetsEnabled(val === 'true');
+    });
+  }, []);
+
+  const handleWidgetsToggle = async (val: boolean) => {
+    setWidgetsEnabled(val);
+    await AsyncStorage.setItem(WIDGETS_ENABLED_KEY, String(val));
+    if (val) {
+      router.push('/widgets' as any);
+    }
+  };
 
   // Dynamic Theme Definitions
   const theme = {
@@ -118,10 +151,11 @@ export default function ProfileScreen() {
         } else if (profile) {
           setUser({
             id: profile.id,
-            full_name: profile.full_name,
+            full_name: getDisplayName(profile, session.user),
             email: profile.email || session.user.email,
             avatar_url: profile.avatar_url,
             plan: profile.plan,
+            plan_expires_at: profile.plan_expires_at ?? null,
             task_reminders_enabled: profile.task_reminders_enabled,
             habit_reminders_enabled: profile.habit_reminders_enabled,
             pomodoro_alerts_enabled: profile.pomodoro_alerts_enabled,
@@ -224,19 +258,25 @@ export default function ProfileScreen() {
             <View style={[styles.avatar, { backgroundColor: theme.avatarBg, borderColor: theme.borderColor }]}>
               <Ionicons name="person" size={36} color={theme.textSecondary} />
             </View>
-            {user?.plan && user.plan !== 'free' && (
+            {isPro && (
               <View style={styles.proBadge}>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
             )}
           </View>
-          <Text style={[styles.userName, { color: theme.textPrimary }]}>{user?.full_name || ''}</Text>
+          {user?.full_name ? (
+            <Text style={[styles.userName, { color: theme.textPrimary }]}>{user.full_name}</Text>
+          ) : (
+            <TouchableOpacity activeOpacity={0.7} onPress={() => router.push('/profile-edit/name?isEditing=true')}>
+              <Text style={[styles.userName, { color: theme.textSecondary }]}>Add your name</Text>
+            </TouchableOpacity>
+          )}
           <Text style={[styles.userEmail, { color: theme.textSecondary }]}>{user?.email || ''}</Text>
           <Text style={styles.userRole}>{t('settings.student')}</Text>
           <TouchableOpacity 
             style={[styles.editProfileButton, { borderColor: theme.borderButtonColor }]} 
             activeOpacity={0.7}
-            onPress={() => router.push('/onboarding/name?isEditing=true')}
+            onPress={() => router.push('/profile-edit/name?isEditing=true')}
           >
             <Text style={[styles.editProfileText, { color: theme.textPrimary }]}>{t('settings.editProfile')}</Text>
           </TouchableOpacity>
@@ -247,10 +287,10 @@ export default function ProfileScreen() {
           <View style={styles.subscriptionContent}>
             <Text style={styles.subscriptionLabel}>{t('settings.plan')}</Text>
             <Text style={styles.planName}>
-              {user?.plan && user.plan !== 'free' ? t('settings.lifetime').toUpperCase() : t('settings.free').toUpperCase()}
+              {isPro ? t('settings.lifetime').toUpperCase() : t('settings.free').toUpperCase()}
             </Text>
             <Text style={styles.renewalText}>
-              {user?.plan && user.plan !== 'free' ? t('settings.focusForever') : t('settings.basicAccess')}
+              {isPro ? t('settings.focusForever') : t('settings.basicAccess')}
             </Text>
             <TouchableOpacity
               style={styles.managePlanButton}
@@ -258,7 +298,7 @@ export default function ProfileScreen() {
               onPress={() => router.push('/paywall')}
             >
               <Text style={styles.managePlanText}>
-                {user?.plan && user.plan !== 'free' ? t('settings.manage') : t('insights.upgradeToPro')}
+                {isPro ? t('settings.manage') : t('insights.upgradeToPro')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -326,6 +366,26 @@ export default function ProfileScreen() {
               ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
             />
           </View>
+          <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
+
+          {/* Home Screen Widgets */}
+          <TouchableOpacity
+            style={styles.prefRow}
+            activeOpacity={0.7}
+            onPress={() => handleWidgetsToggle(true)}
+          >
+            <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
+              <Ionicons name="grid" size={18} color={theme.textSecondary} />
+            </View>
+            <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>Home Screen Widgets</Text>
+            <Switch
+              value={widgetsEnabled}
+              onValueChange={handleWidgetsToggle}
+              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              thumbColor="#ffffff"
+              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* ═══ General Preferences ═══ */}
@@ -372,9 +432,116 @@ export default function ProfileScreen() {
           </View>
         </View>
 
+        {/* ═══ MCP ═══ */}
+        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>MCP</Text>
+        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.borderColor }]}>
+          {/* Connect MCP */}
+          <TouchableOpacity
+            style={styles.prefRow}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+            onPress={isPro ? openMcpConnections : () => router.push('/paywall')}
+          >
+            <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
+              <MaterialCommunityIcons name="power-plug" size={18} color={theme.textSecondary} />
+            </View>
+            {isPro ? (
+              <>
+                <Text style={[styles.prefLabel, { color: theme.textPrimary }]} numberOfLines={1}>Connect MCP</Text>
+                <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+              </>
+            ) : (
+              <View style={styles.mcpLabelRow}>
+                <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
+                  Connect MCP
+                </Text>
+                <View style={styles.mcpProPill}>
+                  <Text style={styles.mcpProPillText}>Requires Pro</Text>
+                </View>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {isPro && (
+            <>
+              <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
+
+              {/* MCP Credits */}
+              <TouchableOpacity
+                style={styles.prefRow}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                onPress={() => router.push('/mcp-credits' as any)}
+              >
+                <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
+                  <Ionicons name="flash" size={18} color={theme.textSecondary} />
+                </View>
+                <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
+                  MCP Credits
+                </Text>
+                <View style={styles.mcpValueRow}>
+                  <McpValue
+                    part={mcp}
+                    text={
+                      mcp.data?.balance != null
+                        ? `${mcp.data.balance.toLocaleString('en-US')} left`
+                        : 'Unavailable'
+                    }
+                    color={theme.textSecondary}
+                  />
+                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                </View>
+              </TouchableOpacity>
+              <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
+
+              {/* Connected apps */}
+              <TouchableOpacity
+                style={styles.prefRow}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+                onPress={openMcpConnections}
+              >
+                <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
+                  <Ionicons name="link" size={18} color={theme.textSecondary} />
+                </View>
+                <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
+                  Connected apps
+                </Text>
+                <View style={styles.mcpValueRow}>
+                  <McpValue
+                    part={mcp}
+                    text={mcp.data ? formatMcpApps(mcp.data.apps) : ''}
+                    color={theme.textSecondary}
+                  />
+                  <Ionicons name="chevron-forward" size={16} color={theme.textSecondary} />
+                </View>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+        {!isPro && (
+          <Text style={[styles.mcpCaption, { color: theme.textSecondary }]}>
+            Connect Focalyst to ChatGPT and Claude. Available on Pro.
+          </Text>
+        )}
+
         {/* ═══ Support ═══ */}
         <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{t('settings.support')}</Text>
         <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.borderColor }]}>
+          {/* How to use Row (in-app browser; public page, nothing appended to the URL) */}
+          <TouchableOpacity
+            style={styles.supportRow}
+            activeOpacity={0.6}
+            accessibilityRole="link"
+            accessibilityLabel="How to use Focalyst, opens the guides"
+            onPress={() => WebBrowser.openBrowserAsync('https://focalyst.online/guides').catch(() => {})}
+          >
+            <Text style={[styles.supportLabel, { color: theme.textPrimary }]}>How to use</Text>
+            <Ionicons name="chevron-forward" size={18} color={theme.textSecondary} />
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
+
           {/* Help & FAQ Accordion Row */}
           <TouchableOpacity
             style={styles.supportRow}
@@ -514,6 +681,25 @@ export default function ProfileScreen() {
       />
     </SafeAreaView>
   );
+}
+
+// ─── MCP trailing value: loader, "Unavailable" or the value ────────────────────
+function McpValue({
+  part,
+  text,
+  color,
+}: {
+  part: { data: unknown; loading: boolean; error: boolean };
+  text: string;
+  color: string;
+}) {
+  if (part.error) {
+    return <Text style={[styles.languageValue, styles.mcpValueText, { color }]} numberOfLines={1}>Unavailable</Text>;
+  }
+  if (part.data === null) {
+    return <ActivityIndicator size="small" color={color} />;
+  }
+  return <Text style={[styles.languageValue, styles.mcpValueText, { color }]} numberOfLines={1}>{text}</Text>;
 }
 
 // ─── Language Picker Modal ─────────────────────────────────────────────────────
@@ -773,6 +959,49 @@ const styles = StyleSheet.create({
   languageValue: {
     fontSize: 13,
     fontWeight: '500',
+  },
+
+  // MCP rows: the label keeps its width, the value takes what is left and truncates
+  mcpLabelFixed: {
+    flex: 0,
+    flexShrink: 0,
+    marginRight: 12,
+  },
+  mcpLabelRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  mcpValueRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+  },
+  mcpValueText: {
+    flexShrink: 1,
+    textAlign: 'right',
+  },
+  // Same colour, radius and weight as the PRO badge, slightly smaller and without the overlap border
+  mcpProPill: {
+    backgroundColor: ACCENT_ORANGE,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  mcpProPillText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  mcpCaption: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 8,
+    paddingHorizontal: 4,
   },
 
   // Support Row

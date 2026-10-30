@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../src/utils/supabase';
 import { useUser } from '../src/utils/UserContext';
+import { isProPlan } from '../src/utils/plan';
 import {
   initConnection,
   endConnection,
@@ -90,9 +91,10 @@ export default function PaywallScreen() {
             .single();
 
           if (profile) {
-            const isPaid = profile.plan && profile.plan !== 'free' && (!profile.plan_expires_at || new Date(profile.plan_expires_at) >= new Date());
-            if (isPaid) {
-              // User already has Pro by users.plan: native paywall never shows
+            const isPaid = isProPlan(profile.plan, profile.plan_expires_at);
+            if (isPaid && !profile.onboarding_done) {
+              // Onboarding gate only: a Pro account skips the paywall. Opened from Profile's
+              // Manage Plan it must stay on the plans list.
               router.replace('/(tabs)/plan' as any);
               return;
             }
@@ -308,7 +310,7 @@ export default function PaywallScreen() {
 
       // Reload the profile
       const updatedProfile = await refreshProfile();
-      const isPaid = updatedProfile?.plan && updatedProfile.plan !== 'free' && (!updatedProfile.plan_expires_at || new Date(updatedProfile.plan_expires_at) >= new Date());
+      const isPaid = !!updatedProfile?.isPro;
 
       if (isPaid || storeFound) {
         Alert.alert(

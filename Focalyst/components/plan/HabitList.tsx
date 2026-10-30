@@ -25,6 +25,8 @@ import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService'
 import { getHabitColorShades, HabitColorShades } from '../../src/utils/habitColorHelper';
 import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
+import { syncAllWidgetsFromApp } from '../../src/services/widgetSync';
+import { calculateHabitStreak } from '../../src/utils/streak';
 
 interface DayEntry {
   date: string;       // 'YYYY-MM-DD'
@@ -114,6 +116,18 @@ export default function HabitList({
   const { t } = useTranslation();
   const cachedHabits = userId ? (queryCache.getSync<any[]>(`user:${userId}:habits_v2`) || []) : [];
   const [habits, setHabits] = useState<any[]>(cachedHabits);
+
+  // Sync active habit streak and stats to Home Screen Widgets
+  useEffect(() => {
+    if (habits && habits.length > 0) {
+      const primary = habits[0];
+      syncAllWidgetsFromApp({
+        habitName: primary.name || 'Habit',
+        streakDays: primary.current_streak || 0,
+        totalDays: primary.total_days || primary.current_streak || 0,
+      });
+    }
+  }, [habits]);
   const [loading, setLoading] = useState(cachedHabits.length === 0);
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🎯');
@@ -212,10 +226,11 @@ export default function HabitList({
       const mappedHabits = activeHabits.map((h: any) => {
         const completedDatesSet = completionsMap[h.id] || new Set<string>();
         const completedDates = Array.from(completedDatesSet);
+        const { currentStreak, bestStreak } = calculateHabitStreak(h, completedDates, today);
         return {
           id: h.id,
           name: h.name,
-          current_streak: calculateStreak(completedDates, today),
+          current_streak: currentStreak,
           completed_today: completedDates.includes(today),
           completedDates,
           total_days: completedDatesSet.size,
@@ -224,7 +239,7 @@ export default function HabitList({
           color: h.color || '#3B82F6',
           frequency: h.frequency || 'daily',
           custom_days: h.custom_days,
-          longest_streak: h.longest_streak || 0,
+          longest_streak: bestStreak,
           position: h.position,
         };
       });
@@ -257,17 +272,17 @@ export default function HabitList({
     const habit = habits.find(h => h.id === id);
     const existingDates = Array.isArray(habit?.completedDates) ? habit.completedDates : [];
     const currentTotalDays = habit?.total_days ?? existingDates.length ?? 0;
+    const nextTotalDays = nextStatus ? currentTotalDays + 1 : Math.max(0, currentTotalDays - 1);
     
-    const nextTotalDays = nextStatus
-      ? currentTotalDays + 1
-      : Math.max(0, currentTotalDays - 1);
-    const nextStreak = nextStatus
-      ? (currentStreak || 0) + 1
-      : Math.max(0, (currentStreak || 1) - 1);
-
     const nextDates = nextStatus
       ? Array.from(new Set([...existingDates, today]))
       : existingDates.filter((d: string) => d !== today);
+
+    const { currentStreak: nextStreak, bestStreak: nextBestStreak } = calculateHabitStreak(
+      habit || { frequency: 'daily' },
+      nextDates,
+      today
+    );
     
     // Immediate 0ms optimistic UI update in React state
     const updatedHabits = habits.map(h => {
@@ -310,7 +325,7 @@ export default function HabitList({
 
         const { error: habitError } = await supabase
           .from('habits')
-          .update({ current_streak: nextStreak })
+          .update({ current_streak: nextStreak, longest_streak: nextBestStreak })
           .eq('id', id);
 
         if (habitError) throw habitError;
@@ -329,7 +344,7 @@ export default function HabitList({
 
         const { error: habitError } = await supabase
           .from('habits')
-          .update({ current_streak: nextStreak })
+          .update({ current_streak: nextStreak, longest_streak: nextBestStreak })
           .eq('id', id);
 
         if (habitError) throw habitError;

@@ -1,11 +1,19 @@
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import NetInfo from '@react-native-community/netinfo';
 
 const CACHE_PREFIX = '@focalyst_cache_';
 const QUEUE_STORAGE_KEY = '@focalyst_offline_queue_v1';
 const REMOTE_STATUS_CACHE_KEY = '@focalyst_remote_status_v1';
 
 export const CHECK_INTERVAL_SEC = 30;
+// While failures are adding up but no warning is shown yet, check sooner.
+const SUSPECT_INTERVAL_SEC = 15;
+const CHECK_TIMEOUT_MS = 10000;
+// The server warning needs this many network/5xx failures in a row, spread over at least
+// MIN_FAILURE_WINDOW_MS, while the device is online. One slow or failed request is not an outage.
+const FAILURES_BEFORE_WARNING = 3;
+const MIN_FAILURE_WINDOW_MS = 30000;
 
 export interface RemoteOutageConfig {
   forceOutageBanner: boolean;
@@ -27,6 +35,7 @@ export interface QueuedMutation {
 
 export interface OutageState {
   isOutage: boolean;
+  isOffline: boolean;
   secondsUntilNextCheck: number;
   isCheckingNow: boolean;
   pendingSyncCount: number;
@@ -36,10 +45,10 @@ export interface OutageState {
 
 const DEFAULT_REMOTE_CONFIG: RemoteOutageConfig = {
   forceOutageBanner: false,
-  title: 'Cloud Sync Temporarily Paused',
-  shortBannerText: "Something's wrong with cloud sync — Offline Mode active. Tap for details.",
+  title: 'Sync is paused',
+  shortBannerText: "Can't reach Focalyst right now",
   explainer:
-    'Our database provider is currently experiencing a temporary outage. You can keep using Focalyst normally — anything you log right now is saved safely on your iPhone and will sync automatically as soon as servers are back.',
+    "We can't reach Focalyst's servers right now. You can keep using the app; anything you add is saved on this iPhone and will sync automatically when the connection is back.",
   eta: 'Checking connection automatically every 30 seconds',
 };
 
@@ -48,6 +57,7 @@ const listeners = new Set<Listener>();
 
 let currentState: OutageState = {
   isOutage: false,
+  isOffline: false,
   secondsUntilNextCheck: CHECK_INTERVAL_SEC,
   isCheckingNow: false,
   pendingSyncCount: 0,
@@ -58,6 +68,78 @@ let currentState: OutageState = {
 let countdownTimer: ReturnType<typeof setInterval> | null = null;
 let supabaseClientRef: any = null;
 let appStateSubscription: any = null;
+let netInfoUnsubscribe: (() => void) | null = null;
+let consecutiveFailures = 0;
+let firstFailureAt: number | null = null;
+
+type CheckError = { status?: number; code?: string; message?: string; name?: string } | null | undefined;
+
+function errorText(error: CheckError): string {
+  return `${error?.name ?? ''} ${error?.message ?? ''}`;
+}
+
+// Expired or invalid sessions are not outages: refresh quietly and retry once.
+function isAuthError(error: CheckError): boolean {
+  if (!error) return false;
+  if (error.status === 401 || error.code === 'PGRST301' || error.code === 'PGRST303') return true;
+  return /jwt|refresh token|not authenticated|invalid claim/i.test(error.message ?? '');
+}
+
+// Only these count towards the server warning: no response at all, a timeout, or a 5xx.
+// 4xx answers (RLS, validation, conflicts) mean the server is up.
+function isNetworkOrServerError(error: CheckError): boolean {
+  if (!error) return false;
+  if (typeof error.status === 'number' && error.status >= 500) return true;
+  if (typeof error.status === 'number' && error.status >= 400) return false;
+  return /network|fetch|timeout|timed out|abort|SUPABASE_TIMEOUT/i.test(errorText(error));
+}
+
+function logCheckFailure(source: string, error: CheckError) {
+  if (!__DEV__) return;
+  // Postgres messages can quote row values, so only network-level messages are logged in full.
+  console.warn('[sync-check] failed', {
+    source,
+    status: error?.status ?? null,
+    code: error?.code ?? null,
+    message: error?.code ? undefined : String(error?.message ?? error?.name ?? '').slice(0, 120),
+    countsAsOutage: isNetworkOrServerError(error),
+  });
+}
+
+async function refreshSessionQuietly() {
+  try {
+    await supabaseClientRef?.auth?.refreshSession();
+  } catch {}
+}
+
+function recordSupabaseFailure(source: string, error: CheckError) {
+  logCheckFailure(source, error);
+  if (currentState.isOffline || !isNetworkOrServerError(error)) return;
+
+  const now = Date.now();
+  consecutiveFailures += 1;
+  if (firstFailureAt === null) firstFailureAt = now;
+
+  if (
+    !currentState.isOutage &&
+    consecutiveFailures >= FAILURES_BEFORE_WARNING &&
+    now - firstFailureAt >= MIN_FAILURE_WINDOW_MS
+  ) {
+    currentState.isOutage = true;
+    currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
+    void fetchExternalOutageMessage();
+    notifyListeners();
+  }
+}
+
+function recordSupabaseSuccess() {
+  consecutiveFailures = 0;
+  firstFailureAt = null;
+  if (currentState.isOutage && !currentState.remoteConfig.forceOutageBanner) {
+    currentState.isOutage = false;
+    notifyListeners();
+  }
+}
 
 function notifyListeners() {
   const snapshot = { ...currentState };
@@ -87,6 +169,20 @@ export async function initOutageResilience(supabaseClient: any) {
     });
   }
 
+  if (!netInfoUnsubscribe) {
+    netInfoUnsubscribe = NetInfo.addEventListener((netState) => {
+      // isInternetReachable is null until known; only a definite false means offline.
+      const offline = netState.isConnected === false || netState.isInternetReachable === false;
+      if (offline === currentState.isOffline) return;
+      currentState.isOffline = offline;
+      // Failures while offline say nothing about the servers.
+      consecutiveFailures = 0;
+      firstFailureAt = null;
+      notifyListeners();
+      if (!offline) void checkBackendHealthAndSync();
+    });
+  }
+
   try {
     const [queueRaw, cachedStatusRaw] = await Promise.all([
       AsyncStorage.getItem(QUEUE_STORAGE_KEY),
@@ -113,7 +209,7 @@ function startCountdownLoop() {
   if (countdownTimer) clearInterval(countdownTimer);
 
   countdownTimer = setInterval(() => {
-    if (!currentState.isOutage && currentState.pendingSyncCount === 0) {
+    if (!currentState.isOutage && currentState.pendingSyncCount === 0 && consecutiveFailures === 0) {
       currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
       return;
     }
@@ -213,13 +309,12 @@ export async function fetchExternalOutageMessage(): Promise<void> {
   }
 }
 
-export function reportSupabaseOutage() {
-  if (!currentState.isOutage) {
-    currentState.isOutage = true;
-    currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
-    void fetchExternalOutageMessage();
-    notifyListeners();
-  }
+function pingWithTimeout(): Promise<{ error: CheckError }> {
+  const pingPromise = supabaseClientRef.rpc('ping_health');
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error('Supabase health ping timeout')), CHECK_TIMEOUT_MS)
+  );
+  return Promise.race([pingPromise, timeoutPromise]) as Promise<{ error: CheckError }>;
 }
 
 export async function checkBackendHealthAndSync(): Promise<boolean> {
@@ -228,42 +323,40 @@ export async function checkBackendHealthAndSync(): Promise<boolean> {
 
   await fetchExternalOutageMessage();
 
-  if (!supabaseClientRef) {
+  if (!supabaseClientRef || currentState.isOffline) {
     currentState.isCheckingNow = false;
     notifyListeners();
     return false;
   }
 
   try {
-    const pingPromise = supabaseClientRef.rpc('ping_health');
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Supabase health ping timeout')), 5000)
-    );
+    let { error } = await pingWithTimeout();
+    if (error && isAuthError(error)) {
+      await refreshSessionQuietly();
+      ({ error } = await pingWithTimeout());
+    }
 
-    const { error } = (await Promise.race([pingPromise, timeoutPromise])) as any;
-
-    if (
-      error &&
-      (error.status >= 500 ||
-        error.message?.includes('FetchError') ||
-        error.message?.includes('Network') ||
-        error.message?.includes('timeout'))
-    ) {
+    if (error && isNetworkOrServerError(error)) {
       throw error;
+    }
+    if (error) {
+      // The server answered (for example a 4xx), so it is reachable.
+      logCheckFailure('ping_health', error);
     }
 
     await flushOfflineMutationQueue();
 
+    recordSupabaseSuccess();
     currentState.isOutage = Boolean(currentState.remoteConfig.forceOutageBanner);
     currentState.isCheckingNow = false;
     currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
     currentState.lastSyncedAt = new Date().toISOString();
     notifyListeners();
     return true;
-  } catch {
-    currentState.isOutage = true;
+  } catch (error: any) {
+    recordSupabaseFailure('ping_health', error);
     currentState.isCheckingNow = false;
-    currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
+    currentState.secondsUntilNextCheck = currentState.isOutage ? CHECK_INTERVAL_SEC : SUSPECT_INTERVAL_SEC;
     notifyListeners();
     return false;
   }
@@ -281,10 +374,17 @@ export async function fetchWithOfflineCache<T>(
   const storageKey = `${CACHE_PREFIX}${cacheKey}`;
 
   try {
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), 6000)
-    );
-    const { data, error } = await Promise.race([fetcher(), timeoutPromise]);
+    const fetchWithTimeout = () => {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('SUPABASE_TIMEOUT')), CHECK_TIMEOUT_MS)
+      );
+      return Promise.race([fetcher(), timeoutPromise]);
+    };
+    let { data, error } = await fetchWithTimeout();
+    if (error && isAuthError(error)) {
+      await refreshSessionQuietly();
+      ({ data, error } = await fetchWithTimeout());
+    }
 
     if (error) throw error;
 
@@ -295,8 +395,8 @@ export async function fetchWithOfflineCache<T>(
       }
       return data;
     }
-  } catch {
-    reportSupabaseOutage();
+  } catch (error: any) {
+    recordSupabaseFailure(`read:${cacheKey}`, error);
   }
 
   try {
@@ -328,9 +428,21 @@ export async function mutateWithOfflineQueue(
   if (!currentState.isOutage && supabaseClientRef) {
     try {
       await executeSingleMutation(mutation);
+      recordSupabaseSuccess();
       return { queuedOffline: false };
-    } catch {
-      reportSupabaseOutage();
+    } catch (error: any) {
+      let lastError = error;
+      if (isAuthError(error)) {
+        await refreshSessionQuietly();
+        try {
+          await executeSingleMutation(mutation);
+          recordSupabaseSuccess();
+          return { queuedOffline: false };
+        } catch (retryError: any) {
+          lastError = retryError;
+        }
+      }
+      recordSupabaseFailure(`write:${mutation.table}`, lastError);
     }
   }
 
@@ -343,7 +455,6 @@ export async function mutateWithOfflineQueue(
   });
   await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
   currentState.pendingSyncCount = queue.length;
-  reportSupabaseOutage();
   notifyListeners();
   return { queuedOffline: true };
 }

@@ -325,7 +325,7 @@ export default function NotesTab() {
 
   // Open the creation modal (Google Docs-style)
   function handleCreateNewNote() {
-    if (profile?.plan === 'free' && notes.length >= 5) {
+    if (profile && !profile.isPro && notes.length >= 5) {
       router.push('/paywall');
       return;
     }
@@ -474,7 +474,7 @@ export default function NotesTab() {
   });
 
   const FILTERS: NoteFilter[] = ['All', 'Notes', 'Favourite', 'Voice notes'];
-  const isVoiceNoteLocked = profile?.plan === 'free' && voiceNotes.length >= 2;
+  const isVoiceNoteLocked = !!profile && !profile.isPro && voiceNotes.length >= 2;
 
   if (loading) {
     return (

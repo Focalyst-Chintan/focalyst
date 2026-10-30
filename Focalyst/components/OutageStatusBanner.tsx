@@ -25,9 +25,29 @@ export const OutageStatusBanner: React.FC = () => {
     return subscribeOutageState(setState);
   }, []);
 
-  if (!state.isOutage) {
+  if (!state.isOutage && !state.isOffline) {
     return null;
   }
+
+  // Remote status text only applies when the status gist deliberately forces the banner.
+  const forced = state.remoteConfig.forceOutageBanner;
+  const showOffline = state.isOffline && !forced;
+  const sheetTitle = forced ? state.remoteConfig.title : showOffline ? "You're offline" : 'Sync is paused';
+  const sheetText = forced
+    ? state.remoteConfig.explainer
+    : showOffline
+      ? "Changes are saved on this iPhone and will sync when you're back online."
+      : "We can't reach Focalyst's servers right now. You can keep using the app; anything you add is saved on this iPhone and will sync automatically when the connection is back.";
+  const bannerTitle = forced
+    ? state.remoteConfig.shortBannerText
+    : showOffline
+      ? "You're offline."
+      : state.isCheckingNow
+        ? "Can't reach Focalyst right now · Retrying now"
+        : `Can't reach Focalyst right now · Retrying in ${state.secondsUntilNextCheck}s`;
+  const bannerSub = showOffline
+    ? "Changes are saved on this iPhone and will sync when you're back online."
+    : `Tap for details${state.pendingSyncCount > 0 ? ` · ${state.pendingSyncCount} saved on this iPhone` : ''}`;
 
   // Ensure banner content clears the iPhone Dynamic Island & Status Bar completely
   const topSafePadding =
@@ -44,15 +64,10 @@ export const OutageStatusBanner: React.FC = () => {
           <View style={styles.pulseDot} />
           <View style={styles.bannerTextWrap}>
             <Text numberOfLines={1} style={styles.bannerTitle}>
-              {state.remoteConfig.shortBannerText}
+              {bannerTitle}
             </Text>
-            <Text numberOfLines={1} style={styles.bannerSub}>
-              {state.isCheckingNow
-                ? 'Reconnecting now...'
-                : `Auto-retrying in ${state.secondsUntilNextCheck}s • Tap for status`}
-              {state.pendingSyncCount > 0
-                ? ` • ${state.pendingSyncCount} saved locally`
-                : ''}
+            <Text numberOfLines={showOffline ? 2 : 1} style={styles.bannerSub}>
+              {bannerSub}
             </Text>
           </View>
           <View style={styles.detailsPill}>
@@ -81,13 +96,11 @@ export const OutageStatusBanner: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalTitle}>{state.remoteConfig.title}</Text>
-            <Text style={styles.modalExplainer}>
-              {state.remoteConfig.explainer}
-            </Text>
+            <Text style={styles.modalTitle}>{sheetTitle}</Text>
+            <Text style={styles.modalExplainer}>{sheetText}</Text>
 
             <View style={styles.sectionBox}>
-              <Text style={styles.sectionHeading}>WHAT IS STILL WORKING</Text>
+              <Text style={styles.sectionHeading}>WHAT STILL WORKS</Text>
               <Text style={styles.checkItem}>
                 ✓ Viewing your Tasks, Habits, Notes & Focus history
               </Text>
@@ -100,7 +113,7 @@ export const OutageStatusBanner: React.FC = () => {
             </View>
 
             <View style={styles.sectionBox}>
-              <Text style={styles.sectionHeading}>YOUR DATA IS 100% SAFE</Text>
+              <Text style={styles.sectionHeading}>YOUR DATA IS SAFE</Text>
               <Text style={styles.safeText}>
                 {state.pendingSyncCount > 0
                   ? `You have ${state.pendingSyncCount} logged item(s) safely stored on your iPhone. They will sync to the cloud automatically as soon as the connection returns.`

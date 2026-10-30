@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { isProPlan } from './plan';
 
 export interface Level {
   level: number;
@@ -186,12 +187,12 @@ export async function fetchUserPlan(userId: string): Promise<'free' | 'pro'> {
   try {
     const { data: userData, error: userErr } = await supabase
       .from('users')
-      .select('plan')
+      .select('plan, plan_expires_at')
       .eq('id', userId)
       .single();
       
     if (!userErr && userData) {
-      if (userData.plan && userData.plan !== 'free') {
+      if (isProPlan(userData.plan, userData.plan_expires_at)) {
         return 'pro';
       }
     }
