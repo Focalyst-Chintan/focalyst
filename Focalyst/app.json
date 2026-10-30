@@ -2,7 +2,7 @@
   "expo": {
     "name": "Focalyst",
     "slug": "Focalyst",
-    "version": "1.1.1",
+    "version": "1.1.2",
     "orientation": "default",
     "icon": "./assets/images/app-icon.png",
     "scheme": "online.focalyst",
@@ -16,7 +16,7 @@
         "com.apple.developer.family-controls": true
       },
       "supportsTablet": false,
-      "buildNumber": "57",
+      "buildNumber": "58",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat.",
