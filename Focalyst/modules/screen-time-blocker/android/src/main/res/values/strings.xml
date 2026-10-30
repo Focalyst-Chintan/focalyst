@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="accessibility_service_label">Focalyst app blocking</string>
+  <string name="accessibility_service_description">Focalyst uses this service only to detect when you open an app you chose to block during a focus session and show the pause screen. No data is collected or shared.</string>
+</resources>

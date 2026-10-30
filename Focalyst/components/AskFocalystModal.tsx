@@ -28,6 +28,7 @@ import ChatBottomGlow from './ChatBottomGlow';
 import { fetchAuthorizedUserContext } from '../src/services/focalystContextService';
 import { sendChatMessageToGroq as sendChatMessageToOpenRouter } from '../src/services/openRouterService';
 import { useUser } from '../src/utils/UserContext';
+import { isProPlan } from '../src/utils/plan';
 
 // ─── Official Markdown Display Style Definitions ──────────────────────────────
 const markdownStyles = {
@@ -156,12 +157,12 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
         // Fetch users profile
         const { data: userData, error } = await supabase
           .from('users')
-          .select('plan, ai_message_count, last_message_date')
+          .select('plan, plan_expires_at, ai_message_count, last_message_date')
           .eq('id', user.id)
           .single();
 
         if (!error && userData) {
-          setPlan(userData.plan && userData.plan !== 'free' ? 'pro' : 'free');
+          setPlan(isProPlan(userData.plan, userData.plan_expires_at) ? 'pro' : 'free');
           
           const todayStr = new Date().toISOString().split('T')[0];
           const lastMsgDateStr = userData.last_message_date 

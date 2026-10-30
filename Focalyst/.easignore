@@ -1,0 +1,36 @@
+# Dependencies and caches (EAS installs these itself)
+node_modules/
+.expo/
+dist/
+web-build/
+.metro-health-check*
+*.tsbuildinfo
+
+# Native: the ios/ project IS uploaded (it holds the Screen Time extensions); its build output is not.
+ios/Pods/
+ios/build/
+ios/.xcode.env.local
+**/xcuserdata/
+# Root-anchored: only the generated project, never modules/*/android (local Expo module sources).
+/android/
+
+# Secrets and signing material never leave this machine
+.env
+.env.*
+*.p8
+*.p12
+*.key
+*.jks
+*.pem
+*.mobileprovision
+
+# Noise
+.DS_Store
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local Expo modules: keep their android/ and ios/ sources, never their build output.
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/

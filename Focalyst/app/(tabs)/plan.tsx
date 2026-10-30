@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,16 +11,25 @@ import {
   DeviceEventEmitter,
   Platform,
   Modal,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../src/utils/supabase';
+import { getFirstName } from '../../src/utils/displayName';
 import TaskCard from '../../components/TaskCard';
 import HabitList from '../../components/plan/HabitList';
 import HabitForm from '../../components/plan/HabitForm';
 import TaskForm from '../../components/plan/TaskForm';
 import HabitMilestoneModal, { STREAK_MILESTONES } from '../../components/plan/HabitMilestoneModal';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  consumeWidgetCompletedTaskIds,
+  formatDateDMY,
+  registerWidgetTaskCompleteHandler,
+  syncAllWidgetsFromApp,
+} from '../../src/services/widgetSync';
+import type { CalendarEventItem } from '../../src/widgets/types';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import {
   NestableScrollContainer,
@@ -163,14 +172,76 @@ export default function PlanTab() {
   const insets = useSafeAreaInsets();
   const { user, profile } = useUser();
   const currentUserId = user?.id || profile?.id || '';
+  // Follows the signed-in account directly, so a switch never shows the previous user's name.
+  const userName = useMemo(() => {
+    const ownProfile = profile && (!user?.id || profile.id === user.id) ? profile : null;
+    return getFirstName(ownProfile, user) ?? '';
+  }, [user?.id, user?.user_metadata, profile]);
 
   const [activeTab, setActiveTab] = useState<TabView>('today');
-  const [userName, setUserName] = useState<string>(profile?.full_name ? profile.full_name.split(' ')[0] : 'Sohan');
   const [userId, setUserId] = useState<string>(currentUserId);
 
   // Synchronous cache hydration: instantaneous 0ms display on tab switch
   const cachedTasks = currentUserId ? (queryCache.getSync<any[]>(`user:${currentUserId}:tasks`) || []) : [];
   const [tasks, setTasks] = useState<any[]>(cachedTasks);
+
+  // Sync To-Do list to Home Screen Widget
+  useEffect(() => {
+    if (tasks) {
+      syncAllWidgetsFromApp({
+        tasks: tasks.map((t) => ({
+          id: String(t.id),
+          title: t.title || 'Task',
+          completed: !!t.is_completed,
+        })),
+      });
+    }
+  }, [tasks]);
+
+  // Bi-directional To-Do Completion from Home Screen Widget
+  useEffect(() => {
+    const processCompletedWidgetTasks = async (completedIds: string[]) => {
+      if (!completedIds || completedIds.length === 0) return;
+      const idsSet = new Set(completedIds.map(String));
+
+      // Mark completed in Supabase for all uncompleted matching tasks
+      try {
+        await supabase
+          .from('tasks')
+          .update({
+            is_completed: true,
+            completed_at: new Date().toISOString(),
+          })
+          .in('id', Array.from(idsSet));
+      } catch (err) {
+        console.warn('Error marking widget-completed tasks in DB:', err);
+      }
+
+      setTasks((prev) => {
+        const next = prev.filter((t) => !idsSet.has(String(t.id)));
+        if (userId) {
+          queryCache.setSync(`user:${userId}:tasks`, next);
+        }
+        return next;
+      });
+    };
+
+    // Check on mount if any tasks were ticked on the widget while app was closed
+    consumeWidgetCompletedTaskIds().then((ids) => {
+      if (ids && ids.length > 0) {
+        processCompletedWidgetTasks(ids);
+      }
+    });
+
+    // Register active listener for tasks ticked on widget while app is running/foregrounded
+    const unsub = registerWidgetTaskCompleteHandler(async (completedIds) => {
+      await processCompletedWidgetTasks(completedIds);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [userId]);
   const [loading, setLoading] = useState(cachedTasks.length === 0 && !profile);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const router = useRouter();
@@ -208,6 +279,25 @@ export default function PlanTab() {
     const sub = DeviceEventEmitter.addListener('themeChanged', (newVal: boolean) => {
       setDarkMode(newVal);
     });
+    return () => sub.remove();
+  }, []);
+
+  // Deep linking and query param handling for ?view=calendar
+  useEffect(() => {
+    if (params?.view === 'calendar') {
+      setActiveTab('calendar');
+    }
+  }, [params?.view]);
+
+  useEffect(() => {
+    const handleUrl = (url: string | null) => {
+      if (url && url.includes('view=calendar')) {
+        setActiveTab('calendar');
+      }
+    };
+
+    Linking.getInitialURL().then(handleUrl).catch(() => {});
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => sub.remove();
   }, []);
 
@@ -318,7 +408,14 @@ export default function PlanTab() {
       );
 
       if (freshTasks) {
-        setTasks(freshTasks);
+        const seen = new Set<string>();
+        const unique = freshTasks.filter((t: any) => {
+          const idStr = String(t.id);
+          if (seen.has(idStr)) return false;
+          seen.add(idStr);
+          return true;
+        });
+        setTasks(unique);
       }
     } catch (e) {
       console.error('Error fetching tasks:', e);
@@ -491,6 +588,62 @@ export default function PlanTab() {
     return false;
   };
 
+  const syncCalendarEventsToWidget = (rawRemindersList: any[]) => {
+    try {
+      const today = new Date();
+      const todayYMD = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      const selectedYMD = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
+
+      const getCategoryAccent = (tag?: string, customColor?: string) => {
+        // If a reminder has an explicit custom color property, use that first
+        if (customColor && customColor.trim().length > 0) {
+          return customColor;
+        }
+        const lowerTag = (tag || '').toLowerCase();
+        if (lowerTag.includes('work')) return '#3B82F6';
+        if (lowerTag.includes('urgent') || lowerTag.includes('travel')) return '#EF4444';
+        if (lowerTag.includes('study')) return '#8B5CF6';
+        if (lowerTag.includes('personal')) return '#F97316';
+        if (lowerTag.includes('health')) return '#10B981';
+        return '#3B82F6';
+      };
+
+      const formatTime = (starts?: string, ends?: string, allDayVal?: boolean) => {
+        if (allDayVal) return 'All-day';
+        if (starts && ends) return `${starts} - ${ends}`;
+        if (starts) return starts;
+        return 'All-day';
+      };
+
+      // Filter events occurring today
+      const todayReminders = (rawRemindersList || []).filter(
+        (r: any) => !r.is_completed && !r.isCompleted && doesReminderOccurOnDate(r, todayYMD)
+      );
+
+      // If today has no uncompleted events, fallback to selected/upcoming date's events
+      const targetReminders =
+        todayReminders.length > 0
+          ? todayReminders
+          : (rawRemindersList || []).filter(
+              (r: any) => !r.is_completed && !r.isCompleted && doesReminderOccurOnDate(r, selectedYMD)
+            );
+
+      const mappedEvents: CalendarEventItem[] = targetReminders.map((r: any) => ({
+        id: String(r.id),
+        title: r.title || 'Untitled Event',
+        timeLabel: formatTime(r.start_time || r.starts, r.end_time || r.ends, r.all_day ?? r.allDay),
+        category: r.tag || 'Work',
+        accentColor: getCategoryAccent(r.tag, r.color),
+        completed: !!(r.is_completed ?? r.isCompleted),
+        dateIso: r.day || todayYMD,
+      }));
+
+      syncAllWidgetsFromApp({ calendarEvents: mappedEvents });
+    } catch (e) {
+      console.warn('Error syncing calendar events to widget:', e);
+    }
+  };
+
   const fetchReminders = async () => {
     try {
       const { data: authData } = await supabase.auth.getUser();
@@ -506,6 +659,37 @@ export default function PlanTab() {
       if (error) throw error;
       if (data) {
         setAllUserReminders(data);
+
+        // Sync nearest future reminder / Audit countdown to CountdownWidget
+        try {
+          const nowMs = Date.now();
+          const validReminders = (data || []).map((r: any) => {
+            let dateStr = r.day;
+            if (r.start_time && String(r.start_time).includes(':')) {
+              const timePart = String(r.start_time).length === 5 ? `${r.start_time}:00` : r.start_time;
+              dateStr = `${r.day}T${timePart}`;
+            }
+            const tMs = new Date(dateStr).getTime();
+            return { ...r, targetMs: isNaN(tMs) ? 0 : tMs, dateStr };
+          });
+
+          const auditRem = validReminders.find((r: any) => 
+            (r.title && r.title.toLowerCase().includes('audit')) || 
+            (r.description && r.description.toLowerCase().includes('audit'))
+          );
+          const nextRem = auditRem || validReminders.filter((r: any) => r.targetMs > nowMs).sort((a: any, b: any) => a.targetMs - b.targetMs)[0];
+
+          if (nextRem) {
+            syncAllWidgetsFromApp({
+              countdown: {
+                title: nextRem.title || nextRem.description || 'Audit',
+                dateLabel: formatDateDMY(nextRem.dateStr),
+                targetDateIso: new Date(nextRem.targetMs || nextRem.dateStr).toISOString(),
+              },
+            });
+          }
+        } catch {}
+
         const selectedDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
         const activeRems = data.filter((item: any) => doesReminderOccurOnDate(item, selectedDate));
         const mapped = activeRems.map((item: any) => ({
@@ -526,6 +710,9 @@ export default function PlanTab() {
         }));
         setReminders(mapped);
         setDbError(null);
+
+        // Sync calendar events to CalendarWidget
+        syncCalendarEventsToWidget(data);
       }
     } catch (e: any) {
       console.warn('Error fetching reminders:', e);
@@ -540,14 +727,18 @@ export default function PlanTab() {
   useEffect(() => {
     if (currentUserId) {
       setUserId(currentUserId);
-      if (profile?.full_name) {
-        setUserName(profile.full_name.split(' ')[0]);
-      }
       setLoading(false);
       // Hydrate from memory or disk snapshot immediately (0ms render)
       queryCache.getOrHydrate<any[]>(`user:${currentUserId}:tasks`).then((cached) => {
         if (cached && cached.length > 0) {
-          setTasks(cached);
+          const seen = new Set<string>();
+          const unique = cached.filter((t: any) => {
+            const idStr = String(t.id);
+            if (seen.has(idStr)) return false;
+            seen.add(idStr);
+            return true;
+          });
+          setTasks(unique);
         }
       });
       // Parallelize tasks and reminders fetch with Promise.all
@@ -557,7 +748,7 @@ export default function PlanTab() {
         fetchTodaysEventCount(),
       ]).catch((e) => console.warn('[PlanTab] Parallel fetch warning:', e));
     }
-  }, [currentUserId, profile?.full_name]);
+  }, [currentUserId]);
 
   useEffect(() => {
     async function checkSundayReport() {
@@ -633,6 +824,11 @@ export default function PlanTab() {
   const handleToggleReminderComplete = async (rem: Reminder) => {
     const updatedStatus = !rem.isCompleted;
     setReminders(prev => prev.map(r => r.id === rem.id ? { ...r, isCompleted: updatedStatus } : r));
+    setAllUserReminders(prev => {
+      const updated = prev.map(r => r.id === rem.id ? { ...r, is_completed: updatedStatus } : r);
+      syncCalendarEventsToWidget(updated);
+      return updated;
+    });
     try {
       await supabase
         .from('reminders')
@@ -1014,7 +1210,8 @@ export default function PlanTab() {
     <View style={styles.headerWrapper}>
       {/* Header Greeting */}
       <Text style={[styles.greetingText, { color: theme.textPrimary }]}>
-        {t(getGreetingKey())}, {userName}
+        {t(getGreetingKey())}
+        {userName ? `, ${userName}` : '.'}
       </Text>
 
       {/* Tab Toggle Row */}

@@ -14,6 +14,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 interface XpEvent {
   amount: number;
   source: string;
+  /** Left pill text; defaults to "+{amount} XP" */
+  badge?: string;
+  /** Wait for the toast on screen to finish instead of replacing it (used by the MCP bonus) */
+  queue?: boolean;
 }
 
 export default function XpPopup() {
@@ -21,15 +25,25 @@ export default function XpPopup() {
   const translateY = useSharedValue(-120);
   const opacity = useSharedValue(0);
   const [display, setDisplay] = React.useState<XpEvent | null>(null);
-
-  const hidePopup = () => {
-    setDisplay(null);
-  };
+  const showingRef = React.useRef(false);
+  const queueRef = React.useRef<XpEvent[]>([]);
 
   useEffect(() => {
     let hideTimer: any = null;
 
-    const sub = DeviceEventEmitter.addListener('showXpPopup', (event: XpEvent) => {
+    const hidePopup = () => {
+      // Show the next queued toast, if any, once this one has fully left the screen
+      const next = queueRef.current.shift();
+      if (next) {
+        showPopup(next);
+        return;
+      }
+      showingRef.current = false;
+      setDisplay(null);
+    };
+
+    const showPopup = (event: XpEvent) => {
+      showingRef.current = true;
       setDisplay(event);
 
       // Cancel any ongoing animations before restarting
@@ -55,6 +69,14 @@ export default function XpPopup() {
       hideTimer = setTimeout(() => {
         runOnJS(hidePopup)();
       }, 2200);
+    };
+
+    const sub = DeviceEventEmitter.addListener('showXpPopup', (event: XpEvent) => {
+      if (event.queue && showingRef.current) {
+        queueRef.current.push(event);
+        return;
+      }
+      showPopup(event);
     });
 
     return () => {
@@ -83,7 +105,7 @@ export default function XpPopup() {
     >
       <View style={styles.pill}>
         <View style={styles.xpBadge}>
-          <Text style={styles.xpAmount}>+{display.amount} XP</Text>
+          <Text style={styles.xpAmount}>{display.badge ?? `+${display.amount} XP`}</Text>
         </View>
         <View style={styles.divider} />
         <Text style={styles.sourceText}>{display.source}</Text>

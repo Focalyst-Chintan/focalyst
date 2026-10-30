@@ -268,7 +268,7 @@ export default function HabitForm({
       if (remindersEnabled && durationMinutes) extendedPayload.duration_minutes = durationMinutes;
 
       // Free plan habit limit check
-      if (!editingHabit && profile?.plan === 'free') {
+      if (!editingHabit && profile && !profile.isPro) {
         const { count, error: countError } = await supabase
           .from('habits')
           .select('id', { count: 'exact', head: true })
