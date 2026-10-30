@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
+import { normalizeReminderRow, normalizeReminderRows, toDbRepeat, toDbCustomUnit } from '@/lib/utils/reminders'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/lib/data/useData'
 import { useSWRConfig } from 'swr'
@@ -202,14 +203,14 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
         if (!user) return []
         const { data, error } = await supabase
             .from('reminders')
-            .select('id, user_id, title, description, date, start_time, end_time, all_day, repeat, custom_interval, is_completed, is_starred')
+            .select('*')
             .eq('user_id', user.id)
 
         if (error) {
             console.error('Error fetching user reminders:', error)
             throw error
         }
-        return (data || []) as ReminderItem[]
+        return normalizeReminderRows(data) as ReminderItem[]
     }, [user, supabase])
 
     const remindersKey = user ? `reminders:${user.id}` : null
@@ -418,45 +419,81 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error('Please sign in to save reminders.')
 
+            const dbRepeat = toDbRepeat(formRepeat)
+            const isCustom = dbRepeat === 'Custom'
             const payload: any = {
                 user_id: user.id,
                 title: trimmed,
                 description: formDescription.trim() || null,
-                date: selectedYMD,
+                day: selectedYMD,
                 start_time: formStartTime,
                 end_time: formEndTime,
                 all_day: formAllDay,
-                repeat: formRepeat,
-                custom_interval: formRepeat === 'custom' ? formCustomInterval : null,
-                custom_frequency: formRepeat === 'custom' ? formCustomFreq : null,
+                repeat: dbRepeat,
+                repeat_mode: dbRepeat,
+                custom_every: isCustom ? formCustomInterval : null,
+                custom_unit: isCustom ? toDbCustomUnit(formCustomFreq) : null,
                 tag: formCategory,
                 color: formColor,
             }
 
+            // Columns from the base reminders migration, used if optional columns are missing
+            const corePayload = {
+                user_id: user.id,
+                title: trimmed,
+                all_day: formAllDay,
+                day: selectedYMD,
+                start_time: formStartTime,
+                end_time: formEndTime,
+                repeat: dbRepeat,
+            }
+
+            const isMissingColumnError = (err: any) =>
+                err && (err.code === 'PGRST204' || err.code === '42703' || err.message?.toLowerCase().includes('column'))
+
             if (editingReminder) {
-                const { data, error } = await supabase
+                let { data, error } = await supabase
                     .from('reminders')
                     .update(payload)
                     .eq('id', editingReminder.id)
                     .select()
                     .single()
 
+                if (isMissingColumnError(error)) {
+                    const res = await supabase
+                        .from('reminders')
+                        .update(corePayload)
+                        .eq('id', editingReminder.id)
+                        .select()
+                        .single()
+                    data = res.data
+                    error = res.error
+                }
                 if (error) throw error
 
-                setReminders(prev => prev.map(r => r.id === editingReminder.id ? (data as ReminderItem) : r))
+                setReminders(prev => prev.map(r => r.id === editingReminder.id ? (normalizeReminderRow(data) as ReminderItem) : r))
             } else {
                 payload.is_completed = false
                 payload.is_starred = false
 
-                const { data, error } = await supabase
+                let { data, error } = await supabase
                     .from('reminders')
                     .insert(payload)
                     .select()
                     .single()
 
+                if (isMissingColumnError(error)) {
+                    const res = await supabase
+                        .from('reminders')
+                        .insert(corePayload)
+                        .select()
+                        .single()
+                    data = res.data
+                    error = res.error
+                }
                 if (error) throw error
 
-                setReminders(prev => [...prev, data as ReminderItem])
+                setReminders(prev => [...prev, normalizeReminderRow(data) as ReminderItem])
             }
 
             // Schedule 3-stage notifications
