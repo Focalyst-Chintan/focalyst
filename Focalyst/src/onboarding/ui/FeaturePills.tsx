@@ -50,7 +50,7 @@ const PILLS: Pill[] = [
   { label: 'Focalyst AI', icon: Sparkles, color: '#818CF8', tint: '#C7D2FE', shade: '#3730A3' },
   { label: 'Widgets', icon: LayoutGrid, color: '#2DD4BF', tint: '#99F6E4', shade: '#115E59' },
   { label: 'App blocking', icon: ShieldCheck, color: '#F87171', tint: '#FECACA', shade: '#991B1B' },
-  { label: 'Claude and ChatGPT', icon: Plug, color: '#CBD5E1', tint: '#E2E8F0', shade: '#334155' },
+  { label: 'MCP server', icon: Plug, color: '#CBD5E1', tint: '#E2E8F0', shade: '#334155' },
 ];
 
 const A11Y_LABEL = `Focalyst features: ${PILLS.map((p) => p.label.toLowerCase()).join(', ')}.`;

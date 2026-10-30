@@ -132,7 +132,6 @@ function Welcome({ goNext, openSignIn }: ScreenProps) {
           <Text accessibilityRole="header" style={[styles.welcomeTitle, { color: t.ink }]}>
             Own your time.
           </Text>
-          <Text style={[styles.welcomeLine, { color: t.ink2 }]}>Productivity and mindful living.</Text>
         </View>
       </View>
     </StepLayout>
@@ -471,7 +470,6 @@ const styles = StyleSheet.create({
   icon: { width: 88, height: 88, borderRadius: 20 },
   wordmark: { fontSize: 13, fontWeight: '600', letterSpacing: 13 * 0.35, marginBottom: 12 },
   welcomeTitle: { fontSize: 44, lineHeight: 48, fontWeight: '700', letterSpacing: -0.8 },
-  welcomeLine: { fontSize: 17, lineHeight: 24, marginTop: 10 },
   legal: { flexDirection: 'row', justifyContent: 'center', marginTop: 4 },
   legalText: { fontSize: 12, lineHeight: 18, paddingVertical: 4 },
   greetingSlot: { height: 24, marginBottom: 8, justifyContent: 'center' },
