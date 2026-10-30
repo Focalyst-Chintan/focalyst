@@ -8,6 +8,7 @@ import { useData } from '@/lib/data/useData'
 import { useSWRConfig } from 'swr'
 import { emitDataChanged } from '@/lib/events'
 import { useToast } from '@/components/desktop/ui/Toast'
+import { normalizeReminderRows, logReminderQueryError } from '@/lib/utils/reminders'
 import {
     ChevronLeft,
     ChevronRight,
@@ -200,16 +201,19 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
     // Fetch all user reminders with user_id to satisfy RLS
     const fetchUserReminders = useCallback(async (): Promise<ReminderItem[]> => {
         if (!user) return []
+        // select('*'): the date column is `day`, and naming a column that
+        // doesn't exist fails the whole query. Rows are normalised so `date`
+        // and the custom repeat fields are set for every format.
         const { data, error } = await supabase
             .from('reminders')
-            .select('id, user_id, title, description, date, start_time, end_time, all_day, repeat, custom_interval, is_completed, is_starred')
+            .select('*')
             .eq('user_id', user.id)
 
         if (error) {
-            console.error('Error fetching user reminders:', error)
+            logReminderQueryError(error)
             throw error
         }
-        return (data || []) as ReminderItem[]
+        return normalizeReminderRows(data) as ReminderItem[]
     }, [user, supabase])
 
     const remindersKey = user ? `reminders:${user.id}` : null

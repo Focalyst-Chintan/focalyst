@@ -17,7 +17,7 @@ import { AccountabilitySection } from './AccountabilitySection';
 
 export function HabitsView() {
   const { habits, loading, error, refreshData, updateHabit, deleteHabit } = usePlan();
-  const { setContextPanel, setIsContextPanelOpen } = useDesktopShell();
+  const { setContextPanel, isContextPanelOpen, setIsContextPanelOpen } = useDesktopShell();
   const { open: openCreate } = useCreate();
   const { user } = useAuth();
   const supabase = createClient();
@@ -64,7 +64,14 @@ export function HabitsView() {
     return list;
   }, [todayStr]);
 
-  // Selected habit
+  // Closing the details panel (X, Esc, ⌘ .) clears the selection
+  useEffect(() => {
+    if (!isContextPanelOpen) setSelectedHabitId(null);
+  }, [isContextPanelOpen]);
+
+  // The habit the details panel describes. Nothing is selected by default; the
+  // first habit only backs the panel content so ⌘ . has something to open.
+  // The panel itself opens only on a habit click or ⌘ .
   const selectedHabit = useMemo(() => {
     if (!habits || habits.length === 0) return null;
     return habits.find((h) => h.id === selectedHabitId) || habits[0];
@@ -240,14 +247,12 @@ export function HabitsView() {
         </div>
       </div>
     );
-    setIsContextPanelOpen(true);
   }, [
     selectedHabit,
     habitLogs,
     habitStats,
     heatmapYear,
     setContextPanel,
-    setIsContextPanelOpen,
     openCreate,
     deleteHabit,
   ]);
@@ -295,7 +300,7 @@ export function HabitsView() {
   return (
     <div className="flex flex-col gap-2 w-full">
       {habits.map((habit) => {
-        const isSelected = selectedHabit?.id === habit.id;
+        const isSelected = isContextPanelOpen && selectedHabit?.id === habit.id;
         const habitColor = habit.color || '#1951FC';
 
         const scheduleLabel = habit.all_days
@@ -327,7 +332,10 @@ export function HabitsView() {
         return (
           <div
             key={habit.id}
-            onClick={() => setSelectedHabitId(habit.id)}
+            onClick={() => {
+              setSelectedHabitId(habit.id);
+              setIsContextPanelOpen(true);
+            }}
             className={`group relative h-16 rounded-[16px] frost pl-4 pr-4 flex items-center gap-3.5 cursor-pointer transition-all duration-150 hover:-translate-y-px hover:border-line-strong ${
               isSelected ? 'border-primary/40 shadow-sm' : ''
             }`}

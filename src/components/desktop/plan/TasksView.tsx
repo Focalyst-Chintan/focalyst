@@ -26,7 +26,7 @@ const PRIORITY_COLORS: Record<Priority, string> = {
 
 export function TasksView() {
   const { tasks, loading, error, refreshData, addTask, updateTask, deleteTask, reorderTasks } = usePlan();
-  const { setContextPanel, setIsContextPanelOpen, composerFocusTrigger } = useDesktopShell();
+  const { setContextPanel, isContextPanelOpen, setIsContextPanelOpen, composerFocusTrigger } = useDesktopShell();
 
   const [composerText, setComposerText] = useState('');
   const [composerDate, setComposerDate] = useState<string>(localDateStr());
@@ -35,6 +35,11 @@ export function TasksView() {
   const [newTagInput, setNewTagInput] = useState('');
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  // Closing the details panel (X, Esc, ⌘ .) clears the selection
+  useEffect(() => {
+    if (!isContextPanelOpen) setSelectedTaskId(null);
+  }, [isContextPanelOpen]);
   const composerInputRef = useRef<HTMLInputElement>(null);
 
   // Collapsed groups stored in localStorage
@@ -303,7 +308,6 @@ export function TasksView() {
         </div>
       </div>
     );
-    setIsContextPanelOpen(true);
   }, [
     selectedTask,
     editorTitle,
@@ -316,7 +320,6 @@ export function TasksView() {
     triggerAutosave,
     deleteTask,
     setContextPanel,
-    setIsContextPanelOpen,
   ]);
 
   const handleCreateTask = (e: React.FormEvent) => {
@@ -434,7 +437,10 @@ export function TasksView() {
                         onDragEnter={() => handleDragEnter(t)}
                         onDragEnd={handleDragEnd}
                         onDragOver={(e) => e.preventDefault()}
-                        onClick={() => setSelectedTaskId(t.id)}
+                        onClick={() => {
+                          setSelectedTaskId(t.id);
+                          setIsContextPanelOpen(true);
+                        }}
                         className={`h-11 rounded-[12px] px-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
                           isSelected ? 'bg-surface-2 border border-line-strong' : 'hover:bg-surface-2'
                         }`}
