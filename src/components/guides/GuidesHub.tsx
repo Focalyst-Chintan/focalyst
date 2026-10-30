@@ -64,7 +64,29 @@ export function GuidesHub({ cards, basePath }: { cards: GuideCardData[]; basePat
             leftIcon={<Search size={16} />}
           />
         </div>
-        <div className="fx-no-scrollbar -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        {/* Phones: chips wrap so every category fits the same width as the search box */}
+        <div role="tablist" aria-label="Categories" className="flex max-w-[520px] flex-wrap gap-2 sm:hidden">
+          {FILTERS.map((f) => {
+            const active = f.value === filter;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(f.value)}
+                className={`h-9 rounded-full border px-4 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] ${
+                  active
+                    ? 'border-primary/40 bg-primary-soft text-primary-text'
+                    : 'border-line bg-surface-2/70 text-ink-2 hover:text-ink'
+                }`}
+              >
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="hidden sm:block">
           <SegmentedControl value={filter} onChange={setFilter} options={FILTERS} />
         </div>
       </div>
