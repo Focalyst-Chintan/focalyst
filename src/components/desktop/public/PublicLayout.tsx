@@ -15,6 +15,7 @@ const NAV_LINKS = [
   { href: '/blog', label: 'Blog' },
   { href: '/mcp-preview', label: 'MCP' },
   { href: '/about', label: 'About' },
+  { href: '/guides', label: 'Guides' },
 ];
 
 export default function PublicLayout({
@@ -66,7 +67,7 @@ export default function PublicLayout({
           {/* Desktop Center Links */}
           <div className="hidden md:flex items-center gap-7">
             {NAV_LINKS.map((link) => {
-              const active = pathname === link.href;
+              const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
               return (
                 <Link
                   key={link.href}
