@@ -36,7 +36,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react-native';
-import type { BestFocusTime, LifeStage, OnboardingAnswers, ProfileType } from './draft';
+import type { BestFocusTime, LifeStage, OnboardingAnswers, OnboardingReport, ProfileType } from './draft';
 import type { StepId } from './steps';
 import {
   APP_OPTIONS,
@@ -56,6 +56,8 @@ import { GhostButton, GlassCard, IconTile, PrimaryButton } from './ui/primitives
 import { BenefitCards, Chip, Chips, PhoneHoursSlider, SingleChoice, Statement, Subtitle, TextField, Title } from './ui/patterns';
 import { FeaturePills } from './ui/FeaturePills';
 import { useOnboardingTheme } from './ui/theme';
+import { SETUP_SCREENS } from './setupScreens';
+import { REPORT_SCREENS } from './reportScreens';
 
 export interface ScreenProps {
   step: StepId;
@@ -67,6 +69,13 @@ export interface ScreenProps {
   /** A first name from an existing account, never an email. */
   suggestedName?: string;
   openSignIn: () => void;
+  /** Before sign-in everyone counts as free; after sign-in, the existing Pro check. */
+  isPro: boolean;
+  report: OnboardingReport | null;
+  setReport: (report: OnboardingReport) => void;
+  /** Keys of count-ups that already ran. */
+  countedUp: string[];
+  markCountedUp: (key: string) => void;
 }
 
 // ─── Chapter 1 · Welcome ───────────────────────────────────────────────────────
@@ -411,7 +420,7 @@ function BestTime({ answers, update, goNext }: ScreenProps) {
   );
 }
 
-// ─── Screens 15 onwards arrive in P2 and P3 ────────────────────────────────────
+// ─── Screens 27 onwards arrive in P3 ────────────────────────────────────
 
 function ComingSoon() {
   return (
@@ -419,7 +428,7 @@ function ComingSoon() {
       <View style={styles.soon}>
         <IconTile icon={Construction} size={72} iconSize={32} />
       </View>
-      <Statement title="Coming soon." line="The rest of your plan setup arrives in the next update." />
+      <Statement title="Coming soon." line="Saving your plan arrives in the next update." />
     </StepLayout>
   );
 }
@@ -439,6 +448,8 @@ const SCREENS: Partial<Record<StepId, (props: ScreenProps) => React.ReactElement
   12: GotIt,
   13: DriftTime,
   14: BestTime,
+  ...SETUP_SCREENS,
+  ...REPORT_SCREENS,
 };
 
 export function OnboardingScreen(props: ScreenProps) {

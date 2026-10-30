@@ -125,8 +125,11 @@ export function GradientText({
   fontWeight = '700',
   colors,
   style,
+  sizeText,
 }: {
   text: string;
+  /** Sizes the box, so a counting-up number doesn't resize every frame. */
+  sizeText?: string;
   fontSize: number;
   fontWeight?: TextStyle['fontWeight'];
   colors?: [string, string];
@@ -137,13 +140,13 @@ export function GradientText({
   const [from, to] = colors ?? t.gradLine;
   const textStyle: TextStyle = { fontSize, fontWeight, lineHeight: Math.round(fontSize * 1.15), letterSpacing: -1 };
   return (
-    <View accessible accessibilityLabel={text}>
+    <View accessible accessibilityLabel={sizeText ?? text}>
       {/* Invisible copy sets the box size; the SVG paints the gradient on top. */}
       <Text
         style={[textStyle, style, { opacity: 0 }]}
-        onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}
+        onLayout={(e) => setSize({ w: Math.ceil(e.nativeEvent.layout.width) + 2, h: e.nativeEvent.layout.height })}
       >
-        {text}
+        {sizeText ?? text}
       </Text>
       {size && (
         <Svg width={size.w} height={size.h} style={StyleSheet.absoluteFill}>

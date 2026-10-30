@@ -574,3 +574,35 @@ export function useNotifications(): UseNotificationsReturn {
     refreshPreferences,
   };
 }
+
+// ─── Daily focus reminder (onboarding) ────────────────────────────────────────
+
+export const DAILY_FOCUS_REMINDER_ID = 'focalyst-daily-focus';
+
+/**
+ * Schedules the daily focus reminder at a local HH:mm time. Scheduling it again
+ * replaces the previous one. Returns false when it couldn't be scheduled.
+ */
+export async function scheduleDailyFocusReminder(params: {
+  hour: number;
+  minute: number;
+  title: string;
+  body: string;
+}): Promise<boolean> {
+  try {
+    await Notifications.cancelScheduledNotificationAsync(DAILY_FOCUS_REMINDER_ID).catch(() => {});
+    await Notifications.scheduleNotificationAsync({
+      identifier: DAILY_FOCUS_REMINDER_ID,
+      content: { title: params.title, body: params.body, sound: true, data: { route: '/(tabs)/focus' } },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour: params.hour,
+        minute: params.minute,
+      },
+    });
+    return true;
+  } catch (e) {
+    console.warn('[Notifications] Failed to schedule the daily focus reminder:', e);
+    return false;
+  }
+}

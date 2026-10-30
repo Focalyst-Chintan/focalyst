@@ -1,4 +1,4 @@
-import type { AcquisitionSource, BestFocusTime, DriftMinutes, LifeStage, OnboardingAnswers, ProfileType } from './draft';
+import type { AcquisitionSource, BestFocusTime, DriftMinutes, HabitChoice, LifeStage, OnboardingAnswers, ProfileType } from './draft';
 
 // Copy for screens 1 to 14 (IOS_ONBOARDING_DESIGN.md section 4).
 // Sentence case, no em dashes, no exclamation marks.
@@ -92,4 +92,65 @@ export function gotItLine(answers: OnboardingAnswers): string {
 
   const target = apps.length > 0 ? 'them' : distractions.length === 2 ? 'both' : 'it';
   return `${lead}. We'll plan around ${target}.`;
+}
+
+// ─── Chapter 4 · Your setup ────────────────────────────────────────────────────
+
+export const HABIT_OPTIONS: HabitChoice[] = [
+  { name: 'Read 20 minutes', icon: '📚' },
+  { name: 'Revise notes', icon: '📝' },
+  { name: 'Workout', icon: '💪' },
+  { name: 'Meditate', icon: '🧘' },
+  { name: 'Drink water', icon: '💧' },
+  { name: 'Sleep by 11', icon: '🌙' },
+  { name: 'No phone for the first hour', icon: '📵' },
+  { name: 'Journal', icon: '✍️' },
+];
+
+/** The "Something else" option shows ➕; the saved custom habit gets this icon. */
+export const CUSTOM_HABIT_OPTION = '➕';
+export const CUSTOM_HABIT_ICON = '⭐';
+export const MAX_HABITS = 2;
+
+/** Students see "Revise notes" first. */
+export function habitOptions(answers: OnboardingAnswers): HabitChoice[] {
+  if (answers.profile_type !== 'student') return HABIT_OPTIONS;
+  const revise = HABIT_OPTIONS.find((h) => h.name === 'Revise notes')!;
+  return [revise, ...HABIT_OPTIONS.filter((h) => h !== revise)];
+}
+
+/** Screen 17 name, pre-filled from the life stage. */
+export function countdownNameFor(answers: OnboardingAnswers): string {
+  switch (answers.life_stage) {
+    case 'competitive_exam':
+      return 'My exam';
+    case 'school_exams':
+      return 'Board exams';
+    case 'college':
+      return 'Semester exams';
+    case 'degree':
+      return 'Final exams';
+    default:
+      return '';
+  }
+}
+
+export const GOAL_OPTIONS: { value: number; title: string }[] = [
+  { value: 60, title: '1 hour' },
+  { value: 120, title: '2 hours' },
+  { value: 180, title: '3 hours' },
+  { value: 240, title: '4 hours' },
+  { value: 360, title: '6 hours or more' },
+];
+
+/** Where habit groups live in the app. */
+export const GROUPS_LOCATION = 'Plan › Habits';
+
+/** Apps for sentences: names only, "Other" left out. */
+export function namedApps(answers: OnboardingAnswers): string[] {
+  return (answers.distracting_apps ?? []).filter((a) => a !== 'Other');
+}
+
+export function joinWithAnd(items: string[]): string {
+  return joinAnd(items);
 }

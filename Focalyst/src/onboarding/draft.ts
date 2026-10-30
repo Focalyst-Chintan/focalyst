@@ -49,8 +49,8 @@ export interface OnboardingAnswers {
   blocking_set_up?: boolean;
 }
 
-/** Filled in by the report maths in P2 (section 5). */
-export type OnboardingReport = Record<string, unknown>;
+import type { OnboardingReport } from './report';
+export type { OnboardingReport };
 
 export interface OnboardingDraft {
   step: StepId;

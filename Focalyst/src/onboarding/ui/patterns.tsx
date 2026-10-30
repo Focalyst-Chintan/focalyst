@@ -84,17 +84,22 @@ function CheckCircle({ on }: { on: boolean }) {
   );
 }
 
-/** Tap selects, selection haptic, then auto-advances after 250 ms. */
+/**
+ * Tap selects, selection haptic, then auto-advances after 250 ms. Without onAdvance it's the
+ * "choice with follow-up" pattern: no auto-advance, and the chosen card shows renderExtra.
+ */
 export function SingleChoice<T extends string | number>({
   options,
   value,
   onSelect,
   onAdvance,
+  renderExtra,
 }: {
   options: ChoiceOption<T>[];
   value: T | undefined;
   onSelect: (value: T) => void;
-  onAdvance: () => void;
+  onAdvance?: () => void;
+  renderExtra?: (value: T) => React.ReactNode;
 }) {
   const t = useOnboardingTheme();
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -106,15 +111,17 @@ export function SingleChoice<T extends string | number>({
     <View style={styles.stack} accessibilityRole="radiogroup">
       {options.map((option) => {
         const selected = option.value === value;
+        const extra = selected && renderExtra ? renderExtra(option.value) : null;
         return (
+          <View key={String(option.value)}>
           <Pressable
-            key={String(option.value)}
             accessibilityRole="radio"
             accessibilityState={{ selected }}
             accessibilityLabel={option.line ? `${option.title}. ${option.line}` : option.title}
             onPress={() => {
               haptics.selection();
               onSelect(option.value);
+              if (!onAdvance) return;
               if (timer.current) clearTimeout(timer.current);
               timer.current = setTimeout(onAdvance, 250);
             }}
@@ -135,6 +142,12 @@ export function SingleChoice<T extends string | number>({
             </View>
             <CheckCircle on={selected} />
           </Pressable>
+          {extra ? (
+            <Animated.View entering={FadeIn.duration(200)} style={styles.extra}>
+              {extra}
+            </Animated.View>
+          ) : null}
+          </View>
         );
       })}
     </View>
@@ -345,6 +358,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
+  extra: { paddingTop: 12, paddingHorizontal: 4, gap: 10 },
   checkCircle: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   chip: { height: 44, borderRadius: 22, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 6 },

@@ -9,6 +9,7 @@ import {
   saveDraft,
   type OnboardingAnswers,
   type OnboardingDraft,
+  type OnboardingReport,
 } from '../../src/onboarding/draft';
 import {
   SIGNED_IN_START,
@@ -100,6 +101,13 @@ export default function OnboardingFlow() {
     return () => sub.remove();
   }, [goBack]);
 
+  const setReport = useCallback((report: OnboardingReport) => commit((d) => ({ ...d, report })), [commit]);
+
+  const markCountedUp = useCallback(
+    (key: string) => commit((d) => (d.countedUp.includes(key) ? d : { ...d, countedUp: [...d.countedUp, key] })),
+    [commit],
+  );
+
   // "I already have an account": the existing sign-in screen, unchanged.
   const openSignIn = useCallback(() => router.push('/auth' as any), [router]);
 
@@ -136,6 +144,11 @@ export default function OnboardingFlow() {
           greet={greet}
           suggestedName={suggestedName}
           openSignIn={openSignIn}
+          isPro={signedIn && !!profile?.isPro}
+          report={draft.report}
+          setReport={setReport}
+          countedUp={draft.countedUp}
+          markCountedUp={markCountedUp}
         />
       </StepTransition>
     </View>
