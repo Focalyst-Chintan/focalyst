@@ -1,33 +1,49 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useSyncExternalStore } from 'react';
 import { SegmentedControl } from '@/components/desktop/ui/SegmentedControl';
 
 type Tab = 'web' | 'phone';
 const KEY = 'guides:platform';
 
+// The choice is remembered in localStorage (wrapped in try/catch), with an
+// in-memory fallback when storage is blocked. With no choice yet, phones start
+// on "On your phone" and larger screens on "On the web".
+let memory: Tab | null = null;
+const listeners = new Set<() => void>();
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  window.addEventListener('storage', cb);
+  return () => {
+    listeners.delete(cb);
+    window.removeEventListener('storage', cb);
+  };
+}
+
+function getSnapshot(): Tab {
+  try {
+    const saved = localStorage.getItem(KEY);
+    if (saved === 'web' || saved === 'phone') return saved;
+  } catch {}
+  if (memory) return memory;
+  return window.matchMedia('(min-width: 768px)').matches ? 'web' : 'phone';
+}
+
+function choose(t: Tab) {
+  memory = t;
+  try {
+    localStorage.setItem(KEY, t);
+  } catch {}
+  listeners.forEach((l) => l());
+}
+
 // Both panels are always rendered; the hidden one is hidden with CSS through
 // data-state, so search engines see both. From 1100 px up both show side by
-// side and the tabs are hidden. Before the choice is known (first paint), CSS
-// shows the phone panel on phones and the web panel on larger screens.
+// side and the tabs are hidden. Before hydration (first paint), CSS shows the
+// phone panel on phones and the web panel on larger screens.
 export function PlatformTabs({ web, phone }: { web: React.ReactNode; phone: React.ReactNode }) {
-  const [tab, setTab] = useState<Tab | null>(null);
-
-  useEffect(() => {
-    let saved: string | null = null;
-    try {
-      saved = localStorage.getItem(KEY);
-    } catch {}
-    if (saved === 'web' || saved === 'phone') setTab(saved);
-    else setTab(window.matchMedia('(min-width: 768px)').matches ? 'web' : 'phone');
-  }, []);
-
-  const choose = (t: Tab) => {
-    setTab(t);
-    try {
-      localStorage.setItem(KEY, t);
-    } catch {}
-  };
+  const tab = useSyncExternalStore<Tab | null>(subscribe, getSnapshot, () => null);
 
   const state = (t: Tab) => (tab === null ? 'auto' : tab === t ? 'active' : 'inactive');
   const panel =

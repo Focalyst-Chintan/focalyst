@@ -432,6 +432,10 @@ export default function AccountPage() {
                     <h3 className="text-navy dark:text-slate-100 text-[16px] font-semibold mb-3">{t('settings.support')}</h3>
                     <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-card-bg/30 dark:border-slate-800 transition-colors duration-300">
                         <SupportLink
+                            label="How to use Focalyst"
+                            to="/how-to"
+                        />
+                        <SupportLink
                             label={t('settings.downloadApp', 'Download the App')}
                             to="/app"
                         />

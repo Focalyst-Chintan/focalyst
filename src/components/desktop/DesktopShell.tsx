@@ -21,6 +21,7 @@ import {
   Search,
   Bell,
   ChevronDown,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { usePlan } from '@/context/PlanContext';
@@ -354,6 +355,7 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
     { label: 'Focus', href: '/focus', icon: Timer },
     { label: 'Notes', href: '/notes', icon: NotebookPen },
     { label: 'Insights', href: '/insights', icon: ChartColumn },
+    { label: 'How to use', href: '/how-to', icon: BookOpen },
   ];
 
   const isPlanActive = pathname.startsWith('/plan');
@@ -844,6 +846,14 @@ function DesktopShellInner({ children }: { children: React.ReactNode }) {
                     >
                       <Settings size={14} />
                       <span>Settings</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => router.push('/how-to')}
+                      className="h-8 px-2 rounded-[8px] flex items-center gap-2 text-[13px] text-ink hover:bg-surface-2 transition-colors text-left"
+                    >
+                      <BookOpen size={14} />
+                      <span>How to use Focalyst</span>
                     </button>
                     <div className="h-px bg-line my-1" />
                     <button

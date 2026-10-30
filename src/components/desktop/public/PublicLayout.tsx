@@ -198,6 +198,7 @@ export default function PublicLayout({
               <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">Support</div>
               <ul className="mt-3 space-y-2.5 text-[14px] text-ink-2">
                 <li><Link href="/help" className="hover:text-ink">Help and FAQ</Link></li>
+                <li><Link href="/guides" className="hover:text-ink">Guides</Link></li>
                 <li><Link href="/privacy" className="hover:text-ink">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="hover:text-ink">Terms of Service</Link></li>
               </ul>

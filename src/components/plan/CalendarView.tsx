@@ -213,7 +213,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             logReminderQueryError(error)
             throw error
         }
-        return normalizeReminderRows(data) as ReminderItem[]
+        return normalizeReminderRows(data) as unknown as ReminderItem[]
     }, [user, supabase])
 
     const remindersKey = user ? `reminders:${user.id}` : null

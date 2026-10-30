@@ -64,11 +64,6 @@ export function HabitsView() {
     return list;
   }, [todayStr]);
 
-  // Closing the details panel (X, Esc, ⌘ .) clears the selection
-  useEffect(() => {
-    if (!isContextPanelOpen) setSelectedHabitId(null);
-  }, [isContextPanelOpen]);
-
   // The habit the details panel describes. Nothing is selected by default; the
   // first habit only backs the panel content so ⌘ . has something to open.
   // The panel itself opens only on a habit click or ⌘ .
@@ -300,6 +295,7 @@ export function HabitsView() {
   return (
     <div className="flex flex-col gap-2 w-full">
       {habits.map((habit) => {
+        // Selection only shows while the panel is open; closing it (X, Esc, ⌘ .) clears it
         const isSelected = isContextPanelOpen && selectedHabit?.id === habit.id;
         const habitColor = habit.color || '#1951FC';
 

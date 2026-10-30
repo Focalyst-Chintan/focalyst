@@ -24,6 +24,7 @@ import {
   FileText,
   Bell,
   Play,
+  BookOpen,
 } from 'lucide-react';
 import { Kbd } from '@/components/desktop/ui/Kbd';
 import { useNotes } from '@/hooks/useNotes';
@@ -31,6 +32,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from 'next-themes';
 import { useCreate } from '@/components/desktop/create/CreateProvider';
 import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback';
+import { GUIDES } from '@/content/guides';
 
 interface CommandPaletteProps {
   open: boolean;
@@ -337,6 +339,27 @@ export function CommandPalette({
                   <span>Start focus session</span>
                 </div>
               </Command.Item>
+            </Command.Group>
+
+            {/* How to use Group: one entry per guide */}
+            <Command.Group
+              heading="How to use"
+              className="[&_[cmdk-group-heading]]:text-[11px] [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em] [&_[cmdk-group-heading]]:text-ink-3 [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5"
+            >
+              {GUIDES.map((g) => (
+                <Command.Item
+                  key={g.slug}
+                  value={`How to use: ${g.title}`}
+                  keywords={['guide', 'help', 'how to', ...g.keywords]}
+                  onSelect={() => runCommand(() => router.push(`/how-to/${g.slug}`))}
+                  className="h-10 rounded-[10px] px-3 flex items-center justify-between text-[14px] text-ink cursor-pointer aria-selected:bg-primary-soft aria-selected:text-ink transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <BookOpen className="w-4 h-4 text-ink-2" />
+                    <span>{g.title}</span>
+                  </div>
+                </Command.Item>
+              ))}
             </Command.Group>
 
             {/* Actions Group */}

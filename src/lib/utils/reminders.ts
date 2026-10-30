@@ -23,15 +23,26 @@ const UNITS: Record<string, 'day' | 'week' | 'month' | 'year'> = {
 
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
-export function normalizeReminderRows(rows: unknown): any[] {
+export type ReminderRow = Record<string, unknown> & {
+  title: string;
+  day: string;
+  date: string;
+  repeat: string;
+  custom_every: number | null;
+  custom_interval: number | null;
+  custom_unit: 'day' | 'week' | 'month' | 'year' | null;
+  custom_frequency: 'day' | 'week' | 'month' | 'year' | null;
+};
+
+export function normalizeReminderRows(rows: unknown): ReminderRow[] {
   if (!Array.isArray(rows)) return [];
-  const out: any[] = [];
+  const out: ReminderRow[] = [];
   let skipped = 0;
 
   for (const raw of rows) {
     try {
       if (!raw || typeof raw !== 'object') throw new Error('not an object');
-      const r = raw as Record<string, any>;
+      const r = raw as Record<string, unknown>;
 
       const ymd = String(r.day ?? r.date ?? r.reminder_date ?? '').slice(0, 10);
       if (!YMD.test(ymd)) throw new Error('missing date');

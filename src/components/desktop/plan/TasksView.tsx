@@ -36,10 +36,6 @@ export function TasksView() {
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
-  // Closing the details panel (X, Esc, ⌘ .) clears the selection
-  useEffect(() => {
-    if (!isContextPanelOpen) setSelectedTaskId(null);
-  }, [isContextPanelOpen]);
   const composerInputRef = useRef<HTMLInputElement>(null);
 
   // Collapsed groups stored in localStorage
@@ -426,7 +422,8 @@ export function TasksView() {
               return (
                 <>
                   {visibleItems.map((t) => {
-                    const isSelected = selectedTaskId === t.id;
+                    // Selection only shows while the panel is open; closing it (X, Esc, ⌘ .) clears it
+                    const isSelected = isContextPanelOpen && selectedTaskId === t.id;
                     const dueInfo = formatDueDate(t.end_date || t.start_date);
 
                     return (

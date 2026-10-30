@@ -55,7 +55,7 @@ const TAG_COLORS: Record<string, string> = {
 // Parity with mobile doesReminderOccurOnDate. Reads both the phone format
 // ("Every Week", "Custom") and the older web format ("weekly", "custom").
 // A row that can't be read never shows instead of breaking the calendar.
-function doesReminderOccurOnDate(rem: any, targetYMD: string): boolean {
+function doesReminderOccurOnDate(rem: unknown, targetYMD: string): boolean {
   try {
     return occursOnDate(rem, targetYMD);
   } catch {
