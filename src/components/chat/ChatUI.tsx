@@ -4,8 +4,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat as useGlobalChat } from '@/context/ChatContext';
 import { usePlan } from '@/context/PlanContext';
-import { CloseIcon, SendArrowIcon } from '@/components/icons';
-import { Mic, Square, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowUp, Check, Copy, Loader2, Mic, RotateCw, Sparkles, Square, X } from 'lucide-react';
+import { useSwipeToClose } from '@/components/mobile/hooks';
 import ReactMarkdown from 'react-markdown';
 import { createClient } from '@/lib/supabase';
 import { FREE_TIER_LIMITS } from '@/lib/featureGates';
@@ -31,6 +31,7 @@ export function ChatUI() {
   const [showCopyToast, setShowCopyToast] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
+  const swipe = useSwipeToClose(closeChat);
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [status, setStatus] = useState<'ready' | 'loading' | 'error'>('ready');
@@ -322,118 +323,147 @@ export function ChatUI() {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
+  // Display only
+  const messagesLeft = Math.max(0, FREE_TIER_LIMITS.aiMessagesPerDay - messagesUsed);
+  const workingLabel = isLoading ? (isWaitingFirstToken ? 'Thinking…' : 'Writing…') : null;
+
   return (
-    <div className="fixed inset-0 z-50 flex justify-end transition-opacity duration-300">
+    <div className="fixed inset-0 z-[70] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="chat-title">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/20" onClick={closeChat} />
+      <div className="absolute inset-0 m-backdrop" onClick={closeChat} />
 
       {/* Chat Panel */}
-      <div className="relative w-full h-[85vh] mt-auto md:mt-0 md:h-full md:w-[380px] bg-snow dark:bg-slate-900 rounded-t-3xl md:rounded-l-3xl md:rounded-r-none shadow-2xl flex flex-col pt-2 animate-slide-up md:animate-slide-left transition-colors">
-        {/* Mobile drag handle */}
-        <div className="w-12 h-1.5 bg-card-bg dark:bg-slate-700 rounded-full mx-auto mb-4 md:hidden" />
+      <div
+        className="m-sheet relative w-full h-[calc(100dvh-env(safe-area-inset-top)-8px)] mt-auto md:mt-0 md:h-full md:w-[400px] md:rounded-[32px_0_0_32px] flex flex-col"
+        style={swipe.style}
+      >
+        {/* Grabber + header: drag down to close */}
+        <div {...swipe.handlers} className="touch-none shrink-0">
+          <div className="pt-2 pb-1 flex justify-center md:hidden">
+            <span aria-hidden className="m-grabber" />
+          </div>
+
+          {/* Header */}
+          <div className="px-5 pt-2 pb-3 flex items-center gap-3">
+            <span aria-hidden className="w-7 h-7 rounded-[9px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)]">
+              <Sparkles size={16} strokeWidth={1.75} />
+            </span>
+            <h2 id="chat-title" className="m-title-2 text-ink flex-1 min-w-0 truncate">Ask Focalyst AI</h2>
+            {!loadingInfo && !isFreeUser && (
+              <span className="m-chip m-chip-success !h-6 !text-[12px] shrink-0">
+                <Check size={12} strokeWidth={2.5} aria-hidden />
+                Pro
+              </span>
+            )}
+            <button onClick={closeChat} className="m-icon-btn m-press -mr-1" aria-label="Close chat">
+              <X size={20} strokeWidth={1.75} aria-hidden />
+            </button>
+          </div>
+        </div>
 
         {/* Copy Toast */}
         {showCopyToast && (
-          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] bg-navy/90 text-snow px-4 py-2 rounded-full text-xs font-semibold shadow-lg animate-fade-in flex items-center gap-2 border border-snow/20 backdrop-blur-sm">
-            <span>Copied</span>
+          <div role="status" className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] m-blur border border-line text-ink px-4 h-9 inline-flex items-center rounded-full m-footnote shadow-[var(--shadow-glass)] animate-[m-rise_200ms_var(--ease)_both]">
+            Copied
           </div>
         )}
 
-        {/* Header */}
-        <div className="px-6 pb-4 flex justify-between items-start border-b border-page-bg dark:border-slate-800">
-          <div>
-            <h2 className="text-[20px] font-semibold text-navy dark:text-slate-100 tracking-tight">Ask Focalyst AI</h2>
-            <p className="text-[11px] text-blue-muted dark:text-slate-400">Personal productivity assistant</p>
-          </div>
-          <button onClick={closeChat} className="p-1 -mr-1" aria-label="Close Chat">
-            <CloseIcon size={24} color="#95A7B5" />
-          </button>
-        </div>
-
         {/* Chat Area */}
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-6 py-6 pb-28 flex flex-col gap-4">
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-6 flex flex-col gap-5">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full text-center mt-[-40px]">
-              <div className="flex flex-col gap-3 w-full max-w-[280px] mx-auto mb-8">
+            <div className="flex flex-col items-center justify-center flex-1 text-center px-2">
+              <span aria-hidden className="w-16 h-16 rounded-[20px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)] shadow-[var(--m-glow)] mb-5">
+                <Sparkles size={28} strokeWidth={1.75} />
+              </span>
+              <h3 className="m-title-3 text-ink">What should we look at today?</h3>
+              <p className="m-footnote text-ink-2 mt-2 max-w-[280px]">
+                I can add tasks, set reminders, sum up your week and answer questions about your focus.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 mt-6 max-w-[340px]">
                 {suggestions.map((text, i) => (
                   <button
                     key={i}
                     onClick={() => handleSuggestion(text)}
-                    className="bg-card-bg/20 dark:bg-slate-800 border border-card-bg dark:border-slate-700 text-navy dark:text-slate-200 text-[13px] font-medium py-3 px-4 rounded-xl text-left hover:bg-card-bg/40 dark:hover:bg-slate-700 transition-colors"
+                    className="m-pill m-press !h-auto min-h-10 py-2 text-left whitespace-normal"
                   >
                     {text}
                   </button>
                 ))}
               </div>
-              <p className="text-[12px] text-blue-muted max-w-[260px] mx-auto leading-relaxed">
-                I can add tasks, set reminders, summarise your week, and answer productivity questions.
-              </p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} group relative`}>
-                <div
-                  className={`relative max-w-[85%] rounded-2xl px-4 py-3 text-[14px] leading-relaxed ${
-                    msg.role === 'user'
-                      ? 'bg-navy text-snow rounded-tr-sm'
-                      : msg.isError
-                      ? 'bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-900 rounded-tl-sm'
-                      : 'bg-card-bg/30 dark:bg-slate-800 text-navy dark:text-slate-200 rounded-tl-sm prose prose-sm prose-blue dark:prose-invert max-w-none prose-p:leading-relaxed prose-pre:my-0'
-                  }`}
-                >
-                  {msg.role === 'assistant' ? (
-                    <>
-                      <ReactMarkdown>{msg.content || (isWaitingFirstToken && msg.id === messages[messages.length - 1]?.id ? '...' : '')}</ReactMarkdown>
-
-                      {msg.isError && (
-                        <div className="mt-2 pt-2 border-t border-red-200 dark:border-red-900/60">
-                          <button
-                            type="button"
-                            onClick={retryLastMessage}
-                            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-[12px] font-medium bg-red-100 dark:bg-red-900/60 text-red-800 dark:text-red-200 hover:bg-red-200 dark:hover:bg-red-800 transition-colors"
-                          >
-                            Try again
-                          </button>
-                        </div>
-                      )}
-
-                      {!msg.isError && msg.content && (
-                        <button
-                          onClick={() => handleCopy(msg.content)}
-                          className="absolute -bottom-3 -right-2 bg-snow dark:bg-slate-700 border border-page-bg dark:border-slate-600 text-blue-muted hover:text-navy dark:hover:text-slate-200 rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                          title="Copy message"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                          </svg>
-                        </button>
-                      )}
-                    </>
+            messages.map((msg, idx) => {
+              // Display only: show the AI tile on the first reply of a group
+              const firstOfGroup = msg.role === 'assistant' && messages[idx - 1]?.role !== 'assistant';
+              if (msg.role === 'user') {
+                return (
+                  <div key={msg.id} className="flex justify-end">
+                    <div className="max-w-[80%] rounded-[20px] rounded-br-[6px] px-4 py-2.5 bg-[image:var(--m-grad-primary)] text-snow m-body break-words">
+                      {msg.content}
+                    </div>
+                  </div>
+                );
+              }
+              if (msg.isError) {
+                return (
+                  <div key={msg.id} role="alert" className="flex items-start gap-3">
+                    <span className="m-tile !w-6 !h-6 !rounded-[8px] !bg-[color-mix(in_srgb,var(--m-danger)_14%,transparent)] !border-[color-mix(in_srgb,var(--m-danger)_40%,transparent)] text-[var(--m-danger-text)] mt-0.5">
+                      <AlertCircle size={14} strokeWidth={2} aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="m-body text-ink">I couldn&apos;t reach Focalyst AI. Check your connection and try again.</p>
+                      <button
+                        type="button"
+                        onClick={retryLastMessage}
+                        className="m-pill m-press !h-9 !min-h-9 mt-3 !text-[13px]"
+                      >
+                        <RotateCw size={14} strokeWidth={1.75} aria-hidden />
+                        Try again
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+              return (
+                <div key={msg.id} className="flex items-start gap-3">
+                  {firstOfGroup ? (
+                    <span aria-hidden className="shrink-0 mt-0.5 w-6 h-6 rounded-[8px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)]">
+                      <Sparkles size={14} strokeWidth={1.75} />
+                    </span>
                   ) : (
-                    msg.content
+                    <span aria-hidden className="shrink-0 w-6" />
                   )}
+                  <div className="min-w-0 flex-1">
+                    <div className="m-body text-ink break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-2 first:prose-p:mt-0 prose-p:text-[16px] prose-p:leading-[23px] prose-li:text-[16px] prose-headings:font-semibold prose-headings:text-ink prose-strong:text-ink prose-a:text-primary-text prose-pre:my-2 prose-p:text-ink prose-li:text-ink">
+                      <ReactMarkdown>{msg.content || (isWaitingFirstToken && msg.id === messages[messages.length - 1]?.id ? '...' : '')}</ReactMarkdown>
+                    </div>
+                    {msg.content && (
+                      <button
+                        onClick={() => handleCopy(msg.content)}
+                        className="m-press -ml-2 mt-1 w-11 h-9 inline-flex items-center justify-center rounded-full text-ink-2 hover:text-ink"
+                        aria-label="Copy message"
+                        title="Copy message"
+                      >
+                        <Copy size={16} strokeWidth={1.75} aria-hidden />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))
-          )}
-
-          {/* Typing Indicator dots until first words arrive */}
-          {isLoading && isWaitingFirstToken && (
-            <div className="flex justify-start">
-              <div className="bg-card-bg/30 dark:bg-slate-800 rounded-2xl rounded-tl-sm px-4 py-3">
-                <div className="flex gap-1.5 pt-1">
-                  <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce [animation-delay:-0.3s]" />
-                  <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce [animation-delay:-0.15s]" />
-                  <div className="w-1.5 h-1.5 bg-blue-muted rounded-full animate-bounce" />
-                </div>
-              </div>
-            </div>
+              );
+            })
           )}
         </div>
 
         {/* Input & Dictation Area */}
-        <div className="absolute bottom-0 left-0 right-0 bg-snow dark:bg-slate-900 px-6 py-4 pb-safe border-t border-page-bg dark:border-slate-800 transition-colors">
+        <div className="shrink-0 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom))]">
+          {/* Working row */}
+          {workingLabel && (
+            <div role="status" className="flex items-center gap-2 px-2 pb-2 text-primary-text">
+              <span aria-hidden className="m-dots flex items-center gap-1"><span /><span /><span /></span>
+              <span className="m-footnote text-ink-2">{workingLabel}</span>
+            </div>
+          )}
+
           {(limitBannerVisible || isLimitReached) && isFreeUser && (
             <button
               type="button"
@@ -441,21 +471,21 @@ export function ChatUI() {
                 closeChat();
                 router.push('/paywall');
               }}
-              className="mb-2 w-full rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-[12px] font-semibold text-navy dark:text-slate-100 hover:bg-accent/15 transition-colors"
+              className="m-press mb-2 w-full rounded-[16px] border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-primary-soft px-3 min-h-11 m-footnote !font-semibold text-ink"
             >
-              Daily AI limit reached. Upgrade to Pro
+              Daily limit reached. See Pro
             </button>
           )}
 
           {feedbackNotice && (
-            <div className="mb-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg animate-fade-in flex items-center justify-between">
-              <p className="text-[11px] text-amber-800 dark:text-amber-200 font-medium">
+            <div role="status" className="mb-2 px-3 py-2 rounded-[12px] bg-[color-mix(in_srgb,var(--m-warning)_14%,transparent)] border border-[color-mix(in_srgb,var(--m-warning)_40%,transparent)] flex items-center justify-between gap-2">
+              <p className="m-footnote text-ink">
                 {feedbackNotice}
               </p>
               <button
                 type="button"
                 onClick={() => setFeedbackNotice(null)}
-                className="text-amber-600 dark:text-amber-400 text-xs ml-2 hover:opacity-75"
+                className="m-press m-footnote !font-semibold text-[var(--m-warning-text)] min-h-11 px-2"
               >
                 Dismiss
               </button>
@@ -463,79 +493,81 @@ export function ChatUI() {
           )}
 
           {isLimitReached ? (
-            <div className="flex flex-col items-center gap-2 pb-2">
-              <p className="text-[13px] text-navy font-medium text-center">You have used today's Focalyst AI messages.</p>
-              <p className="text-[12px] text-blue-muted text-center max-w-[260px] mb-2">Upgrade to Pro for more</p>
+            <div className="flex flex-col items-center gap-1 pb-2 text-center">
+              <p className="m-subhead text-ink">You have used today&apos;s Focalyst AI messages.</p>
+              <p className="m-footnote text-ink-2 mb-3">Pro gives you more each day.</p>
               <button
                 onClick={() => {
                   closeChat();
                   router.push('/paywall');
                 }}
-                className="bg-accent text-snow font-semibold text-[14px] py-2.5 px-6 rounded-full shadow-md"
+                className="m-btn m-btn-primary m-press"
               >
-                Upgrade Now
+                See Pro
               </button>
             </div>
           ) : (
             <form onSubmit={handleSendAction} className="w-full">
+              {!loadingInfo && isFreeUser && (
+                <div className="flex justify-center mb-2">
+                  <span className="m-blur border border-line rounded-full h-7 px-3 inline-flex items-center m-caption text-ink-2 m-num">
+                    {messagesLeft} {messagesLeft === 1 ? 'message' : 'messages'} left today
+                  </span>
+                </div>
+              )}
               {isRecording ? (
-                <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded-full flex items-center justify-between px-4 py-2 mb-2 animate-pulse">
+                <div className="min-h-14 rounded-full flex items-center justify-between pl-4 pr-2 bg-[color-mix(in_srgb,var(--m-danger)_14%,transparent)] border border-[color-mix(in_srgb,var(--m-danger)_40%,transparent)]">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span className="text-[13px] font-mono text-red-600 dark:text-red-300 font-semibold">
+                    <span aria-hidden className="w-2.5 h-2.5 rounded-full bg-[var(--m-danger)] animate-pulse" />
+                    <span className="m-subhead m-num text-[var(--m-danger-text)]">
                       {formatTimer(recordingSeconds)}
                     </span>
-                    <span className="text-[12px] text-red-500 dark:text-red-400">Recording</span>
+                    <span className="m-footnote text-[var(--m-danger-text)]">Recording</span>
                   </div>
                   <button
                     type="button"
                     onClick={handleMicClick}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-600 text-snow text-[12px] font-medium hover:bg-red-700 transition-colors"
+                    className="m-press inline-flex items-center gap-1.5 h-10 px-4 rounded-full bg-[var(--m-danger)] text-snow m-footnote !font-semibold"
                   >
-                    <Square size={12} fill="currentColor" />
+                    <Square size={12} fill="currentColor" aria-hidden />
                     <span>Done</span>
                   </button>
                 </div>
               ) : isTranscribing ? (
-                <div className="bg-page-bg dark:bg-slate-950 border border-transparent dark:border-slate-800 rounded-full flex items-center justify-center gap-2 px-4 py-2.5 mb-2">
-                  <Loader2 size={16} className="animate-spin text-navy dark:text-slate-300" />
-                  <span className="text-[13px] text-navy dark:text-slate-200 font-medium">Transcribing speech</span>
+                <div className="m-blur border border-line rounded-full min-h-14 flex items-center justify-center gap-2 px-4">
+                  <Loader2 size={16} className="animate-spin text-primary-text" aria-hidden />
+                  <span className="m-subhead text-ink">Transcribing</span>
                 </div>
               ) : (
-                <div className="bg-page-bg dark:bg-slate-950 border border-transparent dark:border-slate-800 rounded-full flex items-center px-4 py-2 mb-2">
+                <div className="m-blur border border-line rounded-full min-h-14 flex items-center gap-1 pl-1.5 pr-2 focus-within:border-[var(--m-brand-400)] shadow-[var(--m-card-shadow)]">
                   <button
                     type="button"
                     onClick={handleMicClick}
-                    className="p-1 -ml-1 flex-shrink-0 text-blue-muted hover:text-navy dark:hover:text-slate-200 transition-colors"
+                    className="m-press w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center text-ink-2 hover:text-ink"
                     aria-label="Voice input"
                     title="Dictate with voice"
                   >
-                    <Mic size={20} color="currentColor" />
+                    <Mic size={20} strokeWidth={1.75} aria-hidden />
                   </button>
                   <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Ask anything..."
-                    className="flex-1 bg-transparent border-none outline-none px-3 text-[14px] text-navy dark:text-slate-100 placeholder:text-blue-muted dark:placeholder:text-slate-500 min-w-0"
+                    placeholder="Ask anything"
+                    aria-label="Message"
+                    className="flex-1 bg-transparent border-none outline-none px-1 text-[16px] leading-[23px] text-ink placeholder:text-ink-3 min-w-0"
                   />
                   <button
                     type="submit"
                     disabled={!isReadyToSubmit}
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                      isReadyToSubmit
-                        ? 'bg-navy dark:bg-blue-500 text-snow opacity-100'
-                        : 'bg-navy dark:bg-blue-500/40 text-snow opacity-40'
+                    aria-label="Send"
+                    className={`m-press w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[image:var(--m-grad-primary)] text-snow ${
+                      isReadyToSubmit ? 'shadow-[var(--m-glow)]' : 'opacity-40'
                     }`}
                   >
-                    <SendArrowIcon size={16} />
+                    <ArrowUp size={20} strokeWidth={2} aria-hidden />
                   </button>
                 </div>
-              )}
-              {!loadingInfo && isFreeUser && (
-                <p className="text-center text-[11px] text-blue-muted">
-                  {messagesUsed} of {FREE_TIER_LIMITS.aiMessagesPerDay} daily messages used
-                </p>
               )}
             </form>
           )}

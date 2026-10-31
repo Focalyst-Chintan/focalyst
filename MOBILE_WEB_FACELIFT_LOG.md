@@ -63,6 +63,13 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 8.1 | Scrub snaps to each day, returns to the best day after 1.5 s | The chart's own touch tooltip scrubs; the best day keeps its marker the whole time | web-only | 011 |
 | 10.6 | Active habit cards with a 7-day dot row | Same, 160 wide, snapping; the dots are 6 tall bars (done `primary`, today ringed) from the Plan context's completion dates | amended | 011 |
 | 10.6 | (not in spec) XP level card, group leaderboard, AI summary, starting report | Level card restyled as a glass card with a gradient badge (the orange gradient is gone); the group leaderboard modal keeps its dark podium with gold for ranks; order after the habits carousel | gap | 011 |
+| 10.7 | Empty state chips e.g. "Plan my evening", "Which habit am I missing?" | Kept the web's four suggestions ("What should I focus on today?", "Add a task for tomorrow", "How productive was I this week?", "Remind me to review notes at 8pm"); they are sent as messages, so changing them changes what the AI is asked | deviation | 012 |
+| 10.7 | Timestamps on long press | Not shown: the web chat keeps no timestamps | web-only | 012 |
+| 10.7 | Copy action under each reply | Always visible (it only appeared on hover before, so phones never saw it) | amended | 012 |
+| 10.7 | Error text "I couldn't reach Focalyst AI…" | Same text replaces the old "busy" line; "Try again" uses the existing retry | spec as written | 012 |
+| 10.7 | Voice mode: glowing top edge with a wave | The web composer has a recording state (timer + Done) instead; restyled as a danger pill | web-only | 012 |
+| 10.7 | Quota pill "12 messages left today" | Same, worked out from the count the chat already loads; "Pro" success chip in the header for paid plans | spec as written | 012 |
+| 7.12 | Sheet: swipe down or tap the backdrop to close | Same; the drag area is the grabber and header so the message list still scrolls; on tablets (768 to 1023) it stays a right-side panel as before | amended | 012 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -186,3 +193,19 @@ Exact values:
 - Carousel cards 160 wide, radius 16, padding 16, snap to the 20 gutter.
 Port to native: adapt
 Native instruction: §10.6: show productivity as "N / 100"; task copy refers to today; drop Week / Month at the top until the app loads monthly data; keep all bars stacked and lead with the selected day.
+
+## Entry 012 · Phase W6 · 2026-10-31
+Type: spec as written
+What changed: AI chat (`src/components/chat/ChatUI.tsx`, markup only; sending, streaming, retry, quota and voice code untouched). New `.m-sheet`, `.m-grabber`, `.m-backdrop`, `.m-dots` classes and the `useSwipeToClose` hook.
+Why: Spec 10.7, 7.12.
+Exact values:
+- Sheet: full height minus the top safe area and 8, top radius 32, `--surface` at 90% with 24 px blur (solid when transparency is reduced), slides up 450 ms; backdrop rgba(3,9,30,0.55); grabber 36 × 5 `line-strong`; drag past 110 px closes, otherwise it springs back. Above the header and tab bar (z 70).
+- Header: 28 tile with `Sparkles` 16 (AI colours), `title-2` "Ask Focalyst AI", success "Pro" chip for paid plans, 44 close button.
+- Empty state: 64 tile with glow, `title-3` "What should we look at today?", one `footnote` line, suggestion pills (glass, wrap).
+- User bubble: `grad-primary`, white `body`, radius 20 with 6 bottom-right, max 80%. Assistant: no bubble, `body` in `ink`, 24 tile on the first reply of a group, copy button 44 × 36 under it.
+- Working row above the composer: three 6 px dots pulsing 1.2 s (staggered 150 ms), "Thinking…" before the first words, "Writing…" while streaming.
+- Error: 24 danger tile with `AlertCircle`, `body` text, "Try again" pill.
+- Composer: blur pill, min height 56, mic 44, input 16 px, send 40 `grad-primary` circle (40% when empty), `ArrowUp` 20. Quota pill 28 tall above it.
+- Limit reached: "You have used today's Focalyst AI messages." / "Pro gives you more each day." / Primary "See Pro" (same paywall route).
+Port to native: adapt
+Native instruction: §10.7: keep the copy button always visible; drag only from the grabber and header; show "Pro" as a success chip in the header.

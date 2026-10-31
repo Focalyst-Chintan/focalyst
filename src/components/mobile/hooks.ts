@@ -1,7 +1,7 @@
 'use client'
 
 // UI-only state for the phone shell. Reads the browser, never writes data.
-import { useSyncExternalStore } from 'react'
+import { useRef, useState, useSyncExternalStore } from 'react'
 
 // ── Window scrolled past a threshold (header blur, spec 7.1) ────────────────
 function subscribeScroll(cb: () => void) {
@@ -87,4 +87,39 @@ export function useReducedMotion(): boolean {
         () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
         () => false,
     )
+}
+
+// ── Swipe down to close a bottom sheet (spec 7.12) ──────────────────────────
+// Attach `handlers` to the sheet's grabber and header only, so lists inside still scroll.
+// `onClose` is the screen's existing close function, called unchanged.
+export function useSwipeToClose(onClose: () => void, threshold = 110) {
+    const [dy, setDy] = useState(0)
+    const [dragging, setDragging] = useState(false)
+    const startY = useRef<number | null>(null)
+    const handlers = {
+        onTouchStart: (e: React.TouchEvent) => {
+            startY.current = e.touches[0].clientY
+            setDragging(true)
+        },
+        onTouchMove: (e: React.TouchEvent) => {
+            if (startY.current === null) return
+            setDy(Math.max(0, e.touches[0].clientY - startY.current))
+        },
+        onTouchEnd: () => {
+            const shouldClose = dy > threshold
+            startY.current = null
+            setDragging(false)
+            setDy(0)
+            if (shouldClose) onClose()
+        },
+        onTouchCancel: () => {
+            startY.current = null
+            setDragging(false)
+            setDy(0)
+        },
+    }
+    const style: React.CSSProperties = dy
+        ? { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : undefined }
+        : {}
+    return { handlers, style }
 }

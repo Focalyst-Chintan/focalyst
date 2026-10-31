@@ -577,11 +577,39 @@
   }
   .m-timer-glow.is-break { background: radial-gradient(closest-side, rgba(203, 233, 253, 0.20), transparent); }
 
+  /* Bottom sheet (spec 7.12): slides up over 450ms, grabber 36x5 */
+  @keyframes m-sheet-in { from { transform: translateY(100%); } to { transform: none; } }
+  .m-sheet {
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 32px 32px 0 0;
+    animation: m-sheet-in var(--m-slow) var(--ease) backwards;
+    transition: transform var(--m-base) var(--m-spring);
+    overscroll-behavior: contain;
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .m-sheet { -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .m-sheet { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  }
+  .m-grabber { width: 36px; height: 5px; border-radius: 9999px; background: var(--line-strong); }
+  .m-backdrop { background: var(--m-backdrop); animation: m-fade var(--m-base) var(--ease) both; }
+
+  /* Working dots (spec 10.7): three soft pulses */
+  @keyframes m-dot { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+  .m-dots > span { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; animation: m-dot 1.2s ease-in-out infinite; }
+  .m-dots > span:nth-child(2) { animation-delay: 0.15s; }
+  .m-dots > span:nth-child(3) { animation-delay: 0.3s; }
+
   /* Reduce motion (spec 9.2): final state, 120ms fade only */
   @media (prefers-reduced-motion: reduce) {
     .m-rise { animation: m-fade 120ms linear both !important; animation-delay: 0ms !important; }
     .m-skel { animation: none !important; }
     .m-timer-glow { animation: none !important; }
+    .m-sheet { animation: m-fade 120ms linear both !important; }
+    .m-dots > span { animation: none !important; opacity: 0.6; }
     .m-press:active:not(:disabled) { transform: none; }
   }
 }
