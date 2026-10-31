@@ -304,7 +304,7 @@ export default function AccountPage() {
                 {/* My Plan Card */}
                 <div className="w-full rounded-[24px] p-6 mt-8 relative overflow-hidden bg-[image:var(--m-grad-brand)] text-snow shadow-[var(--m-glow)]">
                     <div className="relative z-10">
-                        <p className="m-footnote text-snow/80">{t('settings.plan')}</p>
+                        <p className="m-footnote text-snow/90">{t('settings.plan')}</p>
                         <div className="flex items-center gap-2 mt-1">
                             <h3 className="m-title-2 text-snow">
                                 {user?.plan === 'free' ? t('settings.free') : user?.plan === 'lifetime' ? t('settings.lifetime', 'Lifetime') : t('settings.pro', 'Pro')}
@@ -315,7 +315,7 @@ export default function AccountPage() {
                                 </span>
                             )}
                         </div>
-                        <p className="m-footnote text-snow/75 mt-1">
+                        <p className="m-footnote text-snow/90 mt-1">
                             {user?.plan === 'lifetime' ? t('settings.focusForever', 'Focus forever') : `${t('settings.renewalDate', 'Renewal Date')}: Dec 12, 2026`}
                         </p>
 

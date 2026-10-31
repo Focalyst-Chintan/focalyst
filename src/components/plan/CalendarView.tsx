@@ -487,7 +487,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                 <div className="flex items-center justify-between mb-4">
                     <button
                         onClick={goToPrevMonth}
-                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-ink-2 transition-colors"
+                        className="m-press w-11 h-11 flex items-center justify-center rounded-full hover:bg-[var(--m-surface-strong)] text-ink-2 transition-colors"
                         aria-label="Previous month"
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -507,7 +507,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
 
                     <button
                         onClick={goToNextMonth}
-                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-ink-2 transition-colors"
+                        className="m-press w-11 h-11 flex items-center justify-center rounded-full hover:bg-[var(--m-surface-strong)] text-ink-2 transition-colors"
                         aria-label="Next month"
                     >
                         <ChevronRight className="w-5 h-5" />

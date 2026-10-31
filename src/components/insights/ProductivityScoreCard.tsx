@@ -25,7 +25,7 @@ export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid
                 </div>
             )}
 
-            <h3 className={`m-footnote text-snow/85 ${!isPaid ? 'opacity-40' : ''}`}>{t('insights.productivityScore')}</h3>
+            <h3 className={`m-footnote text-snow/90 ${!isPaid ? 'opacity-40' : ''}`}>{t('insights.productivityScore')}</h3>
             <div className={!isPaid ? 'opacity-25 blur-[2px]' : ''} aria-hidden={!isPaid || undefined}>
                 <p className="flex items-baseline gap-1">
                     <span className="m-stat-l text-snow">
@@ -33,9 +33,9 @@ export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid
                             <AnimatedNumber metric="score:week" value={score} label={`${score} out of 100`} render={(n) => n} />
                         ) : score}
                     </span>
-                    <span className="m-subhead text-snow/75 m-num">/ 100</span>
+                    <span className="m-subhead text-snow/90 m-num">/ 100</span>
                 </p>
-                <p className="m-caption text-snow/80 mt-1">Based on tasks, habits and focus</p>
+                <p className="m-caption text-snow/90 mt-1">Based on tasks, habits and focus</p>
             </div>
         </div>
     )

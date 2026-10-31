@@ -206,7 +206,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <h1 className="m-display text-snow relative">
                         Plan, focus and grow with Pro.
                     </h1>
-                    <p className="m-body text-snow/80 mt-3 relative">
+                    <p className="m-body text-snow/90 mt-3 relative">
                         Plan your days, focus deeply and see how you are growing, with everything Focalyst can do.
                     </p>
                 </div>

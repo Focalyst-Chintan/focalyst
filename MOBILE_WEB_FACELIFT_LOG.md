@@ -85,6 +85,8 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 10.10 | Paywall header in `grad-brand`, glass plan tiles, selected tile 2 px brand-400 + glow | Same; headline "Plan, focus and grow with Pro." replaces "Unlock your full productivity." (unslop: no hype words) | spec as written | 014 |
 | 7.13 | Toast: glass pill above the tab bar, 2.4 s | The shared toast keeps its 4 s timer (its logic is shared with desktop); on phones it is a centred pill 88 above the bottom safe area | amended | 014 |
 | 7.15 | Skeletons in each screen's final shape | Done inside each phone screen; the route `loading.tsx` files are shared with the desktop shell and stay as they are | web-only | 014 |
+| 5.4, 10.10 | White text on `grad-primary` / `grad-brand` | Small white text on blue fills stays at 90% opacity or more (white at 80% on #1951FC is 4.2:1, at 90% it is 5.0:1). Large white text on the light end of `grad-brand` (#3781FC) is kept to the top-left of the card | amended | 015 |
+| 7.10 | Done task title in `ink-3` | `ink-2` with strikethrough and the row at 70%, because `ink-3` text fails contrast on the web canvas | web wins | 009 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -249,3 +251,30 @@ Exact values:
 - Paywall: canvas + ambient; `grad-brand` hero radius 32 with `display` headline; Monthly / Yearly segmented control; plan tiles glass, selected 2 px #3781FC + glow; prices `stat-l`; sticky glass footer radius 32 with Primary CTA and two ghost links. Every checkout, restore and skip handler and every condition is unchanged.
 Port to native: adapt
 Native instruction: §10.9: group Log out and Delete account at the end in danger text; §10.10: paywall headline without "Unlock"; §2.4: confirm the new habit palette before changing the picker.
+
+## Entry 015 · Phase W9 · 2026-10-31
+Type: deviation
+What changed: QA pass against spec 14, done by reading the code and the built CSS (no dev server or browser, as the brief asks). Fixes made in this pass: small white text on blue fills raised to 90% opacity; Calendar month arrows raised to 44; the last copy with exclamation marks or "..." on phone screens ("Copied", "Profile saved", "Saving", "Writing your weekly report", "Preparing your weekly report", "Nearly there.").
+Why: Spec 11 and 14.
+Exact values / results:
+- Desktop: every changed file was checked. Files that render on desktop either fork before the phone markup (`useIsDesktop`, `lg:hidden`) or only gained `mp-` classes and aria attributes; a script stripped the `mp-` classes from those files and compared them with the pre-facelift commit: identical. The only edit to `globals.css` is the `@import` of `mobile.css`, whose rules are new `--m-` variables, new `m-` classes and media-scoped `mp-` rules below 1024 px. None of the 28 changed copy keys is used by a desktop component.
+- Orange as an accent: none left on phone screens. Kept on purpose: user data colours (habit and calendar category colours, stored countdown colours) and the gold ranks in the group leaderboard.
+- Type: serif only on titles, greetings, countdown names and sheet titles; numbers tabular.
+- Copy: no em dashes or exclamation marks on phone screens. Two strings built inside protected handlers ("Coming soon!", "Well done! Great job. 🎉") are cleaned at display time by `plainCopy`. The copied weekly-report text keeps its separator (it is clipboard content, not UI).
+- Contrast: ink-2 on canvas 6.7:1 (light) / 9.0:1 (dark); ink-2 on the light hero tint 6.3:1; on the dark hero 7.5:1; warning text 5.0:1, danger text 6.3:1 on white; white on #1951FC 5.8:1. `ink-3` is only used for placeholders and the drag handle.
+- Inputs: every phone input, select and textarea is 16 px or larger.
+- Touch targets: 44 or larger everywhere on the phone screens, except the 40 send button and the 40 "Done" pill inside the 56 composer (spec values).
+- Charts: 0 data points shows the empty state (dashed baseline, Timer icon, "No focus yet this week"); bars draw 6 px stubs for empty days and the y scale never divides by zero; 1 point draws a single peak with the best-day marker; 7 points draw the full week.
+- Count-up: plays on first view and on change only, never under reduced motion; stored in `insights:lastSeen:v1`.
+- Handlers: every removed `onClick` / `onChange` line has an unchanged counterpart (same function, or the setter passed straight through to `Stepper` / `SegmentedControl` / `MSwitch`). New handlers are UI only: clear search (calls the existing search handler with ""), Customise toggle, bar selection, sheet drag.
+- Checks: `tsc` clean, no new lint errors in any touched file (the repo has 379 lint errors from before; touched files keep their old counts), `next build` passes, protected-code grep shows only: `Array.from` (matches `.from(`), the `useEffect` in the new UI-only files (`mobile/hooks.ts` scroll lock, `AnimatedNumber`), `localStorage` in `mobile/insights/lastSeen.ts`, and the account back button whose `router.back()` line changed only its class.
+Port to native: adapt
+Native instruction: §11: keep white text on blue fills at 90% opacity or more; §14: add a check that ink-3 is never used for readable text.
+
+### Things found that are outside a visual pass (not changed)
+- Insights hero number is the page's existing total, which adds this week and last week together (`ClientFocusInsights` sums both weeks). The chart shows the last 7 days.
+- The Pro "Focalyst AI analysis" card on Insights shows fixed sample text, not the user's data.
+- The plan card on Account shows a fixed "Renewal Date: Dec 12, 2026" for every paid plan.
+- `NotesList` calls `useRef` / `useEffect` after early returns (rules of hooks); it works today but can break when the list switches between loading, empty and filled.
+- `SeamlessRadialTimerDial.tsx` and `insights/FocusTimeCard.tsx` are no longer used by any screen.
+- The habit colour picker still offers the old palette (spec 2.4); changing it changes the values saved with new habits, so it needs your call.
