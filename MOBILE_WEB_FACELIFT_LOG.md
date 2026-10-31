@@ -15,6 +15,7 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | § | What the spec said | What we do now | Status | Entry |
 |---|---|---|---|---|
 | **All** | Section 10 describes new layouts, orders and sets of elements per screen | **Reskin, not relayout.** Each phone screen keeps its original structure, section order, content, components and what is shown or hidden. Only the visual layer changes (colours, gradients, glass, glow, type, radii, spacing values, icons, chips, press and motion). Where section 10 describes a different layout, only its visual treatment is taken. Filtering, sorting and conditional rendering of data are logic | Sohan refinement | 016 |
+| 10.9 | Plan chip under the email, destructive rows grouped last | Original layout restored: plan badge on the avatar's corner (Free / Pro chip), role line under the email, AI connections card without an extra heading, then Delete account (danger button), version lines, Log out (secondary button) in the original order | Sohan refinement | 024 |
 | 10.4 | Notes title, pinned grouping, note previews and meta line | Original layout restored: search, filters, New note + mic, list in the loaded order (no pinned grouping, which is sorting); rows show icon, title with the pin mark when pinned, folder for text notes, time · duration for voice notes, as before; "No notes match your search." is plain text again | Sohan refinement | 023 |
 | 10.5 | Recorder hero with title on top, transcript card always shown | Original order restored inside the hero card: timer + state label, waveform, status ("Voice note" + status line), live transcript only once there is text | Sohan refinement | 023 |
 | 10.11 | Note options sheet with the note title on top | Title line removed (it wasn't there); rows, icons, sheet and swipe stay | Sohan refinement | 023 |
@@ -374,3 +375,11 @@ Why: Reskin, not relayout (entry 016). Grouping pinned notes first was a sort, w
 Exact values: note row glass radius 16, padding 12 / 16, icon tile 36 (info tint for voice, `primary-text` icon for text), title `callout` 600 one line, folder `overline` `ink-2`, voice meta `caption`; recorder hero radius 32, padding 24, gap 24 between the four blocks.
 Port to native: adapt
 Native instruction: §10.4: keep the existing note list order and row content; §10.5: keep the recorder's existing order, only the hero material, waveform colours and controls change.
+
+## Entry 024 · Correction round 1 · 2026-10-31
+Type: Sohan refinement
+What changed: Account / Settings reskinned on its original layout (base 3332763): plan badge back on the avatar, role line back under the email, the "AI" and "Account" headings I had added are gone, Delete account / version / Log out back in their original order. Header title `title-3` instead of `title-1` so it keeps the original weight in the bar. Paywall, forms and calendar were checked against the base: they keep their original order and elements (only materials, type and copy changed), so they are unchanged in this round.
+Why: Reskin, not relayout (entry 016).
+Exact values: avatar badge chip 22 tall, 11 px 600, on `--surface`; Delete account `m-btn-danger` full width, 40 above; Log out `m-btn-secondary` full width.
+Port to native: adapt
+Native instruction: §10.9: keep the existing profile order and the plan badge on the avatar.

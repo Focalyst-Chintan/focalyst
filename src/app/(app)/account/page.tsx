@@ -206,7 +206,7 @@ export default function AccountPage() {
                 <button onClick={() => router.back()} className="m-icon-btn m-press -ml-1" aria-label="Back">
                     <ArrowLeftIcon size={20} color="currentColor" />
                 </button>
-                <h1 className="m-title-1 text-ink absolute left-1/2 -translate-x-1/2">
+                <h1 className="m-title-3 text-ink absolute left-1/2 -translate-x-1/2">
                     {t('settings.profile')}
                 </h1>
                 <div className="w-11" /> {/* Placeholder for balance */}
@@ -228,6 +228,9 @@ export default function AccountPage() {
                         ) : (
                             <span aria-hidden>{(user?.full_name || user?.email || '?').trim().charAt(0).toUpperCase()}</span>
                         )}
+                    </div>
+                    <div className={`absolute -bottom-1 -right-2 m-chip !h-[22px] !px-2 !text-[11px] !font-semibold ${user?.plan === 'free' ? 'm-chip-neutral !bg-[var(--surface)]' : 'm-chip-info !bg-[var(--surface)]'}`}>
+                        {user?.plan === 'free' ? t('settings.free') : 'Pro'}
                     </div>
                 </div>
 
@@ -277,18 +280,11 @@ export default function AccountPage() {
                     <>
                         <h2 className="m-title-2 text-ink mt-4 text-center">{user?.full_name || 'No name yet'}</h2>
                         <p className="m-subhead !font-normal text-ink-2 mt-1">{user?.email}</p>
-                        <div className="flex items-center gap-2 mt-3">
-                            {user?.plan === 'free' ? (
-                                <span className="m-chip m-chip-neutral">{t('settings.free')}</span>
-                            ) : (
-                                <span className="m-chip m-chip-info">Pro</span>
-                            )}
-                            {user?.profile_type && (
-                                <span className="m-chip m-chip-neutral capitalize">
-                                    {t(`settings.${user.profile_type}`, user.profile_type.replace('_', ' '))}
-                                </span>
-                            )}
-                        </div>
+                        {user?.profile_type && (
+                            <p className="m-footnote !font-semibold text-primary-text mt-1 capitalize">
+                                {t(`settings.${user.profile_type}`, user.profile_type.replace('_', ' '))}
+                            </p>
+                        )}
                         {saveSuccessMessage && (
                             <p role="status" className="m-footnote text-[var(--m-success-text)] mt-2">{saveSuccessMessage}</p>
                         )}
@@ -415,7 +411,6 @@ export default function AccountPage() {
 
                 {/* AI connections */}
                 <div className="w-full mt-7">
-                    <SectionHeader label="AI" as="h3" />
                     <div className="m-glass overflow-hidden">
                         <Link href="/settings?tab=connections" className="m-press flex items-center justify-between gap-3 min-h-14 px-4 hover:bg-[var(--m-surface-strong)] cursor-pointer">
                             <span className="flex items-center gap-3">
@@ -462,36 +457,29 @@ export default function AccountPage() {
                     </div>
                 </div>
 
-                {/* Account actions: destructive rows last */}
-                <div className="w-full mt-7">
-                    <SectionHeader label="Account" as="h3" />
-                    <div className="m-glass overflow-hidden">
-                        <button
-                            onClick={handleLogout}
-                            className="m-press w-full flex items-center gap-3 min-h-14 px-4 text-left hover:bg-[var(--m-surface-strong)]"
-                        >
-                            <span className="m-tile !w-9 !h-9 text-[var(--m-danger-text)]">
-                                <LogOut size={18} strokeWidth={1.75} aria-hidden />
-                            </span>
-                            <span className="m-callout text-[var(--m-danger-text)]">{t('settings.logout')}</span>
-                        </button>
-                        <button
-                            onClick={() => setShowDeleteModal(true)}
-                            className="m-press w-full flex items-center gap-3 min-h-14 px-4 text-left border-t border-line hover:bg-[var(--m-surface-strong)]"
-                        >
-                            <span className="m-tile !w-9 !h-9 text-[var(--m-danger-text)]">
-                                <Trash2 size={18} strokeWidth={1.75} aria-hidden />
-                            </span>
-                            <span className="m-callout text-[var(--m-danger-text)]">{t('settings.deleteAccount')}</span>
-                        </button>
-                    </div>
-                </div>
+                {/* Destructive Actions */}
+                <button
+                    onClick={() => setShowDeleteModal(true)}
+                    className="m-btn m-btn-danger m-press w-full mt-10"
+                >
+                    <Trash2 size={18} strokeWidth={1.75} aria-hidden />
+                    {t('settings.deleteAccount')}
+                </button>
 
                 {/* Version & Credits */}
-                <div className="mt-8 mb-4 text-center">
+                <div className="mt-8 text-center">
                     <p className="m-caption text-ink-2">{t('settings.version')}</p>
                     <p className="m-caption text-ink-2 mt-1">{t('settings.builtBy')}</p>
                 </div>
+
+                {/* Logout Button */}
+                <button
+                    onClick={handleLogout}
+                    className="m-btn m-btn-secondary m-press w-full mt-6 mb-10"
+                >
+                    <LogOut size={18} strokeWidth={1.75} aria-hidden />
+                    {t('settings.logout')}
+                </button>
             </div>
 
             {/* Delete Modal */}
