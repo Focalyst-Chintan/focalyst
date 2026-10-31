@@ -32,7 +32,7 @@ export function LevelTimelineItem({
                 <div
                     className="absolute left-[17px] top-[36px] w-[2px] bottom-0"
                     style={{
-                        backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#FF6B00' : '#E2E8F0'
+                        backgroundColor: isCompleted ? '#10B981' : isCurrent ? '#1951FC' : 'var(--line-strong)'
                     }}
                 />
             )}
@@ -45,17 +45,17 @@ export function LevelTimelineItem({
                     </div>
                 ) : isCurrent ? (
                     <div
-                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-black text-[14px] text-white"
+                        className="w-[36px] h-[36px] rounded-full flex items-center justify-center font-semibold text-[14px] text-white"
                         style={{
-                            backgroundColor: '#FF6B00',
+                            backgroundColor: '#1951FC',
                             boxShadow: '0 0 0 3px rgba(255, 107, 0, 0.25), 0 2px 10px rgba(255, 107, 0, 0.4)'
                         }}
                     >
                         {benchmark.level}
                     </div>
                 ) : (
-                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center border-2 border-slate-200 dark:border-[#222A41] bg-slate-50 dark:bg-[#0B1021]">
-                        <Lock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
+                    <div className="w-[36px] h-[36px] rounded-full flex items-center justify-center border-2 border-line bg-[var(--m-surface-strong)]">
+                        <Lock className="w-3.5 h-3.5 text-ink-2" />
                     </div>
                 )}
             </div>
@@ -66,10 +66,10 @@ export function LevelTimelineItem({
                     <h4
                         className={`text-[14px] font-bold ${
                             isCurrent
-                                ? 'text-[#FF6B00]'
+                                ? 'text-primary-text'
                                 : isCompleted
-                                ? 'text-slate-900 dark:text-white'
-                                : 'text-slate-500 dark:text-slate-400'
+                                ? 'text-ink'
+                                : 'text-ink-2'
                         }`}
                     >
                         Level {benchmark.level} — {benchmark.title}
@@ -78,22 +78,22 @@ export function LevelTimelineItem({
 
                 {/* Sub-info: Active Progress Box vs XP Required label */}
                 {isCurrent ? (
-                    <div className="mt-2.5 p-3 rounded-2xl bg-orange-50/70 dark:bg-[#0B1021] border border-[#FF6B00] shadow-sm space-y-2">
-                        <p className="text-[12px] font-semibold text-slate-700 dark:text-slate-300">
+                    <div className="mt-2.5 p-3 rounded-2xl bg-primary-soft border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] space-y-2">
+                        <p className="text-[12px] font-semibold text-ink-2">
                             {totalXP} XP / {nextBenchmark.xp} XP base
                         </p>
-                        <div className="w-full bg-orange-100 dark:bg-orange-950/40 rounded-full overflow-hidden h-2">
+                        <div className="w-full bg-[var(--m-surface-strong)] rounded-full overflow-hidden h-2">
                             <div
                                 className="h-full rounded-full transition-all duration-700"
-                                style={{ width: `${Math.max(progress, 2)}%`, backgroundColor: '#FF6B00' }}
+                                style={{ width: `${Math.max(progress, 2)}%`, backgroundColor: '#1951FC' }}
                             />
                         </div>
-                        <p className="text-[11.5px] font-bold text-[#FF6B00]">
+                        <p className="text-[11.5px] font-bold text-primary-text">
                             {Math.max(0, xpRemaining)} XP remaining to Level {nextBenchmark.level}
                         </p>
                     </div>
                 ) : (
-                    <p className="text-[12px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    <p className="text-[12px] text-ink-2 font-medium mt-0.5">
                         {benchmark.xp} XP required
                     </p>
                 )}

@@ -194,7 +194,7 @@ export default function HabitGroupLeaderboardSection({
             {/* ─── Compact Preview Card in Insights ─── */}
             <div
                 onClick={() => setModalVisible(true)}
-                className="w-full p-4 sm:p-5 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl shadow-sm cursor-pointer transition-all hover:border-[#2B6BFF]/40 relative overflow-hidden"
+                className="w-full p-4 sm:p-5 bg-[var(--m-surface)] border border-line rounded-[24px] shadow-sm cursor-pointer transition-all hover:border-line-strong relative overflow-hidden"
             >
                 {/* Header Row */}
                 <div className="flex items-center justify-between mb-3.5">
@@ -202,7 +202,7 @@ export default function HabitGroupLeaderboardSection({
                         <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/15 flex items-center justify-center text-[#2B6BFF]">
                             <Trophy className="w-4 h-4" />
                         </div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white truncate">
+                        <h3 className="text-base font-bold text-ink truncate">
                             Habit Leaderboard
                         </h3>
                     </div>
@@ -223,21 +223,21 @@ export default function HabitGroupLeaderboardSection({
                 {groupData.in_group ? (
                     <>
                         {/* User Position Banner */}
-                        <div className="p-3 bg-slate-50 dark:bg-[#0B1021] border border-slate-200/60 dark:border-[#1F293D] rounded-2xl flex items-center justify-between">
+                        <div className="p-3 bg-[var(--m-surface-strong)] border border-slate-200/60 dark:border-[#1F293D] rounded-2xl flex items-center justify-between">
                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-9 h-9 rounded-xl bg-[#2B6BFF] text-white flex items-center justify-center font-extrabold text-sm shadow-sm shrink-0">
+                                <div className="w-9 h-9 rounded-xl bg-[#2B6BFF] text-white flex items-center justify-center font-semibold text-sm shadow-sm shrink-0">
                                     #{myRank}
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-bold text-slate-900 dark:text-white">
+                                        <span className="text-xs font-bold text-ink">
                                             Rank #{myRank} of {memberCount}
                                         </span>
-                                        <span className="px-1.5 py-0.2 bg-[#2B6BFF]/15 text-[#2B6BFF] text-[10px] font-extrabold rounded">
+                                        <span className="px-1.5 py-0.2 bg-[#2B6BFF]/15 text-[#2B6BFF] text-[10px] font-semibold rounded">
                                             YOU
                                         </span>
                                     </div>
-                                    <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                                    <p className="text-[11px] text-ink-2 truncate mt-0.5">
                                         {myMember?.habit_name || 'Active Habit'} • 🔥 {myMember?.streak || 0}d streak • {myMember?.total_days || 0} total days
                                     </p>
                                 </div>
@@ -247,9 +247,9 @@ export default function HabitGroupLeaderboardSection({
 
                         {/* Invite Code Pill */}
                         {inviteCode && (
-                            <div className="flex items-center justify-between mt-3 px-1 text-xs text-slate-500 dark:text-slate-400">
+                            <div className="flex items-center justify-between mt-3 px-1 text-xs text-ink-2">
                                 <span className="font-mono text-[11px]">
-                                    Invite Code: <span className="font-bold text-slate-800 dark:text-slate-200">{inviteCode}</span>
+                                    Invite Code: <span className="font-bold text-ink">{inviteCode}</span>
                                 </span>
                                 <button
                                     onClick={handleCopyCode}
@@ -264,7 +264,7 @@ export default function HabitGroupLeaderboardSection({
                 ) : (
                     /* Not in Group State */
                     <div className="text-center py-3">
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                        <p className="text-xs text-ink-2 mb-3">
                             Join or form a habit group to compete on streaks with friends!
                         </p>
                         <div className="flex gap-2.5 justify-center">
@@ -276,7 +276,7 @@ export default function HabitGroupLeaderboardSection({
                             </button>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setShowJoinModal(true) }}
-                                className="px-4 py-2 bg-slate-100 dark:bg-[#0B1021] text-slate-800 dark:text-slate-200 hover:bg-slate-200 text-xs font-semibold rounded-xl border border-slate-200 dark:border-[#222A41] transition-all"
+                                className="px-4 py-2 bg-slate-100 dark:bg-[#0B1021] text-ink hover:bg-slate-200 text-xs font-semibold rounded-xl border border-line transition-all"
                             >
                                 Join with Code
                             </button>
@@ -288,7 +288,7 @@ export default function HabitGroupLeaderboardSection({
             {/* ─── Full Habit Leaderboard Modal / View ─── */}
             {modalVisible && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-lg bg-[#0B1021] text-white border border-[#222A41] rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+                    <div className="w-full max-w-lg bg-[#0B1021] text-white border border-[#222A41] rounded-[24px] overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
                         {/* Header Banner (Royal Blue Gradient) */}
                         <div className="p-5 bg-gradient-to-br from-[#0B2CB1] to-[#0B1021] border-b border-[#222A41] relative">
                             <button
@@ -300,9 +300,9 @@ export default function HabitGroupLeaderboardSection({
 
                             <div className="flex items-center gap-2 mb-1">
                                 <Trophy className="w-5 h-5 text-amber-400" />
-                                <span className="text-xs font-extrabold uppercase tracking-widest text-blue-200">Focalyst Leaderboard</span>
+                                <span className="text-xs font-semibold uppercase tracking-widest text-blue-200">Focalyst Leaderboard</span>
                             </div>
-                            <h2 className="text-xl sm:text-2xl font-black">Habit Group Standings</h2>
+                            <h2 className="text-xl sm:text-2xl font-semibold">Habit Group Standings</h2>
 
                             {groupData.in_group && inviteCode && (
                                 <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/10 text-xs text-blue-200">
@@ -336,8 +336,8 @@ export default function HabitGroupLeaderboardSection({
                                                     {secondPlace.habit_name}
                                                 </span>
                                                 <div className="w-full mt-2 h-20 bg-gradient-to-t from-[#151B2E] to-[#1E293B] border border-slate-700/60 rounded-2xl flex flex-col items-center justify-center shadow-lg relative">
-                                                    <span className="text-lg font-black text-slate-400">#2</span>
-                                                    <span className="text-[11px] font-bold text-orange-400 flex items-center gap-0.5">
+                                                    <span className="text-lg font-semibold text-slate-400">#2</span>
+                                                    <span className="text-[11px] font-bold text-amber-400 flex items-center gap-0.5">
                                                         🔥 {secondPlace.streak}d
                                                     </span>
                                                     <span className="text-[9px] text-slate-400">{secondPlace.total_days} days</span>
@@ -353,15 +353,15 @@ export default function HabitGroupLeaderboardSection({
                                         {firstPlace ? (
                                             <>
                                                 <Crown className="w-5 h-5 text-amber-400 animate-bounce mb-0.5" />
-                                                <span className="text-xs sm:text-sm font-black text-amber-300 truncate max-w-full text-center">
+                                                <span className="text-xs sm:text-sm font-semibold text-amber-300 truncate max-w-full text-center">
                                                     {firstPlace.display_name}
                                                 </span>
                                                 <span className="text-[10px] text-slate-400 truncate max-w-full">
                                                     {firstPlace.habit_name}
                                                 </span>
                                                 <div className="w-full mt-2 h-28 bg-gradient-to-t from-[#151B2E] via-[#1E2D5A] to-[#2B6BFF]/30 border-2 border-amber-400/80 rounded-2xl flex flex-col items-center justify-center shadow-xl relative">
-                                                    <span className="text-2xl font-black text-amber-400">#1</span>
-                                                    <span className="text-xs font-extrabold text-orange-400 flex items-center gap-0.5">
+                                                    <span className="text-2xl font-semibold text-amber-400">#1</span>
+                                                    <span className="text-xs font-semibold text-amber-400 flex items-center gap-0.5">
                                                         🔥 {firstPlace.streak}d
                                                     </span>
                                                     <span className="text-[10px] text-slate-300 font-semibold">{firstPlace.total_days} total days</span>
@@ -381,8 +381,8 @@ export default function HabitGroupLeaderboardSection({
                                                     {thirdPlace.habit_name}
                                                 </span>
                                                 <div className="w-full mt-2 h-16 bg-gradient-to-t from-[#151B2E] to-[#1E293B] border border-slate-700/60 rounded-2xl flex flex-col items-center justify-center shadow-lg relative">
-                                                    <span className="text-base font-black text-amber-600">#3</span>
-                                                    <span className="text-[11px] font-bold text-orange-400 flex items-center gap-0.5">
+                                                    <span className="text-base font-semibold text-amber-600">#3</span>
+                                                    <span className="text-[11px] font-bold text-amber-400 flex items-center gap-0.5">
                                                         🔥 {thirdPlace.streak}d
                                                     </span>
                                                     <span className="text-[9px] text-slate-400">{thirdPlace.total_days} days</span>
@@ -411,7 +411,7 @@ export default function HabitGroupLeaderboardSection({
                                             }`}
                                         >
                                             <div className="flex items-center gap-3 min-w-0">
-                                                <div className="w-7 h-7 rounded-xl bg-[#0B1021] text-white flex items-center justify-center text-xs font-extrabold shrink-0">
+                                                <div className="w-7 h-7 rounded-xl bg-[#0B1021] text-white flex items-center justify-center text-xs font-semibold shrink-0">
                                                     #{idx + 1}
                                                 </div>
                                                 <div className="min-w-0">
@@ -420,7 +420,7 @@ export default function HabitGroupLeaderboardSection({
                                                             {m.display_name}
                                                         </span>
                                                         {m.is_me && (
-                                                            <span className="px-1.5 py-0.5 bg-[#2B6BFF] text-white text-[10px] font-black rounded-md">
+                                                            <span className="px-1.5 py-0.5 bg-[#2B6BFF] text-white text-[10px] font-semibold rounded-md">
                                                                 YOU
                                                             </span>
                                                         )}
@@ -432,7 +432,7 @@ export default function HabitGroupLeaderboardSection({
                                             </div>
 
                                             <div className="text-right shrink-0 ml-2">
-                                                <span className="text-xs font-bold text-orange-400 flex items-center justify-end gap-1">
+                                                <span className="text-xs font-bold text-amber-400 flex items-center justify-end gap-1">
                                                     🔥 {m.streak}d streak
                                                 </span>
                                                 <span className="text-[11px] text-slate-400 block mt-0.5">
@@ -463,20 +463,20 @@ export default function HabitGroupLeaderboardSection({
             {/* ─── Create Group Modal ─── */}
             {showCreateModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-md bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl space-y-5">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#222A41]">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Form a Habit Group</h3>
+                    <div className="w-full max-w-md bg-[var(--m-surface)] border border-line rounded-[24px] p-6 shadow-2xl space-y-5">
+                        <div className="flex items-center justify-between pb-2 border-b border-line">
+                            <h3 className="text-lg font-bold text-ink">Form a Habit Group</h3>
                             <button onClick={() => setShowCreateModal(false)} className="p-1 rounded-full text-slate-400">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
-                        <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                        <p className="text-xs text-ink-2 leading-relaxed">
                             Create a group with an invite code. Up to 5 friends can join and track their streaks on the shared leaderboard!
                         </p>
 
                         <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
+                            <label className="text-xs font-bold text-ink-2 uppercase tracking-wider block mb-2">
                                 Choose Habit to Share
                             </label>
                             {activeHabits.length === 0 ? (
@@ -491,7 +491,7 @@ export default function HabitGroupLeaderboardSection({
                                             className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
                                                 selectedHabitId === h.id
                                                     ? 'bg-[#2B6BFF]/10 border-[#2B6BFF] text-[#2B6BFF]'
-                                                    : 'bg-slate-50 dark:bg-[#0B1021] border-slate-200 dark:border-[#222A41] text-slate-800 dark:text-slate-200'
+                                                    : 'bg-[var(--m-surface-strong)] border-line text-ink'
                                             }`}
                                         >
                                             <span className="text-sm font-semibold truncate">{h.icon || '🎯'} {h.name}</span>
@@ -508,7 +508,7 @@ export default function HabitGroupLeaderboardSection({
                             <button
                                 type="button"
                                 onClick={() => setShowCreateModal(false)}
-                                className="flex-1 h-11 bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 font-bold rounded-2xl"
+                                className="flex-1 h-11 bg-slate-100 dark:bg-[#0B1021] text-ink-2 font-bold rounded-2xl"
                             >
                                 Cancel
                             </button>
@@ -528,16 +528,16 @@ export default function HabitGroupLeaderboardSection({
             {/* ─── Join with Code Modal ─── */}
             {showJoinModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-md bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl space-y-5">
-                        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-[#222A41]">
-                            <h3 className="text-lg font-bold text-slate-900 dark:text-white">Join Habit Group</h3>
+                    <div className="w-full max-w-md bg-[var(--m-surface)] border border-line rounded-[24px] p-6 shadow-2xl space-y-5">
+                        <div className="flex items-center justify-between pb-2 border-b border-line">
+                            <h3 className="text-lg font-bold text-ink">Join Habit Group</h3>
                             <button onClick={() => setShowJoinModal(false)} className="p-1 rounded-full text-slate-400">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">
+                            <label className="text-xs font-bold text-ink-2 uppercase tracking-wider block mb-1.5">
                                 6-Character Invite Code
                             </label>
                             <input
@@ -546,13 +546,13 @@ export default function HabitGroupLeaderboardSection({
                                 value={joinCode}
                                 onChange={(e) => { setJoinCode(e.target.value.toUpperCase()); setErrorMsg('') }}
                                 placeholder="e.g. 6RP8Z3"
-                                className="w-full h-12 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-2xl px-4 text-center font-mono text-xl font-bold uppercase tracking-widest text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                className="w-full h-12 bg-[var(--m-surface-strong)] border border-line rounded-2xl px-4 text-center font-mono text-xl font-bold uppercase tracking-widest text-ink outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
                                 autoFocus
                             />
                         </div>
 
                         <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-2">
+                            <label className="text-xs font-bold text-ink-2 uppercase tracking-wider block mb-2">
                                 Choose Your Habit to Share
                             </label>
                             {activeHabits.length === 0 ? (
@@ -567,7 +567,7 @@ export default function HabitGroupLeaderboardSection({
                                             className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
                                                 selectedHabitId === h.id
                                                     ? 'bg-[#2B6BFF]/10 border-[#2B6BFF] text-[#2B6BFF]'
-                                                    : 'bg-slate-50 dark:bg-[#0B1021] border-slate-200 dark:border-[#222A41] text-slate-800 dark:text-slate-200'
+                                                    : 'bg-[var(--m-surface-strong)] border-line text-ink'
                                             }`}
                                         >
                                             <span className="text-sm font-semibold truncate">{h.icon || '🎯'} {h.name}</span>
@@ -584,7 +584,7 @@ export default function HabitGroupLeaderboardSection({
                             <button
                                 type="button"
                                 onClick={() => setShowJoinModal(false)}
-                                className="flex-1 h-11 bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 font-bold rounded-2xl"
+                                className="flex-1 h-11 bg-slate-100 dark:bg-[#0B1021] text-ink-2 font-bold rounded-2xl"
                             >
                                 Cancel
                             </button>

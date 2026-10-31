@@ -1,5 +1,6 @@
 'use client'
 
+import { ChevronDown, Star } from 'lucide-react'
 import { LevelProgressBar } from './LevelProgressBar'
 import { type LevelState } from '@/lib/utils/levels'
 
@@ -19,40 +20,16 @@ export function FocusLevelCard({
         <button
             id="focus-level-card"
             onClick={onToggle}
-            className="w-full text-left rounded-3xl p-5 relative overflow-hidden transition-all duration-300 active:scale-[0.98] shadow-lg"
-            style={{
-                background: 'linear-gradient(90deg, #F59E0B 0%, #FF6B2B 100%)',
-                boxShadow: '0 8px 24px rgba(245, 158, 11, 0.25), 0 2px 8px rgba(255, 107, 43, 0.2)'
-            }}
+            className="m-glass m-press w-full text-left p-5"
             aria-expanded={isOpen}
             aria-controls="level-timeline-dropdown"
         >
-            {/* Subtle decorative circles */}
-            <div
-                className="absolute -top-8 -right-8 w-32 h-32 rounded-full opacity-10 pointer-events-none"
-                style={{ backgroundColor: 'white' }}
-            />
-            <div
-                className="absolute -bottom-6 -left-6 w-24 h-24 rounded-full opacity-[0.07] pointer-events-none"
-                style={{ backgroundColor: 'white' }}
-            />
-
-            <div className="relative z-10 flex items-center gap-4">
+            <div className="relative flex items-center gap-4">
                 {/* Level Badge */}
                 <div className="flex-shrink-0">
-                    <div
-                        className={`w-16 h-16 rounded-2xl flex flex-col items-center justify-center ${isLimitless ? 'legend-glow' : ''}`}
-                        style={{
-                            backgroundColor: 'rgba(255,255,255,0.2)',
-                            backdropFilter: 'blur(8px)',
-                            border: '2px solid rgba(255,255,255,0.3)'
-                        }}
-                    >
-                        {/* Star icon matching mobile */}
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white" className="mb-0.5">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                        </svg>
-                        <span className="text-[11px] font-bold text-white leading-none tracking-tight">
+                    <div className={`w-16 h-16 rounded-[16px] flex flex-col items-center justify-center bg-[image:var(--m-grad-primary)] text-snow shadow-[var(--m-glow)] ${isLimitless ? 'legend-glow' : ''}`}>
+                        <Star size={18} strokeWidth={1.75} className="fill-current mb-0.5" aria-hidden />
+                        <span className="m-caption !text-[11px] leading-none m-num">
                             Level {current.level}
                         </span>
                     </div>
@@ -60,40 +37,29 @@ export function FocusLevelCard({
 
                 {/* Level Info */}
                 <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1.5">
-                        <h2 className="text-[18px] font-bold text-white leading-tight">
-                            {current.title}
-                        </h2>
-                    </div>
+                    <h2 className="m-title-3 text-ink truncate mb-2">
+                        {current.title}
+                    </h2>
 
                     {/* Progress bar */}
-                    <div className="mb-1.5">
-                        <LevelProgressBar progress={progress} color="white" height={7} />
+                    <div className="mb-2">
+                        <LevelProgressBar progress={progress} color="#3781FC" height={6} />
                     </div>
 
                     {/* Subtext info */}
-                    <div className="text-[11.5px] font-medium text-white/90 leading-tight space-y-0.5">
-                        <p>{totalXP} XP / {next.xp} XP base</p>
-                        <p>{isLimitless ? 'Max Level reached' : `${Math.max(0, xpRemaining)} XP remaining to Level ${next.level}`}</p>
+                    <div className="m-caption text-ink-2 space-y-0.5 m-num">
+                        <p>{totalXP} XP of {next.xp} XP</p>
+                        <p>{isLimitless ? 'Top level reached' : `${Math.max(0, xpRemaining)} XP to level ${next.level}`}</p>
                     </div>
                 </div>
 
                 {/* Expand/Collapse Chevron */}
-                <div className="flex-shrink-0 ml-1">
-                    <svg
-                        width="22"
-                        height="22"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className={`transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
-                    >
-                        <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                </div>
+                <ChevronDown
+                    size={20}
+                    strokeWidth={1.75}
+                    aria-hidden
+                    className={`flex-shrink-0 text-ink-2 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+                />
             </div>
         </button>
     )

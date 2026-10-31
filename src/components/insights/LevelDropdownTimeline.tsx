@@ -21,8 +21,8 @@ export function LevelDropdownTimeline({
                 opacity: isOpen ? 1 : 0,
             }}
         >
-            <div className="bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-5 shadow-sm mt-3 max-h-[65vh] overflow-y-auto">
-                <h3 className="text-[16px] font-bold text-slate-900 dark:text-white mb-4">Level Timeline</h3>
+            <div className="bg-[var(--m-surface)] border border-line rounded-[24px] p-5 mt-3 max-h-[65vh] overflow-y-auto">
+                <h3 className="m-title-3 text-ink mb-4">Level timeline</h3>
 
                 <div className="relative">
                     {LEVEL_BENCHMARKS.map((benchmark, index) => {

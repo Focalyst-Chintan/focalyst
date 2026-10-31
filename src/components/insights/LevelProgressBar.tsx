@@ -14,7 +14,7 @@ export function LevelProgressBar({
     return (
         <div
             className={`w-full rounded-full overflow-hidden ${className}`}
-            style={{ height: `${height}px`, backgroundColor: 'rgba(255,255,255,0.25)' }}
+            style={{ height: `${height}px`, backgroundColor: 'var(--line-strong)' }}
         >
             <div
                 className="h-full rounded-full transition-all duration-1000 ease-out"

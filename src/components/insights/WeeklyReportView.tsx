@@ -148,8 +148,8 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
     strokeColor = '#EF4444'; // red
     bgGlow = 'rgba(239, 68, 68, 0.1)';
   } else if (score < 75) {
-    strokeColor = '#FF751F'; // orange/accent
-    bgGlow = 'rgba(255, 117, 31, 0.1)';
+    strokeColor = '#F59E0B'; // warning (orange retired as an accent)
+    bgGlow = 'rgba(245, 158, 11, 0.1)';
   }
 
   return (
@@ -162,7 +162,7 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
           r={radius}
           fill="none"
           stroke="currentColor"
-          className="text-[#E2E8F0] dark:text-slate-700"
+          className="text-[var(--m-surface-strong)]"
           strokeWidth={strokeWidth}
         />
         {/* Progress arc */}
@@ -181,8 +181,8 @@ function ScoreRing({ score, size = 120 }: { score: number; size?: number }) {
       </svg>
       {/* Score number overlay */}
       <div className="absolute inset-0 flex flex-col items-center justify-center" style={{ background: bgGlow, borderRadius: '50%' }}>
-        <span className="text-[28px] font-black text-navy dark:text-slate-100 leading-none">{animatedScore}</span>
-        <span className="text-[10px] font-semibold text-blue-muted dark:text-slate-400 mt-0.5">/ 100</span>
+        <span className="text-[28px] font-semibold text-ink leading-none">{animatedScore}</span>
+        <span className="text-[10px] font-semibold text-ink-2 mt-0.5">/ 100</span>
       </div>
     </div>
   );
@@ -204,11 +204,11 @@ function MetricBar({ label, value, max, color, icon: Icon }: {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Icon className="w-3.5 h-3.5" style={{ color }} />
-          <span className="text-[12px] font-semibold text-navy dark:text-slate-200">{label}</span>
+          <span className="text-[12px] font-semibold text-ink">{label}</span>
         </div>
         <span className="text-[12px] font-bold" style={{ color }}>{value}{typeof max === 'number' && max !== 100 ? `/${max}` : '%'}</span>
       </div>
-      <div className="h-2 bg-[#E2E8F0] dark:bg-slate-700 rounded-full overflow-hidden">
+      <div className="h-2 bg-[var(--m-surface-strong)] rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-700 ease-out"
           style={{ width: `${percentage}%`, backgroundColor: color }}
@@ -224,17 +224,17 @@ function BulletList({ items, variant }: { items: string[]; variant: 'strength' |
   const { t } = useTranslation();
   const isStrength = variant === 'strength';
   const Icon = isStrength ? TrendingUp : TrendingDown;
-  const iconColor = isStrength ? '#10B981' : '#FF751F';
-  const bgColor = isStrength ? 'bg-[#10B981]/5' : 'bg-[#FF751F]/5';
-  const dotColor = isStrength ? 'bg-[#10B981]' : 'bg-[#FF751F]';
+  const iconColor = isStrength ? 'var(--m-success-text)' : 'var(--m-warning-text)';
+  const bgColor = 'bg-[var(--m-surface-strong)] border border-line';
+  const dotColor = isStrength ? 'bg-[var(--m-success)]' : 'bg-[var(--m-warning)]';
 
   if (items.length === 0) return null;
 
   return (
-    <div className={`rounded-2xl p-4 ${bgColor} dark:bg-slate-800 dark:border dark:border-slate-700`}>
+    <div className={`rounded-[16px] p-4 ${bgColor}`}>
       <div className="flex items-center gap-1.5 mb-3">
         <Icon className="w-4 h-4" style={{ color: iconColor }} />
-        <h5 className="text-[12px] font-black uppercase tracking-wider" style={{ color: iconColor }}>
+        <h5 className="text-[12px] font-semibold uppercase tracking-wider" style={{ color: iconColor }}>
           {isStrength ? t('insights.strengths') : t('insights.improvements')}
         </h5>
       </div>
@@ -242,7 +242,7 @@ function BulletList({ items, variant }: { items: string[]; variant: 'strength' |
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-2.5">
             <div className={`w-1.5 h-1.5 rounded-full ${dotColor} mt-1.5 shrink-0`} />
-            <span className="text-[12.5px] text-navy-darker dark:text-slate-200 leading-relaxed font-medium">{item}</span>
+            <span className="text-[12.5px] text-ink leading-relaxed font-medium">{item}</span>
           </li>
         ))}
       </ul>
@@ -258,7 +258,7 @@ function CopyToast({ visible }: { visible: boolean }) {
 
   return (
     <div className="fixed top-6 left-1/2 z-[110] -translate-x-1/2" style={{ animation: 'fadeInDown 0.3s ease-out forwards' }}>
-      <div className="flex items-center gap-2 bg-navy text-snow px-5 py-2.5 rounded-full shadow-xl text-[13px] font-semibold">
+      <div className="flex items-center gap-2 m-blur border border-line text-ink px-5 py-2.5 rounded-full shadow-[var(--shadow-glass)] m-subhead">
         <Check className="w-4 h-4 text-[#10B981]" />
         {t('insights.toastCopied')}
       </div>
@@ -272,16 +272,16 @@ function EmptyState() {
   const { t } = useTranslation();
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <div className="w-16 h-16 rounded-2xl bg-navy/5 dark:bg-slate-800 flex items-center justify-center mb-5">
+      <div className="w-16 h-16 rounded-[20px] bg-[var(--m-surface-strong)] border border-line flex items-center justify-center mb-5 text-primary-text">
         <Sparkles className="w-8 h-8 text-navy/30 dark:text-slate-500" />
       </div>
-      <h4 className="text-[16px] font-bold text-navy dark:text-slate-200 mb-2">
+      <h4 className="text-[16px] font-bold text-ink mb-2">
         {t('insights.generatingInsights')}
       </h4>
-      <p className="text-[13px] text-blue-muted dark:text-slate-400 leading-relaxed max-w-[280px] font-medium">
+      <p className="text-[13px] text-ink-2 leading-relaxed max-w-[280px] font-medium">
         {t('insights.generatingInsightsDesc')}
       </p>
-      <div className="mt-6 flex items-center gap-2 text-[11px] text-blue-muted dark:text-slate-400 font-medium">
+      <div className="mt-6 flex items-center gap-2 text-[11px] text-ink-2 font-medium">
         <Clock className="w-3.5 h-3.5" />
         {t('insights.checkBackSunday')}
       </div>
@@ -295,10 +295,10 @@ function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
       <Loader2 className="w-8 h-8 text-navy/40 dark:text-slate-500 animate-spin mb-4" />
-      <p className="text-[15px] font-semibold text-navy dark:text-slate-200 mb-1">
+      <p className="text-[15px] font-semibold text-ink mb-1">
         Creating your report
       </p>
-      <p className="text-[12px] text-blue-muted dark:text-slate-400 font-medium">
+      <p className="text-[12px] text-ink-2 font-medium">
         Analyzing your tasks, habits, and focus hours
       </p>
     </div>
@@ -308,12 +308,12 @@ function LoadingState() {
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-      <p className="text-[14px] text-navy dark:text-slate-200 font-medium max-w-[280px] mb-4">
+      <p className="text-[14px] text-ink font-medium max-w-[280px] mb-4">
         Your report could not be created right now. Please try again in a few minutes.
       </p>
       <button
         onClick={onRetry}
-        className="px-4 py-2 rounded-full bg-navy text-snow text-xs font-semibold hover:opacity-90 transition-opacity"
+        className="m-btn m-btn-secondary m-btn-sm m-press"
       >
         Try again
       </button>
@@ -430,16 +430,16 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
     <>
       <CopyToast visible={showToast} />
 
-      <div id="weekly-report" className="mt-8 bg-gradient-to-br from-white to-[#F4F7FA] dark:from-slate-900 dark:to-slate-950 rounded-3xl shadow-sm border border-[#E2E8F0] dark:border-slate-800 w-full overflow-hidden">
+      <div id="weekly-report" className="m-glass w-full overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-6 pb-2">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-navy/10 dark:bg-slate-800 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-navy dark:text-slate-200" />
+            <div className="m-tile !w-9 !h-9 text-primary-text">
+              <Calendar className="w-5 h-5 text-ink" />
             </div>
             <div>
-              <h3 className="text-[17px] font-bold text-navy dark:text-slate-100 leading-none">{t('insights.report')}</h3>
-              <p className="text-[11px] text-blue-muted dark:text-slate-400 mt-1 font-medium">{weekRange}</p>
+              <h3 className="text-[17px] font-bold text-ink leading-none">{t('insights.report')}</h3>
+              <p className="text-[11px] text-ink-2 mt-1 font-medium">{weekRange}</p>
             </div>
           </div>
         </div>
@@ -461,37 +461,37 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
                   <ScoreRing score={reportData.score} size={110} />
                   <div className="flex-1 space-y-3">
                     {/* Focus Time */}
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                    <div className="flex items-center justify-between bg-[var(--m-surface-strong)] rounded-xl px-3.5 py-2.5 shadow-sm border border-line">
                       <div className="flex items-center gap-2">
-                        <Clock className="w-4 h-4 text-[#4A6C8C]" />
-                        <span className="text-[11px] font-semibold text-blue-muted dark:text-slate-400 uppercase tracking-wider">{t('nav.focus')}</span>
+                        <Clock className="w-4 h-4 text-primary-text" />
+                        <span className="m-overline text-ink-2">{t('nav.focus')}</span>
                       </div>
-                      <span className="text-[15px] font-black text-navy dark:text-slate-200">{reportData.focusTime}</span>
+                      <span className="text-[15px] font-semibold text-ink">{reportData.focusTime}</span>
                     </div>
 
                     {/* Tasks Completed */}
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                    <div className="flex items-center justify-between bg-[var(--m-surface-strong)] rounded-xl px-3.5 py-2.5 shadow-sm border border-line">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="w-4 h-4 text-[#10B981]" />
-                        <span className="text-[11px] font-semibold text-blue-muted dark:text-slate-400 uppercase tracking-wider">{t('nav.plan')}</span>
+                        <span className="m-overline text-ink-2">{t('nav.plan')}</span>
                       </div>
-                      <span className="text-[15px] font-black text-navy dark:text-slate-200">{reportData.tasksCompleted}</span>
+                      <span className="text-[15px] font-semibold text-ink">{reportData.tasksCompleted}</span>
                     </div>
 
                     {/* Habit Consistency */}
-                    <div className="flex items-center justify-between bg-white dark:bg-slate-800 rounded-xl px-3.5 py-2.5 shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                    <div className="flex items-center justify-between bg-[var(--m-surface-strong)] rounded-xl px-3.5 py-2.5 shadow-sm border border-line">
                       <div className="flex items-center gap-2">
-                        <Flame className="w-4 h-4 text-[#FF751F]" />
-                        <span className="text-[11px] font-semibold text-blue-muted dark:text-slate-400 uppercase tracking-wider">{t('plan.habits').split(' ').pop()}</span>
+                        <Flame className="w-4 h-4 text-primary-text" />
+                        <span className="m-overline text-ink-2">{t('plan.habits').split(' ').pop()}</span>
                       </div>
-                      <span className="text-[15px] font-black text-[#FF751F]">{reportData.habitConsistency}</span>
+                      <span className="text-[15px] font-semibold text-primary-text">{reportData.habitConsistency}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Performance Bars */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 shadow-sm border border-[#E2E8F0] dark:border-slate-700 space-y-3">
-                  <h4 className="text-[12px] font-black text-navy dark:text-slate-200 uppercase tracking-wider mb-2">{t('insights.performance')}</h4>
+                <div className="bg-[var(--m-surface-strong)] rounded-2xl p-4 shadow-sm border border-line space-y-3">
+                  <h4 className="text-[12px] font-semibold text-ink uppercase tracking-wider mb-2">{t('insights.performance')}</h4>
                   <MetricBar
                     label={t('insights.tasksCompleted')}
                     value={Math.min(Math.round((reportData.tasksCompleted / Math.max(reportData.tasksCompleted, 1)) * 100), 100)}
@@ -503,7 +503,7 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
                     label={t('plan.habits')}
                     value={parsePercentage(reportData.habitConsistency)}
                     max={100}
-                    color="#FF751F"
+                    color="#3781FC"
                     icon={Flame}
                   />
                   <MetricBar
@@ -527,53 +527,53 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
                 })()}
 
                 {/* Week Summary */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 shadow-sm border border-[#E2E8F0] dark:border-slate-700">
-                  <h4 className="text-[13px] font-bold text-navy dark:text-slate-100 mb-2 flex items-center gap-1.5">
+                <div className="bg-[var(--m-surface-strong)] rounded-2xl p-5 shadow-sm border border-line">
+                  <h4 className="text-[13px] font-bold text-ink mb-2 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-navy/50 dark:text-slate-400" />
                     {t('insights.generatingInsights').replace('Generating your', '').replace('...', '').trim()}
                   </h4>
-                  <p className="text-[13px] text-blue-muted dark:text-slate-300 leading-relaxed font-medium">
+                  <p className="text-[13px] text-ink-2 leading-relaxed font-medium">
                     {reportData.weekSummaryText}
                   </p>
                 </div>
               </div>
 
               {/* ═══ Section B: Catalyst Insights (Pro) ═══ */}
-              <div className="mt-8 border-t border-[#E2E8F0] dark:border-slate-800 pt-6 relative">
-                <h4 className="text-[15px] font-bold text-navy dark:text-slate-100 mb-4 flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-[#FF751F] fill-[#FF751F]" />
+              <div className="mt-8 border-t border-line pt-6 relative">
+                <h4 className="text-[15px] font-bold text-ink mb-4 flex items-center gap-1.5">
+                  <Zap className="w-4 h-4 text-primary-text fill-[var(--primary-text)]" />
                   Catalyst Report
                   {userPlan === 'pro' && (
-                    <span className="ml-1.5 bg-gradient-to-r from-[#FF751F] to-[#F07A54] text-white text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Pro</span>
+                    <span className="ml-1.5 m-chip m-chip-info !h-6 !text-[12px]">Pro</span>
                   )}
                 </h4>
 
                 {userPlan === 'free' ? (
                   /* ── Free Tier Paywall Gate ── */
-                  <div className="relative rounded-2xl overflow-hidden border border-[#E2E8F0] dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 min-h-[240px]">
+                  <div className="relative rounded-2xl overflow-hidden border border-line bg-white/50 dark:bg-slate-900/50 min-h-[240px]">
                     {/* Blurred placeholder simulating Catalyst cards */}
                     <div className="blur-[4px] opacity-20 select-none pointer-events-none p-5 space-y-4">
                       <div className="grid grid-cols-1 gap-3">
-                        <div className="h-28 bg-gradient-to-r from-[#E2E8F0] to-[#D1D9E2] dark:from-slate-800 dark:to-slate-700 rounded-xl" />
-                        <div className="h-28 bg-gradient-to-r from-[#E2E8F0] to-[#D1D9E2] dark:from-slate-800 dark:to-slate-700 rounded-xl" />
-                        <div className="h-28 bg-gradient-to-r from-[#E2E8F0] to-[#D1D9E2] dark:from-slate-800 dark:to-slate-700 rounded-xl" />
+                        <div className="h-28 bg-[var(--m-surface-strong)] rounded-[16px]" />
+                        <div className="h-28 bg-[var(--m-surface-strong)] rounded-[16px]" />
+                        <div className="h-28 bg-[var(--m-surface-strong)] rounded-[16px]" />
                       </div>
                     </div>
 
                     {/* Gradient overlay + paywall CTA */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/40 dark:from-slate-900 dark:via-slate-900/95 dark:to-slate-900/40 flex flex-col items-center justify-end pb-8 px-5 text-center">
-                      <div className="w-12 h-12 rounded-full bg-navy/5 dark:bg-slate-800 flex items-center justify-center mb-3 shadow-sm border dark:border-slate-700">
-                        <Lock className="w-5 h-5 text-navy dark:text-slate-200" />
+                    <div className="absolute inset-0 bg-[linear-gradient(0deg,var(--canvas),color-mix(in_srgb,var(--canvas)_92%,transparent),color-mix(in_srgb,var(--canvas)_40%,transparent))] flex flex-col items-center justify-end pb-8 px-5 text-center">
+                      <div className="w-12 h-12 rounded-full bg-[var(--m-surface-strong)] flex items-center justify-center mb-3 border border-line text-primary-text">
+                        <Lock className="w-5 h-5 text-ink" />
                       </div>
-                      <p className="text-[13px] font-bold text-navy dark:text-slate-100 mb-1.5 max-w-[280px]">
+                      <p className="text-[13px] font-bold text-ink mb-1.5 max-w-[280px]">
                         {t('insights.unlockProInsights')}
                       </p>
-                      <p className="text-[11px] text-blue-muted dark:text-slate-400 mb-4 max-w-[260px]">
+                      <p className="text-[11px] text-ink-2 mb-4 max-w-[260px]">
                         Go beyond the basics with AI-powered coaching tailored to your workflow.
                       </p>
                       <button
                         onClick={() => router.push('/paywall')}
-                        className="bg-navy hover:bg-navy-dark dark:bg-slate-800 dark:hover:bg-slate-700 dark:border dark:border-slate-700 text-white font-bold text-[12px] px-6 py-2.5 rounded-full transition-all shadow-md active:scale-95 flex items-center gap-1.5"
+                        className="m-btn m-btn-primary m-btn-sm m-press"
                         id="weekly-report-upgrade-btn"
                       >
                         <Zap className="w-3.5 h-3.5 fill-white" />
@@ -586,12 +586,12 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
                   <div className="space-y-4">
                     {/* Pattern Intelligence Card */}
                     {reportData.catalystInsights.pattern && (
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border-l-4 border-l-[#4A6C8C] shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                      <div className="bg-[var(--m-surface-strong)] rounded-2xl p-5 border-l-4 border-l-[#3781FC] shadow-sm border border-line">
                         <div className="flex items-center gap-1.5 mb-2.5">
-                          <BarChart2 className="w-4 h-4 text-[#4A6C8C]" />
-                          <h5 className="text-[12px] font-black text-[#4A6C8C] uppercase tracking-wider">{t('insights.patternIntelligence')}</h5>
+                          <BarChart2 className="w-4 h-4 text-primary-text" />
+                          <h5 className="text-[12px] font-semibold text-primary-text uppercase tracking-wider">{t('insights.patternIntelligence')}</h5>
                         </div>
-                        <p className="text-[12.5px] text-blue-muted dark:text-slate-300 leading-relaxed font-medium">
+                        <p className="text-[12.5px] text-ink-2 leading-relaxed font-medium">
                           {reportData.catalystInsights.pattern}
                         </p>
                       </div>
@@ -599,12 +599,12 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
 
                     {/* Weakness Diagnosis Card */}
                     {reportData.catalystInsights.weakness && (
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border-l-4 border-l-[#FF751F] shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                      <div className="bg-[var(--m-surface-strong)] rounded-2xl p-5 border-l-4 border-l-[var(--m-warning)] shadow-sm border border-line">
                         <div className="flex items-center gap-1.5 mb-2.5">
-                          <AlertTriangle className="w-4 h-4 text-[#FF751F]" />
-                          <h5 className="text-[12px] font-black text-[#FF751F] uppercase tracking-wider">{t('insights.weaknessDiagnosis')}</h5>
+                          <AlertTriangle className="w-4 h-4 text-primary-text" />
+                          <h5 className="text-[12px] font-semibold text-primary-text uppercase tracking-wider">{t('insights.weaknessDiagnosis')}</h5>
                         </div>
-                        <p className="text-[12.5px] text-blue-muted dark:text-slate-300 leading-relaxed font-medium">
+                        <p className="text-[12.5px] text-ink-2 leading-relaxed font-medium">
                           {reportData.catalystInsights.weakness}
                         </p>
                       </div>
@@ -612,12 +612,12 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
 
                     {/* Priority Prescription Card */}
                     {reportData.catalystInsights.prescription && (
-                      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border-l-4 border-l-[#10B981] shadow-sm border border-[#E2E8F0] dark:border-slate-700">
+                      <div className="bg-[var(--m-surface-strong)] rounded-2xl p-5 border-l-4 border-l-[#10B981] shadow-sm border border-line">
                         <div className="flex items-center gap-1.5 mb-2.5">
                           <Lightbulb className="w-4 h-4 text-[#10B981]" />
-                          <h5 className="text-[12px] font-black text-[#10B981] uppercase tracking-wider">{t('insights.priorityPrescription')}</h5>
+                          <h5 className="text-[12px] font-semibold text-[#10B981] uppercase tracking-wider">{t('insights.priorityPrescription')}</h5>
                         </div>
-                        <p className="text-[12.5px] text-blue-muted dark:text-slate-300 leading-relaxed font-medium">
+                        <p className="text-[12.5px] text-ink-2 leading-relaxed font-medium">
                           {reportData.catalystInsights.prescription}
                         </p>
                       </div>
@@ -627,10 +627,10 @@ export default function WeeklyReportView({ reportData: initialData, userPlan }: 
               </div>
 
               {/* ═══ Copy Report Button ═══ */}
-              <div className="flex justify-center mt-6 border-t border-[#E2E8F0] dark:border-slate-800 pt-4">
+              <div className="flex justify-center mt-6 border-t border-line pt-4">
                 <button
                   onClick={handleCopyReport}
-                  className="flex items-center gap-2 text-[12px] font-bold text-blue-muted dark:text-slate-400 hover:text-navy dark:hover:text-slate-200 transition-colors py-2.5 px-5 rounded-xl hover:bg-navy/5 dark:hover:bg-slate-800 active:scale-95"
+                  className="m-btn m-btn-ghost m-press !text-[14px]"
                   id="weekly-report-copy-btn"
                 >
                   {copied ? (

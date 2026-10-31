@@ -2,18 +2,24 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import { FocusTimeCard } from '@/components/insights/FocusTimeCard'
-import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
+import type { ReactNode } from 'react'
+import { DeltaChip, HeroCard } from '@/components/mobile/ui'
+import { AnimatedNumber, shouldDrawIn } from '@/components/mobile/insights/AnimatedNumber'
+import { TrendChart } from '@/components/mobile/charts/TrendChart'
+import { hm, hmSpoken, hmText } from '@/components/mobile/charts/format'
+import { useReducedMotion } from '@/components/mobile/hooks'
+import { useTranslation } from 'react-i18next'
 import { getStartAndEndOfWeek, calculateTrend } from '@/lib/utils/insights'
 import { localDateStr } from '@/lib/utils/date'
 import dynamic from 'next/dynamic'
 
 const FocusActivityCard = dynamic(() => import('@/components/insights/FocusActivityCard').then(mod => mod.FocusActivityCard), {
-    loading: () => <div className="h-48 w-full bg-card-bg/20 animate-pulse rounded-3xl" />,
+    loading: () => <div className="m-skel h-[300px] w-full !rounded-[24px]" />,
     ssr: false
 })
 
-export function ClientFocusInsights({ isPaid, productivityScore }: { isPaid: boolean, productivityScore: number }) {
+// The productivity score now renders in the page's stat grid; `children` sits between the hero and the bars.
+export function ClientFocusInsights({ isPaid, children }: { isPaid: boolean, productivityScore: number, children?: ReactNode }) {
     const supabase = createClient()
     const [totalMinutes, setTotalMinutes] = useState<number>(0)
     const [dailyData, setDailyData] = useState<any[]>([])
@@ -91,12 +97,50 @@ export function ClientFocusInsights({ isPaid, productivityScore }: { isPaid: boo
         }
     }, [fetchFocusData])
 
+    // Display only: the chart reads minutes; best day is marked by the chart itself.
+    const reduced = useReducedMotion()
+    const { t } = useTranslation()
+    type Day = { day: string; focus: number; break: number; date?: Date }
+    const trend7 = (dailyData as Day[]).map((d) => ({
+        label: d.day,
+        value: Math.round((d.focus || 0) * 60),
+        name: d.date ? new Date(d.date).toLocaleDateString('en-GB', { weekday: 'long' }) : d.day,
+    }))
+    const best = trend7.reduce<(typeof trend7)[number] | null>((b, d) => (d.value > (b?.value ?? 0) ? d : b), null)
+    const drawIn = shouldDrawIn('focus:week', totalMinutes, reduced)
+
     return (
-        <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-                <FocusTimeCard minutes={totalMinutes} trend={trend} />
-                <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
-            </div>
+        <div className="space-y-3">
+            <HeroCard grid className="pt-6 pb-4">
+                <div className="px-6">
+                    <p className="m-overline text-ink-2">{t('insights.totalFocus')}</p>
+                    <p className="m-stat-xl text-ink mt-2">
+                        <AnimatedNumber
+                            metric="focus:week"
+                            value={totalMinutes}
+                            label={hmSpoken(totalMinutes)}
+                            render={(n) => {
+                                const { h, m } = hm(n)
+                                return (
+                                    <>
+                                        {h}<span className="m-subhead text-ink-2 ml-0.5 mr-2">h</span>
+                                        {m}<span className="m-subhead text-ink-2 ml-0.5">m</span>
+                                    </>
+                                )
+                            }}
+                        />
+                    </p>
+                    {trend !== 0 && <DeltaChip className="mt-3" value={trend} comparedTo="vs last week" />}
+                </div>
+                <div
+                    className="mt-3 px-2"
+                    role="img"
+                    aria-label={best && best.value > 0 ? `Focus by day, last 7 days. Best day ${best.name}, ${hmSpoken(best.value)}` : 'No focus yet this week'}
+                >
+                    <TrendChart data={trend7} format={hmText} drawIn={drawIn} emptyText="No focus yet this week" />
+                </div>
+            </HeroCard>
+            {children}
             <FocusActivityCard data={dailyData} isPaid={isPaid} />
         </div>
     )

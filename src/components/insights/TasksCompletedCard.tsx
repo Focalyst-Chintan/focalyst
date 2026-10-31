@@ -1,51 +1,36 @@
 'use client'
 
 import { useTranslation } from 'react-i18next'
+import { Ring } from '@/components/mobile/ui'
+import { AnimatedNumber } from '@/components/mobile/insights/AnimatedNumber'
+
+// Display only: the line under the number (spec 10.6 copy fix). The counts are today's tasks.
+function progressLine(completed: number, total: number): string {
+    if (total === 0) return 'No tasks on your list yet.'
+    const left = total - completed
+    if (left <= 0) return 'All done for today.'
+    return `Nearly there. ${left} ${left === 1 ? 'task' : 'tasks'} to go.`
+}
 
 export function TasksCompletedCard({ completed, total }: { completed: number, total: number }) {
     const percentage = total > 0 ? Math.round((completed / total) * 100) : 0
-    const radius = 38
-    const circumference = 2 * Math.PI * radius
-    const strokeDashoffset = circumference - (percentage / 100) * circumference
     const { t } = useTranslation()
 
     return (
-        <div className="bg-card-bg rounded-3xl p-6 shadow-sm flex justify-between items-center w-full">
-            <div className="space-y-1">
-                <h3 className="text-[18px] font-semibold text-navy">{t('insights.tasksCompleted')}</h3>
-                <p className="text-[13px] text-blue-muted">{t('insights.tasksSub')}</p>
-                <div className="pt-2">
-                    <span className="text-[32px] font-bold text-accent mr-2">{completed}</span>
-                    <span className="text-[16px] text-blue-muted">{t('insights.tasksCount', { count: total })}</span>
-                </div>
+        <div className="m-glass m-glass-md p-4 flex justify-between items-center gap-4 w-full min-h-[104px]">
+            <div className="min-w-0">
+                <h3 className="m-footnote text-ink-2">{t('insights.tasksCompleted')}</h3>
+                <p className="mt-1 flex items-baseline gap-1.5">
+                    <span className="m-stat-l text-ink">
+                        <AnimatedNumber metric="tasks:today" value={completed} label={`${completed} of ${total} tasks`} render={(n) => n} />
+                    </span>
+                    <span className="m-subhead text-ink-2 m-num">/ {total}</span>
+                </p>
+                <p className="m-footnote text-ink-2 mt-1">{progressLine(completed, total)}</p>
             </div>
-            <div className="w-24 h-24 relative flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-                    <circle
-                        cx="50"
-                        cy="50"
-                        r={radius}
-                        fill="transparent"
-                        stroke="#CAD6E4"
-                        strokeWidth="12"
-                    />
-                    <circle
-                        cx="50"
-                        cy="50"
-                        r={radius}
-                        fill="transparent"
-                        stroke="#FF751F"
-                        strokeWidth="12"
-                        strokeDasharray={circumference}
-                        strokeDashoffset={strokeDashoffset}
-                        strokeLinecap="round"
-                        className="transition-all duration-1000 ease-in-out"
-                    />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[16px] font-semibold text-navy">{percentage}%</span>
-                </div>
-            </div>
+            <Ring size={56} stroke={6} progress={percentage / 100} label={`${percentage}% done`}>
+                <span className="m-caption text-ink m-num">{percentage}%</span>
+            </Ring>
         </div>
     )
 }

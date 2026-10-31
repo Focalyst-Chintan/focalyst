@@ -1,47 +1,41 @@
-import { CycleIcon } from '@/components/icons/CycleIcon'
 import { useTranslation } from 'react-i18next'
 import { Lock } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { AnimatedNumber } from '@/components/mobile/insights/AnimatedNumber'
 
 export function ProductivityScoreCard({ score, isPaid }: { score: number, isPaid: boolean }) {
     const { t } = useTranslation()
     const router = useRouter()
-    let colorClass = 'text-green-500' // Green (75-100)
-    if (score < 50) {
-        colorClass = 'text-red-500' // Red (0-49)
-    } else if (score < 75) {
-        colorClass = 'text-accent' // Orange (50-74)
-    }
 
+    // The one highlight tile on this screen (spec 5.4)
     return (
-        <div className="relative bg-white rounded-3xl p-6 shadow-sm flex flex-col justify-between overflow-hidden">
+        <div className="m-highlight relative p-4 flex flex-col justify-between min-h-[132px] overflow-hidden">
             {/* Feature Gate Overlay */}
             {!isPaid && (
-                <div className="absolute inset-0 z-10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-[3px] flex flex-col items-center justify-center px-4 text-center">
-                    <div className="w-10 h-10 rounded-full bg-navy dark:bg-slate-800 flex items-center justify-center mb-2 shadow-sm">
-                        <Lock className="w-5 h-5 text-white" />
-                    </div>
-                    <span className="text-[11px] font-bold text-navy dark:text-slate-100 mb-2">Premium Feature</span>
+                <div className="absolute inset-0 z-10 flex flex-col items-start justify-end p-4 bg-[linear-gradient(180deg,transparent,rgba(3,25,91,0.35))]">
+                    <Lock className="w-4 h-4 text-snow mb-1.5" aria-hidden />
+                    <span className="m-footnote text-snow/90 mb-2">Pro feature</span>
                     <button
                         type="button"
                         onClick={() => router.push('/paywall')}
-                        className="text-[11px] font-semibold text-white bg-accent px-3 py-1.5 rounded-full shadow-sm"
+                        className="m-press m-caption !font-semibold text-[#0B2CB1] bg-snow px-3 h-8 rounded-full"
                     >
-                        Unlock Productivity Score
+                        See Pro
                     </button>
                 </div>
             )}
 
-            <div className={`flex justify-between items-start mb-4 ${!isPaid ? 'opacity-30' : ''}`}>
-                <div className="w-10 h-10 rounded-xl bg-card-bg/30 flex items-center justify-center">
-                    <CycleIcon size={20} color="#FF751F" />
-                </div>
-            </div>
-            <div className={!isPaid ? 'opacity-30' : ''}>
-                <h3 className={`text-[32px] font-bold tracking-tight ${colorClass}`}>
-                    {score}
-                </h3>
-                <p className="text-[12px] text-blue-muted font-medium mt-1">{t('insights.productivityScore')}</p>
+            <h3 className={`m-footnote text-snow/85 ${!isPaid ? 'opacity-40' : ''}`}>{t('insights.productivityScore')}</h3>
+            <div className={!isPaid ? 'opacity-25 blur-[2px]' : ''} aria-hidden={!isPaid || undefined}>
+                <p className="flex items-baseline gap-1">
+                    <span className="m-stat-l text-snow">
+                        {isPaid ? (
+                            <AnimatedNumber metric="score:week" value={score} label={`${score} out of 100`} render={(n) => n} />
+                        ) : score}
+                    </span>
+                    <span className="m-subhead text-snow/75 m-num">/ 100</span>
+                </p>
+                <p className="m-caption text-snow/80 mt-1">Based on tasks, habits and focus</p>
             </div>
         </div>
     )

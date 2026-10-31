@@ -52,6 +52,17 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 10.3 | Ring 280, 6 stroke, `grad-line`, glow on the head | Ring 280 in portrait (smaller on narrow phones), the whole arc glows in dark mode (drop shadow), digits `timer` 80 scaled with the ring | amended | 010 |
 | 10.3 | Set progress as 4 dots + "Set 1 of 4" | Dots for up to 8 sets: done filled `primary-text`, current ringed `brand-400`, rest `surface-strong`; text always shown | gap | 010 |
 | 10.3 | Pause Secondary + End Danger, 56 high | Same; while paused the left button reads Resume and turns Primary | amended | 010 |
+| 10.6 | Title row with a Week / Month control | Title `title-1` with "Today, 31 Oct" on the right. No Week / Month at the top: the page only loads this week and last week. The existing Weekly / Monthly control stays inside the bar chart card | deviation | 011 |
+| 10.6 | Hero: focus time, delta chip, trend chart | Same. The number is the page's existing total, which covers this week and last week (flagged, not changed); the chart shows the last 7 days the card already loads | deviation | 011 |
+| 10.6 | "This week" habit strip | Built from the habit completion dates the Plan context already holds (no new query). A day is done when every habit due that day (its repeat days) was done; days with nothing due show as future. The streak chip shows the longest current habit streak | gap | 011 |
+| 10.6 | 2 × 2 stat grid: tasks, productivity, sessions, best streak | Tasks completed is a wide tile with a 56 ring; productivity score (highlight tile) and best streak sit below it. Focus sessions is left out: the page doesn't load a session count | deviation | 011 |
+| 10.6 | Productivity "41%" | Shown as "41 / 100": the score is points out of 100, not a percentage | amended | 011 |
+| 10.6 | Copy "All done this week." | "All done for today." and "Nearly there. 5 tasks to go.": the counts are today's tasks; "No tasks on your list yet." when there are none | amended | 011 |
+| 8.2 | Inactive bars `surface-strong`, today `grad-bar` with glow, stacked focus / break | Every day keeps its focus (#3781FC) and break segments so the legend reads; the selected day (today by default) is drawn at full strength with `grad-bar` and glow, the others at 55%. The value of the selected day shows above the chart | amended | 011 |
+| 8.5 | Bars grow over 350 ms with a 30 ms stagger | 350 ms grow without the stagger (the chart library animates a series at once); off under reduced motion | web-only | 011 |
+| 8.1 | Scrub snaps to each day, returns to the best day after 1.5 s | The chart's own touch tooltip scrubs; the best day keeps its marker the whole time | web-only | 011 |
+| 10.6 | Active habit cards with a 7-day dot row | Same, 160 wide, snapping; the dots are 6 tall bars (done `primary`, today ringed) from the Plan context's completion dates | amended | 011 |
+| 10.6 | (not in spec) XP level card, group leaderboard, AI summary, starting report | Level card restyled as a glass card with a gradient badge (the orange gradient is gone); the group leaderboard modal keeps its dark podium with gold for ranks; order after the habits carousel | gap | 011 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -161,3 +172,17 @@ Exact values:
 - Timer: background glow radial rgba(25,81,252,0.35), 150vmin, breathing scale 0.9 to 1 over 4 s (alternate), break rgba(203,233,253,0.20); mode pill 32 tall with an 8 dot; ring 280 / stroke 6; controls 56 tall in two equal columns, gap 12.
 Port to native: adapt
 Native instruction: §10.3: keep the tab bar reachable during a session; when paused, the left control is a Primary "Resume"; show set dots only up to 8 sets.
+
+## Entry 011 · Phase W5 · 2026-10-31
+Type: spec as written
+What changed: Insights tab. `insights/page.tsx` (order, skeleton), `ClientFocusInsights` (hero card; takes children between the hero and the bars), `FocusActivityCard` (bar chart), `TasksCompletedCard`, `ProductivityScoreCard` (highlight tile), `CurrentStreaksList` (carousel), `InsightsHeader`, `FocusLevelCard`, `LevelDropdownTimeline`, `LevelTimelineItem`, `LevelProgressBar`, `AISummaryCard`, `WeeklyReportView` and `HabitGroupLeaderboardSection` (token pass, orange removed). New: `mobile/insights/lastSeen.ts` (key `insights:lastSeen:v1`), `AnimatedNumber`, `HabitWeek` (week strip card and best streak tile), `mobile/charts/TrendChart` and `format`. Copy: "Focus time", "Tasks completed", "Productivity score", "Focus by day", "No active habits yet. Add one on Plan to start a streak.", "Focalyst AI analysis", "Level timeline".
+Why: Spec 10.6, 8.1 to 8.3, 9.4.
+Exact values:
+- Order: title, hero, this-week strip, tasks tile, productivity + best streak, focus by day, active habits, level card, groups, AI summary (Pro), weekly report, starting report. Sections 28 apart; cards inside the focus group 12 apart.
+- Hero: radius 32, top padding 24; overline; `stat-xl` with "h" and "m" at `subhead` in `ink-2`; delta chip "+12% vs last week"; chart 150 tall, margins 14, stroke 3 `grad-line`, area rgba(55,129,252,0.35) to 0, vertical grid only (`--m-chart-grid`), x labels 12 in `ink-2`, head dot 10 white with a 3 #3781FC ring and a 24 glow; glass tooltip. Empty: dashed baseline, `Timer` 20, "No focus yet this week".
+- Count-up: 200 ms ease-out on focus time, tasks completed, productivity score and best streak. Plays from 0 the first time a metric is seen, from the last seen value when it changed, never when it is the same or under reduced motion. Values are stored as `metric:period` in memory and in `insights:lastSeen:v1` when the count finishes. The hero chart draws in (450 ms) under the same rule. Screen readers get the final value from the start.
+- Tiles: tasks tile glass radius 16, padding 16, min height 104, ring 56 / stroke 6; productivity and best streak min height 132. Locked productivity tile: blurred number, lock, "Pro feature", white "See Pro" pill (same paywall link).
+- Bars: 28 wide, top radius 8 on the top segment, 6 tall `surface-strong` stub for empty days; legend dots 8.
+- Carousel cards 160 wide, radius 16, padding 16, snap to the 20 gutter.
+Port to native: adapt
+Native instruction: §10.6: show productivity as "N / 100"; task copy refers to today; drop Week / Month at the top until the app loads monthly data; keep all bars stacked and lead with the selected day.

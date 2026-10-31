@@ -5,6 +5,8 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { TasksCompletedCard } from '@/components/insights/TasksCompletedCard'
 import { ClientFocusInsights } from '@/components/insights/ClientFocusInsights'
+import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
+import { BestStreakTile, HabitWeekCard } from '@/components/mobile/insights/HabitWeek'
 import { CurrentStreaksList } from '@/components/insights/CurrentStreaksList'
 import { AISummaryCard } from '@/components/insights/AISummaryCard'
 import { InsightsLevelWrapper } from '@/components/insights/InsightsLevelWrapper'
@@ -201,24 +203,37 @@ export default function InsightsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-[60dvh]">
-                <div className="w-8 h-8 rounded-full border-2 border-[#2B6BFF] border-t-transparent animate-spin" />
+            <div className="px-5 pt-2 space-y-3" aria-hidden>
+                <div className="m-skel h-9 w-40 !rounded-xl" />
+                <div className="m-skel h-[300px] w-full !rounded-[32px] mt-5" />
+                <div className="m-skel h-[104px] w-full" />
+                <div className="grid grid-cols-2 gap-3">
+                    <div className="m-skel h-[132px]" />
+                    <div className="m-skel h-[132px]" />
+                </div>
             </div>
         )
     }
 
+    // Display only: longest current habit streak, from data this page already loads
+    const bestStreak = habitsData.reduce((max: number, h: { current_streak?: number }) => Math.max(max, h.current_streak || 0), 0)
+
     return (
-        <main className="flex-1 p-4 md:p-8 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-5">
+        <div className="px-5 pt-2 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-7">
             <InsightsHeader formattedDate={formattedDate} />
 
-            <InsightsLevelWrapper totalXP={totalXP} />
-
-            <div className="space-y-4">
+            <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore}>
+                <HabitWeekCard bestStreak={bestStreak} />
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
-                <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore} />
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
+                    <BestStreakTile bestStreak={bestStreak} />
+                </div>
+            </ClientFocusInsights>
 
             <CurrentStreaksList habits={habitsData} />
+
+            <InsightsLevelWrapper totalXP={totalXP} />
 
             {/* Habit Group Leaderboard Section */}
             <HabitGroupLeaderboardSection
@@ -233,6 +248,6 @@ export default function InsightsPage() {
             <WeeklyReportView userPlan={userPlan} />
 
             <StartingReportCard />
-        </main>
+        </div>
     )
 }
