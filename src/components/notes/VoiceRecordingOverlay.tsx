@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { pickMime, extFor } from '@/lib/audio/useRecorder'
 
 // ─── iOS/WebKit global type augmentations ──────────────────────────────────────
@@ -358,7 +359,9 @@ export const VoiceRecordingOverlay = ({
 
     const live = isRecording && !isPaused
 
-    return (
+    // Rendered into <body>: the page's <main> keeps a transform from its fade-in, which would
+    // otherwise trap this fixed overlay under the app header and tab bar.
+    return createPortal(
         <div
             className="fixed inset-0 h-[100dvh] z-[100] flex flex-col bg-canvas text-ink"
             style={{ touchAction: 'manipulation' }}
@@ -581,6 +584,7 @@ export const VoiceRecordingOverlay = ({
                     </button>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     )
 }

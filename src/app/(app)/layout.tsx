@@ -93,7 +93,7 @@ export default function AppLayout({
                                 <div className="lg:hidden">
                                     <Header />
                                 </div>
-                                <main className="flex-1 page-fade-in pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-0">
+                                <main className="flex-1 m-page-in pb-[calc(96px+env(safe-area-inset-bottom))] lg:pb-0">
                                     {children}
                                 </main>
                                 <div className="lg:hidden">

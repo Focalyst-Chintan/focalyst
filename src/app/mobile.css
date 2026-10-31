@@ -700,6 +700,12 @@
   .m-dots > span:nth-child(2) { animation-delay: 0.15s; }
   .m-dots > span:nth-child(3) { animation-delay: 0.3s; }
 
+  /* Page entrance for the phone <main>. Same motion as .page-fade-in, but the fill mode is
+     "backwards", so no transform is left on <main> afterwards. A leftover transform makes <main>
+     the containing block for position: fixed, trapping sheets and overlays under the header and
+     tab bar (and anchoring "bottom: 0" to the end of the page instead of the screen). */
+  .m-page-in { animation: pageFadeIn 0.25s ease-out backwards; }
+
   /* Reduce motion (spec 9.2): final state, 120ms fade only */
   @media (prefers-reduced-motion: reduce) {
     .m-rise { animation: m-fade 120ms linear both !important; animation-delay: 0ms !important; }
