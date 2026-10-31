@@ -1,7 +1,7 @@
 'use client'
 
 // UI-only state for the phone shell. Reads the browser, never writes data.
-import { useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 // ── Window scrolled past a threshold (header blur, spec 7.1) ────────────────
 function subscribeScroll(cb: () => void) {
@@ -122,4 +122,17 @@ export function useSwipeToClose(onClose: () => void, threshold = 110) {
         ? { transform: `translateY(${dy}px)`, transition: dragging ? 'none' : undefined }
         : {}
     return { handlers, style }
+}
+
+// ── Lock page scroll while a sheet is open (brief section 4) ────────────────
+// Restores the previous overflow value on close. UI only.
+export function useBodyScrollLock(active: boolean) {
+    useEffect(() => {
+        if (!active) return
+        const prev = document.body.style.overflow
+        document.body.style.overflow = 'hidden'
+        return () => {
+            document.body.style.overflow = prev
+        }
+    }, [active])
 }

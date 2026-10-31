@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Note } from '@/types'
 import { NoteRow } from './NoteRow'
+import { ChevronRight } from 'lucide-react'
 
 interface FolderGroupProps {
     folderName: string;
@@ -33,23 +34,20 @@ export const FolderGroup = ({
         <div className="mb-4">
             <button
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center w-full py-2 mb-2 group"
+                aria-expanded={isExpanded}
+                className="m-press flex items-center gap-2 w-full min-h-11 mb-1"
             >
-                <div className="text-blue-muted mr-2 transition-transform duration-200" style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }}>
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M6 12L10 8L6 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                </div>
-                <span className="text-[13px] font-semibold text-blue-muted uppercase tracking-wider group-hover:text-navy transition-colors">
+                <ChevronRight size={16} strokeWidth={1.75} aria-hidden className={`text-ink-2 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
+                <span className="m-overline text-ink-2 truncate">
                     {folderName}
                 </span>
-                <span className="ml-2 text-xs text-blue-muted/60 bg-card-bg px-2 rounded-full">
+                <span className="m-chip m-chip-neutral !h-[22px] !px-2 !text-[12px]">
                     {notes.length}
                 </span>
             </button>
 
             {isExpanded && (
-                <div className="pl-2">
+                <div>
                     {notes.map(note => (
                         <NoteRow
                             key={note.id}

@@ -1,6 +1,8 @@
 'use client'
 
 import { Note } from '@/types'
+import { Download, Folder, Pencil, Star, Trash2 } from 'lucide-react'
+import { useBodyScrollLock, useSwipeToClose } from '@/components/mobile/hooks'
 
 interface NoteOptionsMenuProps {
     note: Note
@@ -25,61 +27,87 @@ export const NoteOptionsMenu = ({
     onDelete,
     isDownloading = false
 }: NoteOptionsMenuProps) => {
+    const swipe = useSwipeToClose(onClose)
+    useBodyScrollLock(isOpen)
+
     if (!isOpen) return null
+
+    const row = 'm-press flex items-center gap-3 min-h-[52px] px-3 md:min-h-11 rounded-[14px] text-left m-callout text-ink hover:bg-[var(--m-surface-strong)] active:bg-[var(--m-surface-strong)] transition-colors disabled:opacity-70'
 
     return (
         <>
             <div
-                className="fixed inset-0 z-40 bg-black/40 backdrop-blur-xs"
+                className="fixed inset-0 z-[70] m-backdrop md:bg-transparent"
                 onClick={onClose}
             />
 
-            <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#151B2E] border-t border-slate-200 dark:border-[#222A41] rounded-t-3xl px-4 pb-8 pt-3 shadow-2xl md:absolute md:bottom-auto md:top-full md:right-0 md:left-auto md:w-64 md:rounded-2xl md:shadow-xl md:p-2 md:mt-2 md:border">
-                {/* Drag handle pill */}
-                <div className="w-12 h-1.5 bg-slate-300 dark:bg-slate-700 rounded-full mx-auto mb-3 md:hidden" />
+            <div
+                role="menu"
+                aria-label="Note options"
+                className="m-sheet fixed bottom-0 left-0 right-0 z-[71] px-3 pb-[calc(12px+env(safe-area-inset-bottom))] pt-2 md:absolute md:bottom-auto md:top-full md:right-0 md:left-auto md:w-64 md:rounded-[16px] md:border md:p-1.5 md:mt-2 md:animate-none"
+                style={swipe.style}
+            >
+                {/* Grabber: drag down to close */}
+                <div {...swipe.handlers} className="touch-none flex justify-center pt-1 pb-3 md:hidden">
+                    <span aria-hidden className="m-grabber" />
+                </div>
+
+                {note.title && note.title.trim() !== '' && (
+                    <p className="m-headline text-ink truncate px-3 pb-2 md:hidden">{note.title}</p>
+                )}
 
                 <div className="flex flex-col">
                     <button
+                        role="menuitem"
                         onClick={() => { onEdit(); onClose() }}
-                        className="flex items-center p-3.5 md:py-2.5 md:px-3 border-b border-slate-100 dark:border-[#222A41] md:border-none md:rounded-xl hover:bg-slate-50 dark:hover:bg-[#0B1021] text-left transition-colors"
+                        className={row}
                     >
-                        <span className="text-[14px] font-semibold text-slate-900 dark:text-white">Edit</span>
+                        <Pencil size={20} strokeWidth={1.75} className="text-ink-2" aria-hidden />
+                        <span>Edit</span>
                     </button>
 
                     <button
+                        role="menuitem"
                         onClick={() => { onToggleFavourite(); onClose() }}
-                        className="flex items-center p-3.5 md:py-2.5 md:px-3 border-b border-slate-100 dark:border-[#222A41] md:border-none md:rounded-xl hover:bg-slate-50 dark:hover:bg-[#0B1021] text-left transition-colors"
+                        className={row}
                     >
-                        <span className="text-[14px] font-semibold text-slate-900 dark:text-white">
-                            {note.is_favourite ? 'Remove from Favourites' : 'Add to Favourites'}
+                        <Star size={20} strokeWidth={1.75} className={note.is_favourite ? 'text-primary-text fill-current' : 'text-ink-2'} aria-hidden />
+                        <span>
+                            {note.is_favourite ? 'Remove from favourites' : 'Add to favourites'}
                         </span>
                     </button>
 
                     <button
+                        role="menuitem"
                         onClick={() => { onAddToFolder(); onClose() }}
-                        className="flex items-center p-3.5 md:py-2.5 md:px-3 border-b border-slate-100 dark:border-[#222A41] md:border-none md:rounded-xl hover:bg-slate-50 dark:hover:bg-[#0B1021] text-left transition-colors"
+                        className={row}
                     >
-                        <span className="text-[14px] font-semibold text-slate-900 dark:text-white">
-                            {note.folder ? `Move folder (${note.folder})` : 'Add to Folder'}
+                        <Folder size={20} strokeWidth={1.75} className="text-ink-2" aria-hidden />
+                        <span className="truncate">
+                            {note.folder ? `Move from ${note.folder}` : 'Add to folder'}
                         </span>
                     </button>
 
                     <button
+                        role="menuitem"
                         onClick={() => { onDownload() }}
                         disabled={isDownloading}
-                        className="flex items-center justify-between p-3.5 md:py-2.5 md:px-3 border-b border-slate-100 dark:border-[#222A41] md:border-none md:rounded-xl hover:bg-slate-50 dark:hover:bg-[#0B1021] text-left disabled:opacity-70 transition-colors"
+                        className={row}
                     >
-                        <span className="text-[14px] font-semibold text-slate-900 dark:text-white">Download as PDF</span>
+                        <Download size={20} strokeWidth={1.75} className="text-ink-2" aria-hidden />
+                        <span className="flex-1">Download as PDF</span>
                         {isDownloading && (
-                            <div className="w-4 h-4 border-2 border-[#2B6BFF] border-t-transparent rounded-full animate-spin ml-2" />
+                            <span aria-hidden className="w-4 h-4 border-2 border-primary-text border-t-transparent rounded-full animate-spin" />
                         )}
                     </button>
 
                     <button
+                        role="menuitem"
                         onClick={() => { onDelete(); onClose() }}
-                        className="flex items-center p-3.5 md:py-2.5 md:px-3 text-left md:rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 text-red-500 font-semibold text-[14px] transition-colors"
+                        className={`${row} !text-[var(--m-danger-text)] hover:!bg-[color-mix(in_srgb,var(--m-danger)_12%,transparent)]`}
                     >
-                        Delete
+                        <Trash2 size={20} strokeWidth={1.75} aria-hidden />
+                        <span>Delete</span>
                     </button>
                 </div>
             </div>

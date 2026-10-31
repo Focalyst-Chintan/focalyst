@@ -58,14 +58,14 @@
     "setOf": "Set {{current}} of {{total}}"
   },
   "notes": {
-    "searchPlaceholder": "Search your note",
+    "searchPlaceholder": "Search notes",
     "all": "All",
     "notes": "Notes",
     "favourite": "Favourite",
     "folders": "Folders",
     "voiceNotes": "Voice notes",
-    "newNote": "+ New note",
-    "untitled": "Untitled document",
+    "newNote": "New note",
+    "untitled": "Untitled",
     "limitReached": "You've reached your free limit",
     "limitDesc": "Free plan supports up to 5 notes. Upgrade to Pro for unlimited notes."
   },

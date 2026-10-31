@@ -19,6 +19,7 @@ const VoiceRecordingOverlay = dynamic(
 const FILTERS: FilterType[] = ['All', 'Notes', 'Favourite', 'Folders', 'Voice notes']
 
 import { useDebouncedCallback } from '@/lib/hooks/useDebouncedCallback'
+import { Lock, Plus, Search, X } from 'lucide-react'
 
 export default function NotesPage() {
     const isDesktop = useIsDesktop()
@@ -121,25 +122,35 @@ export default function NotesPage() {
     }
 
     return (
-        <div className="min-h-dvh pb-6">
-            {/* Search Bar */}
-            <div className="px-4 py-3">
-                <div className="relative">
-                    <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-muted dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+        <div className="pb-6">
+            <div className="px-5 pt-2">
+                <h1 className="m-title-1 text-ink">{t('nav.notes')}</h1>
+
+                {/* Search */}
+                <label className="m-search mt-4">
+                    <Search size={18} strokeWidth={1.75} aria-hidden className="shrink-0" />
+                    <span className="sr-only">{t('notes.searchPlaceholder')}</span>
                     <input
                         type="search"
                         placeholder={t('notes.searchPlaceholder')}
                         value={searchInput}
                         onChange={(e) => handleSearchChange(e.target.value)}
-                        className="w-full bg-card-bg dark:bg-slate-900 border border-transparent dark:border-slate-800 text-[15px] text-navy dark:text-slate-100 placeholder:text-blue-muted dark:placeholder:text-slate-500 rounded-full py-2.5 pl-11 pr-4 focus:outline-none focus:ring-2 focus:ring-navy/20"
                     />
-                </div>
+                    {searchInput && (
+                        <button
+                            type="button"
+                            onClick={() => handleSearchChange('')}
+                            className="m-press w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-ink-2"
+                            aria-label="Clear search"
+                        >
+                            <X size={16} strokeWidth={2} aria-hidden />
+                        </button>
+                    )}
+                </label>
             </div>
 
             {/* Filter Chips - horizontally scrollable without scrollbar */}
-            <div className="flex overflow-x-auto px-4 pb-4 gap-2 scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex overflow-x-auto px-5 py-4 gap-2 fx-no-scrollbar" role="group" aria-label="Filter notes">
                 {FILTERS.map(filter => {
                     const filterLabels: Record<string, string> = {
                         'All': t('notes.all'),
@@ -152,10 +163,8 @@ export default function NotesPage() {
                         <button
                             key={filter}
                             onClick={() => setActiveFilter(filter)}
-                            className={`shrink-0 px-4 py-1.5 rounded-full text-[14px] font-medium transition-colors ${activeFilter === filter
-                                ? 'bg-navy text-white dark:bg-slate-100 dark:text-slate-950'
-                                : 'bg-card-bg text-navy dark:bg-slate-900 dark:text-slate-200 hover:bg-card-bg/80 dark:hover:bg-slate-800'
-                                }`}
+                            aria-pressed={activeFilter === filter}
+                            className="m-pill m-press shrink-0"
                         >
                             {filterLabels[filter] || filter}
                         </button>
@@ -164,18 +173,13 @@ export default function NotesPage() {
             </div>
 
             {/* Action Row */}
-            <div className="px-4">
-                <div className="flex items-center gap-3 w-full my-4">
+            <div className="px-5">
+                <div className="flex items-center gap-3 w-full">
                     <button
                         onClick={handleNewNote}
-                        className="flex-1 bg-accent text-white flex items-center justify-center py-3 rounded-xl font-semibold text-[16px] shadow-sm transition-transform active:scale-[0.98]"
+                        className="m-btn m-btn-primary m-press flex-1"
                     >
-                        {isLocked && (
-                            <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2" />
-                                <path d="M8 11V7C8 4.79086 9.79086 3 12 3C14.2091 3 16 4.79086 16 7V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                            </svg>
-                        )}
+                        {isLocked ? <Lock size={18} strokeWidth={1.75} aria-hidden /> : <Plus size={18} strokeWidth={2} aria-hidden />}
                         {t('notes.newNote')}
                     </button>
                     <button 
@@ -184,11 +188,11 @@ export default function NotesPage() {
                             else setIsVoiceRecordingOpen(true);
                         }}
                         disabled={isProcessingVoice}
-                        className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors disabled:opacity-70"
+                        className="m-press flex-shrink-0 w-[52px] h-[52px] flex items-center justify-center rounded-full bg-[var(--m-surface-strong)] border border-line-strong text-ink disabled:opacity-70"
                         aria-label="Create Voice Note"
                     >
                         {isProcessingVoice ? (
-                            <div className="w-5 h-5 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+                            <div className="w-5 h-5 border-2 border-primary-text border-t-transparent rounded-full animate-spin" />
                         ) : (
                             /* iOS WebKit: lucide-react SVGs can be invisible if only 'size' prop is set.
                                Use an inline SVG with explicit width/height attributes to guarantee rendering. */
@@ -198,7 +202,7 @@ export default function NotesPage() {
                                 viewBox="0 0 24 24"
                                 fill="none"
                                 stroke="currentColor"
-                                strokeWidth="2"
+                                strokeWidth="1.75"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                                 style={{ display: 'block', flexShrink: 0 }}
@@ -214,7 +218,7 @@ export default function NotesPage() {
             </div>
 
             {/* Notes List */}
-            <div className="px-4">
+            <div className="px-5">
                 <NotesList
                     userId={userId}
                     searchQuery={searchQuery}

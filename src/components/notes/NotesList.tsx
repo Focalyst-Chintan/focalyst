@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useNotes } from '@/hooks/useNotes'
 import { NoteRow } from './NoteRow'
 import { FolderGroup } from './FolderGroup'
-import { NotesTabIcon } from '@/components/icons/NotesTabIcon'
+import { NotebookPen, SearchX } from 'lucide-react'
+import { EmptyState, SectionHeader } from '@/components/mobile/ui'
 import { generatePdf, slugify } from '@/lib/pdf'
 import { Note } from '@/types'
 import { FolderModal } from './FolderModal'
@@ -146,7 +147,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center p-8 mt-4 text-center">
-                <p className="text-navy text-[15px] mb-4">{error}</p>
+                <p className="m-body text-ink mb-4">{error}</p>
                 <button
                     onClick={() => {
                         let noteTypeFilter: string[] | undefined = undefined;
@@ -154,7 +155,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                         else if (activeFilter === 'Voice notes') noteTypeFilter = ['voice'];
                         fetchNotes(1, 20, undefined, activeFilter === 'Favourite', false, noteTypeFilter)
                     }}
-                    className="px-6 py-2 border-2 border-navy text-navy rounded-full font-semibold hover:bg-navy hover:text-white transition-colors"
+                    className="m-btn m-btn-secondary m-btn-sm m-press"
                 >
                     Retry
                 </button>
@@ -164,9 +165,9 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
 
     if (loading && page === 1) {
         return (
-            <div className="flex flex-col gap-3 mt-4">
+            <div className="flex flex-col gap-2 mt-5" aria-hidden>
                 {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="h-16 bg-card-bg rounded-xl animate-pulse w-full" />
+                    <div key={i} className="m-skel h-[76px] w-full" />
                 ))}
             </div>
         )
@@ -174,19 +175,23 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
 
     if (notes.length === 0 && !loading) {
         return (
-            <div className="flex flex-col items-center justify-center pt-16 pb-8 text-center px-4">
-                <NotesTabIcon size={64} color="#95A7B5" className="mb-4" />
-                <h3 className="text-[16px] font-semibold text-navy mb-1">No notes yet</h3>
-                <p className="text-[14px] text-blue-muted">Tap + New note to capture your first idea</p>
-            </div>
+            <EmptyState
+                className="pt-12"
+                icon={<NotebookPen size={28} strokeWidth={1.75} />}
+                title="No notes yet"
+                body="Tap New note to capture your first thought."
+            />
         )
     }
 
     if (filteredNotes.length === 0 && searchQuery && !loading) {
         return (
-            <div className="text-center py-8 text-blue-muted text-[15px]">
-                No notes match your search.
-            </div>
+            <EmptyState
+                className="pt-8"
+                icon={<SearchX size={28} strokeWidth={1.75} />}
+                title="Nothing found"
+                body="No notes match your search."
+            />
         )
     }
 
@@ -209,7 +214,7 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
 
     // Render logic based on view mode
     return (
-        <div className="mt-4 pb-24">
+        <div className="mt-5">
             {activeFilter === 'Folders' ? (
                 // Folders View
                 <div>
@@ -260,17 +265,26 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             ) : (
                 // Standard View (All, Recents, Favourite)
                 <div className="flex flex-col">
-                    {filteredNotes.map(note => (
-                        <NoteRow
-                            key={note.id}
-                            note={note}
-                            onEdit={handleEdit}
-                            onToggleFavourite={handleToggleFavourite}
-                            onTogglePin={handleTogglePin}
-                            onAddToFolder={handleAddToFolder}
-                            onDownload={handleDownload}
-                            onDelete={handleDelete}
-                        />
+                    {/* Display only: pinned notes first, under a "Pinned" label (spec 10.4) */}
+                    {[
+                        { key: 'pinned', label: 'Pinned', items: filteredNotes.filter(n => n.is_pinned) },
+                        { key: 'rest', label: 'Notes', items: filteredNotes.filter(n => !n.is_pinned) },
+                    ].map(group => group.items.length > 0 && (
+                        <section key={group.key} className="mb-4">
+                            {filteredNotes.some(n => n.is_pinned) && <SectionHeader label={group.label} as="h3" />}
+                            {group.items.map(note => (
+                                <NoteRow
+                                    key={note.id}
+                                    note={note}
+                                    onEdit={handleEdit}
+                                    onToggleFavourite={handleToggleFavourite}
+                                    onTogglePin={handleTogglePin}
+                                    onAddToFolder={handleAddToFolder}
+                                    onDownload={handleDownload}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                        </section>
                     ))}
                 </div>
             )}
@@ -280,9 +294,9 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
                     <button
                         onClick={loadMore}
                         disabled={loading}
-                        className="w-full py-4 text-center text-[14px] font-medium text-blue-muted hover:text-navy disabled:opacity-50 mt-2"
+                        className="m-btn m-btn-ghost m-press w-full mt-2 disabled:opacity-50"
                     >
-                        {loading ? 'Loading...' : 'Load more'}
+                        {loading ? 'Loading' : 'Load more'}
                     </button>
                     <div ref={sentinelRef} className="h-4 w-full" />
                 </>

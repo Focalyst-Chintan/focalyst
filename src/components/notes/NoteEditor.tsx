@@ -263,13 +263,13 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
     }
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200">
+        <div className="flex flex-col min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200 mp-page">
             {/* Top Bar */}
-            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#151B2E] border-b border-slate-200 dark:border-[#222A41] sticky top-0 z-30 shadow-xs">
+            <div className="flex items-center justify-between px-4 py-3 bg-white dark:bg-[#151B2E] border-b border-slate-200 dark:border-[#222A41] sticky top-0 z-30 shadow-xs mp-bar">
                 {/* Back Arrow */}
                 <button
                     onClick={handleBack}
-                    className="p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0B1021] rounded-full transition-colors"
+                    className="p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#0B1021] rounded-full transition-colors mp-icon"
                     aria-label="Back to notes"
                 >
                     <ChevronLeft className="w-6 h-6" />
@@ -287,22 +287,22 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                             if (newTitle.length <= 200) setTitleError('')
                         }}
                         placeholder="Untitled document"
-                        className="w-full text-center text-lg font-bold text-slate-900 dark:text-white bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal truncate"
+                        className="w-full text-center text-lg font-bold text-slate-900 dark:text-white bg-transparent outline-none placeholder:text-slate-400 placeholder:font-normal truncate mp-title-input"
                     />
                     {titleError && <p className="text-[11px] text-red-500 mt-0.5">{titleError}</p>}
 
                     {isVoiceNote && (
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 mp-meta">
                             {formatVoiceDate(note.created_at)} • {formatVoiceTime(note.created_at)} • {formatVoiceDuration(note.duration_seconds)}
                         </p>
                     )}
 
                     {/* Save Status Indicator */}
                     <div className="h-4 flex items-center justify-center mt-0.5">
-                        {saveStatus === 'saving' && <span className="text-[11px] text-slate-400">Saving...</span>}
-                        {saveStatus === 'still-working' && <span className="text-[11px] text-slate-400">Still working...</span>}
+                        {saveStatus === 'saving' && <span className="text-[11px] text-slate-400 mp-meta">Saving...</span>}
+                        {saveStatus === 'still-working' && <span className="text-[11px] text-slate-400 mp-meta">Still working...</span>}
                         {saveStatus === 'saved' && (
-                            <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-1">
+                            <span className="text-[11px] text-emerald-500 font-medium flex items-center gap-1 mp-success-text">
                                 <Check className="w-3 h-3 stroke-[2.5]" />
                                 Saved
                             </span>
@@ -319,7 +319,8 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                 <div className="flex items-center gap-1">
                     <button
                         onClick={handleTogglePin}
-                        className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
+                        aria-pressed={!!note.is_pinned}
+                        className={`mp-icon mp-pin p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
                             note.is_pinned ? 'text-[#FF6B00]' : 'text-slate-400 dark:text-slate-500'
                         }`}
                         title={note.is_pinned ? 'Unpin note' : 'Pin note'}
@@ -329,7 +330,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
                     <button
                         onClick={handleToggleFavourite}
-                        className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
+                        className={`mp-icon p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
                             note.is_favourite ? 'text-red-500' : 'text-slate-400 dark:text-slate-500'
                         }`}
                         title={note.is_favourite ? 'Remove from favourites' : 'Add to favourites'}
@@ -340,7 +341,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     <button
                         onClick={handleDownloadPdf}
                         disabled={isDownloadingPdf}
-                        className="p-2 -mr-1 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 dark:text-slate-500 disabled:opacity-50 transition-colors"
+                        className="p-2 -mr-1 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 dark:text-slate-500 disabled:opacity-50 transition-colors mp-icon"
                         title="Download as PDF"
                     >
                         {isDownloadingPdf ? (
@@ -354,8 +355,8 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Audio Player Bar for Voice Notes */}
             {note.audio_url && (
-                <div className="mx-4 mt-3 p-3 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center text-[#FF6B00] shrink-0">
+                <div className="mx-4 mt-3 p-3 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm flex items-center gap-3 mp-card">
+                    <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center text-[#FF6B00] shrink-0 mp-tile-info">
                         <Volume2 className="w-4 h-4" />
                     </div>
                     <audio controls src={note.audio_url} className="w-full h-8 outline-none" />
@@ -364,11 +365,12 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Voice Toggle Tabs */}
             {isVoiceNote && (
-                <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-[#151B2E] border-b border-slate-200 dark:border-[#222A41]">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-[#151B2E] border-b border-slate-200 dark:border-[#222A41] mp-bar">
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setActiveTab('summary')}
-                            className={`h-9 px-4 text-xs font-bold rounded-xl transition-all ${
+                            aria-pressed={activeTab === 'summary'}
+                            className={`mp-tab h-9 px-4 text-xs font-bold rounded-xl transition-all ${
                                 activeTab === 'summary'
                                     ? 'bg-[#2B6BFF] text-white shadow-sm'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#0B1021]'
@@ -378,7 +380,8 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                         </button>
                         <button
                             onClick={() => setActiveTab('transcript')}
-                            className={`h-9 px-4 text-xs font-bold rounded-xl transition-all ${
+                            aria-pressed={activeTab === 'transcript'}
+                            className={`mp-tab h-9 px-4 text-xs font-bold rounded-xl transition-all ${
                                 activeTab === 'transcript'
                                     ? 'bg-[#2B6BFF] text-white shadow-sm'
                                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-[#0B1021]'
@@ -395,7 +398,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                                 setCopiedSummary(true)
                                 setTimeout(() => setCopiedSummary(false), 2000)
                             }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200 mp-chip-btn"
                         >
                             {copiedSummary ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                             <span>{copiedSummary ? 'Copied' : 'Copy'}</span>
@@ -407,7 +410,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                                 setCopiedTranscript(true)
                                 setTimeout(() => setCopiedTranscript(false), 2000)
                             }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#2B6BFF] text-white hover:bg-blue-600 shadow-sm"
+                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-[#2B6BFF] text-white hover:bg-blue-600 shadow-sm mp-chip-btn"
                         >
                             {copiedTranscript ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                             <span>{copiedTranscript ? 'Copied' : 'Copy'}</span>
@@ -418,11 +421,11 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Sleek Formatting Toolbar (Checklist, Bold, Bullet, Heading) */}
             {!isVoiceNote && (
-                <div className="px-4 py-2 bg-white/90 dark:bg-[#151B2E]/90 backdrop-blur-sm border-b border-slate-200 dark:border-[#222A41] flex items-center gap-1.5 sticky top-[65px] z-20">
+                <div className="px-4 py-2 bg-white/90 dark:bg-[#151B2E]/90 backdrop-blur-sm border-b border-slate-200 dark:border-[#222A41] flex items-center gap-1.5 sticky top-[65px] z-20 mp-bar">
                     <button
                         type="button"
                         onClick={insertChecklist}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 text-xs font-semibold transition-colors mp-tool"
                         title="Add interactive checklist item"
                     >
                         <CheckSquare className="w-4 h-4 text-[#2B6BFF]" />
@@ -432,7 +435,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     <button
                         type="button"
                         onClick={insertBold}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors"
+                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors mp-tool"
                         title="Bold text"
                     >
                         <Bold className="w-4 h-4" />
@@ -441,7 +444,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     <button
                         type="button"
                         onClick={insertBullet}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors"
+                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors mp-tool"
                         title="Bullet list"
                     >
                         <List className="w-4 h-4" />
@@ -450,7 +453,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                     <button
                         type="button"
                         onClick={insertHeading}
-                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors"
+                        className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-700 dark:text-slate-300 transition-colors mp-tool"
                         title="Heading"
                     >
                         <Heading2 className="w-4 h-4" />
@@ -460,7 +463,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Draft Restore Offer */}
             {draftOffer && (
-                <div className="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between gap-3 text-xs">
+                <div className="mx-4 mt-3 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between gap-3 text-xs mp-notice">
                     <span className="text-slate-800 dark:text-slate-200">Unsaved draft from previous session found.</span>
                     <div className="flex items-center gap-2 shrink-0">
                         <button
@@ -472,7 +475,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                                 triggerSave()
                                 setDraftOffer(null)
                             }}
-                            className="px-2.5 py-1 bg-[#2B6BFF] text-white font-semibold rounded-lg text-xs"
+                            className="px-2.5 py-1 bg-[#2B6BFF] text-white font-semibold rounded-lg text-xs mp-btn-primary"
                         >
                             Restore
                         </button>
@@ -484,7 +487,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                                 } catch (e) {}
                                 setDraftOffer(null)
                             }}
-                            className="px-2 py-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs"
+                            className="px-2 py-1 text-slate-500 hover:text-slate-700 dark:text-slate-400 text-xs mp-text-2"
                         >
                             Discard
                         </button>
@@ -496,7 +499,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
             <div className={`flex-1 flex flex-col px-5 py-6 pb-32 max-w-3xl w-full mx-auto ${activeTab !== 'summary' ? 'hidden' : ''}`}>
                 {isVoiceNote ? (
                     <div
-                        className="w-full flex-1 min-h-[60vh] text-slate-900 dark:text-slate-100 prose dark:prose-invert prose-sm sm:prose-base select-text leading-relaxed"
+                        className="w-full flex-1 min-h-[60vh] text-slate-900 dark:text-slate-100 prose dark:prose-invert prose-sm sm:prose-base select-text leading-relaxed mp-body"
                         dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(content || '') }}
                     />
                 ) : (
@@ -510,7 +513,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
                         }}
                         placeholder="Start typing your note... Use - [ ] for checklists, **bold**, or # headings"
                         disabled={!isPaidUser && charCount >= MAX_FREE_CHARS}
-                        className="w-full flex-1 min-h-[65vh] text-slate-900 dark:text-slate-100 bg-transparent outline-none border-none resize-none prose dark:prose-invert prose-sm sm:prose-base focus:ring-0 focus:outline-none p-0 placeholder:text-slate-400 select-text leading-relaxed font-sans"
+                        className="w-full flex-1 min-h-[65vh] text-slate-900 dark:text-slate-100 bg-transparent outline-none border-none resize-none prose dark:prose-invert prose-sm sm:prose-base focus:ring-0 focus:outline-none p-0 placeholder:text-slate-400 select-text leading-relaxed font-sans mp-body"
                     />
                 )}
             </div>
@@ -518,7 +521,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
             {/* Transcript Area */}
             {isVoiceNote && activeTab === 'transcript' && (
                 <div className="flex-1 overflow-y-auto px-5 py-6 pb-32 max-w-3xl w-full mx-auto">
-                    <div className="prose dark:prose-invert prose-sm sm:prose-base text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap leading-relaxed">
+                    <div className="prose dark:prose-invert prose-sm sm:prose-base text-slate-800 dark:text-slate-200 font-medium whitespace-pre-wrap leading-relaxed mp-body">
                         {note.transcript}
                     </div>
                 </div>
@@ -526,7 +529,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Character Counter */}
             {!isPaidUser && (
-                <div className="fixed bottom-[56px] right-4 z-30 pointer-events-none">
+                <div className="fixed bottom-[56px] right-4 z-30 pointer-events-none mp-above-tabs">
                     <span className={`text-[11px] font-semibold px-2 py-1 rounded-md bg-white/80 dark:bg-[#151B2E]/80 backdrop-blur-xs border border-slate-200 dark:border-[#222A41] ${
                         charCount >= MAX_FREE_CHARS ? 'text-red-500 font-bold' : 'text-slate-400'
                     }`}>
@@ -537,7 +540,7 @@ export const NoteEditor = ({ initialNote, userId, userPlan }: NoteEditorProps) =
 
             {/* Speech to Text Microphone Floating Bar */}
             {activeTab === 'summary' && isSupported && (
-                <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-[#151B2E]/95 backdrop-blur-md rounded-full shadow-xl border border-slate-200 dark:border-[#222A41] flex items-center px-4 py-2 gap-3">
+                <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-white/95 dark:bg-[#151B2E]/95 backdrop-blur-md rounded-full shadow-xl border border-slate-200 dark:border-[#222A41] flex items-center px-4 py-2 gap-3 mp-above-tabs mp-float">
                     {isListening && (
                         <div className="flex items-center gap-1.5 animate-pulse">
                             <span className="w-2 h-2 rounded-full bg-red-600" />

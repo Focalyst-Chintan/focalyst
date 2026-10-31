@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Note } from '@/types'
-import { NotesTabIcon } from '@/components/icons/NotesTabIcon'
 import { NoteOptionsMenu } from './NoteOptionsMenu'
-import { Pin } from 'lucide-react'
+import { FileText, Mic, MoreHorizontal, Pin } from 'lucide-react'
 
 interface NoteRowProps {
     note: Note
@@ -52,68 +51,64 @@ export const NoteRow = ({
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()
     }
 
+    // Display only: plain-text preview and a short meta line
+    const preview = (note.content || '').replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
+    const updated = new Date(note.updated_at || note.created_at)
+    const isTodayNote = updated.toDateString() === new Date().toDateString()
+    const when = isTodayNote ? formatTime(note.updated_at || note.created_at) : updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    const isVoice = note.note_type === 'voice'
+
     const titleDisplay = note.title && note.title.trim() !== ''
-        ? <span className="text-[15px] font-semibold text-slate-900 dark:text-white truncate">{note.title}</span>
-        : <span className="text-[15px] italic text-slate-400 truncate">{t('notes.untitled')}</span>
+        ? <span className="m-headline text-ink truncate">{note.title}</span>
+        : <span className="m-headline text-ink-2 truncate">{t('notes.untitled')}</span>
 
     return (
-        <div className="relative">
+        <div className="relative mb-2">
             <div
                 onClick={() => onEdit(note)}
-                className="flex items-center justify-between p-4 bg-white dark:bg-[#151B2E] rounded-2xl shadow-sm border border-slate-200 dark:border-[#222A41] hover:border-[#2B6BFF]/30 dark:hover:border-slate-700 transition-all cursor-pointer mb-2.5"
+                className="m-glass m-glass-md m-press flex items-start gap-3 pl-4 pr-1 py-3.5 cursor-pointer"
             >
-                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
-                    <div className="shrink-0 flex items-center justify-center">
-                        {note.note_type === 'voice' ? (
-                            <div className="w-8 h-8 rounded-xl bg-orange-50 dark:bg-orange-500/15 flex items-center justify-center text-[#FF6B00]">
-                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" />
-                                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                                    <line x1="12" y1="19" x2="12" y2="22" />
-                                </svg>
-                            </div>
-                        ) : (
-                            <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-500/15 flex items-center justify-center text-[#2B6BFF]">
-                                <NotesTabIcon size={18} color="currentColor" />
-                            </div>
-                        )}
-                    </div>
+                <span className={`m-tile !w-9 !h-9 mt-0.5 ${isVoice ? 'm-tile-info' : 'text-ink-2'}`} aria-hidden>
+                    {isVoice ? <Mic size={18} strokeWidth={1.75} /> : <FileText size={18} strokeWidth={1.75} />}
+                </span>
 
-                    <div className="flex flex-col overflow-hidden min-w-0">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                            {titleDisplay}
-                            {note.is_pinned && (
-                                <Pin className="w-3.5 h-3.5 text-[#FF6B00] fill-[#FF6B00] shrink-0" />
-                            )}
-                        </div>
-                        {note.folder && note.note_type !== 'voice' && (
-                            <span className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider mt-0.5 block truncate">
-                                {note.folder}
-                            </span>
+                <div className="flex flex-col min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                        {titleDisplay}
+                    </div>
+                    {preview && !isVoice && (
+                        <p className="m-footnote text-ink-2 m-clamp-2 mt-0.5 break-words">{preview}</p>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap m-caption text-ink-2">
+                        <span className="m-num">{when}</span>
+                        {note.folder && (
+                            <>
+                                <span aria-hidden>·</span>
+                                <span className="truncate max-w-[140px]">{note.folder}</span>
+                            </>
                         )}
-                        {note.note_type === 'voice' && (
-                            <span className="text-[12px] text-slate-400 dark:text-slate-500 mt-0.5 block truncate">
-                                {formatTime(note.created_at)} • {formatDuration(note.duration_seconds)}
-                            </span>
+                        {isVoice && (
+                            <span className="m-chip m-chip-info !h-6 !text-[12px] ml-0.5">{formatDuration(note.duration_seconds)}</span>
                         )}
                     </div>
                 </div>
 
                 {/* Right Actions: Pin & Three-dot menu */}
-                <div className="flex items-center gap-1 shrink-0 ml-2">
+                <div className="flex items-center shrink-0 -my-1.5">
                     {onTogglePin && (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
                                 onTogglePin(note)
                             }}
-                            className={`p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors ${
-                                note.is_pinned ? 'text-[#FF6B00]' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                            className={`m-press w-11 h-11 rounded-full flex items-center justify-center ${
+                                note.is_pinned ? 'text-primary-text' : 'text-ink-2'
                             }`}
                             aria-label={note.is_pinned ? 'Unpin note' : 'Pin note'}
+                            aria-pressed={!!note.is_pinned}
                             title={note.is_pinned ? 'Unpin note' : 'Pin note'}
                         >
-                            <Pin className={`w-4 h-4 ${note.is_pinned ? 'fill-[#FF6B00]' : ''}`} />
+                            <Pin size={18} strokeWidth={1.75} className={note.is_pinned ? 'fill-current' : ''} aria-hidden />
                         </button>
                     )}
 
@@ -122,14 +117,10 @@ export const NoteRow = ({
                             e.stopPropagation()
                             setIsMenuOpen(true)
                         }}
-                        className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
-                        aria-label="Note options"
+                        className="m-press w-11 h-11 rounded-full flex items-center justify-center text-ink-2"
+                        aria-label={`More options for ${note.title || t('notes.untitled')}`}
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="12" cy="6" r="2" fill="currentColor" />
-                            <circle cx="12" cy="12" r="2" fill="currentColor" />
-                            <circle cx="12" cy="18" r="2" fill="currentColor" />
-                        </svg>
+                        <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden />
                     </button>
                 </div>
             </div>

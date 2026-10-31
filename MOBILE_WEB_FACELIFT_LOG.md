@@ -70,6 +70,13 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 10.7 | Voice mode: glowing top edge with a wave | The web composer has a recording state (timer + Done) instead; restyled as a danger pill | web-only | 012 |
 | 10.7 | Quota pill "12 messages left today" | Same, worked out from the count the chat already loads; "Pro" success chip in the header for paid plans | spec as written | 012 |
 | 7.12 | Sheet: swipe down or tap the backdrop to close | Same; the drag area is the grabber and header so the message list still scrolls; on tablets (768 to 1023) it stays a right-side panel as before | amended | 012 |
+| 10.4 | Filter chips All / Notes / Voice; folders only if the app shows them | The web's five filters (All, Notes, Favourite, Folders, Voice notes) as glass pills | web-only | 013 |
+| 10.4 | Pinned notes first under a "Pinned" overline | Same, grouped on screen from the loaded list (no new sorting in the data); the rest sit under "Notes" when anything is pinned | spec as written | 013 |
+| 7.10 | Note row: title, 2-line preview, meta (updated, folder, type) | Same, plus a 36 icon tile (document or mic); the pin toggle stays on the row as before | amended | 013 |
+| 7.4 | Search: pill with magnifier and clear button | Same; clear empties the field through the existing search handler | spec as written | 013 |
+| 10.4 | Note editor title `title-2` serif, body 17/26, glass toolbar | Same on phones. The editor route has no desktop version, so its phone styles are scoped to below 1024 px with `mp-` classes and its copy is unchanged | web-only | 013 |
+| 10.5 | Recorder: hero card, "Now recording" pill, timer, waveform, transcript card, controls | Same. The status line reads "Recording in high quality" ("High Accuracy Status" and "Interview Recording" are gone); the gear button stays (it had no action before either) | spec as written | 013 |
+| 10.11 | Action menus: native menu or a sheet with 52 rows, icon + label | Note options are a sheet with 52 rows, icons, the note title on top and Delete in danger text; swipe down or tap outside to close; page scroll locked while open. Task and countdown menus stay popovers | amended | 013 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -209,3 +216,16 @@ Exact values:
 - Limit reached: "You have used today's Focalyst AI messages." / "Pro gives you more each day." / Primary "See Pro" (same paywall route).
 Port to native: adapt
 Native instruction: §10.7: keep the copy button always visible; drag only from the grabber and header; show "Pro" as a success chip in the header.
+
+## Entry 013 · Phase W7 · 2026-10-31
+Type: spec as written
+What changed: Notes tab, note editor, voice recorder. `notes/page.tsx` (title, search, filters, actions), `NotesList` (skeleton, empty states, pinned grouping, load more), `NoteRow`, `FolderGroup`, `NoteOptionsMenu` (sheet), `FolderModal`, `NoteEditor` (phone-scoped `mp-` classes only), `VoiceRecordingOverlay`, the loading states of `notes/new` and `notes/edit`. New: `useBodyScrollLock`, phone override classes (`mp-*`) in `mobile.css`. Copy: "Search notes", "New note", "Untitled", "Add to favourites", "Add to folder", "Existing folders", "Or create a new one", "No notes yet" / "Tap New note to capture your first thought.", "Nothing found" / "No notes match your search.", "Loading", recorder lines.
+Why: Spec 10.4, 10.5, 7.10, 7.12, 10.11.
+Exact values:
+- Notes: `title-1`, search pill 44 tall, 16 below; filters 40 tall with 16 above and below; Primary "New note" (lock icon when the free limit is reached) next to a 52 round mic button (`surface-strong`, `line-strong` border).
+- Note row: glass radius 16, padding 14 / 16, gap 8; tile 36; title `headline`; preview `footnote` 2 lines; meta `caption` ("10:42 am" today, else "31 Oct"); voice duration chip 24; pin and more buttons 44.
+- Empty states per spec 7.14 (64 tile, `title-3`, one `body` line).
+- Editor (phones only): top bar and toolbar blur with `line` border; title 26/30 serif; body 17/26 `ink`; icon buttons 44; voice tabs 40 pills, selected `grad-primary`; floating mic and save status sit 88 above the bottom safe area so they clear the tab bar.
+- Recorder: canvas + ambient, header pill 32 tall with a pulsing (1 s) danger dot; hero radius 32 with `title-2`, `stat-xl` timer, 24 bars coloured #3781FC to #CBE9FD with glow in dark mode; transcript glass card with a "Live" info chip; controls: Discard 48 danger tint, Stop 72 danger with a red glow, Pause 48 secondary, all labelled.
+Port to native: adapt
+Native instruction: §10.4: keep the pin button on the note row; §10.11: the note options sheet shows the note title above its rows; §10.5: drop the settings gear if it still does nothing.

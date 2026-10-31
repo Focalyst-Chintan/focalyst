@@ -613,3 +613,183 @@
     .m-press:active:not(:disabled) { transform: none; }
   }
 }
+
+/* ==========================================================================
+   Phone overrides for routes that have no desktop fork (forms and the note
+   editor). These rules are unlayered, so on phones they win over the Tailwind
+   utilities already on those elements; at 1024px and wider they do nothing,
+   so a desktop window that opens such a route looks exactly as before.
+   ========================================================================== */
+@media (max-width: 1023.98px) {
+  .mp-page { background: transparent; color: var(--ink); }
+  .mp-bar {
+    background: var(--m-bar);
+    border-color: var(--line);
+    box-shadow: none;
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .mp-bar { -webkit-backdrop-filter: blur(20px) saturate(180%); backdrop-filter: blur(20px) saturate(180%); }
+  }
+  .mp-icon {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    color: var(--ink-2);
+  }
+  .mp-icon:active { background: var(--m-surface-strong); }
+  .mp-pin[aria-pressed="true"] { color: var(--primary-text); }
+  .mp-pin[aria-pressed="true"] svg { fill: currentColor; }
+  .mp-icon svg { width: 20px; height: 20px; stroke-width: 1.75; }
+  .mp-title-input {
+    font-family: var(--font-instrument), ui-serif, Georgia, serif;
+    font-size: 26px;
+    line-height: 30px;
+    font-weight: 400;
+    color: var(--ink);
+  }
+  .mp-title-input::placeholder { color: var(--ink-3); font-weight: 400; }
+  .mp-meta { color: var(--ink-2); font-size: 12px; line-height: 16px; }
+  .mp-body { color: var(--ink); font-size: 17px; line-height: 26px; }
+  .mp-body p { font-size: 17px; line-height: 26px; }
+  .mp-card {
+    background: var(--m-surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--m-card-shadow);
+  }
+  .mp-tile-info {
+    background: color-mix(in srgb, var(--m-info) 16%, transparent);
+    color: var(--m-info-text);
+    border-radius: 12px;
+  }
+  .mp-tab {
+    height: 40px;
+    padding: 0 16px;
+    border-radius: 9999px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink-2);
+    background: transparent;
+    box-shadow: none;
+  }
+  .mp-tab[aria-pressed="true"] { background: var(--m-grad-primary); color: #FFFFFF; }
+  .mp-chip-btn {
+    min-height: 36px;
+    border-radius: 9999px;
+    background: var(--m-surface-strong);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 500;
+    box-shadow: none;
+  }
+  .mp-tool {
+    min-height: 40px;
+    min-width: 40px;
+    border-radius: 12px;
+    color: var(--ink-2);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .mp-tool:active { background: var(--m-surface-strong); }
+  .mp-tool svg { color: inherit; }
+  .mp-above-tabs { bottom: calc(env(safe-area-inset-bottom) + 88px) !important; }
+  .mp-float {
+    background: var(--m-bar);
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow-glass);
+  }
+  .mp-notice {
+    background: var(--primary-soft);
+    border-color: color-mix(in srgb, var(--primary) 30%, transparent);
+    border-radius: 16px;
+    color: var(--ink);
+  }
+  .mp-btn-primary {
+    background: var(--m-grad-primary);
+    color: #FFFFFF;
+    border-radius: 9999px;
+    box-shadow: var(--m-glow);
+  }
+  .mp-text-2 { color: var(--ink-2); }
+  .mp-danger-text { color: var(--m-danger-text); }
+  .mp-success-text { color: var(--m-success-text); }
+
+  /* Forms (spec 10.8) */
+  .mp-form-title {
+    font-family: var(--font-instrument), ui-serif, Georgia, serif;
+    font-size: 26px;
+    line-height: 30px;
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--ink);
+  }
+  .mp-label {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-2);
+  }
+  .mp-input {
+    min-height: 52px;
+    border-radius: 12px;
+    background: var(--m-surface-strong);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 16px;
+    box-shadow: none;
+  }
+  .mp-input::placeholder { color: var(--ink-3); }
+  .mp-input:focus, .mp-input:focus-within { border-color: var(--m-brand-400); box-shadow: 0 0 0 0.5px var(--m-brand-400); outline: none; }
+  .mp-section {
+    background: var(--m-surface);
+    border: 1px solid var(--line);
+    border-radius: 24px;
+    box-shadow: var(--m-card-shadow);
+  }
+  .mp-choice {
+    min-height: 40px;
+    border-radius: 9999px;
+    background: var(--m-surface);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    font-weight: 500;
+    box-shadow: none;
+  }
+  .mp-choice[aria-pressed="true"], .mp-choice.is-on {
+    background: var(--m-grad-primary);
+    border-color: transparent;
+    color: #FFFFFF;
+  }
+  .mp-day {
+    width: 40px;
+    height: 40px;
+    border-radius: 9999px;
+    background: var(--m-surface-strong);
+    border: 1px solid var(--line);
+    color: var(--ink-2);
+    font-weight: 500;
+  }
+  .mp-day[aria-pressed="true"] { background: var(--m-grad-primary); border-color: transparent; color: #FFFFFF; }
+  .mp-save-bar {
+    background: linear-gradient(180deg, transparent, var(--canvas) 40%);
+    border: 0;
+    box-shadow: none;
+  }
+  .mp-save {
+    height: 52px;
+    border-radius: 9999px;
+    background: var(--m-grad-primary);
+    color: #FFFFFF;
+    font-size: 15px;
+    font-weight: 600;
+    box-shadow: var(--m-glow);
+  }
+  .mp-save:disabled { opacity: 0.4; box-shadow: none; }
+}

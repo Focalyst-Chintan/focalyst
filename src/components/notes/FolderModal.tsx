@@ -28,19 +28,20 @@ export const FolderModal = ({ isOpen, onClose, currentFolder, existingFolders, o
     }
 
     return (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
-            <div className="bg-white rounded-2xl w-full max-w-sm p-6 shadow-xl">
-                <h3 className="text-navy text-lg font-bold mb-4">Add to Folder</h3>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center m-backdrop px-4">
+            <div role="dialog" aria-modal="true" aria-labelledby="folder-title" className="m-sheet !rounded-[28px] !border w-full max-w-sm p-6 shadow-[var(--shadow-glass)]">
+                <h3 id="folder-title" className="m-title-2 text-ink mb-4">Add to folder</h3>
 
                 <div className="space-y-4">
                     {/* Existing Folders */}
                     {existingFolders.length > 0 && (
                         <div>
-                            <p className="text-xs font-semibold uppercase text-blue-muted mb-2 tracking-wider">Existing Folders</p>
+                            <p className="m-overline text-ink-2 mb-2">Existing folders</p>
                             <div className="flex flex-wrap gap-2">
                                 <button
                                     onClick={() => setSelectedFolder(null)}
-                                    className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedFolder === null ? 'bg-navy text-white' : 'bg-card-bg text-navy hover:bg-card-bg/80'}`}
+                                    aria-pressed={selectedFolder === null}
+                                    className="m-pill m-press"
                                 >
                                     None
                                 </button>
@@ -48,7 +49,8 @@ export const FolderModal = ({ isOpen, onClose, currentFolder, existingFolders, o
                                     <button
                                         key={f}
                                         onClick={() => setSelectedFolder(f)}
-                                        className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedFolder === f ? 'bg-navy text-white' : 'bg-card-bg text-navy hover:bg-card-bg/80'}`}
+                                        aria-pressed={selectedFolder === f}
+                                        className="m-pill m-press"
                                     >
                                         {f}
                                     </button>
@@ -59,7 +61,7 @@ export const FolderModal = ({ isOpen, onClose, currentFolder, existingFolders, o
 
                     {/* New Folder Input */}
                     <div>
-                        <p className="text-xs font-semibold uppercase text-blue-muted mb-2 tracking-wider">Or Create New</p>
+                        <p className="m-overline text-ink-2 mb-2">Or create a new one</p>
                         <input
                             type="text"
                             placeholder="Folder Name"
@@ -68,7 +70,7 @@ export const FolderModal = ({ isOpen, onClose, currentFolder, existingFolders, o
                                 setNewFolderName(e.target.value);
                                 if (e.target.value) setSelectedFolder(null);
                             }}
-                            className="w-full px-4 py-2 bg-page-bg text-navy rounded-xl outline-none focus:ring-2 focus:ring-navy/20 border border-transparent focus:border-navy/30 transition-all font-medium text-[15px]"
+                            className="m-input"
                         />
                     </div>
                 </div>
@@ -76,13 +78,13 @@ export const FolderModal = ({ isOpen, onClose, currentFolder, existingFolders, o
                 <div className="flex justify-end gap-3 mt-8">
                     <button
                         onClick={onClose}
-                        className="px-5 py-2 text-navy font-semibold hover:bg-card-bg/50 rounded-full transition-colors"
+                        className="m-btn m-btn-secondary m-btn-sm m-press"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-5 py-2 bg-navy text-white font-semibold rounded-full shadow-md shadow-navy/20 hover:shadow-lg hover:shadow-navy/30 transition-all"
+                        className="m-btn m-btn-primary m-btn-sm m-press"
                     >
                         Save
                     </button>
