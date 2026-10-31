@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Note } from '@/types'
 import { NoteOptionsMenu } from './NoteOptionsMenu'
-import { FileText, Mic, MoreHorizontal, Pin } from 'lucide-react'
+import { Mic, MoreHorizontal, NotebookPen, Pin } from 'lucide-react'
 
 interface NoteRowProps {
     note: Note
@@ -51,50 +51,45 @@ export const NoteRow = ({
         return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }).toLowerCase()
     }
 
-    // Display only: plain-text preview and a short meta line
-    const preview = (note.content || '').replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim()
-    const updated = new Date(note.updated_at || note.created_at)
-    const isTodayNote = updated.toDateString() === new Date().toDateString()
-    const when = isTodayNote ? formatTime(note.updated_at || note.created_at) : updated.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
     const isVoice = note.note_type === 'voice'
 
     const titleDisplay = note.title && note.title.trim() !== ''
-        ? <span className="m-headline text-ink truncate">{note.title}</span>
-        : <span className="m-headline text-ink-2 truncate">{t('notes.untitled')}</span>
+        ? <span className="m-callout !font-semibold text-ink truncate">{note.title}</span>
+        : <span className="m-callout text-ink-2 truncate">{t('notes.untitled')}</span>
 
     return (
         <div className="relative mb-2">
             <div
                 onClick={() => onEdit(note)}
-                className="m-glass m-glass-md m-press flex items-start gap-3 pl-4 pr-1 py-3.5 cursor-pointer"
+                className="m-glass m-glass-md m-press flex items-center justify-between gap-3 pl-4 pr-1 py-3 cursor-pointer"
             >
-                <span className={`m-tile !w-9 !h-9 mt-0.5 ${isVoice ? 'm-tile-info' : 'text-ink-2'}`} aria-hidden>
-                    {isVoice ? <Mic size={18} strokeWidth={1.75} /> : <FileText size={18} strokeWidth={1.75} />}
-                </span>
+                <div className="flex items-center gap-3 overflow-hidden flex-1 min-w-0">
+                    <span className={`m-tile !w-9 !h-9 ${isVoice ? 'm-tile-info' : 'text-primary-text'}`} aria-hidden>
+                        {isVoice ? <Mic size={18} strokeWidth={1.75} /> : <NotebookPen size={18} strokeWidth={1.75} />}
+                    </span>
 
-                <div className="flex flex-col min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                        {titleDisplay}
-                    </div>
-                    {preview && !isVoice && (
-                        <p className="m-footnote text-ink-2 m-clamp-2 mt-0.5 break-words">{preview}</p>
-                    )}
-                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap m-caption text-ink-2">
-                        <span className="m-num">{when}</span>
-                        {note.folder && (
-                            <>
-                                <span aria-hidden>·</span>
-                                <span className="truncate max-w-[140px]">{note.folder}</span>
-                            </>
+                    <div className="flex flex-col overflow-hidden min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            {titleDisplay}
+                            {note.is_pinned && (
+                                <Pin className="w-3.5 h-3.5 text-primary-text fill-current shrink-0" aria-label="Pinned" />
+                            )}
+                        </div>
+                        {note.folder && !isVoice && (
+                            <span className="m-overline text-ink-2 mt-0.5 block truncate">
+                                {note.folder}
+                            </span>
                         )}
                         {isVoice && (
-                            <span className="m-chip m-chip-info !h-6 !text-[12px] ml-0.5">{formatDuration(note.duration_seconds)}</span>
+                            <span className="m-caption text-ink-2 mt-0.5 block truncate m-num">
+                                {formatTime(note.created_at)} · {formatDuration(note.duration_seconds)}
+                            </span>
                         )}
                     </div>
                 </div>
 
                 {/* Right Actions: Pin & Three-dot menu */}
-                <div className="flex items-center shrink-0 -my-1.5">
+                <div className="flex items-center shrink-0 -my-1.5 ml-1">
                     {onTogglePin && (
                         <button
                             onClick={(e) => {

@@ -430,23 +430,21 @@ export const VoiceRecordingOverlay = ({
                     </div>
                 ) : (
                     <>
-                        {/* ── HERO: title, timer, waveform ─────────────────── */}
-                        <div className="m-hero p-6 flex flex-col items-center text-center">
-                            <h2 className="m-title-2 text-ink">Voice note</h2>
-                            <span className="m-stat-xl text-ink mt-3">
-                                {formatTime(duration)}
-                            </span>
-                            <span className="m-footnote text-ink-2 mt-1">
-                                {permissionState === 'pending'
-                                    ? 'Asking for the microphone'
-                                    : isPaused
-                                        ? 'Recording paused'
-                                        : 'Recording in high quality'}
-                            </span>
+                        {/* Same order as before: timer, waveform, status, live transcript */}
+                        <div className="m-hero p-6 flex flex-col items-center text-center gap-6 my-auto">
+                            {/* ── TIMER ─────────────────────────────────────────── */}
+                            <div className="flex flex-col items-center gap-1">
+                                <span className="m-stat-xl text-ink">
+                                    {formatTime(duration)}
+                                </span>
+                                <span className="m-overline text-ink-2">
+                                    {isPaused ? 'Paused' : 'Recording'}
+                                </span>
+                            </div>
 
                             {/* ── WAVEFORM VISUALIZER ────────────────────────────── */}
                             <div
-                                className={`flex items-center justify-center gap-[3px] w-full max-w-[280px] mt-6 ${live ? 'dark:drop-shadow-[0_0_10px_rgba(55,129,252,0.55)]' : ''}`}
+                                className={`flex items-center justify-center gap-[3px] w-full max-w-[280px] ${live ? 'dark:drop-shadow-[0_0_10px_rgba(55,129,252,0.55)]' : ''}`}
                                 aria-hidden="true"
                                 style={{ height: `${maxH + 8}px` }}
                             >
@@ -478,19 +476,32 @@ export const VoiceRecordingOverlay = ({
                                     )
                                 })}
                             </div>
-                        </div>
 
-                        {/* ── LIVE TRANSCRIPT ──────────────────────────────────── */}
-                        <div className="m-glass p-5">
-                            <div className="flex items-center justify-between gap-3 mb-2">
-                                <h3 className="m-headline text-ink">Transcript</h3>
-                                <span className="m-chip m-chip-info !h-6 !text-[12px]">Live</span>
-                            </div>
-                            <div className="max-h-[160px] overflow-y-auto" style={{ scrollbarWidth: 'none' }}>
-                                <p className={`m-body ${transcript.length > 0 ? 'text-ink' : 'text-ink-2'}`}>
-                                    {transcript.length > 0 ? transcript : 'Speak freely. Your full transcript appears when you stop.'}
+                            {/* ── STATUS TEXT ───────────────────────────────────── */}
+                            <div className="flex flex-col items-center gap-1 text-center">
+                                <p className="m-title-3 text-ink">
+                                    Voice note
+                                </p>
+                                <p className="m-footnote text-ink-2">
+                                    {permissionState === 'pending'
+                                        ? 'Asking for the microphone'
+                                        : isPaused
+                                            ? 'Recording paused'
+                                            : 'Recording in high quality'}
                                 </p>
                             </div>
+
+                            {/* ── LIVE TRANSCRIPT (subtle, scrollable) ──────────── */}
+                            {transcript.length > 0 && (
+                                <div
+                                    className="w-full max-h-[96px] overflow-y-auto text-center"
+                                    style={{ scrollbarWidth: 'none' }}
+                                >
+                                    <p className="m-footnote text-ink-2">
+                                        {transcript}
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </>
                 )}

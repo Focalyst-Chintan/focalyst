@@ -52,10 +52,6 @@ export const NoteOptionsMenu = ({
                     <span aria-hidden className="m-grabber" />
                 </div>
 
-                {note.title && note.title.trim() !== '' && (
-                    <p className="m-headline text-ink truncate px-3 pb-2 md:hidden">{note.title}</p>
-                )}
-
                 <div className="flex flex-col">
                     <button
                         role="menuitem"

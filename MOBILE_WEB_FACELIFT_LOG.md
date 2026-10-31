@@ -15,6 +15,9 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | § | What the spec said | What we do now | Status | Entry |
 |---|---|---|---|---|
 | **All** | Section 10 describes new layouts, orders and sets of elements per screen | **Reskin, not relayout.** Each phone screen keeps its original structure, section order, content, components and what is shown or hidden. Only the visual layer changes (colours, gradients, glass, glow, type, radii, spacing values, icons, chips, press and motion). Where section 10 describes a different layout, only its visual treatment is taken. Filtering, sorting and conditional rendering of data are logic | Sohan refinement | 016 |
+| 10.4 | Notes title, pinned grouping, note previews and meta line | Original layout restored: search, filters, New note + mic, list in the loaded order (no pinned grouping, which is sorting); rows show icon, title with the pin mark when pinned, folder for text notes, time · duration for voice notes, as before; "No notes match your search." is plain text again | Sohan refinement | 023 |
+| 10.5 | Recorder hero with title on top, transcript card always shown | Original order restored inside the hero card: timer + state label, waveform, status ("Voice note" + status line), live transcript only once there is text | Sohan refinement | 023 |
+| 10.11 | Note options sheet with the note title on top | Title line removed (it wasn't there); rows, icons, sheet and swipe stay | Sohan refinement | 023 |
 | 10.2 | Focus: title, hero with big planned time, preset row, Customise with steppers, full-width Start | Original layout restored: Pomodoro card (now a hero card) with the title and a small Primary Start at the top right, Duration and Break fields side by side, Sets below, presets as a 2 × 2 grid; no page title. Steppers are not used here: they don't fit two to a row and the fields must stay visible (they were never collapsed) | Sohan refinement | 022 |
 | 10.2 | Countdown card: name `title-3`, days, chips | Original order: days and unit on top with the more button, then "31 Oct 2026 · name" below; no Passed / Today chips (they weren't there); section title without a count | Sohan refinement | 022 |
 | 10.3 | Mode pill and set dots above the ring | Mode pill and "Set 1 of 4" back in the top bar between back and full screen, as before; no set dots. Ring, glow and controls stay | Sohan refinement | 022 |
@@ -363,3 +366,11 @@ Why: Reskin, not relayout (entry 016).
 Exact values: Pomodoro card radius 32, padding 20; Start `m-btn-sm` 40 tall; fields `m-input` 52 tall, 16 px text, lock 14 inside the right edge for free plans; preset pills 40 tall in a 2-column grid, gap 10; countdown days `stat-l`, unit `subhead` `ink-2`, date line `footnote` with the name in `ink`; timer top bar pill 32 tall (28 in landscape).
 Port to native: adapt
 Native instruction: §10.2 / §10.3: keep the existing Focus and timer layouts; take only the hero material, pill presets, ring and colours from the spec.
+
+## Entry 023 · Correction round 1 · 2026-10-31
+Type: Sohan refinement
+What changed: Notes reskinned on its original layout (base 3332763). `notes/page.tsx` (no title), `NotesList` (no pinned grouping, plain search-empty text), `NoteRow` (original content: icon, title + pin mark, folder or voice meta, pin and more buttons), `NoteOptionsMenu` (no title line), `VoiceRecordingOverlay` (original order of timer, waveform, status, transcript).
+Why: Reskin, not relayout (entry 016). Grouping pinned notes first was a sort, which counts as logic.
+Exact values: note row glass radius 16, padding 12 / 16, icon tile 36 (info tint for voice, `primary-text` icon for text), title `callout` 600 one line, folder `overline` `ink-2`, voice meta `caption`; recorder hero radius 32, padding 24, gap 24 between the four blocks.
+Port to native: adapt
+Native instruction: §10.4: keep the existing note list order and row content; §10.5: keep the recorder's existing order, only the hero material, waveform colours and controls change.

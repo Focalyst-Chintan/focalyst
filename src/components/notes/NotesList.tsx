@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation'
 import { useNotes } from '@/hooks/useNotes'
 import { NoteRow } from './NoteRow'
 import { FolderGroup } from './FolderGroup'
-import { NotebookPen, SearchX } from 'lucide-react'
-import { EmptyState, SectionHeader } from '@/components/mobile/ui'
+import { NotebookPen } from 'lucide-react'
+import { EmptyState } from '@/components/mobile/ui'
 import { generatePdf, slugify } from '@/lib/pdf'
 import { Note } from '@/types'
 import { FolderModal } from './FolderModal'
@@ -203,12 +203,9 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
 
     if (filteredNotes.length === 0 && searchQuery && !loading) {
         return (
-            <EmptyState
-                className="pt-8"
-                icon={<SearchX size={28} strokeWidth={1.75} />}
-                title="Nothing found"
-                body="No notes match your search."
-            />
+            <div className="text-center py-8 m-body text-ink-2">
+                No notes match your search.
+            </div>
         )
     }
 
@@ -265,26 +262,17 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             ) : (
                 // Standard View (All, Recents, Favourite)
                 <div className="flex flex-col">
-                    {/* Display only: pinned notes first, under a "Pinned" label (spec 10.4) */}
-                    {[
-                        { key: 'pinned', label: 'Pinned', items: filteredNotes.filter(n => n.is_pinned) },
-                        { key: 'rest', label: 'Notes', items: filteredNotes.filter(n => !n.is_pinned) },
-                    ].map(group => group.items.length > 0 && (
-                        <section key={group.key} className="mb-4">
-                            {filteredNotes.some(n => n.is_pinned) && <SectionHeader label={group.label} as="h3" />}
-                            {group.items.map(note => (
-                                <NoteRow
-                                    key={note.id}
-                                    note={note}
-                                    onEdit={handleEdit}
-                                    onToggleFavourite={handleToggleFavourite}
-                                    onTogglePin={handleTogglePin}
-                                    onAddToFolder={handleAddToFolder}
-                                    onDownload={handleDownload}
-                                    onDelete={handleDelete}
-                                />
-                            ))}
-                        </section>
+                    {filteredNotes.map(note => (
+                        <NoteRow
+                            key={note.id}
+                            note={note}
+                            onEdit={handleEdit}
+                            onToggleFavourite={handleToggleFavourite}
+                            onTogglePin={handleTogglePin}
+                            onAddToFolder={handleAddToFolder}
+                            onDownload={handleDownload}
+                            onDelete={handleDelete}
+                        />
                     ))}
                 </div>
             )}

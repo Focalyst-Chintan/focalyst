@@ -123,11 +123,9 @@ export default function NotesPage() {
 
     return (
         <div className="pb-6">
+            {/* Search Bar */}
             <div className="px-5 pt-2">
-                <h1 className="m-title-1 text-ink">{t('nav.notes')}</h1>
-
-                {/* Search */}
-                <label className="m-search mt-4">
+                <label className="m-search">
                     <Search size={18} strokeWidth={1.75} aria-hidden className="shrink-0" />
                     <span className="sr-only">{t('notes.searchPlaceholder')}</span>
                     <input
@@ -150,7 +148,7 @@ export default function NotesPage() {
             </div>
 
             {/* Filter Chips - horizontally scrollable without scrollbar */}
-            <div className="flex overflow-x-auto px-5 py-4 gap-2 fx-no-scrollbar" role="group" aria-label="Filter notes">
+            <div className="flex overflow-x-auto px-5 pt-3 pb-4 gap-2 fx-no-scrollbar" role="group" aria-label="Filter notes">
                 {FILTERS.map(filter => {
                     const filterLabels: Record<string, string> = {
                         'All': t('notes.all'),
