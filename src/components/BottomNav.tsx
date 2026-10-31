@@ -37,15 +37,16 @@ export default function BottomNav() {
                 }`}
             >
                 <div className="relative grid grid-cols-5 items-center h-full max-w-md mx-auto px-1.5">
-                    {/* Active pill, slides between tabs */}
+                    {/* Active pill: centred on its tab (inset 4px each side, vertically centred by
+                        top/bottom 0 + auto margins), slides by exactly one column per step. */}
                     <span
                         aria-hidden
-                        className={`absolute top-1/2 left-1.5 h-11 -translate-y-1/2 rounded-full bg-[var(--m-surface-strong)] border border-line transition-[transform,opacity] duration-[280ms] ease-[var(--m-spring)] ${
+                        className={`absolute inset-y-0 my-auto left-2.5 h-11 rounded-full bg-[var(--m-surface-strong)] border border-line transition-[transform,opacity] duration-[280ms] ease-[var(--m-spring)] ${
                             activeIndex < 0 ? 'opacity-0' : 'opacity-100'
                         }`}
                         style={{
-                            width: 'calc((100% - 12px) / 5)',
-                            transform: `translate(${Math.max(0, activeIndex) * 100}%, -50%)`,
+                            width: 'calc((100% - 12px) / 5 - 8px)',
+                            transform: `translateX(calc(${Math.max(0, activeIndex)} * (100% + 8px)))`,
                         }}
                     />
                     {NAV_ITEMS.map((item) => {
@@ -74,7 +75,7 @@ export default function BottomNav() {
                                 key={item.label}
                                 href={item.href}
                                 aria-current={isActive ? 'page' : undefined}
-                                className={`m-press relative z-[1] flex flex-col items-center justify-center gap-0.5 h-11 rounded-full ${
+                                className={`m-press relative z-[1] flex flex-col items-center justify-center gap-0.5 h-11 mx-1 rounded-full outline-none focus:outline-none ${
                                     isActive ? 'text-ink' : 'text-ink-2'
                                 }`}
                             >

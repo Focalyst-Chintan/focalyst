@@ -165,6 +165,8 @@
   }
   .m-press:active:not(:disabled) { transform: scale(0.97); opacity: 0.92; }
   .m-press:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--ring); }
+  /* Taps never leave a ring; only keyboard focus (:focus-visible) shows one */
+  .m-press:focus { outline: none; }
 
   /* ── Materials (spec 5) ────────────────────────────────────────────────── */
   .m-glass {
