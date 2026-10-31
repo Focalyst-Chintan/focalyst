@@ -3,9 +3,10 @@
 import { useRouter } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { usePlan } from '@/context/PlanContext'
-import TaskMenu from './TaskMenu'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
 import HabitRow from './HabitRow'
+import { Plus } from 'lucide-react'
+import { SectionHeader } from '@/components/mobile/ui'
 
 export default function HabitList() {
     const { habits, loading, error, updateHabit, deleteHabit, refreshData } = usePlan()
@@ -32,8 +33,8 @@ export default function HabitList() {
         : error
 
     return (
-        <section>
-            <h2 className="text-slate-900 dark:text-white text-lg font-semibold mb-3">{t('plan.habits')}</h2>
+        <section aria-labelledby="habits-heading">
+            <SectionHeader label={<span id="habits-heading">{t('plan.habits')}</span>} count={loading ? undefined : habits.length} />
 
             {/* Loading skeleton */}
             {loading && <LoadingSkeleton rows={2} type="habit" />}
@@ -43,9 +44,9 @@ export default function HabitList() {
 
             {/* Habit list */}
             {!loading && (
-                <div className="flex flex-col gap-2.5">
+                <div className="flex flex-col gap-2">
                     {habits.length === 0 ? (
-                        <p className="text-slate-500 dark:text-slate-400 text-sm py-4 text-center">
+                        <p className="m-footnote text-ink-2 py-2">
                             {t('plan.noHabits')}
                         </p>
                     ) : (
@@ -66,8 +67,9 @@ export default function HabitList() {
             {/* Add habit button */}
             <button
                 onClick={() => router.push('/plan/new-habit')}
-                className="w-full h-11 bg-[#FF6B00] hover:bg-[#FF751F] text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1.5"
+                className="m-add-row m-press mt-2"
             >
+                <Plus size={18} strokeWidth={1.75} aria-hidden />
                 {t('plan.addHabit')}
             </button>
         </section>

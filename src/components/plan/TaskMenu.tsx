@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { MoreHorizontal } from 'lucide-react'
 
 interface TaskMenuProps {
     onEdit: () => void
@@ -93,16 +94,14 @@ export default function TaskMenu({ onEdit, onDelete, onRename, onTag, onOpenChan
             <button
                 ref={triggerRef}
                 onClick={handleToggle}
-                className={`w-8 h-8 flex items-center justify-center rounded-full transition-colors cursor-pointer ${
-                    open ? 'bg-card-bg' : 'hover:bg-card-bg/50'
+                className={`m-press w-11 h-11 -mr-2 flex items-center justify-center rounded-full cursor-pointer text-ink-2 ${
+                    open ? 'bg-[var(--m-surface-strong)]' : 'hover:bg-[var(--m-surface-strong)]'
                 }`}
                 aria-label="Options"
+                aria-haspopup="menu"
+                aria-expanded={open}
             >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                    <circle cx="8" cy="3" r="1.5" fill="currentColor" />
-                    <circle cx="8" cy="8" r="1.5" fill="currentColor" />
-                    <circle cx="8" cy="13" r="1.5" fill="currentColor" />
-                </svg>
+                <MoreHorizontal size={20} strokeWidth={1.75} aria-hidden />
             </button>
 
             {open && typeof document !== 'undefined' && createPortal(
@@ -123,30 +122,35 @@ export default function TaskMenu({ onEdit, onDelete, onRename, onTag, onOpenChan
                             top: `${coords.top}px`,
                             left: `${coords.left}px`,
                         }}
-                        className="bg-white dark:bg-slate-800 rounded-xl shadow-[0_10px_32px_rgba(0,0,0,0.2)] border border-navy/10 dark:border-slate-700 py-1 min-w-[140px] z-[9999] animate-in fade-in zoom-in-95 duration-150 origin-top-right pointer-events-auto"
+                        role="menu"
+                        className="m-blur border border-line rounded-[16px] shadow-[var(--shadow-glass)] p-1.5 min-w-[160px] z-[9999] animate-[m-rise_200ms_var(--ease)_both] origin-top-right pointer-events-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
                         <button
                             onClick={(e) => { e.stopPropagation(); onEdit(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
+                            role="menuitem"
+                            className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-ink hover:bg-[var(--m-surface-strong)] active:bg-[var(--m-surface-strong)] transition-colors"
                         >
                             Edit
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onRename(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
+                            role="menuitem"
+                            className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-ink hover:bg-[var(--m-surface-strong)] active:bg-[var(--m-surface-strong)] transition-colors"
                         >
                             Rename
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onTag(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-700 transition-colors"
+                            role="menuitem"
+                            className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-ink hover:bg-[var(--m-surface-strong)] active:bg-[var(--m-surface-strong)] transition-colors"
                         >
                             Tag
                         </button>
                         <button
                             onClick={(e) => { e.stopPropagation(); onDelete(); setOpen(false); onOpenChange?.(false) }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                            role="menuitem"
+                            className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-[var(--m-danger-text)] hover:bg-[color-mix(in_srgb,var(--m-danger)_12%,transparent)] active:bg-[color-mix(in_srgb,var(--m-danger)_12%,transparent)] transition-colors"
                         >
                             Delete
                         </button>

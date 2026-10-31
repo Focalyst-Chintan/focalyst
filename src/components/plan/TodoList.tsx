@@ -6,6 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { usePlan } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
+import { GripVertical, Plus } from 'lucide-react'
+import { MCheckbox, SectionHeader, StatusChip } from '@/components/mobile/ui'
 
 export default function TodoList() {
     const { tasks, loading, error, updateTask, deleteTask, reorderTasks, refreshData } = usePlan()
@@ -96,8 +98,8 @@ export default function TodoList() {
         : error
 
     return (
-        <section>
-            <h2 className="text-navy dark:text-slate-100 text-lg font-semibold mb-3">{t('plan.todo')}</h2>
+        <section aria-labelledby="todo-heading">
+            <SectionHeader label={<span id="todo-heading">{t('plan.todo')}</span>} count={loading ? undefined : tasks.length} />
 
             {/* Loading skeleton */}
             {loading && <LoadingSkeleton rows={3} type="task" />}
@@ -109,7 +111,7 @@ export default function TodoList() {
             {!loading && (
                 <div className="flex flex-col gap-2">
                     {tasks.length === 0 ? (
-                        <p className="text-blue-muted text-sm py-4 text-center">
+                        <p className="m-footnote text-ink-2 py-2">
                             {t('plan.noTasks')}
                         </p>
                     ) : (
@@ -125,40 +127,34 @@ export default function TodoList() {
                                 onTouchStart={(e) => handleTouchStart(index, e)}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
-                                className={`flex items-center gap-3 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl px-3.5 py-3.5 cursor-grab active:cursor-grabbing transition-all relative shadow-sm ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
+                                className={`m-glass m-glass-md flex items-center gap-3 min-h-[60px] py-3.5 pl-2 pr-4 cursor-grab active:cursor-grabbing transition-[transform,opacity] duration-[120ms] ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : task.is_completed ? 'opacity-70' : 'opacity-100'
                                     } ${openMenuId === task.id ? 'z-50' : 'z-10'}`}
                             >
                                 {/* Drag handle */}
-                                <div className="flex flex-col gap-[3px] shrink-0 mr-1 touch-none">
-                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
-                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
-                                    <div className="w-4 h-[2px] bg-slate-300 dark:bg-slate-600 rounded-full" />
-                                </div>
+                                <span className="shrink-0 text-ink-3 touch-none" aria-hidden>
+                                    <GripVertical size={16} strokeWidth={1.75} />
+                                </span>
 
                                 {/* Checkbox */}
-                                <button
+                                <MCheckbox
+                                    checked={task.is_completed}
                                     onClick={() => toggleTask(task.id)}
-                                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-colors ${task.is_completed ? 'bg-[#2B6BFF] border-[#2B6BFF]' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-[#0B1021]'
-                                        }`}
-                                    aria-label={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
-                                >
-                                    {task.is_completed && (
-                                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
-                                    )}
-                                </button>
+                                    label={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
+                                />
 
-                                {/* Title + Tags */}
+                                {/* Title + meta */}
                                 <div className="flex-1 min-w-0">
-                                    <span className={`text-sm font-semibold transition-all block truncate ${task.is_completed ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-900 dark:text-white'
+                                    <span className={`m-headline block m-clamp-2 break-words ${task.is_completed ? 'text-ink-2 line-through' : 'text-ink'
                                         }`}>
                                         {task.title}
                                     </span>
-                                    {task.tags.length > 0 && (
-                                        <div className="flex gap-1.5 mt-1 flex-wrap">
+                                    {(task.priority || task.tags.length > 0) && (
+                                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                            {task.priority && (
+                                                <StatusChip kind={task.priority} className="!h-6 !text-[12px]">{priorityLabel(task.priority)}</StatusChip>
+                                            )}
                                             {task.tags.map((tag) => (
-                                                <span key={tag} className="text-[10px] font-medium bg-blue-50 dark:bg-blue-500/10 text-[#2B6BFF] px-2 py-0.5 rounded-full">{tag}</span>
+                                                <span key={tag} className="m-footnote text-ink-2">#{tag}</span>
                                             ))}
                                         </div>
                                     )}
@@ -181,10 +177,16 @@ export default function TodoList() {
             {/* Add task button */}
             <button
                 onClick={() => router.push('/plan/new-task')}
-                className="w-full h-11 bg-[#2B6BFF] hover:bg-blue-600 text-white text-sm font-semibold rounded-xl mt-3 transition-all active:scale-[0.98] shadow-sm flex items-center justify-center gap-1.5"
+                className="m-add-row m-press mt-2"
             >
+                <Plus size={18} strokeWidth={1.75} aria-hidden />
                 {t('plan.addTask')}
             </button>
         </section>
     )
+}
+
+// Display only: sentence-case priority label for the chip.
+function priorityLabel(p: string): string {
+    return p.charAt(0).toUpperCase() + p.slice(1)
 }

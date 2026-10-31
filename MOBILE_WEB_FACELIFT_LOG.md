@@ -37,6 +37,12 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 7.2 | Tab icons: lucide, inactive `ink-3` | Lucide `CalendarCheck2`, `Timer`, `NotebookPen`, `ChartColumn` (the desktop sidebar's icons); inactive icon and label use `ink-2` because `ink-3` text fails contrast | web wins | 008 |
 | 7.2 | Add button: same action as now | Same action; the plus turns 45° while the add menu is open, and the menu is a glass bar above the tab bar | amended | 008 |
 | 7.2 | (silent) | Tab bar hides while the on-screen keyboard is open (slides down 280 ms) | gap | 008 |
+| 7.10 | Task row order: checkbox · title + meta · more; drag handle far left | Same. Meta shows the priority chip and tags as `#tag` text. A completed row keeps its meta, title in `ink-2` with strikethrough, row at 70% | amended | 009 |
+| 7.10 | Habit row: emoji tile · name · streak chip · check | Emoji tile · name with the streak chip under it · check (32) · more button. The chip moved under the name so the row fits 360 px with the existing menu | amended | 009 |
+| 10.1 | Section header has a ghost "Add" on the right as well as the add row | Only the add row at the end of each list (one entry point, no duplicate handler) | amended | 009 |
+| 10.1 | Greeting + subhead "Sunday, 25 Oct · No events" | Same; the event count stays a link to the Calendar view as before, and the big "31 Oct" date block is gone | spec as written | 009 |
+| 8.4 | Heatmap 0 / some / done = brand-100 / brand-400 / brand-500 | The web heatmap is binary (done or not): empty #CBE9FD light / rgba(203,233,253,0.14) dark, done #1951FC, today ringed in #3781FC. 12 px cells, radius 4 | amended | 009 |
+| 7.11 | Today pill shows a check or the date | Same; past days that weren't done show a 1.5 px `line-strong` ring (spec had no missed state) | gap | 009 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -115,3 +121,20 @@ Exact values:
 - Scroll inset: page bottom padding = 64 + 8 + 24 = 96 px + bottom safe area.
 Port to native: adapt
 Native instruction: §7.2: inactive tab icon and label use ink-2, not ink-3; the Add plus rotates 45° while its menu is open; hide the tab bar while the keyboard is up.
+
+## Entry 009 · Phase W3 · 2026-10-31
+Type: spec as written
+What changed: Plan tab. `plan/page.tsx` (greeting, subhead, segmented control, loading skeleton), `TodoList`, `HabitList`, `HabitRow`, `TaskMenu` (trigger and popover look), `LoadingSkeleton` / `ErrorCard`, new `WeekStrip` primitive. Copy in `en.json`: "To-do", "Habits", "Add task", "Add habit", "Today", "Calendar"; the Pro banner reads "Welcome to Pro" / "Your Pro plan is active."
+Why: Spec 10.1, 7.6, 7.8, 7.10, 7.11.
+Exact values:
+- Greeting `display` serif 40/44, max 2 lines; subhead `subhead` in `ink-2`, 6 below.
+- Segmented control 20 below, 28 above the first section.
+- Section header: `overline` in `ink-2` with a neutral count chip (22 tall), 12 above the list.
+- Task row: glass, radius 16, min height 60, padding 14 / 16 (8 on the handle side), gap 8 between rows; `GripVertical` 16 in `ink-3`; checkbox 24; title `headline`, 2 lines; priority chip 24 tall (high / medium / low = danger / warning / info with ChevronsUp / ChevronUp / ChevronDown); `MoreHorizontal` 20 in a 44 target.
+- Habit row: min height 64; tile 40, radius 12, habit colour at 16% fill and 40% border; emoji 22; streak chip 24 tall ("5 days"); habit check 32. Expanded: overline "Performance breakdown", "N of 365 days", heatmap, two mini stats (`stat-m` over a `caption`).
+- Add row: dashed 1.5 px `line-strong`, radius 16, height 52, `Plus` 18 + label in `primary-text`, 8 below the list.
+- Menus: glass with blur, radius 16, padding 6, rows 44 tall, radius 10; Delete in danger text.
+- Skeletons in the final row shapes; the desktop loading spinner is kept for the desktop.
+- Week strip: built now, used on Insights (W5).
+Port to native: adapt
+Native instruction: §7.10: put the habit streak chip under the name and keep the more button after the check; only the add row adds items (no extra "Add" in the section header).

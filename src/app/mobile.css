@@ -53,6 +53,9 @@
   --m-amb-1: rgba(203, 233, 253, 0.70);
   --m-amb-2: rgba(220, 230, 255, 0.60);
 
+  /* Heatmap empty cell (spec 8.4) */
+  --m-heat-0: #CBE9FD;
+
   /* Charts (spec 8) */
   --m-chart-grid: rgba(11, 44, 177, 0.06);
   --m-chart-break: #9DB8F5;
@@ -103,6 +106,7 @@
   --m-amb-1: rgba(25, 81, 252, 0.22);
   --m-amb-2: rgba(11, 44, 177, 0.16);
 
+  --m-heat-0: rgba(203, 233, 253, 0.14);
   --m-chart-grid: rgba(255, 255, 255, 0.05);
   --m-chart-break: rgba(203, 233, 253, 0.70);
 

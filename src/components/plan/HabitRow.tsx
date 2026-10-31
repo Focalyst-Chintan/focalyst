@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HabitItem } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
+import { MCheckbox, StreakChip } from '@/components/mobile/ui'
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
 import { createClient } from '@/lib/supabase'
 import { awardXP } from '@/lib/xp/award'
@@ -144,43 +145,44 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
         return () => clearInterval(intervalId)
     }, [])
 
+    // Display only: the habit colour tints the icon tile (16% fill, 40% border).
+    const tileStyle = habit.color
+        ? {
+            background: `color-mix(in srgb, ${habit.color} 16%, transparent)`,
+            borderColor: `color-mix(in srgb, ${habit.color} 40%, transparent)`,
+        }
+        : undefined
+
     return (
-        <div className={`habit-card flex flex-col bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl transition-all duration-200 relative !overflow-visible shadow-sm ${isMenuOpen ? 'z-50' : 'z-10'}`}>
+        <div className={`habit-card m-glass m-glass-md flex flex-col !overflow-visible ${isMenuOpen ? 'z-50' : 'z-10'}`}>
             {/* Main Card Header */}
             <div
-                className="flex items-center gap-3 px-3.5 py-3 cursor-pointer select-none"
+                className="flex items-center gap-3 min-h-[64px] py-3 pl-3 pr-4 cursor-pointer select-none"
                 onClick={() => setIsExpanded(!isExpanded)}
+                aria-expanded={isExpanded}
             >
-                {/* 0ms Checkbox */}
-                <button
-                    onClick={handleToggle}
-                    style={isCheckedToday ? { backgroundColor: '#FF6B00', borderColor: '#FF6B00' } : undefined}
-                    className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
-                        isCheckedToday ? 'bg-[#FF6B00] border-[#FF6B00]' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-[#0B1021]'
-                    }`}
-                    aria-label={isCheckedToday ? 'Unmark habit' : 'Complete habit'}
-                >
-                    {isCheckedToday && (
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                            <path d="M3 7L6 10L11 4" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                    )}
-                </button>
-
                 {/* Habit Icon */}
-                <span className="text-xl shrink-0 select-none" aria-hidden="true">
+                <span className="m-tile text-[22px] leading-none select-none" style={tileStyle} aria-hidden="true">
                     {habit.icon || '🎯'}
                 </span>
 
-                {/* Habit Name */}
-                <span className={`flex-1 text-sm font-semibold transition-all truncate ${isCheckedToday ? 'text-slate-400 dark:text-slate-500 line-through' : 'text-slate-900 dark:text-white'}`}>
-                    {habit.name}
-                </span>
+                {/* Habit Name + streak */}
+                <div className="flex-1 min-w-0">
+                    <span className="m-headline text-ink block truncate">
+                        {habit.name}
+                    </span>
+                    <StreakChip className="mt-1 !h-6 !text-[12px]">
+                        {localStreak} {localStreak === 1 ? 'day' : 'days'}
+                    </StreakChip>
+                </div>
 
-                {/* Streak Badge */}
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-50 dark:bg-orange-500/10 text-[#FF6B00] whitespace-nowrap">
-                    🔥 {localStreak}d streak
-                </span>
+                {/* 0ms Checkbox */}
+                <MCheckbox
+                    checked={isCheckedToday}
+                    onClick={handleToggle}
+                    label={isCheckedToday ? 'Unmark habit' : 'Complete habit'}
+                    size="lg"
+                />
 
                 {/* Task Menu */}
                 <div onClick={e => e.stopPropagation()}>
@@ -196,15 +198,15 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
 
             {/* Expanded 365-Day Dot Matrix */}
             {isExpanded && (
-                <div className="border-t border-slate-100 dark:border-[#222A41] px-4 py-4 bg-slate-50/80 dark:bg-[#0B1021]/60 rounded-b-2xl">
+                <div className="border-t border-line px-4 pt-4 pb-3">
                     <div className="flex justify-between items-center mb-3">
-                        <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tracking-wider uppercase">{t('insights.performance')}</span>
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{completedCount} / 365 total days</span>
+                        <span className="m-overline text-ink-2">{t('insights.performance')}</span>
+                        <span className="m-footnote text-ink-2 m-num">{completedCount} of 365 days</span>
                     </div>
 
                     {/* True 365-Day Grid: 7 rows × 53 columns starting from top-left */}
                     <div
-                        className="mb-5 overflow-x-auto pb-2 scrollbar-thin"
+                        className="mb-4 overflow-x-auto pb-2 fx-no-scrollbar"
                         style={{
                             display: 'grid',
                             gridTemplateRows: 'repeat(7, min-content)',
@@ -217,28 +219,28 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                             <div
                                 key={dot.date}
                                 title={dot.date}
-                                className={`w-3 h-3 rounded-full flex-shrink-0 transition-colors ${
+                                className={`w-3 h-3 rounded-[4px] flex-shrink-0 ${
                                     dot.isFilled
-                                        ? 'bg-[#FF6B00]'
-                                        : 'border border-slate-300 dark:border-slate-700 bg-transparent'
-                                }`}
+                                        ? 'bg-[var(--m-brand-500)]'
+                                        : 'bg-[var(--m-heat-0)]'
+                                } ${dot.isToday ? 'ring-1 ring-[var(--m-brand-400)] ring-offset-1 ring-offset-transparent' : ''}`}
                             />
                         ))}
                     </div>
 
                     {/* Performance Metrics */}
-                    <div className="grid grid-cols-2 divide-x divide-slate-200 dark:divide-[#222A41] py-1 text-center">
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">COMPLETION</span>
-                            <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="rounded-[16px] bg-[var(--m-surface-strong)] px-3 py-2.5">
+                            <div className="m-stat-m text-ink">
                                 {completionPercentage}%
                             </div>
+                            <span className="m-caption text-ink-2">Completion</span>
                         </div>
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-wider">AVERAGE</span>
-                            <div className="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5">
-                                {averagePerDay} <span className="text-xs font-normal text-slate-500 dark:text-slate-400">/day</span>
+                        <div className="rounded-[16px] bg-[var(--m-surface-strong)] px-3 py-2.5">
+                            <div className="m-stat-m text-ink">
+                                {averagePerDay}<span className="m-subhead text-ink-2 ml-1">per day</span>
                             </div>
+                            <span className="m-caption text-ink-2">Average</span>
                         </div>
                     </div>
                 </div>

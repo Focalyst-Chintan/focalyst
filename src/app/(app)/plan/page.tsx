@@ -12,6 +12,8 @@ import HabitList from '@/components/plan/HabitList'
 import CalendarView from '@/components/plan/CalendarView'
 import dynamic from 'next/dynamic'
 import { DesktopPlanPage } from '@/components/desktop/plan/DesktopPlanPage'
+import { Check, X } from 'lucide-react'
+import { SegmentedControl } from '@/components/mobile/ui'
 
 const WeeklyReportModal = dynamic(
   () => import('@/components/insights/WeeklyReportModal'),
@@ -38,9 +40,18 @@ function getFormattedDate(): { day: string; month: string; weekday: string } {
 
 function PlanLoadingSkeleton() {
     return (
-        <div className="flex items-center justify-center min-h-[50vh]">
-            <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
-        </div>
+        <>
+            <div className="hidden lg:flex items-center justify-center min-h-[50vh]">
+                <div className="w-8 h-8 border-4 border-navy/20 border-t-navy rounded-full animate-spin" />
+            </div>
+            <div className="px-5 pt-2 lg:hidden" aria-hidden>
+                <div className="m-skel h-11 w-3/4 !rounded-xl" />
+                <div className="m-skel h-4 w-1/2 mt-3 !rounded-md" />
+                <div className="m-skel h-10 w-full mt-5 !rounded-full" />
+                <div className="m-skel h-[60px] w-full mt-7" />
+                <div className="m-skel h-[60px] w-full mt-2" />
+            </div>
+        </>
     )
 }
 
@@ -90,73 +101,60 @@ function MobilePlanContent() {
         <>
         {userId && <WeeklyReportModal userId={userId} />}
 
-        <div className="px-5 py-4">
+        <div className="px-5 pt-2 pb-4">
             {showSuccess && (
-                <div className="mb-6 bg-navy text-white p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <div className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                            <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                    </div>
-                    <div>
-                        <p className="font-bold text-[15px]">Welcome to Pro!</p>
-                        <p className="text-white/70 text-[12px]">Your subscription is now active. Enjoy!</p>
+                <div role="status" className="m-glass m-glass-md mb-6 p-4 flex items-center gap-3 m-rise">
+                    <span className="m-tile !bg-[color-mix(in_srgb,var(--m-success)_16%,transparent)] !border-[color-mix(in_srgb,var(--m-success)_40%,transparent)] text-[var(--m-success-text)]">
+                        <Check size={20} strokeWidth={2} aria-hidden />
+                    </span>
+                    <div className="min-w-0">
+                        <p className="m-headline text-ink">Welcome to Pro</p>
+                        <p className="m-footnote text-ink-2">Your Pro plan is active.</p>
                     </div>
                     <button
                         onClick={() => setShowSuccess(false)}
-                        className="ml-auto text-white/40 hover:text-white"
+                        className="m-icon-btn m-icon-btn-plain m-press ml-auto -mr-2"
+                        aria-label="Dismiss"
                     >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M18 6L6 18M6 6l12 12" />
-                        </svg>
+                        <X size={18} strokeWidth={1.75} aria-hidden />
                     </button>
                 </div>
             )}
-            <h1 className="text-navy dark:text-slate-100 text-xl font-semibold">
+            <h1 className="m-display text-ink m-clamp-2">
                 {t(`plan.${greetingKey}`)}, {userName}
             </h1>
-
-            <div className="flex gap-2 mt-3 mb-4">
-                <button
-                    onClick={() => setActiveTab('today')}
-                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'today' ? 'bg-navy text-white' : 'bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-300'
-                        }`}
-                >
-                    {t('plan.today')}
-                </button>
+            <p className="m-subhead text-ink-2 mt-1.5 flex items-center gap-1.5 flex-wrap">
+                <span>{date.weekday}, {date.day} {date.month}</span>
+                <span aria-hidden>·</span>
                 <button
                     onClick={() => setActiveTab('calendar')}
-                    className={`px-5 py-1.5 rounded-full text-[13px] font-semibold transition-all ${activeTab === 'calendar' ? 'bg-navy text-white' : 'bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-300'
-                        }`}
+                    className="text-ink-2 hover:text-ink underline-offset-4 hover:underline min-h-11 -my-3"
                 >
-                    {t('plan.calendar')}
+                    {eventCount === 0
+                        ? t('plan.noEvents')
+                        : `${eventCount} ${t(eventCount > 1 ? 'plan.events' : 'plan.event')}`}
                 </button>
-            </div>
+            </p>
+
+            <SegmentedControl
+                className="mt-5 mb-7"
+                label="Plan view"
+                value={activeTab}
+                onSelect={setActiveTab}
+                options={[
+                    { value: 'today', label: t('plan.today') },
+                    { value: 'calendar', label: t('plan.calendar') },
+                ]}
+            />
 
             {activeTab === 'today' ? (
                 <>
-                    <div className="flex items-baseline justify-between mb-5">
-                        <div>
-                            <span className="text-navy dark:text-slate-100 text-[42px] font-bold leading-none">{date.day}</span>
-                            <span className="text-navy dark:text-slate-300 text-[42px] font-light ml-1">{date.month}</span>
-                            <p className="text-blue-muted dark:text-slate-400 text-xs mt-0.5">{date.weekday}</p>
-                        </div>
-                        <button
-                            onClick={() => setActiveTab('calendar')}
-                            className="text-blue-muted text-sm hover:text-navy hover:underline transition-colors"
-                        >
-                            {eventCount === 0
-                                ? t('plan.noEvents')
-                                : `${eventCount} ${t(eventCount > 1 ? 'plan.events' : 'plan.event')}`}
-                        </button>
-                    </div>
-
                     <TodoList />
-                    <div className="h-6" />
+                    <div className="h-7" />
                     <HabitList />
                 </>
             ) : (
-                <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 shadow-sm dark:border dark:border-slate-800 transition-colors">
+                <div className="m-glass p-4">
                     <CalendarView />
                 </div>
             )}
