@@ -6,8 +6,8 @@ import { useTranslation } from 'react-i18next'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { localDateStr } from '@/lib/utils/date'
-import { SeamlessRadialTimerDial } from '@/components/focus/SeamlessRadialTimerDial'
-import { Maximize2, Minimize2, Pause, Play, RotateCcw, ArrowLeft } from 'lucide-react'
+import { Maximize2, Minimize2, Pause, Play, Square, ArrowLeft } from 'lucide-react'
+import { Ring } from '@/components/mobile/ui'
 
 import { useIsDesktop } from '@/hooks/useIsDesktop'
 
@@ -65,16 +65,19 @@ function MobileTimerDisplay({
 
     const progress = phaseTotalSeconds > 0 ? (phaseTotalSeconds - leftSecs) / phaseTotalSeconds : 0
 
+    // Display only: ring is 280 in portrait (spec 10.3); digits scale with it.
+    const ringSize = isLandscape ? dialSize : Math.min(dialSize, 280)
+    const digitSize = Math.min(isLandscape ? 104 : 80, Math.round(ringSize * (isLandscape ? 0.4 : 0.285)))
+
     return (
-        <SeamlessRadialTimerDial progress={progress} size={dialSize}>
-            <div className={`font-extrabold tracking-tight tabular-nums whitespace-nowrap text-slate-900 dark:text-white leading-none ${
-                isLandscape
-                    ? 'text-[104px] sm:text-[112px]'
-                    : 'text-[68px] sm:text-[76px]'
-            }`}>
+        <Ring size={ringSize} stroke={6} progress={progress} gradient="line" glow label={`${mm} minutes ${ss} seconds left`}>
+            <div
+                className="m-timer text-ink whitespace-nowrap"
+                style={{ fontSize: digitSize, lineHeight: 1.05 }}
+            >
                 {mm}:{ss}
             </div>
-        </SeamlessRadialTimerDial>
+        </Ring>
     )
 }
 
@@ -347,49 +350,66 @@ function TimerContent() {
         ? Math.max(195, Math.min(dimensions.height - 135, 235))
         : Math.min(dimensions.width * 0.84, 330)
 
+    const isBreak = mode === 'BREAK'
+
     return (
-        <div className={`min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white flex flex-col items-center justify-between transition-colors select-none ${
-            isLandscape ? 'py-3 px-6' : 'p-6'
+        <div className={`relative overflow-hidden min-h-[calc(100dvh-152px-env(safe-area-inset-top)-env(safe-area-inset-bottom))] text-ink flex flex-col items-center justify-between select-none ${
+            isLandscape ? 'py-2 px-6' : 'px-5 pt-1 pb-4'
         }`}>
+            {/* Breathing glow behind the ring (off under reduced motion) */}
+            <div aria-hidden className={`m-timer-glow ${isBreak ? 'is-break' : ''}`} />
+
             {/* Top Bar */}
-            <div className="w-full max-w-xl flex items-center justify-between">
+            <div className="relative w-full max-w-xl flex items-center justify-between">
                 <button
                     onClick={handleEndSession}
-                    className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-[#151B2E] text-slate-500 dark:text-slate-400 transition-colors"
+                    className="m-icon-btn m-press"
                     aria-label="Back to focus"
                 >
-                    <ArrowLeft className="w-5 h-5" />
+                    <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
                 </button>
-
-                <div className="flex items-center gap-2">
-                    <span className={`px-3 py-1 rounded-full font-bold uppercase tracking-wider ${
-                        isLandscape ? 'text-[10px]' : 'text-xs'
-                    } ${
-                        mode === 'FOCUS'
-                            ? 'bg-blue-50 dark:bg-blue-500/15 text-[#2B6BFF]'
-                            : 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-500'
-                    }`}>
-                        {mode === 'FOCUS' ? t('focus.focusTime') : 'Break Time'}
-                    </span>
-                    <span className={`font-semibold text-slate-500 dark:text-slate-400 ${
-                        isLandscape ? 'text-xs' : 'text-sm'
-                    }`}>
-                        Set {currentSet}/{totalSets}
-                    </span>
-                </div>
 
                 <button
                     onClick={toggleFullscreen}
-                    className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-[#151B2E] text-slate-500 dark:text-slate-400 transition-colors"
+                    className="m-icon-btn m-press"
                     aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen desk-clock'}
-                    title={isFullscreen ? 'Exit fullscreen' : 'Desk-Clock Fullscreen'}
+                    title={isFullscreen ? 'Exit fullscreen' : 'Desk clock'}
                 >
-                    {isFullscreen ? <Minimize2 className="w-5 h-5" /> : <Maximize2 className="w-5 h-5" />}
+                    {isFullscreen ? <Minimize2 size={20} strokeWidth={1.75} aria-hidden /> : <Maximize2 size={20} strokeWidth={1.75} aria-hidden />}
                 </button>
             </div>
 
+            {/* Mode pill and set progress */}
+            <div className={`relative flex flex-col items-center ${isLandscape ? 'gap-1.5' : 'gap-3'}`}>
+                <span className="inline-flex items-center gap-2 h-8 px-3.5 rounded-full m-glass !rounded-full m-subhead text-ink">
+                    <span aria-hidden className={`w-2 h-2 rounded-full ${isBreak ? 'bg-[var(--m-brand-100)]' : 'bg-[var(--m-brand-400)]'}`} />
+                    {mode === 'FOCUS' ? t('focus.focusTime') : t('focus.breakTime')}
+                </span>
+                <div className="flex items-center gap-2">
+                    {totalSets <= 8 && (
+                        <span aria-hidden className="flex items-center gap-1.5">
+                            {Array.from({ length: totalSets }).map((_, i) => (
+                                <span
+                                    key={i}
+                                    className={`w-2 h-2 rounded-full ${
+                                        i < currentSet - 1
+                                            ? 'bg-primary-text'
+                                            : i === currentSet - 1
+                                                ? 'border-[1.5px] border-[var(--m-brand-400)]'
+                                                : 'bg-[var(--m-surface-strong)]'
+                                    }`}
+                                />
+                            ))}
+                        </span>
+                    )}
+                    <span className="m-footnote text-ink-2 m-num">
+                        {t('focus.setOf', { current: currentSet, total: totalSets })}
+                    </span>
+                </div>
+            </div>
+
             {/* Center Dial & Giant Digits - isolated in MobileTimerDisplay */}
-            <div className="my-auto flex flex-col items-center justify-center">
+            <div className="relative my-auto flex flex-col items-center justify-center py-4">
                 <MobileTimerDisplay
                     endsAt={endsAt}
                     isActive={isActive}
@@ -402,34 +422,22 @@ function TimerContent() {
             </div>
 
             {/* Bottom Controls */}
-            <div className={`w-full max-w-sm flex items-center justify-center gap-4 ${isLandscape ? 'pb-1' : 'pb-6'}`}>
+            <div className={`relative w-full max-w-sm grid grid-cols-2 gap-3 ${isLandscape ? 'pb-1' : ''}`}>
                 {/* Pause / Resume Button */}
                 <button
                     onClick={togglePauseResume}
-                    className={`flex items-center justify-center gap-2 rounded-full font-semibold transition-all active:scale-95 shadow-md ${
-                        isLandscape
-                            ? 'h-[36px] min-w-[96px] px-5 text-[13px]'
-                            : 'h-12 min-w-[130px] px-7 text-sm'
-                    } ${
-                        isActive
-                            ? 'bg-slate-200 dark:bg-[#151B2E] hover:bg-slate-300 dark:hover:bg-[#1E2742] text-slate-800 dark:text-white'
-                            : 'bg-[#2B6BFF] hover:bg-blue-600 text-white'
-                    }`}
+                    className={`m-btn m-press w-full ${isLandscape ? '!h-10' : '!h-14'} ${isActive ? 'm-btn-secondary' : 'm-btn-primary'}`}
                 >
-                    {isActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 fill-current" />}
+                    {isActive ? <Pause size={18} strokeWidth={2} aria-hidden /> : <Play size={18} strokeWidth={2} className="fill-current" aria-hidden />}
                     <span>{isActive ? t('focus.pause') : t('focus.resume')}</span>
                 </button>
 
                 {/* End / Reset Session Button */}
                 <button
                     onClick={handleEndSession}
-                    className={`flex items-center justify-center gap-2 rounded-full font-semibold transition-all active:scale-95 bg-white dark:bg-[#151B2E] hover:bg-slate-100 dark:hover:bg-[#1E2742] border border-slate-200 dark:border-[#222A41] text-slate-700 dark:text-slate-300 ${
-                        isLandscape
-                            ? 'h-[36px] min-w-[88px] px-4 text-[13px]'
-                            : 'h-12 min-w-[110px] px-6 text-sm'
-                    }`}
+                    className={`m-btn m-btn-danger m-press w-full ${isLandscape ? '!h-10' : '!h-14'}`}
                 >
-                    <RotateCcw className="w-4 h-4" />
+                    <Square size={16} strokeWidth={2} className="fill-current" aria-hidden />
                     <span>End</span>
                 </button>
             </div>

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ShieldX } from 'lucide-react'
+import { MSwitch } from '@/components/mobile/ui'
+import { plainCopy } from '@/components/mobile/copy'
 
 export default function BlockerCard() {
     const { t } = useTranslation()
@@ -23,43 +25,31 @@ export default function BlockerCard() {
 
     return (
         <div className="w-full">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-black/5 dark:border-slate-800 p-4 flex justify-between items-center w-full transition-colors">
-                {/* Left Side: Icon & Text Container */}
-                <div className="flex items-center gap-4">
-                    {/* Left Element (Icon) */}
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-orange-500/10 text-[#FF7B2D] dark:bg-orange-500/20 shrink-0">
-                        <ShieldX size={20} />
-                    </div>
-
-                    {/* Middle Element (Text) */}
-                    <div className="flex flex-col text-left">
-                        <span className="font-bold text-navy dark:text-slate-100 text-[16px]">
+            <div className="m-glass p-4 flex justify-between items-center gap-3 w-full">
+                <div className="flex items-center gap-3 min-w-0">
+                    <span className="m-tile m-tile-info">
+                        <ShieldX size={20} strokeWidth={1.75} aria-hidden />
+                    </span>
+                    <div className="flex flex-col text-left min-w-0">
+                        <span className="m-headline text-ink">
                             {t('focus.block')}
                         </span>
-                        <span className="text-[13px] text-gray-400 dark:text-slate-400 font-normal">
+                        <span className="m-footnote text-ink-2">
                             {t('focus.offMessage')}
                         </span>
                     </div>
                 </div>
 
-                {/* Right Element (Control) */}
-                <button
-                    onClick={handleToggle}
-                    className="w-[42px] h-[24px] bg-gray-200 dark:bg-slate-700 rounded-full relative shrink-0 transition-colors cursor-pointer"
-                    aria-label={t('focus.block')}
-                >
-                    {/* Switch thumb (off position) */}
-                    <div className="w-[18px] h-[18px] bg-white dark:bg-slate-300 rounded-full absolute left-[3px] top-[3px] shadow-sm pointer-events-none" />
-                </button>
+                <MSwitch checked={false} onClick={handleToggle} label={t('focus.block')} />
             </div>
 
             {/* Toast Notification */}
             {toast && (
                 <div
-                    className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[100] max-w-[340px] w-auto bg-navy text-white text-[14px] text-center font-medium px-6 py-3 rounded-xl shadow-lg transition-all"
-                    style={{ animation: 'fadeInDown 0.3s ease-out forwards' }}
+                    role="status"
+                    className="fixed left-1/2 -translate-x-1/2 bottom-[calc(env(safe-area-inset-bottom)+96px)] z-[100] max-w-[340px] w-max m-blur border border-line text-ink m-subhead px-5 py-3 rounded-full shadow-[var(--shadow-glass)] animate-[m-rise_200ms_var(--ease)_both]"
                 >
-                    {toast}
+                    {plainCopy(toast)}
                 </div>
             )}
         </div>

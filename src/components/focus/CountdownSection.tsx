@@ -8,6 +8,8 @@ import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 
 import { Countdown } from '@/types'
 import { PendingCountdownCard } from '@/components/onboarding/PendingCountdownCard'
+import { MoreHorizontal, Plus } from 'lucide-react'
+import { SectionHeader, StatusChip } from '@/components/mobile/ui'
 
 export default function CountdownSection({ userId, userPlan }: { userPlan: string, userId: string }) {
     const router = useRouter()
@@ -40,16 +42,14 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
     }
 
     return (
-        <section className="mt-8">
-            <h2 className="text-[20px] font-bold text-navy dark:text-slate-100 mb-4">{t('focus.countdown')}</h2>
-            <PendingCountdownCard className="mb-4" />
+        <section aria-labelledby="countdown-heading">
+            <SectionHeader label={<span id="countdown-heading">{t('focus.countdown')}</span>} count={loading ? undefined : countdowns.length} />
+            <PendingCountdownCard className="mb-3" />
 
             {loading ? (
-                <div className="animate-pulse space-y-4">
-                    <div className="h-24 bg-card-bg/50 dark:bg-slate-900/50 rounded-xl"></div>
-                </div>
+                <div className="m-skel h-[120px] w-full !rounded-[24px]" aria-hidden />
             ) : (
-                <div className="space-y-4 relative">
+                <div className="flex flex-col gap-3 relative">
                     {countdowns.map((countdown, index) => {
                         // calculate days to go
                         const today = new Date()
@@ -58,22 +58,20 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                         target.setHours(0, 0, 0, 0)
                         const diffTime = target.getTime() - today.getTime()
                         const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
+                        // Display only: which chip to show
+                        const isPassed = diffTime < 0
+                        const isToday = diffTime === 0
 
                         // dynamic z-index to stop lower cards from overlapping the dropdown of upper cards
                         const zIndex = openMenuId === countdown.id ? 50 : countdowns.length - index
 
                         return (
-                            <div key={countdown.id} className="bg-card-bg/50 dark:bg-slate-900 rounded-xl p-4 flex flex-col border border-card-border dark:border-slate-800 relative" style={{ zIndex }}>
-                                <div className="flex justify-between items-start w-full">
-                                    <div className="flex items-baseline gap-2">
-                                        <span className="text-[40px] leading-none font-medium text-navy dark:text-slate-100 tracking-tight">{daysRemaining}</span>
-                                        <span className="text-navy dark:text-slate-300 text-[18px] font-medium tracking-tight">
-                                            {t('plan.totalDays', { count: daysRemaining }).replace(String(daysRemaining), '').trim()}
-                                        </span>
-                                    </div>
+                            <div key={countdown.id} className="m-glass p-5 flex flex-col" style={{ zIndex }}>
+                                <div className="flex justify-between items-start gap-3 w-full">
+                                    <h3 className="m-title-3 text-ink m-clamp-2 min-w-0 pt-1">{countdown.event_name}</h3>
 
                                     {/* Three dots menu */}
-                                    <div className="relative z-50">
+                                    <div className="relative z-50 shrink-0">
                                         <button
                                             type="button"
                                             onClick={(e) => {
@@ -81,14 +79,12 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                                 e.stopPropagation()
                                                 setOpenMenuId(openMenuId === countdown.id ? null : countdown.id)
                                             }}
-                                            className="w-10 h-10 -mr-2 -mt-2 flex items-center justify-center rounded-full active:bg-card-border/50 text-navy dark:text-slate-400 hover:bg-page-bg dark:hover:bg-slate-800 transition-colors"
-                                            aria-label="Options"
+                                            className="m-press w-11 h-11 -mr-3 -mt-2 flex items-center justify-center rounded-full text-ink-2 hover:bg-[var(--m-surface-strong)]"
+                                            aria-label={`More options for ${countdown.event_name}`}
+                                            aria-haspopup="menu"
+                                            aria-expanded={openMenuId === countdown.id}
                                         >
-                                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="pointer-events-none">
-                                                <circle cx="12" cy="5" r="1.5" fill="currentColor" />
-                                                <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                                                <circle cx="12" cy="19" r="1.5" fill="currentColor" />
-                                            </svg>
+                                            <MoreHorizontal size={20} strokeWidth={1.75} className="pointer-events-none" aria-hidden />
                                         </button>
 
                                         {openMenuId === countdown.id && (
@@ -102,28 +98,30 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                                         setOpenMenuId(null)
                                                     }}
                                                 />
-                                                <div className="absolute right-0 top-full mt-1 w-32 bg-white dark:bg-slate-900 rounded-xl shadow-xl border border-card-border dark:border-slate-800 py-2 z-[999]">
+                                                <div role="menu" className="absolute right-0 top-full mt-1 min-w-[160px] m-blur border border-line rounded-[16px] shadow-[var(--shadow-glass)] p-1.5 z-[999] animate-[m-rise_200ms_var(--ease)_both]">
                                                     <button
                                                         type="button"
+                                                        role="menuitem"
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             setOpenMenuId(null);
                                                             router.push(`/focus/countdown/edit?id=${countdown.id}`)
                                                         }}
-                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-navy dark:text-slate-200 hover:bg-page-bg dark:hover:bg-slate-800 transition-colors"
+                                                        className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-ink hover:bg-[var(--m-surface-strong)] active:bg-[var(--m-surface-strong)] transition-colors"
                                                     >
                                                         {t('settings.editProfile').split(' ')[0]}
                                                     </button>
                                                     <button
                                                         type="button"
+                                                        role="menuitem"
                                                         onClick={(e) => {
                                                             e.preventDefault();
                                                             e.stopPropagation();
                                                             setOpenMenuId(null);
                                                             handleDelete(countdown.id)
                                                         }}
-                                                        className="w-full text-left px-4 py-2.5 text-sm font-medium text-error hover:bg-error-light dark:hover:bg-red-950/20 transition-colors"
+                                                        className="w-full text-left px-3 h-11 rounded-[10px] m-callout text-[var(--m-danger-text)] hover:bg-[color-mix(in_srgb,var(--m-danger)_12%,transparent)] active:bg-[color-mix(in_srgb,var(--m-danger)_12%,transparent)] transition-colors"
                                                     >
                                                         {t('settings.delete')}
                                                     </button>
@@ -132,8 +130,18 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                         )}
                                     </div>
                                 </div>
-                                <div className="text-[11px] font-medium text-navy dark:text-slate-400 mt-1">
-                                    {target.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} • {countdown.event_name}
+                                <div className="flex items-end justify-between gap-3 mt-3">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="m-stat-l text-ink">{daysRemaining}</span>
+                                        <span className="m-subhead text-ink-2">
+                                            {daysRemaining === 1 ? t('focus.dayLeft') : t('focus.daysLeft')}
+                                        </span>
+                                    </div>
+                                    {isPassed && <StatusChip kind="passed">{t('focus.passed')}</StatusChip>}
+                                    {isToday && <StatusChip kind="today">{t('plan.today')}</StatusChip>}
+                                </div>
+                                <div className="m-footnote text-ink-2 mt-1">
+                                    {target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                                 </div>
                             </div>
                         )
@@ -149,8 +157,9 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                     }
                     router.push('/focus/countdown/new')
                 }}
-                className="w-full mt-4 bg-accent hover:bg-accent/95 text-white text-sm font-semibold py-3.5 rounded-xl transition-transform active:scale-95 shadow-sm"
+                className="m-add-row m-press mt-2"
             >
+                <Plus size={18} strokeWidth={1.75} aria-hidden />
                 {t('focus.addnew')}
             </button>
         </section>

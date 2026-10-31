@@ -43,6 +43,15 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 10.1 | Greeting + subhead "Sunday, 25 Oct · No events" | Same; the event count stays a link to the Calendar view as before, and the big "31 Oct" date block is gone | spec as written | 009 |
 | 8.4 | Heatmap 0 / some / done = brand-100 / brand-400 / brand-500 | The web heatmap is binary (done or not): empty #CBE9FD light / rgba(203,233,253,0.14) dark, done #1951FC, today ringed in #3781FC. 12 px cells, radius 4 | amended | 009 |
 | 7.11 | Today pill shows a check or the date | Same; past days that weren't done show a 1.5 px `line-strong` ring (spec had no missed state) | gap | 009 |
+| 10.2 | Big planned time, then "4 sets · 5 min breaks" | Same; singular forms "1 set", "1 min break" | gap | 010 |
+| 10.2 | "Customise" expands three steppers | Same. On the free plan the steppers show disabled with a lock and a "Pro" chip next to Customise, as the inputs were disabled before | gap | 010 |
+| 7.5 | Steppers: min and max as the current inputs allow | The web inputs had no limits; steppers use 1 to 999 and typing any value still works | gap | 010 |
+| 10.2 | Countdown card: name, days, "days left", date, more | Same; "day left" for 1; Passed and Today chips sit on the days row; date as "31 Oct 2026". The old "total days" label meant days left (clamped at 0), so only the words changed | spec as written | 010 |
+| 10.2 | Block distractions: blue Switch | Same switch, always off; tapping shows the existing "coming soon" note | web-only | 010 |
+| 10.3 | Full-screen timer | The timer stays between the header and the tab bar so the tabs keep working during a session (hiding them would remove a way out) | deviation | 010 |
+| 10.3 | Ring 280, 6 stroke, `grad-line`, glow on the head | Ring 280 in portrait (smaller on narrow phones), the whole arc glows in dark mode (drop shadow), digits `timer` 80 scaled with the ring | amended | 010 |
+| 10.3 | Set progress as 4 dots + "Set 1 of 4" | Dots for up to 8 sets: done filled `primary-text`, current ringed `brand-400`, rest `surface-strong`; text always shown | gap | 010 |
+| 10.3 | Pause Secondary + End Danger, 56 high | Same; while paused the left button reads Resume and turns Primary | amended | 010 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -138,3 +147,17 @@ Exact values:
 - Week strip: built now, used on Insights (W5).
 Port to native: adapt
 Native instruction: §7.10: put the habit streak chip under the name and keep the more button after the check; only the add row adds items (no extra "Add" in the section header).
+
+## Entry 010 · Phase W4 · 2026-10-31
+Type: spec as written
+What changed: Focus tab and timer. `focus/page.tsx` (title, layout, skeleton; desktop spinner kept), `PomodoroSection` (hero card), `BlockerCard`, `CountdownSection`, `focus/timer/page.tsx` (markup only; the timer engine, saving and wake lock are untouched). New `Ring` primitive and `plainCopy` display helper. Copy in `en.json`: "Focus", "Break", "Sets", "Start focus", "Focus mode is off", "Focus time", "Add countdown", "Loading timer"; new keys "days left", "day left", "Passed", "Break time", "Set {{current}} of {{total}}" (other languages fall back to English for the new keys).
+Why: Spec 10.2, 10.3, 7.5, 8.3.
+Exact values:
+- Title `title-1` "Focus", 20 below.
+- Hero card: radius 32, padding 24, faint grid; overline "Pomodoro"; `stat-xl` "25:00"; subhead line; preset pills (height 40, glass, selected `grad-primary`, locked ones show a 14 lock) in a horizontal row that bleeds to the card edge; "Customise" ghost toggle (chevron rotates); steppers inside a `surface-strong` panel, radius 16, hairline dividers, rows 60 tall; Primary "Start focus" full width with a filled `Play` 18.
+- Blocking card: glass, padding 16, info icon tile 40 with `ShieldX` 20, `headline` title, `footnote` status, switch.
+- Countdown card: glass, radius 24, padding 20, 12 apart; name `title-3`, 2 lines max; `stat-l` days with `subhead` unit; date `footnote` `ink-2`; menu as on Plan.
+- Toasts on Focus: glass pill 96 above the bottom safe area, `subhead`; the exclamation mark and emoji in the existing strings are removed at display time ("Well done. Great job.", "Coming soon.").
+- Timer: background glow radial rgba(25,81,252,0.35), 150vmin, breathing scale 0.9 to 1 over 4 s (alternate), break rgba(203,233,253,0.20); mode pill 32 tall with an 8 dot; ring 280 / stroke 6; controls 56 tall in two equal columns, gap 12.
+Port to native: adapt
+Native instruction: §10.3: keep the tab bar reachable during a session; when paused, the left control is a Primary "Resume"; show set dots only up to 8 sets.

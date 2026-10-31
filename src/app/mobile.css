@@ -557,10 +557,31 @@
     animation: m-sweep 1.2s linear infinite;
   }
 
+  /* Focus timer glow (spec 10.3): breathes 0.9 to 1 over 4s; off under reduced motion */
+  @keyframes m-breathe {
+    from { transform: translate(-50%, -50%) scale(0.9); }
+    to   { transform: translate(-50%, -50%) scale(1); }
+  }
+  .m-timer-glow {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 150vmin;
+    height: 150vmin;
+    border-radius: 9999px;
+    background: radial-gradient(closest-side, rgba(25, 81, 252, 0.35), transparent);
+    transform: translate(-50%, -50%);
+    animation: m-breathe 4s ease-in-out infinite alternate;
+    pointer-events: none;
+    transition: background 450ms var(--ease);
+  }
+  .m-timer-glow.is-break { background: radial-gradient(closest-side, rgba(203, 233, 253, 0.20), transparent); }
+
   /* Reduce motion (spec 9.2): final state, 120ms fade only */
   @media (prefers-reduced-motion: reduce) {
     .m-rise { animation: m-fade 120ms linear both !important; animation-delay: 0ms !important; }
     .m-skel { animation: none !important; }
+    .m-timer-glow { animation: none !important; }
     .m-press:active:not(:disabled) { transform: none; }
   }
 }
