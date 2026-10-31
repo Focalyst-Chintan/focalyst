@@ -48,6 +48,8 @@
   --m-hero-glow-1: rgba(203, 233, 253, 0.55);
   --m-hero-glow-2: #DCE6FF;
   --m-hero-grid: rgba(11, 44, 177, 0.06);
+  --m-rim: rgba(55, 129, 252, 0.55);
+  --m-rim-wash: rgba(203, 233, 253, 0.55);
 
   /* Ambient (spec 2.5) */
   --m-amb-1: rgba(203, 233, 253, 0.70);
@@ -57,7 +59,7 @@
   --m-heat-0: #CBE9FD;
 
   /* Charts (spec 8) */
-  --m-chart-grid: rgba(11, 44, 177, 0.06);
+  --m-chart-grid: rgba(11, 44, 177, 0.05);
   --m-chart-break: #9DB8F5;
 
   /* AI chat button (spec 7.1) */
@@ -104,12 +106,14 @@
   --m-hero-glow-1: rgba(55, 129, 252, 0.40);
   --m-hero-glow-2: rgba(203, 233, 253, 0.70);
   --m-hero-grid: rgba(255, 255, 255, 0.04);
+  --m-rim: rgba(111, 164, 255, 0.95);
+  --m-rim-wash: rgba(55, 129, 252, 0.22);
 
   --m-amb-1: rgba(25, 81, 252, 0.22);
   --m-amb-2: rgba(11, 44, 177, 0.16);
 
   --m-heat-0: rgba(203, 233, 253, 0.14);
-  --m-chart-grid: rgba(255, 255, 255, 0.05);
+  --m-chart-grid: rgba(255, 255, 255, 0.04);
   --m-chart-break: rgba(203, 233, 253, 0.70);
 
   --m-ai-bg: rgba(203, 233, 253, 0.14);
@@ -195,16 +199,31 @@
   }
   .m-glass-md { border-radius: 16px; }
 
+  /* Hero card (spec 5.3, refined): blue tint from the top and a rim light: a thin luminous
+     blue edge along the bottom and lower corners that fades upward. No glow band. */
   .m-hero {
     position: relative;
     overflow: hidden;
     border-radius: 32px;
     border: 1px solid var(--line);
     background:
+      radial-gradient(120% 60% at 50% 115%, var(--m-rim-wash), transparent 70%),
       linear-gradient(180deg, var(--m-hero-tint), transparent 55%),
-      linear-gradient(180deg, transparent 72%, var(--m-hero-glow-1) 96%, var(--m-hero-glow-2) 100%),
       var(--m-surface);
-    box-shadow: var(--m-card-shadow);
+    box-shadow: var(--m-card-shadow), inset 0 -10px 22px -16px var(--m-rim);
+  }
+  /* Rim: a 1.5px gradient border, bright at the bottom edge, gone by 45% height */
+  .m-hero::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(0deg, var(--m-rim) 0%, color-mix(in srgb, var(--m-rim) 45%, transparent) 16%, transparent 45%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
   .m-hero::after {
     content: "";
@@ -217,6 +236,15 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     pointer-events: none;
+  }
+  /* Units next to big numbers (spec 3.3): subhead size, ink-2, on the baseline, no tracking */
+  .m-unit {
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--ink-2);
+    margin-left: 1px;
   }
   /* Faint grid in the lower half, behind charts */
   .m-hero-grid {

@@ -9,6 +9,7 @@ import { TrendChart } from '@/components/mobile/charts/TrendChart'
 import { hm, hmSpoken, hmText } from '@/components/mobile/charts/format'
 import { useReducedMotion } from '@/components/mobile/hooks'
 import { useTranslation } from 'react-i18next'
+import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
 import { getStartAndEndOfWeek, calculateTrend } from '@/lib/utils/insights'
 import { localDateStr } from '@/lib/utils/date'
 import dynamic from 'next/dynamic'
@@ -18,8 +19,9 @@ const FocusActivityCard = dynamic(() => import('@/components/insights/FocusActiv
     ssr: false
 })
 
-// The productivity score now renders in the page's stat grid; `children` sits between the hero and the bars.
-export function ClientFocusInsights({ isPaid, children }: { isPaid: boolean, productivityScore: number, children?: ReactNode }) {
+// Same cards as before, in the same order: focus time (now the hero with its trend), productivity
+// score, focus activity. `children` (the this-week strip) sits right under the focus time card.
+export function ClientFocusInsights({ isPaid, productivityScore, children }: { isPaid: boolean, productivityScore: number, children?: ReactNode }) {
     const supabase = createClient()
     const [totalMinutes, setTotalMinutes] = useState<number>(0)
     const [dailyData, setDailyData] = useState<any[]>([])
@@ -111,10 +113,10 @@ export function ClientFocusInsights({ isPaid, children }: { isPaid: boolean, pro
 
     return (
         <div className="space-y-3">
-            <HeroCard grid className="pt-6 pb-4">
-                <div className="px-6">
+            <HeroCard className="pt-5 pb-3">
+                <div className="px-5">
                     <p className="m-overline text-ink-2">{t('insights.totalFocus')}</p>
-                    <p className="m-stat-xl text-ink mt-2">
+                    <p className="m-stat-xl text-ink mt-1.5 whitespace-nowrap">
                         <AnimatedNumber
                             metric="focus:week"
                             value={totalMinutes}
@@ -123,17 +125,16 @@ export function ClientFocusInsights({ isPaid, children }: { isPaid: boolean, pro
                                 const { h, m } = hm(n)
                                 return (
                                     <>
-                                        {h}<span className="m-subhead text-ink-2 ml-0.5 mr-2">h</span>
-                                        {m}<span className="m-subhead text-ink-2 ml-0.5">m</span>
+                                        {h}<span className="m-unit">h</span>{' '}{m}<span className="m-unit">m</span>
                                     </>
                                 )
                             }}
                         />
                     </p>
-                    {trend !== 0 && <DeltaChip className="mt-3" value={trend} comparedTo="vs last week" />}
+                    {trend !== 0 && <DeltaChip className="mt-2" value={trend} comparedTo="vs last week" />}
                 </div>
                 <div
-                    className="mt-3 px-2"
+                    className="mt-2 px-1"
                     role="img"
                     aria-label={best && best.value > 0 ? `Focus by day, last 7 days. Best day ${best.name}, ${hmSpoken(best.value)}` : 'No focus yet this week'}
                 >
@@ -141,6 +142,7 @@ export function ClientFocusInsights({ isPaid, children }: { isPaid: boolean, pro
                 </div>
             </HeroCard>
             {children}
+            <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
             <FocusActivityCard data={dailyData} isPaid={isPaid} />
         </div>
     )

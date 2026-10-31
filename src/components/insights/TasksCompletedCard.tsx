@@ -17,19 +17,19 @@ export function TasksCompletedCard({ completed, total }: { completed: number, to
     const { t } = useTranslation()
 
     return (
-        <div className="m-glass m-glass-md p-4 flex justify-between items-center gap-4 w-full min-h-[104px]">
-            <div className="min-w-0">
-                <h3 className="m-footnote text-ink-2">{t('insights.tasksCompleted')}</h3>
-                <p className="mt-1 flex items-baseline gap-1.5">
-                    <span className="m-stat-l text-ink">
-                        <AnimatedNumber metric="tasks:today" value={completed} label={`${completed} of ${total} tasks`} render={(n) => n} />
+        <div className="m-glass p-5 flex justify-between items-center gap-4 w-full">
+            <div className="space-y-1 min-w-0">
+                <h3 className="m-headline text-ink">{t('insights.tasksCompleted')}</h3>
+                <p className="m-footnote text-ink-2">{progressLine(completed, total)}</p>
+                <div className="pt-2 flex items-baseline">
+                    <span className="m-stat-l text-ink mr-2">
+                        <AnimatedNumber metric="tasks:today" value={completed} label={`${completed}`} render={(n) => n} />
                     </span>
-                    <span className="m-subhead text-ink-2 m-num">/ {total}</span>
-                </p>
-                <p className="m-footnote text-ink-2 mt-1">{progressLine(completed, total)}</p>
+                    <span className="m-subhead text-ink-2 m-num">{t('insights.tasksCount', { count: total })}</span>
+                </div>
             </div>
-            <Ring size={56} stroke={6} progress={percentage / 100} label={`${percentage}% done`}>
-                <span className="m-caption text-ink m-num">{percentage}%</span>
+            <Ring size={96} stroke={10} progress={percentage / 100} label={`${percentage}% done`}>
+                <span className="m-callout !font-semibold text-ink m-num">{percentage}%</span>
             </Ring>
         </div>
     )

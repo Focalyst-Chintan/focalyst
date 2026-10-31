@@ -5,8 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import { TasksCompletedCard } from '@/components/insights/TasksCompletedCard'
 import { ClientFocusInsights } from '@/components/insights/ClientFocusInsights'
-import { ProductivityScoreCard } from '@/components/insights/ProductivityScoreCard'
-import { BestStreakTile, HabitWeekCard } from '@/components/mobile/insights/HabitWeek'
+import { HabitWeekCard } from '@/components/mobile/insights/HabitWeek'
 import { CurrentStreaksList } from '@/components/insights/CurrentStreaksList'
 import { AISummaryCard } from '@/components/insights/AISummaryCard'
 import { InsightsLevelWrapper } from '@/components/insights/InsightsLevelWrapper'
@@ -215,25 +214,23 @@ export default function InsightsPage() {
         )
     }
 
-    // Display only: longest current habit streak, from data this page already loads
+    // Display only: longest current habit streak, for the this-week strip's chip
     const bestStreak = habitsData.reduce((max: number, h: { current_streak?: number }) => Math.max(max, h.current_streak || 0), 0)
 
     return (
-        <div className="px-5 pt-2 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-7">
+        <div className="px-5 pt-2 w-full max-w-[800px] mx-auto overflow-x-hidden space-y-5">
             <InsightsHeader formattedDate={formattedDate} />
 
-            <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore}>
-                <HabitWeekCard bestStreak={bestStreak} />
+            <InsightsLevelWrapper totalXP={totalXP} />
+
+            <div className="space-y-3">
                 <TasksCompletedCard completed={completedTasks} total={totalTasks} />
-                <div className="grid grid-cols-2 gap-3">
-                    <ProductivityScoreCard score={productivityScore} isPaid={isPaid} />
-                    <BestStreakTile bestStreak={bestStreak} />
-                </div>
-            </ClientFocusInsights>
+                <ClientFocusInsights isPaid={isPaid} productivityScore={productivityScore}>
+                    <HabitWeekCard bestStreak={bestStreak} />
+                </ClientFocusInsights>
+            </div>
 
             <CurrentStreaksList habits={habitsData} />
-
-            <InsightsLevelWrapper totalXP={totalXP} />
 
             {/* Habit Group Leaderboard Section */}
             <HabitGroupLeaderboardSection
