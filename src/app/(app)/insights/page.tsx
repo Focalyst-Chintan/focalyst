@@ -201,7 +201,7 @@ export default function InsightsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center min-h-screen bg-page-bg dark:bg-[#0B1021]">
+            <div className="flex items-center justify-center min-h-[60dvh]">
                 <div className="w-8 h-8 rounded-full border-2 border-[#2B6BFF] border-t-transparent animate-spin" />
             </div>
         )

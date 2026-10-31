@@ -121,7 +121,7 @@ export default function NotesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-page-bg dark:bg-slate-950 pb-32 transition-colors">
+        <div className="min-h-dvh pb-6">
             {/* Search Bar */}
             <div className="px-4 py-3">
                 <div className="relative">

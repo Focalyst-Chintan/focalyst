@@ -51,7 +51,7 @@ function MobileFocusContent() {
     }
 
     return (
-        <div className="min-h-screen pb-24 bg-page-bg dark:bg-slate-950">
+        <div className="min-h-dvh pb-6">
             <main className="max-w-md mx-auto p-4 pt-6">
                 <PomodoroSection userPlan={userPlan} />
 

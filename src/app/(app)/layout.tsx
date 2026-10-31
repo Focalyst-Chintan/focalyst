@@ -19,6 +19,7 @@ import { GlobalToastContainer } from '@/components/desktop/ui/Toast'
 import { OfflineBanner } from '@/components/desktop/ui/OfflineBanner'
 import { useDailyMcpBonus } from '@/hooks/useDailyMcpBonus'
 import { useOnboardingFollowUps } from '@/lib/onboarding/useOnboardingFollowUps'
+import { MobileAmbient } from '@/components/mobile/ui/MobileAmbient'
 
 const ChatUI = dynamic(() => import('@/components/chat/ChatUI').then(mod => mod.ChatUI), { 
     ssr: false,
@@ -87,7 +88,8 @@ export default function AppLayout({
                             </div>
 
                             {/* Mobile Layout (< 1024px) */}
-                            <div className="lg:hidden min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col relative text-navy-darker dark:text-slate-100 transition-colors duration-300">
+                            <div className="lg:hidden min-h-dvh flex flex-col relative text-ink">
+                                <MobileAmbient />
                                 <div className="lg:hidden">
                                     <Header />
                                 </div>

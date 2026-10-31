@@ -23,6 +23,15 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 2.3 | danger solid #F43F5E | Web `--danger` #F04438 for solids; spec text colours kept as new variables | web wins | 002 |
 | 2.3 | success solid #22C55E | Web legacy `--color-success` (#2E7D52 light / #10B981 dark) for solids; spec text colours kept | web wins | 002 |
 | 0.2, 13 | New files under `Focalyst/src/theme` and `src/ui` | Phone-only components live in `src/components/mobile/`; phone CSS in `src/app/mobile.css`, imported once from `globals.css` | web-only | 003 |
+| 2.2 | `surface-solid` #0E1430 / #FFFFFF | Web `--surface` #0B1020 / #FFFFFF | web wins | 005 |
+| 2.5 | Ambient: two radial glows over canvas, fixed | Same values, one fixed CSS layer (`.m-ambient`) behind the phone shell | kept | 005 |
+| 2.6 | Glow on the primary CTA, add button, selected chart point, timer ring; unslop says no glows | Kept as spec says (spec ranks above unslop); dark only, light uses the soft shadow | kept | 006 |
+| 4 | Radius scale 8 / 12 / 16 / 24 / 32; desktop uses 10 / 14 / 20 / 28 | Spec scale on the phone. DESKTOP_DESIGN's radii are scoped to desktop (its section 0) | kept | 006 |
+| 5.2 | Bars: `surface` fill over real blur | Fill `--m-bar` rgba(13,19,38,0.62) dark / rgba(255,255,255,0.72) light, blur 20 px, saturate 180%. Solid `--surface` where blur is missing or transparency is reduced | amended | 005 |
+| 7.3 | Primary is `grad-primary`; desktop primary is flat `--primary` | Spec gradient kept on the phone (blue to blue, brand only) | kept | 006 |
+| 7.15 | Shimmer sweep rgba(255,255,255,0.06) | Same in dark; light uses rgba(3,25,91,0.05) (a white sweep is invisible on white) | amended | 005 |
+| 9.1 | Durations 120 / 200 / 280 / 450; desktop uses 140 / 220 / 420 | Spec durations on the phone; spring approximated as cubic-bezier(0.32, 1.25, 0.5, 1) | kept + web-only | 006 |
+| 3.2 | `overline` uppercase; unslop says sentence case labels | Kept uppercase as spec 3 says (source text stays sentence case) | kept | 006 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -63,3 +72,27 @@ Exact values:
 - In the spec, not on the web: the Insights Week / Month control at the top (the web only has Weekly / Monthly inside the activity chart), the "This week" habit strip on Insights and the 7-day dots on habit cards (Insights loads no per-day habit logs), the Focus sessions stat (not loaded), a working distraction-blocking switch (the web shows a "coming soon" note), a separate reminder form (reminders are fields inside the task and habit forms), the chat voice-mode wave (the web composer has a recording state instead).
 Port to native: no
 Native instruction: none; this records what the web can't show yet.
+
+## Entry 005 · Phase W1 · 2026-10-31
+Type: deviation
+What changed: Phone tokens and materials added in `src/app/mobile.css` (new `--m-` variables and `m-` classes in the components layer, so Tailwind utilities still win over them).
+Why: Spec 2, 3 and 5, translated to CSS.
+Exact values: `--m-surface` rgba(255,255,255,0.06) dark / 0.78 light; `--m-surface-strong` rgba(255,255,255,0.10) / #FFFFFF; surface-solid uses the web `--surface`. Meaning text colours: success #4ADE80 / #15803D, warning #FBBF24 / #B45309, danger #FB7185 / #BE123C, info #6FA4FF / #1951FC, neutral #A3ADC2 / #475569. Solids: success #10B981 / #2E7D52 (web legacy), warning #F59E0B, danger #F04438. Blur bars: 20 px blur, 180% saturate, `--m-bar` fill. Glass card: radius 24 (16 for `md`), 1 px `--line`, top highlight 1 px `--line-strong` fading out at 40%. Hero: radius 32, top tint rgba(25,81,252,0.18) to transparent at 55%, bottom glow from 72% (rgba(55,129,252,0.40) then rgba(203,233,253,0.70) at the edge); light: tint rgba(203,233,253,0.6), glow #CBE9FD then #DCE6FF. The ambient layer is mounted once in `(app)/layout.tsx` and page-level backgrounds on Focus, Notes, Insights and Account were removed so it shows through.
+Port to native: adapt
+Native instruction: §5.2: bar fill under the blur is a dark navy at 62% (rgba(13,19,38,0.62)) or white at 72%, not the 6% card surface, so text under it stays readable. §7.15: light-mode shimmer is rgba(3,25,91,0.05).
+
+## Entry 006 · Phase W1 · 2026-10-31
+Type: spec as written
+What changed: Where the spec and the web rules disagree on shape, motion and effects, the phone follows the spec.
+Why: `DESKTOP_DESIGN.md` scopes its radii, sizes and durations to the desktop (its section 0: desktop = 1024 px and wider). The brand rules that do apply to every size (colours, fonts, `--ease`, no gradient text, one primary per view, copy rules) are kept. Unslop ranks below the spec, so the spec's glow, gradient buttons and uppercase overlines stay.
+Exact values: radii 8 / 12 / 16 / 24 / 32 / 9999; durations 120 / 200 / 280 / 450 ms with `--ease`; spring cubic-bezier(0.32, 1.25, 0.5, 1); glow dark 0 6px 20px rgba(25,81,252,0.45), light 0 8px 24px rgba(10,16,51,0.08).
+Port to native: yes
+Native instruction: §4, §7.3, §9.1: unchanged; use the native spring (damping 18, stiffness 220).
+
+## Entry 007 · Phase W1 · 2026-10-31
+Type: web-only
+What changed: Phone primitives in `src/components/mobile/ui/`: `MobileAmbient`, `GlassCard`, `HeroCard`, `MButton` (primary, secondary, ghost, danger; loading keeps the width), `MIconButton` (44 px), `Chip` / `StatusChip` / `DeltaChip` / `StreakChip`, `SegmentedControl` (sliding thumb), `MSwitch` (51 × 31), `MCheckbox` (24 and 32), `Stepper`, `AddRow`, `SectionHeader`, `EmptyState`. Text styles are classes: `m-display`, `m-title-1..3`, `m-headline`, `m-body`, `m-callout`, `m-subhead`, `m-footnote`, `m-caption`, `m-overline`, `m-stat-xl/l/m`, `m-timer`. Inputs: `m-input` (52 tall, 16 px text so iOS doesn't zoom), `m-search`, `m-label`.
+Why: Spec 7, built once and reused by every phase.
+Exact values: press = scale 0.97, opacity 0.92, 120 ms; hover styles only under `@media (hover: hover)`; tap highlight off. Stepper: long press repeats every 120 ms after 400 ms; the value stays a text field so typing still works; buttons call the screen's existing setter. Switch and checkbox get an invisible 44 px hit area.
+Port to native: no
+Native instruction: none; the native app builds its own `src/ui/`.

@@ -198,7 +198,7 @@ export default function AccountPage() {
     }
 
     return (
-        <main className="min-h-screen bg-page-bg dark:bg-slate-950 pb-20 transition-colors duration-300">
+        <main className="min-h-dvh pb-6">
             {/* Header */}
             <header 
                 style={{ 
