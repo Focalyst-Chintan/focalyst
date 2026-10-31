@@ -78,6 +78,14 @@
   --m-spring: cubic-bezier(0.32, 1.25, 0.5, 1);
 
   /* Shell */
+  --m-chat-bg: #F5F8FF;
+  --m-chat-glow-1: rgba(220, 230, 255, 0.85);
+  --m-chat-glow-2: rgba(203, 233, 253, 0.95);
+  --m-chat-glow-3: rgba(169, 198, 255, 0.90);
+  --m-chat-glow-fade: rgba(203, 233, 253, 0.35);
+  --m-chat-card: rgba(255, 255, 255, 0.72);
+  --m-chat-composer: rgba(255, 255, 255, 0.82);
+  --m-chat-rim: rgba(55, 129, 252, 0.35);
   --m-tab-h: 64px;
   --m-seg-track: rgba(3, 25, 91, 0.06);
   --m-seg-glow: 0 4px 12px -2px rgba(25, 81, 252, 0.30);
@@ -119,6 +127,14 @@
   --m-ai-bg: rgba(203, 233, 253, 0.14);
   --m-ai-fg: #CBE9FD;
   --m-ai-border: var(--line-strong);
+  --m-chat-bg: #060A1A;
+  --m-chat-glow-1: rgba(11, 44, 177, 0.55);
+  --m-chat-glow-2: rgba(25, 81, 252, 0.70);
+  --m-chat-glow-3: rgba(55, 129, 252, 0.85);
+  --m-chat-glow-fade: rgba(11, 44, 177, 0.25);
+  --m-chat-card: rgba(255, 255, 255, 0.07);
+  --m-chat-composer: rgba(10, 16, 40, 0.62);
+  --m-chat-rim: rgba(111, 164, 255, 0.55);
   --m-seg-track: rgba(255, 255, 255, 0.06);
   --m-seg-glow: 0 4px 14px -2px rgba(25, 81, 252, 0.45);
 }
@@ -632,6 +648,52 @@
   .m-grabber { width: 36px; height: 5px; border-radius: 9999px; background: var(--line-strong); }
   .m-backdrop { background: var(--m-backdrop); animation: m-fade var(--m-base) var(--ease) both; }
 
+  /* AI chat sheet (spec 10.7, refined to the mockup): dark navy at the top, a soft blue glow
+     rising from the bottom; ice-blue in light mode. Grain on top hides any banding. */
+  .m-chat-sheet {
+    background: var(--m-chat-bg);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    border-radius: 32px 32px 0 0;
+    animation: m-sheet-in var(--m-slow) var(--ease) backwards;
+    transition: transform var(--m-base) var(--m-spring);
+    overscroll-behavior: contain;
+    isolation: isolate;
+  }
+  .m-chat-sheet .ambient-grain { z-index: 0; }
+  .m-chat-glow {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(140% 55% at 50% 108%, var(--m-chat-glow-3) 0%, var(--m-chat-glow-2) 32%, var(--m-chat-glow-1) 62%, transparent 100%),
+      linear-gradient(180deg, transparent 40%, var(--m-chat-glow-fade) 100%);
+    opacity: 1;
+    transition: opacity var(--m-slow) var(--ease);
+  }
+  .m-chat-glow.is-soft { opacity: 0.4; }
+  .m-chat-card {
+    background: var(--m-chat-card);
+    border: 1px solid var(--line);
+    -webkit-tap-highlight-color: transparent;
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .m-chat-card { -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+  }
+  .m-chat-composer {
+    position: relative;
+    background: var(--m-chat-composer);
+    border: 1px solid var(--line-strong);
+    box-shadow: inset 0 -1px 0 var(--m-chat-rim), 0 8px 24px -12px var(--m-chat-rim);
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .m-chat-composer { -webkit-backdrop-filter: blur(20px) saturate(160%); backdrop-filter: blur(20px) saturate(160%); }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .m-chat-card, .m-chat-composer { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); }
+  }
+
   /* Working dots (spec 10.7): three soft pulses */
   @keyframes m-dot { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
   .m-dots > span { width: 6px; height: 6px; border-radius: 9999px; background: currentColor; animation: m-dot 1.2s ease-in-out infinite; }
@@ -643,7 +705,7 @@
     .m-rise { animation: m-fade 120ms linear both !important; animation-delay: 0ms !important; }
     .m-skel { animation: none !important; }
     .m-timer-glow { animation: none !important; }
-    .m-sheet { animation: m-fade 120ms linear both !important; }
+    .m-sheet, .m-chat-sheet { animation: m-fade 120ms linear both !important; }
     .m-dots > span { animation: none !important; opacity: 0.6; }
     .m-press:active:not(:disabled) { transform: none; }
   }

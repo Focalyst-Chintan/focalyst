@@ -4,7 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useChat as useGlobalChat } from '@/context/ChatContext';
 import { usePlan } from '@/context/PlanContext';
-import { AlertCircle, ArrowUp, Check, Copy, Loader2, Mic, RotateCw, Sparkles, Square, X } from 'lucide-react';
+import { AlertCircle, ArrowUp, Copy, Loader2, Mic, RotateCw, Square, X } from 'lucide-react';
 import { useSwipeToClose } from '@/components/mobile/hooks';
 import ReactMarkdown from 'react-markdown';
 import { createClient } from '@/lib/supabase';
@@ -323,9 +323,8 @@ export function ChatUI() {
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // Display only
-  const messagesLeft = Math.max(0, FREE_TIER_LIMITS.aiMessagesPerDay - messagesUsed);
-  const workingLabel = isLoading ? (isWaitingFirstToken ? 'Thinking…' : 'Writing…') : null;
+  // Display only: the glow behind the sheet softens once there is a conversation to read
+  const hasMessages = messages.length > 0;
 
   return (
     <div className="fixed inset-0 z-[70] flex justify-end" role="dialog" aria-modal="true" aria-labelledby="chat-title">
@@ -334,67 +333,59 @@ export function ChatUI() {
 
       {/* Chat Panel */}
       <div
-        className="m-sheet relative w-full h-[calc(100dvh-env(safe-area-inset-top)-8px)] mt-auto md:mt-0 md:h-full md:w-[400px] md:rounded-[32px_0_0_32px] flex flex-col"
+        className="m-chat-sheet relative w-full h-[85dvh] mt-auto md:mt-0 md:h-full md:w-[400px] md:rounded-[32px_0_0_32px] flex flex-col overflow-hidden"
         style={swipe.style}
       >
-        {/* Grabber + header: drag down to close */}
-        <div {...swipe.handlers} className="touch-none shrink-0">
-          <div className="pt-2 pb-1 flex justify-center md:hidden">
+        {/* Blue glow rising from the bottom (40% once messages exist) */}
+        <div aria-hidden className={`m-chat-glow ${hasMessages ? 'is-soft' : ''}`} />
+        <div aria-hidden className="ambient-grain" />
+
+        {/* Mobile drag handle + header: drag down to close */}
+        <div {...swipe.handlers} className="relative touch-none shrink-0">
+          <div className="pt-2 pb-2 flex justify-center md:hidden">
             <span aria-hidden className="m-grabber" />
           </div>
 
+          {/* Copy Toast */}
+          {showCopyToast && (
+            <div role="status" className="absolute top-16 left-1/2 -translate-x-1/2 z-[60] m-blur border border-line text-ink px-4 h-9 inline-flex items-center rounded-full m-footnote shadow-[var(--shadow-glass)] animate-[m-rise_200ms_var(--ease)_both]">
+              Copied
+            </div>
+          )}
+
           {/* Header */}
-          <div className="px-5 pt-2 pb-3 flex items-center gap-3">
-            <span aria-hidden className="w-7 h-7 rounded-[9px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)]">
-              <Sparkles size={16} strokeWidth={1.75} />
-            </span>
-            <h2 id="chat-title" className="m-title-2 text-ink flex-1 min-w-0 truncate">Ask Focalyst AI</h2>
-            {!loadingInfo && !isFreeUser && (
-              <span className="m-chip m-chip-success !h-6 !text-[12px] shrink-0">
-                <Check size={12} strokeWidth={2.5} aria-hidden />
-                Pro
-              </span>
-            )}
+          <div className="px-5 pb-3 flex justify-between items-center gap-3 border-b border-line">
+            <div className="min-w-0">
+              <h2 id="chat-title" className="m-sans text-[20px] leading-[26px] font-semibold text-ink tracking-[-0.01em]">Ask Focalyst AI</h2>
+              <p className="m-caption text-ink-2">Personal productivity assistant</p>
+            </div>
             <button onClick={closeChat} className="m-icon-btn m-press -mr-1" aria-label="Close chat">
               <X size={20} strokeWidth={1.75} aria-hidden />
             </button>
           </div>
         </div>
 
-        {/* Copy Toast */}
-        {showCopyToast && (
-          <div role="status" className="absolute top-20 left-1/2 -translate-x-1/2 z-[60] m-blur border border-line text-ink px-4 h-9 inline-flex items-center rounded-full m-footnote shadow-[var(--shadow-glass)] animate-[m-rise_200ms_var(--ease)_both]">
-            Copied
-          </div>
-        )}
-
         {/* Chat Area */}
-        <div ref={chatContainerRef} className="flex-1 overflow-y-auto overscroll-contain px-5 pt-2 pb-6 flex flex-col gap-5">
+        <div ref={chatContainerRef} className="relative flex-1 overflow-y-auto overscroll-contain px-5 pt-4 pb-4 flex flex-col gap-4">
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 text-center px-2">
-              <span aria-hidden className="w-16 h-16 rounded-[20px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)] shadow-[var(--m-glow)] mb-5">
-                <Sparkles size={28} strokeWidth={1.75} />
-              </span>
-              <h3 className="m-title-3 text-ink">What should we look at today?</h3>
-              <p className="m-footnote text-ink-2 mt-2 max-w-[280px]">
-                I can add tasks, set reminders, sum up your week and answer questions about your focus.
-              </p>
-              <div className="flex flex-wrap justify-center gap-2 mt-6 max-w-[340px]">
+            <div className="flex flex-col justify-end flex-1 w-full">
+              <div className="flex flex-col gap-3 w-full">
                 {suggestions.map((text, i) => (
                   <button
                     key={i}
                     onClick={() => handleSuggestion(text)}
-                    className="m-pill m-press !h-auto min-h-10 py-2 text-left whitespace-normal"
+                    className="m-chat-card m-press w-full min-h-16 px-5 py-3 rounded-[24px] text-left m-callout text-ink"
                   >
                     {text}
                   </button>
                 ))}
               </div>
+              <p className="m-footnote text-ink-2 text-center max-w-[280px] mx-auto mt-4">
+                I can add tasks, set reminders, summarise your week, and answer productivity questions.
+              </p>
             </div>
           ) : (
-            messages.map((msg, idx) => {
-              // Display only: show the AI tile on the first reply of a group
-              const firstOfGroup = msg.role === 'assistant' && messages[idx - 1]?.role !== 'assistant';
+            messages.map((msg) => {
               if (msg.role === 'user') {
                 return (
                   <div key={msg.id} className="flex justify-end">
@@ -411,7 +402,7 @@ export function ChatUI() {
                       <AlertCircle size={14} strokeWidth={2} aria-hidden />
                     </span>
                     <div className="min-w-0">
-                      <p className="m-body text-ink">I couldn&apos;t reach Focalyst AI. Check your connection and try again.</p>
+                      <p className="m-body text-ink">{msg.content}</p>
                       <button
                         type="button"
                         onClick={retryLastMessage}
@@ -425,45 +416,36 @@ export function ChatUI() {
                 );
               }
               return (
-                <div key={msg.id} className="flex items-start gap-3">
-                  {firstOfGroup ? (
-                    <span aria-hidden className="shrink-0 mt-0.5 w-6 h-6 rounded-[8px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)]">
-                      <Sparkles size={14} strokeWidth={1.75} />
-                    </span>
-                  ) : (
-                    <span aria-hidden className="shrink-0 w-6" />
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <div className="m-body text-ink break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-2 first:prose-p:mt-0 prose-p:text-[16px] prose-p:leading-[23px] prose-li:text-[16px] prose-headings:font-semibold prose-headings:text-ink prose-strong:text-ink prose-a:text-primary-text prose-pre:my-2 prose-p:text-ink prose-li:text-ink">
-                      <ReactMarkdown>{msg.content || (isWaitingFirstToken && msg.id === messages[messages.length - 1]?.id ? '...' : '')}</ReactMarkdown>
-                    </div>
-                    {msg.content && (
-                      <button
-                        onClick={() => handleCopy(msg.content)}
-                        className="m-press -ml-2 mt-1 w-11 h-9 inline-flex items-center justify-center rounded-full text-ink-2 hover:text-ink"
-                        aria-label="Copy message"
-                        title="Copy message"
-                      >
-                        <Copy size={16} strokeWidth={1.75} aria-hidden />
-                      </button>
-                    )}
+                <div key={msg.id} className="min-w-0">
+                  <div className="m-body text-ink break-words prose prose-sm dark:prose-invert max-w-none prose-p:my-2 first:prose-p:mt-0 prose-p:text-[16px] prose-p:leading-[23px] prose-li:text-[16px] prose-headings:font-semibold prose-headings:text-ink prose-strong:text-ink prose-a:text-primary-text prose-pre:my-2 prose-p:text-ink prose-li:text-ink">
+                    <ReactMarkdown>{msg.content || (isWaitingFirstToken && msg.id === messages[messages.length - 1]?.id ? '...' : '')}</ReactMarkdown>
                   </div>
+                  {msg.content && (
+                    <button
+                      onClick={() => handleCopy(msg.content)}
+                      className="m-press -ml-2 mt-1 w-11 h-9 inline-flex items-center justify-center rounded-full text-ink-2 hover:text-ink"
+                      aria-label="Copy message"
+                      title="Copy message"
+                    >
+                      <Copy size={16} strokeWidth={1.75} aria-hidden />
+                    </button>
+                  )}
                 </div>
               );
             })
           )}
+
+          {/* Typing Indicator dots until first words arrive */}
+          {isLoading && isWaitingFirstToken && (
+            <div role="status" className="flex items-center gap-2 text-primary-text">
+              <span aria-hidden className="m-dots flex items-center gap-1"><span /><span /><span /></span>
+              <span className="m-footnote text-ink-2">Thinking…</span>
+            </div>
+          )}
         </div>
 
         {/* Input & Dictation Area */}
-        <div className="shrink-0 px-4 pt-2 pb-[calc(12px+env(safe-area-inset-bottom))]">
-          {/* Working row */}
-          {workingLabel && (
-            <div role="status" className="flex items-center gap-2 px-2 pb-2 text-primary-text">
-              <span aria-hidden className="m-dots flex items-center gap-1"><span /><span /><span /></span>
-              <span className="m-footnote text-ink-2">{workingLabel}</span>
-            </div>
-          )}
-
+        <div className="relative shrink-0 px-4 pt-2 pb-[calc(10px+env(safe-area-inset-bottom))]">
           {(limitBannerVisible || isLimitReached) && isFreeUser && (
             <button
               type="button"
@@ -471,9 +453,9 @@ export function ChatUI() {
                 closeChat();
                 router.push('/paywall');
               }}
-              className="m-press mb-2 w-full rounded-[16px] border border-[color-mix(in_srgb,var(--primary)_40%,transparent)] bg-primary-soft px-3 min-h-11 m-footnote !font-semibold text-ink"
+              className="m-chat-card m-press mb-2 w-full rounded-[16px] px-3 min-h-11 m-footnote !font-semibold text-ink"
             >
-              Daily limit reached. See Pro
+              Daily AI limit reached. Upgrade to Pro
             </button>
           )}
 
@@ -495,7 +477,7 @@ export function ChatUI() {
           {isLimitReached ? (
             <div className="flex flex-col items-center gap-1 pb-2 text-center">
               <p className="m-subhead text-ink">You have used today&apos;s Focalyst AI messages.</p>
-              <p className="m-footnote text-ink-2 mb-3">Pro gives you more each day.</p>
+              <p className="m-footnote text-ink-2 mb-3">Upgrade to Pro for more</p>
               <button
                 onClick={() => {
                   closeChat();
@@ -503,20 +485,13 @@ export function ChatUI() {
                 }}
                 className="m-btn m-btn-primary m-press"
               >
-                See Pro
+                Upgrade now
               </button>
             </div>
           ) : (
             <form onSubmit={handleSendAction} className="w-full">
-              {!loadingInfo && isFreeUser && (
-                <div className="flex justify-center mb-2">
-                  <span className="m-blur border border-line rounded-full h-7 px-3 inline-flex items-center m-caption text-ink-2 m-num">
-                    {messagesLeft} {messagesLeft === 1 ? 'message' : 'messages'} left today
-                  </span>
-                </div>
-              )}
               {isRecording ? (
-                <div className="min-h-14 rounded-full flex items-center justify-between pl-4 pr-2 bg-[color-mix(in_srgb,var(--m-danger)_14%,transparent)] border border-[color-mix(in_srgb,var(--m-danger)_40%,transparent)]">
+                <div className="min-h-14 rounded-full flex items-center justify-between pl-4 pr-2 mb-2 bg-[color-mix(in_srgb,var(--m-danger)_14%,transparent)] border border-[color-mix(in_srgb,var(--m-danger)_40%,transparent)]">
                   <div className="flex items-center gap-2">
                     <span aria-hidden className="w-2.5 h-2.5 rounded-full bg-[var(--m-danger)] animate-pulse" />
                     <span className="m-subhead m-num text-[var(--m-danger-text)]">
@@ -534,40 +509,50 @@ export function ChatUI() {
                   </button>
                 </div>
               ) : isTranscribing ? (
-                <div className="m-blur border border-line rounded-full min-h-14 flex items-center justify-center gap-2 px-4">
+                <div className="m-chat-composer rounded-full min-h-14 mb-2 flex items-center justify-center gap-2 px-4">
                   <Loader2 size={16} className="animate-spin text-primary-text" aria-hidden />
-                  <span className="m-subhead text-ink">Transcribing</span>
+                  <span className="m-subhead text-ink">Transcribing speech</span>
                 </div>
               ) : (
-                <div className="m-blur border border-line rounded-full min-h-14 flex items-center gap-1 pl-1.5 pr-2 focus-within:border-[var(--m-brand-400)] shadow-[var(--m-card-shadow)]">
-                  <button
-                    type="button"
-                    onClick={handleMicClick}
-                    className="m-press w-11 h-11 flex-shrink-0 rounded-full flex items-center justify-center text-ink-2 hover:text-ink"
-                    aria-label="Voice input"
-                    title="Dictate with voice"
-                  >
-                    <Mic size={20} strokeWidth={1.75} aria-hidden />
-                  </button>
+                <div className="m-chat-composer rounded-full min-h-14 mb-2 flex items-center gap-2 pl-5 pr-2">
                   <input
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
-                    placeholder="Ask anything"
+                    placeholder="Ask anything..."
                     aria-label="Message"
-                    className="flex-1 bg-transparent border-none outline-none px-1 text-[16px] leading-[23px] text-ink placeholder:text-ink-3 min-w-0"
+                    className="flex-1 bg-transparent border-none outline-none text-[16px] leading-[23px] text-ink placeholder:text-ink-2 min-w-0"
                   />
+                  <button
+                    type="button"
+                    onClick={handleMicClick}
+                    className="m-press w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-[var(--m-surface-strong)] border border-line text-ink"
+                    aria-label="Voice input"
+                    title="Dictate with voice"
+                  >
+                    <Mic size={18} strokeWidth={1.75} aria-hidden />
+                  </button>
                   <button
                     type="submit"
                     disabled={!isReadyToSubmit}
                     aria-label="Send"
-                    className={`m-press w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 bg-[image:var(--m-grad-primary)] text-snow ${
-                      isReadyToSubmit ? 'shadow-[var(--m-glow)]' : 'opacity-40'
+                    className={`m-press w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      isReadyToSubmit
+                        ? 'bg-[image:var(--m-grad-primary)] text-snow shadow-[var(--m-glow)]'
+                        : 'bg-[var(--m-surface-strong)] border border-line text-ink-2'
                     }`}
                   >
-                    <ArrowUp size={20} strokeWidth={2} aria-hidden />
+                    <ArrowUp size={18} strokeWidth={2} aria-hidden />
                   </button>
                 </div>
+              )}
+              {!loadingInfo && isFreeUser && (
+                <p className="text-center m-caption text-ink-2 m-num">
+                  {messagesUsed} of {FREE_TIER_LIMITS.aiMessagesPerDay} daily messages used
+                </p>
+              )}
+              {!loadingInfo && !isFreeUser && (
+                <p className="text-center m-caption text-ink-2">Focalyst Pro Active</p>
               )}
             </form>
           )}
