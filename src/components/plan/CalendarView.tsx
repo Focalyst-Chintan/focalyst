@@ -482,12 +482,12 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
     return (
         <div className="w-full space-y-5">
             {/* Calendar Card Container */}
-            <div className="bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-5 shadow-sm">
+            <div className="m-glass p-5">
                 {/* Header: Clickable Month/Year Quick-Jump Picker */}
                 <div className="flex items-center justify-between mb-4">
                     <button
                         onClick={goToPrevMonth}
-                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-600 dark:text-slate-300 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-ink-2 transition-colors"
                         aria-label="Previous month"
                     >
                         <ChevronLeft className="w-5 h-5" />
@@ -499,7 +499,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                             setJumpStep(1)
                             setShowQuickJump(true)
                         }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors text-slate-900 dark:text-white font-bold text-base"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] transition-colors text-ink font-bold text-base"
                     >
                         <span>{MONTH_NAMES[viewMonth]} {viewYear}</span>
                         <ChevronDown className="w-4 h-4 text-slate-400" />
@@ -507,7 +507,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
 
                     <button
                         onClick={goToNextMonth}
-                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-slate-600 dark:text-slate-300 transition-colors"
+                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-slate-100 dark:hover:bg-[#0B1021] text-ink-2 transition-colors"
                         aria-label="Next month"
                     >
                         <ChevronRight className="w-5 h-5" />
@@ -517,7 +517,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                 {/* Day of Week Headers */}
                 <div className="grid grid-cols-7 mb-2 text-center">
                     {DAY_HEADERS.map((h, i) => (
-                        <span key={i} className="text-xs font-semibold text-slate-400 dark:text-slate-500 py-1">
+                        <span key={i} className="text-xs font-semibold text-ink-2 py-1">
                             {h}
                         </span>
                     ))}
@@ -547,10 +547,10 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                 <div
                                     className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
                                         isSelected
-                                            ? 'bg-[#2B6BFF] text-white shadow-md scale-105'
+                                            ? 'bg-[image:var(--m-grad-primary)] text-snow shadow-[var(--m-glow)]'
                                             : isCurrentDay
-                                            ? 'bg-blue-50 dark:bg-blue-500/10 text-[#2B6BFF] font-bold'
-                                            : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-[#0B1021]'
+                                            ? 'bg-primary-soft text-primary-text font-semibold'
+                                            : 'text-ink hover:bg-slate-100 dark:hover:bg-[#0B1021]'
                                     }`}
                                 >
                                     {day}
@@ -585,17 +585,17 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             <div className="space-y-3">
                 <div className="flex items-center justify-between px-1">
                     <div>
-                        <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                        <h3 className="text-base font-bold text-ink">
                             {MONTH_NAMES[viewMonth]} {selectedDate}, {viewYear}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-xs text-ink-2">
                             {selectedDateReminders.length === 0 ? 'No reminders' : `${selectedDateReminders.length} reminder${selectedDateReminders.length > 1 ? 's' : ''}`}
                         </p>
                     </div>
 
                     <button
                         onClick={openNewForm}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2B6BFF] hover:bg-blue-600 text-white text-xs font-semibold shadow-sm transition-all active:scale-95"
+                        className="m-btn m-btn-primary m-btn-sm m-press"
                     >
                         <Plus className="w-4 h-4" />
                         <span>Add Reminder</span>
@@ -613,7 +613,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                         return (
                             <div
                                 key={rem.id}
-                                className="flex items-center gap-3 p-3.5 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-700 relative overflow-hidden"
+                                className="flex items-center gap-3 p-3.5 bg-[var(--m-surface)] border border-line rounded-2xl shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-700 relative overflow-hidden"
                             >
                                 {/* Left Inset Color Bar */}
                                 <div
@@ -626,7 +626,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                     onClick={() => handleToggleComplete(rem)}
                                     style={isDone ? { backgroundColor: accent, borderColor: accent } : undefined}
                                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                        isDone ? '' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-[#0B1021]'
+                                        isDone ? '' : 'border-slate-300 dark:border-slate-600 bg-[var(--m-surface-strong)]'
                                     }`}
                                     aria-label="Toggle completed"
                                 >
@@ -636,13 +636,13 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                 {/* Title, Description, and Metadata Row */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-sm font-semibold truncate ${isDone ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'}`}>
+                                        <span className={`text-sm font-semibold truncate ${isDone ? 'line-through text-ink-2' : 'text-ink'}`}>
                                             {rem.title}
                                         </span>
                                     </div>
 
                                     {rem.description && (
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                                        <p className="text-xs text-ink-2 line-clamp-1 mt-0.5">
                                             {rem.description}
                                         </p>
                                     )}
@@ -658,14 +658,14 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                         </span>
 
                                         {/* Time Range */}
-                                        <span className="flex items-center gap-1 text-slate-500 dark:text-slate-400 whitespace-nowrap shrink-0">
+                                        <span className="flex items-center gap-1 text-ink-2 whitespace-nowrap shrink-0">
                                             <Clock className="w-3 h-3" />
                                             {rem.all_day ? 'All-day' : `${formatTime12(rem.start_time)} - ${formatTime12(rem.end_time)}`}
                                         </span>
 
                                         {/* Recurrence Pill */}
                                         {rem.repeat && rem.repeat !== 'never' && (
-                                            <span className="text-slate-400 dark:text-slate-500 whitespace-nowrap shrink-0 capitalize">
+                                            <span className="text-ink-2 whitespace-nowrap shrink-0 capitalize">
                                                 • {rem.repeat}
                                             </span>
                                         )}
@@ -707,9 +707,9 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             {/* Quick-Jump Modal: Step 1 (Year) -> Step 2 (Month) */}
             {showQuickJump && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-sm bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-5 shadow-2xl">
+                    <div className="w-full max-w-sm m-sheet !rounded-[28px] !border p-5 shadow-[var(--shadow-glass)]">
                         <div className="flex items-center justify-between mb-4">
-                            <h4 className="text-base font-bold text-slate-900 dark:text-white">
+                            <h4 className="text-base font-bold text-ink">
                                 {jumpStep === 1 ? 'Select Year' : `Select Month (${tempYear})`}
                             </h4>
                             <button
@@ -732,7 +732,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                         className={`h-11 rounded-2xl text-sm font-bold transition-all ${
                                             y === viewYear
                                                 ? 'bg-[#2B6BFF] text-white shadow-md'
-                                                : 'bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                                                : 'bg-slate-100 dark:bg-[#0B1021] text-ink-2 hover:bg-slate-200'
                                         }`}
                                     >
                                         {y}
@@ -753,7 +753,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                         className={`h-11 rounded-2xl text-sm font-bold transition-all ${
                                             idx === viewMonth && tempYear === viewYear
                                                 ? 'bg-[#2B6BFF] text-white shadow-md'
-                                                : 'bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200'
+                                                : 'bg-slate-100 dark:bg-[#0B1021] text-ink-2 hover:bg-slate-200'
                                         }`}
                                     >
                                         {m}
@@ -768,9 +768,9 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
             {/* Upgraded Dark-Mode-Native New/Edit Reminder Modal */}
             {showFormModal && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-                    <div className="w-full max-w-lg bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-3xl p-6 shadow-2xl max-h-[85vh] overflow-y-auto pb-10 space-y-5">
-                        <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-[#222A41]">
-                            <h4 className="text-lg font-bold text-slate-900 dark:text-white">
+                    <div className="w-full max-w-lg m-sheet !rounded-[28px] !border p-6 shadow-[var(--shadow-glass)] max-h-[85vh] overflow-y-auto pb-10 space-y-5">
+                        <div className="flex items-center justify-between pb-3 border-b border-line">
+                            <h4 className="text-lg font-bold text-ink">
                                 {editingReminder ? 'Edit Reminder' : 'New Reminder'}
                             </h4>
                             <button
@@ -783,32 +783,32 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
 
                         {/* Title */}
                         <div>
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase tracking-wider">Title</label>
+                            <label className="text-xs font-semibold text-ink-2 block mb-1.5 uppercase tracking-wider">Title</label>
                             <input
                                 type="text"
                                 value={formTitle}
                                 onChange={(e) => { setFormTitle(e.target.value); setFormError('') }}
                                 placeholder="e.g. Doctor's Appointment"
-                                className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-4 text-sm font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                className="w-full h-11 bg-[var(--m-surface-strong)] border border-line rounded-xl px-4 text-[16px] font-semibold text-ink placeholder:text-ink-3 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
                                 autoFocus
                             />
                         </div>
 
                         {/* Description */}
                         <div>
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-1.5 uppercase tracking-wider">Description (Optional)</label>
+                            <label className="text-xs font-semibold text-ink-2 block mb-1.5 uppercase tracking-wider">Description (Optional)</label>
                             <textarea
                                 value={formDescription}
                                 onChange={(e) => setFormDescription(e.target.value)}
                                 placeholder="Add notes or location details..."
                                 rows={2}
-                                className="w-full bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl p-3 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40 resize-none"
+                                className="w-full bg-[var(--m-surface-strong)] border border-line rounded-xl p-3 text-[16px] text-ink placeholder:text-ink-3 outline-none focus:ring-2 focus:ring-[#2B6BFF]/40 resize-none"
                             />
                         </div>
 
                         {/* Category Tag Pills */}
                         <div>
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wider">Category Tag</label>
+                            <label className="text-xs font-semibold text-ink-2 block mb-2 uppercase tracking-wider">Category Tag</label>
                             <div className="flex gap-2 flex-wrap">
                                 {CATEGORIES.map((cat) => (
                                     <button
@@ -826,7 +826,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                         className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
                                             formCategory === cat.label
                                                 ? 'shadow-sm'
-                                                : 'border-slate-200 dark:border-[#222A41] text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-[#0B1021]'
+                                                : 'border-line text-ink-2 bg-[var(--m-surface-strong)]'
                                         }`}
                                     >
                                         {cat.label}
@@ -837,7 +837,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
 
                         {/* Color Accent Circular Swatches */}
                         <div>
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block mb-2 uppercase tracking-wider">Color Accent</label>
+                            <label className="text-xs font-semibold text-ink-2 block mb-2 uppercase tracking-wider">Color Accent</label>
                             <div className="flex gap-2.5 items-center">
                                 {COLOR_SWATCHES.map((swatch) => (
                                     <button
@@ -856,9 +856,9 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                         </div>
 
                         {/* All-Day Switch & Time Pickers */}
-                        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#222A41]">
+                        <div className="space-y-3 pt-2 border-t border-line">
                             <div className="flex items-center justify-between">
-                                <span className="text-sm font-semibold text-slate-900 dark:text-white">All-day event</span>
+                                <span className="text-sm font-semibold text-ink">All-day event</span>
                                 <button
                                     type="button"
                                     onClick={() => setFormAllDay(!formAllDay)}
@@ -871,21 +871,21 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                             {!formAllDay && (
                                 <div className="grid grid-cols-2 gap-3 animate-fadeIn">
                                     <div>
-                                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">Starts</span>
+                                        <span className="text-[11px] font-medium text-ink-2 block mb-1">Starts</span>
                                         <input
                                             type="time"
                                             value={formStartTime}
                                             onChange={(e) => setFormStartTime(e.target.value)}
-                                            className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                            className="w-full h-11 bg-[var(--m-surface-strong)] border border-line rounded-xl px-3 text-[16px] font-semibold text-ink [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
                                         />
                                     </div>
                                     <div>
-                                        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1">Ends</span>
+                                        <span className="text-[11px] font-medium text-ink-2 block mb-1">Ends</span>
                                         <input
                                             type="time"
                                             value={formEndTime}
                                             onChange={(e) => setFormEndTime(e.target.value)}
-                                            className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                            className="w-full h-11 bg-[var(--m-surface-strong)] border border-line rounded-xl px-3 text-[16px] font-semibold text-ink [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
                                         />
                                     </div>
                                 </div>
@@ -893,12 +893,12 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                         </div>
 
                         {/* Repeat Selector */}
-                        <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-[#222A41]">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 block uppercase tracking-wider">Repeat</label>
+                        <div className="space-y-3 pt-2 border-t border-line">
+                            <label className="text-xs font-semibold text-ink-2 block uppercase tracking-wider">Repeat</label>
                             <select
                                 value={formRepeat}
                                 onChange={(e) => setFormRepeat(e.target.value)}
-                                className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
+                                className="w-full h-11 bg-[var(--m-surface-strong)] border border-line rounded-xl px-3 text-[16px] font-semibold text-ink outline-none focus:ring-2 focus:ring-[#2B6BFF]/40"
                             >
                                 {REPEAT_OPTIONS.map((opt) => (
                                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -914,12 +914,12 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                         max={30}
                                         value={formCustomInterval}
                                         onChange={(e) => setFormCustomInterval(Math.max(1, parseInt(e.target.value || '1', 10)))}
-                                        className="w-16 h-10 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-2 text-center text-sm font-bold text-slate-900 dark:text-white"
+                                        className="w-16 h-10 bg-[var(--m-surface-strong)] border border-line rounded-xl px-2 text-center text-sm font-bold text-ink"
                                     />
                                     <select
                                         value={formCustomFreq}
                                         onChange={(e: any) => setFormCustomFreq(e.target.value)}
-                                        className="h-10 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-3 text-sm font-semibold text-slate-900 dark:text-white outline-none"
+                                        className="h-10 bg-[var(--m-surface-strong)] border border-line rounded-xl px-3 text-[16px] font-semibold text-ink outline-none"
                                     >
                                         <option value="day">Day(s)</option>
                                         <option value="week">Week(s)</option>
@@ -931,7 +931,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                         </div>
 
                         {/* 3-Stage Notifications Alert Caption */}
-                        <div className="p-3 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-2xl text-xs text-[#2B6BFF] leading-relaxed">
+                        <div className="p-3 bg-primary-soft border border-[color-mix(in_srgb,var(--primary)_30%,transparent)] rounded-[16px] m-footnote text-ink">
                             🔔 <span className="font-semibold">Alerts scheduled:</span> 3 days before, 24h before, and at start time (if time permits).
                         </div>
 
@@ -944,7 +944,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                             <button
                                 type="button"
                                 onClick={() => setShowFormModal(false)}
-                                className="flex-1 h-12 bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 font-bold rounded-2xl transition-all"
+                                className="flex-1 h-12 bg-slate-100 dark:bg-[#0B1021] text-ink-2 font-bold rounded-2xl transition-all"
                             >
                                 Cancel
                             </button>
@@ -952,7 +952,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
                                 type="button"
                                 onClick={handleSaveReminder}
                                 disabled={formSaving}
-                                className="flex-1 h-12 bg-[#2B6BFF] hover:bg-blue-600 text-white font-bold rounded-2xl transition-all shadow-md active:scale-95 disabled:opacity-50"
+                                className="m-btn m-btn-primary m-press flex-1 disabled:opacity-50"
                             >
                                 {formSaving ? 'Saving...' : 'Save Reminder'}
                             </button>

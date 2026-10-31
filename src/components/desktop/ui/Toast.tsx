@@ -36,7 +36,7 @@ export function Toast({
   return (
     <div
       role="status"
-      className="glass-strong liquid flex items-center gap-3 rounded-[14px] px-4 py-3 shadow-[var(--shadow-glass)] text-ink text-[14px] font-medium animate-in slide-in-from-bottom-2 duration-200"
+      className="glass-strong liquid flex items-center gap-3 rounded-[14px] px-4 py-3 shadow-[var(--shadow-glass)] text-ink text-[14px] font-medium animate-in slide-in-from-bottom-2 duration-200 mp-toast"
     >
       <span className="shrink-0">{icons[type]}</span>
       <span className="min-w-0 flex-1">{message}</span>
@@ -68,7 +68,7 @@ export function Toast({
 
 export function ToastContainer({ children }: { children: React.ReactNode }) {
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-auto">
+    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2 max-w-sm pointer-events-auto mp-toast-stack">
       {children}
     </div>
   );

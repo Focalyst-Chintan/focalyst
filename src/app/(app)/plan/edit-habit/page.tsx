@@ -59,7 +59,7 @@ export default function EditHabitPage() {
 
     if (!habit) {
         return (
-            <div className="px-5 py-4 min-h-screen bg-page-bg dark:bg-slate-950 transition-colors duration-300">
+            <div className="px-5 py-4 min-h-screen bg-page-bg dark:bg-slate-950 transition-colors duration-300 mp-page">
                 <button onClick={() => router.back()} className="mb-4 text-blue-muted hover:text-navy transition-colors" aria-label="Go back">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M15 18L9 12L15 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
@@ -99,23 +99,23 @@ export default function EditHabitPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200">
+        <div className="min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200 mp-page">
             {/* Uniform Top Header Bar */}
-            <div className="pt-6 pb-4 px-5 flex items-center justify-between border-b border-slate-200/60 dark:border-[#222A41] bg-white dark:bg-[#0B1021] sticky top-0 z-20">
+            <div className="pt-6 pb-4 px-5 flex items-center justify-between border-b border-slate-200/60 dark:border-[#222A41] bg-white dark:bg-[#0B1021] sticky top-0 z-20 mp-bar">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => router.back()}
-                        className="p-1 -ml-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors rounded-full"
+                        className="p-1 -ml-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors rounded-full mp-icon"
                         aria-label="Go back"
                     >
                         <ChevronLeft className="w-6 h-6" />
                     </button>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Edit habit</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mp-form-title">Edit habit</h1>
                 </div>
 
                 <button
                     onClick={handleSave}
-                    className="p-1.5 -mr-1 rounded-full hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors"
+                    className="p-1.5 -mr-1 rounded-full hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors mp-icon mp-save-icon"
                     aria-label="Save habit"
                     title="Save habit"
                 >
@@ -203,7 +203,7 @@ export default function EditHabitPage() {
                                         type="text"
                                         value={color}
                                         onChange={(e) => setColor(e.target.value)}
-                                        className="w-full text-xs font-mono uppercase bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-navy dark:text-slate-200"
+                                        className="w-full text-xs font-mono uppercase bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-2 py-1 outline-none text-navy dark:text-slate-200 mp-input"
                                     />
                                 </div>
                             </div>
@@ -241,7 +241,7 @@ export default function EditHabitPage() {
 
                     <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4">
                         <span className="text-blue-muted dark:text-slate-400 text-sm font-medium">Get reminders</span>
-                        <button onClick={() => setReminders(!reminders)} className={`w-12 h-7 rounded-full p-0.5 transition-colors ${reminders ? 'bg-navy' : 'bg-card-bg dark:bg-slate-800'}`}>
+                        <button onClick={() => setReminders(!reminders)} className={`w-12 h-7 rounded-full p-0.5 transition-colors ${reminders ? 'bg-navy' : 'bg-card-bg dark:bg-slate-800'} mp-switch`}>
                             <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${reminders ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
                     </div>
@@ -258,7 +258,7 @@ export default function EditHabitPage() {
 
             {error && <p className="text-red-500 text-xs mt-4">{error}</p>}
 
-            <button onClick={handleSave} className="w-full h-12 bg-accent text-white text-[15px] font-semibold rounded-xl mt-6 transition-all active:scale-[0.98] hover:bg-accent-dark">
+            <button onClick={handleSave} className="w-full h-12 bg-accent text-white text-[15px] font-semibold rounded-xl mt-6 transition-all active:scale-[0.98] hover:bg-accent-dark mp-save mp-save-sticky">
                 Save changes
             </button>
             </div>

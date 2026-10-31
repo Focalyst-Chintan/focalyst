@@ -154,9 +154,7 @@ function MobilePlanContent() {
                     <HabitList />
                 </>
             ) : (
-                <div className="m-glass p-4">
-                    <CalendarView />
-                </div>
+                <CalendarView />
             )}
         </div>
         </>

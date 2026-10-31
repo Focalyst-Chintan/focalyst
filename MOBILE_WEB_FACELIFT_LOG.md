@@ -77,6 +77,14 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 10.4 | Note editor title `title-2` serif, body 17/26, glass toolbar | Same on phones. The editor route has no desktop version, so its phone styles are scoped to below 1024 px with `mp-` classes and its copy is unchanged | web-only | 013 |
 | 10.5 | Recorder: hero card, "Now recording" pill, timer, waveform, transcript card, controls | Same. The status line reads "Recording in high quality" ("High Accuracy Status" and "Interview Recording" are gone); the gear button stays (it had no action before either) | spec as written | 013 |
 | 10.11 | Action menus: native menu or a sheet with 52 rows, icon + label | Note options are a sheet with 52 rows, icons, the note title on top and Delete in danger text; swipe down or tap outside to close; page scroll locked while open. Task and countdown menus stay popovers | amended | 013 |
+| 10.8 | Forms: `title-2` title, 7.4 fields, 7.16 pickers, pinned Primary with a gradient fade | The task, habit and countdown form routes have no desktop version, so their phone look comes from `mp-` classes that only apply below 1024 px. Save button sticks 88 above the bottom safe area with glow (no separate fade layer, which would need new markup around it). Copy on these routes is unchanged so a desktop window shows exactly the old page | web-only | 014 |
+| 2.4 | Picker offers the 8 new colours | Not changed yet: the colour list is saved with each habit and lives in a route desktop windows can also open. Needs your call | gap | 014 |
+| 7.16 | Day picker: 40 circles, "All days" switch | Day buttons restyled as blue-gradient pills when selected; the existing "All days" control is kept as it is | amended | 014 |
+| 10.9 | Theme: Light / Dark / System segmented control if the app has a setting | The web has a light/dark switch only, kept as a switch (a System option would be new behaviour) | deviation | 014 |
+| 10.9 | Destructive rows last | Log out and Delete my account moved into an "Account" group at the end, in danger text; version lines under it | spec as written | 014 |
+| 10.10 | Paywall header in `grad-brand`, glass plan tiles, selected tile 2 px brand-400 + glow | Same; headline "Plan, focus and grow with Pro." replaces "Unlock your full productivity." (unslop: no hype words) | spec as written | 014 |
+| 7.13 | Toast: glass pill above the tab bar, 2.4 s | The shared toast keeps its 4 s timer (its logic is shared with desktop); on phones it is a centred pill 88 above the bottom safe area | amended | 014 |
+| 7.15 | Skeletons in each screen's final shape | Done inside each phone screen; the route `loading.tsx` files are shared with the desktop shell and stay as they are | web-only | 014 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -229,3 +237,15 @@ Exact values:
 - Recorder: canvas + ambient, header pill 32 tall with a pulsing (1 s) danger dot; hero radius 32 with `title-2`, `stat-xl` timer, 24 bars coloured #3781FC to #CBE9FD with glow in dark mode; transcript glass card with a "Live" info chip; controls: Discard 48 danger tint, Stop 72 danger with a red glow, Pause 48 secondary, all labelled.
 Port to native: adapt
 Native instruction: §10.4: keep the pin button on the note row; §10.11: the note options sheet shows the note title above its rows; §10.5: drop the settings gear if it still does nothing.
+
+## Entry 014 · Phase W8 · 2026-10-31
+Type: spec as written
+What changed: Forms (`plan/new-task`, `plan/new-habit`, `plan/edit-task`, `plan/edit-habit`, `focus/countdown/new`, `focus/countdown/edit`, `focus/CountdownForm`) via phone-only `mp-` classes; `CalendarView`; Account / Settings (`account/page.tsx`, `DarkModeToggle`, the phone AI connections page); `Paywall`; the shared toast (`desktop/ui/Toast.tsx`, phone-only classes added, desktop look unchanged). Copy: "Profile", "Dark mode", "Edit profile", "Your plan", "Manage plan", "Focalyst version 1", "No name yet", paywall lines ("Pro yearly", "Pro monthly", "Everything in Free, plus the Pro tools.", "Lifetime", "Pay once and keep Pro for good.", "7 days free, then … a month", "Nothing to pay today. Cancel anytime.", "Start free trial", "Buy lifetime", "Choose yearly", "Continue with Free", "Restore purchase").
+Why: Spec 10.8 to 10.11, 7.13, 7.16.
+Exact values:
+- Forms: page transparent over the ambient; top bar blur; title 26/30 serif; labels `footnote` `ink-2` in sentence case styling; inputs 52 tall, radius 12, 16 px text; choice pills 40 tall, selected `grad-primary`; icon tiles 52, radius 12, selected 2 px #3781FC; colour swatches 36, selected ring 2 px `ink` with a 2 px gap; switches `primary` when on; Save 52 pill `grad-primary` with glow, sticky.
+- Calendar: selected day `grad-primary` with glow, today `primary-soft`; inputs 16 px; add and save buttons as Primary; reminder dialogs as solid sheets radius 28.
+- Account: back button 44; `title-1` "Profile"; avatar 72 (initial on `grad-primary`); name `title-2`, email `subhead` `ink-2`, plan and role chips; plan card `grad-brand`, radius 24, white "Manage plan" / "Upgrade to Pro" button (same handler); groups as glass lists, rows 56 with 36 icon tiles, overline section labels; switches 51 × 31; delete dialog as a sheet with a danger button.
+- Paywall: canvas + ambient; `grad-brand` hero radius 32 with `display` headline; Monthly / Yearly segmented control; plan tiles glass, selected 2 px #3781FC + glow; prices `stat-l`; sticky glass footer radius 32 with Primary CTA and two ghost links. Every checkout, restore and skip handler and every condition is unchanged.
+Port to native: adapt
+Native instruction: §10.9: group Log out and Delete account at the end in danger text; §10.10: paywall headline without "Unlock"; §2.4: confirm the new habit palette before changing the picker.

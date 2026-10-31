@@ -25,14 +25,14 @@ const PRO_FEATURES = [
     'Up to 3 countdowns',
     'More Focalyst AI messages every day',
     'AI productivity score',
-    'Weekly + monthly insights',
+    'Weekly and monthly insights',
     'Unlimited notes',
     'Priority support',
 ]
 
 const LIFETIME_FEATURES = [
-    'All Future Feature Updates',
-    'Priority Support Channel',
+    'All future updates',
+    'Priority support',
 ]
 
 export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallProps) {
@@ -180,104 +180,100 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
     }
 
     return (
-        <main className="min-h-screen bg-white relative pb-[220px]">
+        <main className="min-h-[100dvh] bg-canvas text-ink relative pb-[260px]">
+            <div aria-hidden className="m-ambient" />
             <GlobalToastContainer />
-            <div className="max-w-[420px] mx-auto px-5 pt-5">
+            <div className="max-w-[420px] mx-auto px-5 pt-[calc(env(safe-area-inset-top)+12px)]">
                 {/* ─── Top Bar ──────────────────────────────── */}
-                <div className="flex items-center justify-between mb-8">
-                    <span className="text-[22px] font-extrabold text-[#0f172a] tracking-tight">
-                        Focalyst
+                <div className="flex items-center justify-between mb-5">
+                    <span className="font-ui font-semibold text-[15px] tracking-[0.35em] text-ink">
+                        FOCALYST
                     </span>
                     <button
                         onClick={handleSkipOrBack}
-                        className="w-9 h-9 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                        className="m-icon-btn m-press -mr-1"
                         aria-label="Close"
                     >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M18 6L6 18M6 6l12 12" />
                         </svg>
                     </button>
                 </div>
 
-                {/* ─── Hero Text ────────────────────────────── */}
-                <div className="mb-6">
-                    <h1 className="text-[32px] font-extrabold leading-[1.15] text-[#0f172a]">
-                        Unlock your full<br />
-                        <span className="text-[#1D70F5]">productivity.</span>
+                {/* ─── Hero ─────────────────────────────────── */}
+                <div className="rounded-[32px] p-6 mb-6 bg-[image:var(--m-grad-brand)] text-snow shadow-[var(--m-glow)] relative overflow-hidden">
+                    <div aria-hidden className="m-hero-grid opacity-60" />
+                    <h1 className="m-display text-snow relative">
+                        Plan, focus and grow with Pro.
                     </h1>
-                    <p className="mt-3 text-[15px] leading-relaxed text-gray-500">
+                    <p className="m-body text-snow/80 mt-3 relative">
                         Plan your days, focus deeply and see how you are growing, with everything Focalyst can do.
                     </p>
                 </div>
 
                 {/* ─── Billing Toggle ──────────────────────── */}
-                <div className="flex items-center justify-center mb-7">
-                    <div className="flex items-center bg-[#f1f5f9] rounded-full p-1 gap-0.5">
-                        <button
-                            onClick={() => setBilling('monthly')}
-                            className={`px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wider transition-all duration-200 ${billing === 'monthly'
-                                ? 'bg-white text-[#0f172a] shadow-sm'
-                                : 'text-gray-500'
-                                }`}
-                        >
-                            MONTHLY
-                        </button>
-                        <button
-                            onClick={() => setBilling('yearly')}
-                            className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-[12px] font-bold tracking-wider transition-all duration-200 ${billing === 'yearly'
-                                ? 'bg-white text-[#0f172a] shadow-sm'
-                                : 'text-gray-500'
-                                }`}
-                        >
-                            YEARLY
-                            <span className="bg-[#1D70F5] text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide whitespace-nowrap">
-                                2 MONTHS FREE
-                            </span>
-                        </button>
-                    </div>
+                <div className="m-seg mb-6" role="tablist" aria-label="Billing">
+                    <span aria-hidden className="m-seg-thumb" style={{ width: 'calc((100% - 6px) / 2)', transform: `translateX(${billing === 'yearly' ? 100 : 0}%)` }} />
+                    <button
+                        role="tab"
+                        aria-selected={billing === 'monthly'}
+                        onClick={() => setBilling('monthly')}
+                        className="m-seg-btn"
+                    >
+                        Monthly
+                    </button>
+                    <button
+                        role="tab"
+                        aria-selected={billing === 'yearly'}
+                        onClick={() => setBilling('yearly')}
+                        className="m-seg-btn inline-flex items-center justify-center gap-1.5"
+                    >
+                        Yearly
+                        <span className={`m-caption !text-[11px] px-1.5 h-5 inline-flex items-center rounded-full whitespace-nowrap ${billing === 'yearly' ? 'bg-snow/20 text-snow' : 'bg-primary-soft text-primary-text'}`}>
+                            2 months free
+                        </span>
+                    </button>
                 </div>
 
                 {/* ─── Pro Card ────────────────────────────── */}
                 <div
-                    className={`relative bg-[#eff6ff] rounded-2xl p-5 mb-4 cursor-pointer transition-all duration-200 ${selectedPlan !== 'lifetime' ? 'ring-2 ring-[#1D70F5]' : ''
+                    className={`m-glass relative p-5 mb-3 cursor-pointer transition-[border-color,box-shadow] duration-200 ${selectedPlan !== 'lifetime' ? '!border-2 !border-[var(--m-brand-400)] shadow-[var(--m-glow)]' : ''
                         }`}
                     onClick={() => setSelectedPlan(billing)}
+                    role="radio"
+                    aria-checked={selectedPlan !== 'lifetime'}
                 >
-                    {/* PRO Badge */}
-                    <div className="absolute -top-2 right-4">
-                        <span className="bg-[#0f172a] text-white text-[11px] font-bold px-3 py-1 rounded-md tracking-wide">
-                            PRO
-                        </span>
-                    </div>
-
-                    <div className="mb-4">
-                        <h2 className="text-[20px] font-extrabold text-[#0f172a]">
-                            {billing === 'yearly' ? 'Pro Annual' : 'Pro Monthly'}
-                        </h2>
-                        <p className="text-[13px] text-[#1D70F5] font-medium mt-0.5">
-                            Everything in basic, plus elite tools.
-                        </p>
+                    <div className="flex items-start justify-between gap-3 mb-4">
+                        <div>
+                            <h2 className="m-title-3 text-ink">
+                                {billing === 'yearly' ? 'Pro yearly' : 'Pro monthly'}
+                            </h2>
+                            <p className="m-footnote text-ink-2 mt-1">
+                                Everything in Free, plus the Pro tools.
+                            </p>
+                        </div>
+                        <span className="m-chip m-chip-info !h-6 !text-[12px]">Pro</span>
                     </div>
 
                     <div className="mb-5">
                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-[32px] font-extrabold text-[#0f172a]">
+                            <span className="m-stat-l text-ink">
                                 {prices ? (
                                     billing === 'yearly' ? monthlyEquiv : prices.monthly
                                 ) : (
-                                    <span className="inline-block w-24 h-8 bg-blue-100 rounded animate-pulse" />
+                                    <span className="m-skel inline-block w-24 h-8 !rounded-lg align-middle" />
                                 )}
                             </span>
-                            <span className="text-[15px] text-gray-400 font-medium">
+                            <span className="m-subhead text-ink-2">
                                 / month
                             </span>
                         </div>
                         {billing === 'yearly' && (
-                            <p className="text-[13px] text-gray-400 mt-1">
+                            <p className="m-footnote text-ink-2 mt-1">
                                 {prices ? (
-                                    `Billed annually at ${prices.yearly}`
+                                    `Billed yearly at ${prices.yearly}`
                                 ) : (
-                                    <span className="inline-block w-36 h-4 bg-blue-100 rounded animate-pulse" />
+                                    <span className="m-skel inline-block w-36 h-4 !rounded-md" />
                                 )}
                             </p>
                         )}
@@ -286,12 +282,12 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <ul className="space-y-3">
                         {PRO_FEATURES.map((feature) => (
                             <li key={feature} className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-full bg-[#1D70F5] flex items-center justify-center flex-shrink-0">
+                                <span className="w-5 h-5 rounded-full bg-[image:var(--m-grad-primary)] flex items-center justify-center flex-shrink-0" aria-hidden>
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
-                                </div>
-                                <span className="text-[14px] text-[#1e293b] font-medium">{feature}</span>
+                                </span>
+                                <span className="m-subhead text-ink">{feature}</span>
                             </li>
                         ))}
                     </ul>
@@ -299,25 +295,27 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
 
                 {/* ─── Lifetime Card ──────────────────────── */}
                 <div
-                    className={`bg-[#eff6ff] rounded-2xl p-5 mb-6 cursor-pointer transition-all duration-200 ${selectedPlan === 'lifetime' ? 'ring-2 ring-[#1D70F5]' : ''
+                    className={`m-glass p-5 mb-6 cursor-pointer transition-[border-color,box-shadow] duration-200 ${selectedPlan === 'lifetime' ? '!border-2 !border-[var(--m-brand-400)] shadow-[var(--m-glow)]' : ''
                         }`}
                     onClick={() => setSelectedPlan('lifetime')}
+                    role="radio"
+                    aria-checked={selectedPlan === 'lifetime'}
                 >
                     <div className="mb-4">
-                        <h2 className="text-[20px] font-extrabold text-[#0f172a]">
-                            Lifetime Access
+                        <h2 className="m-title-3 text-ink">
+                            Lifetime
                         </h2>
-                        <p className="text-[13px] text-gray-500 font-medium mt-0.5">
-                            Pay once, own the focus forever.
+                        <p className="m-footnote text-ink-2 mt-1">
+                            Pay once and keep Pro for good.
                         </p>
                     </div>
 
                     <div className="flex items-baseline gap-1.5 mb-5">
-                        <span className="text-[32px] font-extrabold text-[#0f172a]">
+                        <span className="m-stat-l text-ink">
                             {prices ? (
                                 prices.lifetime
                             ) : (
-                                <span className="inline-block w-24 h-8 bg-blue-100 rounded animate-pulse" />
+                                <span className="m-skel inline-block w-24 h-8 !rounded-lg align-middle" />
                             )}
                         </span>
                     </div>
@@ -325,61 +323,61 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <ul className="space-y-3">
                         {LIFETIME_FEATURES.map((feature) => (
                             <li key={feature} className="flex items-center gap-3">
-                                <div className="w-5 h-5 rounded-full bg-[#1D70F5] flex items-center justify-center flex-shrink-0">
+                                <span className="w-5 h-5 rounded-full bg-[image:var(--m-grad-primary)] flex items-center justify-center flex-shrink-0" aria-hidden>
                                     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                                         <polyline points="20 6 9 17 4 12" />
                                     </svg>
-                                </div>
-                                <span className="text-[14px] text-[#1e293b] font-medium">{feature}</span>
+                                </span>
+                                <span className="m-subhead text-ink">{feature}</span>
                             </li>
                         ))}
                     </ul>
 
                     {(userPlan === 'pro_monthly' || userPlan === 'pro_yearly') && (
-                        <p style={{ color: 'var(--ink-3, #64748b)', fontSize: '13px' }} className="mt-3">
+                        <p className="m-footnote text-ink-2 mt-3">
                             Your current plan keeps renewing until you cancel it in Manage plan.
                         </p>
                     )}
                 </div>
 
                 {/* ─── Plan Buttons Note ────────────────────── */}
-                <p className="text-center text-[12px] text-gray-500 mb-4">
+                <p className="text-center m-footnote text-ink-2 mb-2">
                     Final price and any taxes are shown at checkout.
                 </p>
 
                 {/* ─── Restore Purchase ───────────────────── */}
-                <div className="text-center mt-4">
+                <div className="text-center">
                     <button
                         onClick={restoreSubscription}
                         disabled={isRestoring}
-                        className="text-[13px] font-semibold text-gray-500 underline hover:text-gray-800 transition-colors disabled:opacity-60"
+                        className="m-btn m-btn-ghost m-press disabled:opacity-60"
                     >
-                        {isRestoring ? 'Restoring...' : 'Restore Purchase'}
+                        {isRestoring ? 'Restoring' : 'Restore purchase'}
                     </button>
                 </div>
             </div>
 
             {/* ─── Sticky Bottom CTA ─────────────────────── */}
             <div className="fixed bottom-0 left-0 right-0 z-50">
-                <div className="max-w-[420px] mx-auto bg-[#0f172a] rounded-t-3xl px-5 pt-5 pb-6">
+                <div className="max-w-[420px] mx-auto m-blur border border-line border-b-0 rounded-t-[32px] px-5 pt-5 pb-[calc(env(safe-area-inset-bottom)+16px)] shadow-[var(--shadow-glass)]">
                     {/* Trial / price text */}
                     <div className="text-center mb-4">
                         {selectedPlan === 'lifetime' ? (
                             <>
-                                <p className="text-white text-[15px] font-semibold">
+                                <p className="m-callout !font-semibold text-ink">
                                     {prices ? `One-time payment of ${prices.lifetime}` : 'One-time payment'}
                                 </p>
-                                <p className="text-gray-400 text-[12px] mt-1">
-                                    Lifetime access. No recurring charges.
+                                <p className="m-footnote text-ink-2 mt-1">
+                                    Yours for good. No recurring charges.
                                 </p>
                             </>
                         ) : (
                             <>
-                                <p className="text-white text-[15px] font-semibold">
-                                    {prices ? `7 days free trial, then ${prices.monthly}/month` : '7 days free trial'}
+                                <p className="m-callout !font-semibold text-ink">
+                                    {prices ? `7 days free, then ${prices.monthly} a month` : '7 days free'}
                                 </p>
-                                <p className="text-gray-400 text-[12px] mt-1">
-                                    No payments today! Cancel anytime.
+                                <p className="m-footnote text-ink-2 mt-1">
+                                    Nothing to pay today. Cancel anytime.
                                 </p>
                             </>
                         )}
@@ -389,34 +387,31 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
                     <button
                         onClick={() => handleCheckout(selectedPlan, 'main_cta')}
                         disabled={pendingButton === 'main_cta'}
-                        className="w-full h-[52px] bg-[#1D70F5] hover:bg-[#1a63dc] active:scale-[0.98] text-white text-[15px] font-bold rounded-2xl flex items-center justify-center gap-2 transition-all duration-150 disabled:opacity-60 cursor-pointer"
+                        className="m-btn m-btn-primary m-press w-full"
                     >
                         {pendingButton === 'main_cta' ? (
                             <span>Opening checkout</span>
                         ) : (
                             <>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-white">
-                                    <path d="M12 2L14.09 8.26L20 9.27L15.55 13.97L16.91 20L12 16.9L7.09 20L8.45 13.97L4 9.27L9.91 8.26L12 2Z" fill="currentColor" />
-                                </svg>
-                                {selectedPlan === 'lifetime' ? 'BUY LIFETIME ACCESS' : 'START FREE TRIAL'}
+                                {selectedPlan === 'lifetime' ? 'Buy lifetime' : 'Start free trial'}
                             </>
                         )}
                     </button>
 
                     {/* Footer Links */}
-                    <div className="flex items-center justify-between mt-4 px-1">
+                    <div className="flex items-center justify-between mt-2 -mx-2">
                         <button
                             onClick={() => handleCheckout('yearly', 'annual_link')}
                             disabled={pendingButton === 'annual_link'}
-                            className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors disabled:opacity-50"
+                            className="m-btn m-btn-ghost m-press !text-[13px] disabled:opacity-50"
                         >
-                            {pendingButton === 'annual_link' ? 'Opening checkout' : 'PROCEED WITH ANNUAL'}
+                            {pendingButton === 'annual_link' ? 'Opening checkout' : 'Choose yearly'}
                         </button>
                         <button
                             onClick={handleSkipOrBack}
-                            className="text-[11px] font-semibold text-gray-500 tracking-wider hover:text-gray-300 transition-colors"
+                            className="m-btn m-btn-ghost m-press !text-[13px] !text-ink-2"
                         >
-                            PROCEED WITH BASIC
+                            Continue with Free
                         </button>
                     </div>
                 </div>

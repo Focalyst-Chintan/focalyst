@@ -140,50 +140,50 @@ export default function CountdownForm({
 
     return (
         <form onSubmit={handleSubmit} className="p-4 pt-6 max-w-md mx-auto">
-            <h1 className="text-[28px] font-bold text-navy mb-6">{id ? 'Edit countdown' : 'New countdown'}</h1>
+            <h1 className="text-[28px] font-bold text-navy mb-6 mp-form-title">{id ? 'Edit countdown' : 'New countdown'}</h1>
 
-            {error && <div className="text-error bg-error-light p-3 rounded-xl text-sm mb-4">{error}</div>}
+            {error && <div className="text-error bg-error-light p-3 rounded-xl text-sm mb-4 mp-error">{error}</div>}
 
             <div className="mb-4">
-                <label className="block text-navy font-semibold text-lg mb-2">Describe</label>
+                <label className="block text-navy font-semibold text-lg mb-2 mp-label">Describe</label>
                 <input
                     type="text"
                     placeholder="Give it a name"
                     value={eventName}
                     onChange={(e) => setEventName(e.target.value)}
-                    className="w-full bg-card-bg/50 rounded-xl p-4 text-navy outline-none"
+                    className="w-full bg-card-bg/50 rounded-xl p-4 text-navy outline-none mp-input"
                     required
                 />
             </div>
 
             <div className="flex flex-col sm:flex-row gap-4 w-full mb-6">
                 <div className="w-full">
-                    <label className="block text-navy font-semibold text-lg mb-2">Date</label>
+                    <label className="block text-navy font-semibold text-lg mb-2 mp-label">Date</label>
                     <input
                         type="date"
                         value={targetDate}
                         onChange={(e) => setTargetDate(e.target.value)}
-                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm"
+                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm mp-input"
                         required
                     />
                 </div>
                 <div className="w-full">
-                    <label className="block text-navy font-semibold text-lg mb-2">Time</label>
+                    <label className="block text-navy font-semibold text-lg mb-2 mp-label">Time</label>
                     <input
                         type="time"
                         defaultValue="11:00"
-                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm"
+                        className="w-full bg-card-bg/50 rounded-xl p-3 text-navy outline-none text-sm mp-input"
                     />
                 </div>
             </div>
 
             <div className="flex justify-between items-center mb-6">
-                <div className="text-navy font-semibold text-lg">Get reminders</div>
+                <div className="text-navy font-semibold text-lg mp-label">Get reminders</div>
                 {/* Toggle switch */}
                 <button
                     type="button"
                     onClick={() => setGetReminders(!getReminders)}
-                    className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors ${getReminders ? 'bg-navy' : 'bg-card-bg/50'}`}
+                    className={`w-14 h-8 flex items-center rounded-full p-1 transition-colors ${getReminders ? 'bg-navy' : 'bg-card-bg/50'} mp-switch`}
                 >
                     <div className={`bg-white w-6 h-6 rounded-full shadow-md transform transition-transform ${getReminders ? 'translate-x-6' : ''}`} />
                 </button>
@@ -192,7 +192,7 @@ export default function CountdownForm({
             <button
                 type="submit"
                 disabled={submitting}
-                className="w-full bg-accent text-white font-bold py-4 rounded-xl active:scale-95 transition-transform"
+                className="w-full bg-accent text-white font-bold py-4 rounded-xl active:scale-95 transition-transform mp-save mp-save-sticky"
             >
                 {submitting ? 'Saving...' : 'Save'}
             </button>

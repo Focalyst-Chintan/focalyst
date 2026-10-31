@@ -203,24 +203,24 @@ export default function NewHabitForm() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200">
+        <div className="min-h-screen bg-[#F4F7FA] dark:bg-[#0B1021] text-slate-900 dark:text-white transition-colors duration-200 mp-page">
             {/* Uniform Top Header Bar */}
-            <div className="pt-6 pb-4 px-5 flex items-center justify-between border-b border-slate-200/60 dark:border-[#222A41] bg-white dark:bg-[#0B1021] sticky top-0 z-20">
+            <div className="pt-6 pb-4 px-5 flex items-center justify-between border-b border-slate-200/60 dark:border-[#222A41] bg-white dark:bg-[#0B1021] sticky top-0 z-20 mp-bar">
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => router.back()}
-                        className="p-1 -ml-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors rounded-full"
+                        className="p-1 -ml-1 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors rounded-full mp-icon"
                         aria-label="Go back"
                     >
                         <ChevronLeft className="w-6 h-6" />
                     </button>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white">New habit</h1>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white mp-form-title">New habit</h1>
                 </div>
 
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="p-1.5 -mr-1 rounded-full hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors disabled:opacity-50"
+                    className="p-1.5 -mr-1 rounded-full hover:bg-orange-50 dark:hover:bg-orange-500/10 transition-colors disabled:opacity-50 mp-icon mp-save-icon"
                     aria-label="Save habit"
                     title="Save habit"
                 >
@@ -232,13 +232,13 @@ export default function NewHabitForm() {
             <div className="px-5 py-6 max-w-xl mx-auto space-y-6">
                 {/* Name */}
                 <div>
-                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider">Habit Name</label>
+                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider mp-label">Habit Name</label>
                     <input
                         type="text"
                         value={name}
                         onChange={(e) => { setName(e.target.value); setError('') }}
                         placeholder="e.g. Morning Meditation"
-                        className="w-full h-12 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl px-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#FF6B00]/40 transition-all shadow-sm"
+                        className="w-full h-12 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl px-4 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-[#FF6B00]/40 transition-all shadow-sm mp-input"
                         maxLength={100}
                         autoFocus
                     />
@@ -246,7 +246,7 @@ export default function NewHabitForm() {
 
                 {/* Choose Icon */}
                 <div>
-                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider">Choose Icon</label>
+                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider mp-label">Choose Icon</label>
                     <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-hide">
                         {PRESET_ICONS.map((preset) => (
                             <button
@@ -257,7 +257,7 @@ export default function NewHabitForm() {
                                     icon === preset
                                         ? 'bg-orange-50 dark:bg-orange-500/20 border-[#FF6B00] shadow-sm'
                                         : 'bg-white dark:bg-[#151B2E] border-slate-200 dark:border-[#222A41] hover:bg-slate-50'
-                                }`}
+                                } mp-icon-pick`}
                             >
                                 {preset}
                             </button>
@@ -267,7 +267,7 @@ export default function NewHabitForm() {
 
                 {/* Color Selector */}
                 <div>
-                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider">Color Accent</label>
+                    <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider mp-label">Color Accent</label>
                     <div className="flex gap-3 items-center overflow-x-auto pb-1 scrollbar-hide">
                         {RECOMMENDED_COLORS.map((c) => (
                             <button
@@ -280,7 +280,7 @@ export default function NewHabitForm() {
                                 style={{ backgroundColor: c }}
                                 className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
                                     color === c ? 'ring-2 ring-offset-2 ring-[#FF6B00] dark:ring-offset-[#0B1021]' : ''
-                                }`}
+                                } mp-swatch`}
                             >
                                 {color === c && <Check className="w-5 h-5 text-white stroke-[2.5]" />}
                             </button>
@@ -301,7 +301,7 @@ export default function NewHabitForm() {
                     </div>
 
                     {showCustomPicker && (
-                        <div className="mt-3 p-4 bg-white dark:bg-[#151B2E] rounded-2xl shadow-xl border border-slate-200 dark:border-[#222A41] max-w-[260px]">
+                        <div className="mt-3 p-4 bg-white dark:bg-[#151B2E] rounded-2xl shadow-xl border border-slate-200 dark:border-[#222A41] max-w-[260px] mp-section">
                             <HexColorPicker color={color} onChange={setColor} />
                             <div className="mt-3 flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full border border-slate-200 dark:border-slate-700" style={{ backgroundColor: color }} />
@@ -309,7 +309,7 @@ export default function NewHabitForm() {
                                     type="text"
                                     value={color}
                                     onChange={(e) => setColor(e.target.value)}
-                                    className="w-full text-xs font-mono uppercase bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 outline-none text-slate-900 dark:text-white"
+                                    className="w-full text-xs font-mono uppercase bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 outline-none text-slate-900 dark:text-white mp-input"
                                 />
                             </div>
                         </div>
@@ -319,11 +319,11 @@ export default function NewHabitForm() {
                 {/* Repeat Days */}
                 <div>
                     <div className="flex items-center justify-between mb-2">
-                        <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Repeat Days</span>
+                        <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider mp-label">Repeat Days</span>
                         <button
                             type="button"
                             onClick={toggleAllDays}
-                            className="text-xs font-semibold text-[#FF6B00] hover:underline"
+                            className="text-xs font-semibold text-[#FF6B00] hover:underline mp-link"
                         >
                             {allDays ? 'Deselect all' : 'Every day'}
                         </button>
@@ -338,7 +338,7 @@ export default function NewHabitForm() {
                                     selectedDays.includes(i)
                                         ? 'bg-[#FF6B00] text-white shadow-sm'
                                         : 'bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] text-slate-700 dark:text-slate-300'
-                                }`}
+                                } mp-choice`}
                             >
                                 {day}
                             </button>
@@ -347,16 +347,16 @@ export default function NewHabitForm() {
                 </div>
 
                 {/* Dual Reminders & Duration Selector */}
-                <div className="p-4 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm space-y-4">
+                <div className="p-4 bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] rounded-2xl shadow-sm space-y-4 mp-section">
                     <div className="flex items-center justify-between">
                         <div>
-                            <span className="text-sm font-semibold text-slate-900 dark:text-white block">Get reminders</span>
-                            <span className="text-xs text-slate-500 dark:text-slate-400">Receive dual check-in notifications</span>
+                            <span className="text-sm font-semibold text-slate-900 dark:text-white block mp-text-ink">Get reminders</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400 mp-text-2">Receive dual check-in notifications</span>
                         </div>
                         <button
                             type="button"
                             onClick={() => setReminders(!reminders)}
-                            className={`w-12 h-7 rounded-full p-0.5 transition-colors ${reminders ? 'bg-[#FF6B00]' : 'bg-slate-300 dark:bg-slate-700'}`}
+                            className={`w-12 h-7 rounded-full p-0.5 transition-colors ${reminders ? 'bg-[#FF6B00]' : 'bg-slate-300 dark:bg-slate-700'} mp-switch`}
                         >
                             <div className={`w-6 h-6 rounded-full bg-white shadow-sm transition-transform ${reminders ? 'translate-x-5' : 'translate-x-0'}`} />
                         </button>
@@ -365,17 +365,17 @@ export default function NewHabitForm() {
                     {reminders && (
                         <div className="space-y-4 pt-3 border-t border-slate-100 dark:border-[#222A41] animate-fadeIn">
                             <div>
-                                <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-1.5 uppercase tracking-wider">Reminder Time</label>
+                                <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-1.5 uppercase tracking-wider mp-label">Reminder Time</label>
                                 <input
                                     type="time"
                                     value={reminderTime}
                                     onChange={(e) => setReminderTime(e.target.value)}
-                                    className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-4 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#FF6B00]/40"
+                                    className="w-full h-11 bg-slate-50 dark:bg-[#0B1021] border border-slate-200 dark:border-[#222A41] rounded-xl px-4 text-sm font-semibold text-slate-900 dark:text-white [color-scheme:light] dark:[color-scheme:dark] outline-none focus:ring-2 focus:ring-[#FF6B00]/40 mp-input"
                                 />
                             </div>
 
                             <div>
-                                <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider">Duration (Follow-Up Check-In)</label>
+                                <label className="text-slate-500 dark:text-slate-400 text-xs font-semibold block mb-2 uppercase tracking-wider mp-label">Duration (Follow-Up Check-In)</label>
                                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
                                     {DURATION_PILLS.map((pill) => (
                                         <button
@@ -386,7 +386,7 @@ export default function NewHabitForm() {
                                                 durationMins === pill.mins
                                                     ? 'bg-[#FF6B00] text-white shadow-sm'
                                                     : 'bg-slate-100 dark:bg-[#0B1021] text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800'
-                                            }`}
+                                            } mp-choice`}
                                         >
                                             {pill.label}
                                         </button>
@@ -395,7 +395,7 @@ export default function NewHabitForm() {
                             </div>
 
                             {/* Dynamic Helper Caption */}
-                            <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0B1021] p-3 rounded-xl border border-slate-200/60 dark:border-[#222A41] leading-relaxed">
+                            <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0B1021] p-3 rounded-xl border border-slate-200/60 dark:border-[#222A41] leading-relaxed mp-text-2">
                                 🔔 <span className="font-semibold text-slate-700 dark:text-slate-200">1st reminder</span> at {formatTime12(reminderTime)} • <span className="font-semibold text-slate-700 dark:text-slate-200">Follow-up check-in</span> at {formatTime12(addMinutesToTime(reminderTime, durationMins))} asking if you finished.
                             </p>
                         </div>
@@ -403,7 +403,7 @@ export default function NewHabitForm() {
                 </div>
 
                 {error && (
-                    <div className="p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium rounded-xl">
+                    <div className="p-3 bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-400 text-xs font-medium rounded-xl mp-error">
                         {error}
                     </div>
                 )}
@@ -412,7 +412,7 @@ export default function NewHabitForm() {
                 <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="w-full h-12 bg-[#FF6B00] hover:bg-[#FF751F] text-white text-[15px] font-semibold rounded-2xl transition-all active:scale-[0.98] shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full h-12 bg-[#FF6B00] hover:bg-[#FF751F] text-white text-[15px] font-semibold rounded-2xl transition-all active:scale-[0.98] shadow-md flex items-center justify-center gap-2 disabled:opacity-50 mp-save mp-save-sticky"
                 >
                     {saving ? 'Saving habit...' : 'Save habit'}
                 </button>

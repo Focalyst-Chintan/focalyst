@@ -20,9 +20,9 @@ import {
     MoonIcon,
     ChevronRightIcon,
     DiamondIcon,
-    UserAccountIcon
 } from '@/components/icons'
-import { Plug } from 'lucide-react';
+import { LogOut, Plug, Trash2 } from 'lucide-react';
+import { MSwitch, SectionHeader } from '@/components/mobile/ui';
 import { User } from '@/types';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import DesktopSettingsView from '@/components/desktop/settings/DesktopSettingsView';
@@ -200,62 +200,54 @@ export default function AccountPage() {
     return (
         <main className="min-h-dvh pb-6">
             {/* Header */}
-            <header 
-                style={{ 
-                    paddingTop: 'env(safe-area-inset-top)',
-                    height: 'calc(56px + env(safe-area-inset-top))' 
-                }}
-                className="bg-white dark:bg-slate-900 border-b border-card-bg/50 dark:border-slate-800 flex items-center justify-between px-5 sticky top-0 z-30 transition-colors duration-300"
+            <header
+                className="flex items-center justify-between px-5 h-14"
             >
-                <button onClick={() => router.back()} className="p-1 -ml-1 text-navy dark:text-slate-400">
-                    <ArrowLeftIcon size={24} color="currentColor" />
+                <button onClick={() => router.back()} className="m-icon-btn m-press -ml-1" aria-label="Back">
+                    <ArrowLeftIcon size={20} color="currentColor" />
                 </button>
-                <h1 className="text-navy dark:text-slate-100 text-[16px] font-bold tracking-[0.15em] absolute left-1/2 -translate-x-1/2">
+                <h1 className="m-title-1 text-ink absolute left-1/2 -translate-x-1/2">
                     {t('settings.profile')}
                 </h1>
-                <div className="w-8" /> {/* Placeholder for balance */}
+                <div className="w-11" /> {/* Placeholder for balance */}
             </header>
 
-            <div className="px-5 pt-8 flex flex-col items-center">
+            <div className="px-5 pt-4 flex flex-col items-center">
                 {/* Profile Photo */}
                 <div className="relative">
-                    <div className="w-[64px] h-[64px] rounded-full bg-card-bg dark:bg-slate-800 overflow-hidden border-2 border-white dark:border-slate-950 shadow-sm flex items-center justify-center">
+                    <div className="w-[72px] h-[72px] rounded-full bg-[image:var(--m-grad-primary)] overflow-hidden ring-1 ring-line flex items-center justify-center text-snow text-[28px] font-semibold">
                         {user?.avatar_url ? (
                             <Image
                                 src={user.avatar_url}
                                 alt={user?.full_name || 'User'}
-                                width={64}
-                                height={64}
-                                sizes="32px"
+                                width={72}
+                                height={72}
+                                sizes="72px"
                                 className="w-full h-full object-cover"
                             />
                         ) : (
-                            <UserAccountIcon size={32} color="#95A7B5" />
+                            <span aria-hidden>{(user?.full_name || user?.email || '?').trim().charAt(0).toUpperCase()}</span>
                         )}
                     </div>
-                    <div className={`absolute -bottom-1 -right-2 ${user?.plan === 'free' ? 'bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-200' : 'bg-accent text-white'} text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow-sm border border-white dark:border-slate-950`}>
-                        {user?.plan === 'free' ? t('settings.free') : 'PRO'}
-                    </div>
-
                 </div>
 
                 {isEditing ? (
-                    <div className="w-full max-w-sm mt-4 flex flex-col gap-3">
+                    <div className="w-full max-w-sm mt-5 flex flex-col gap-4">
                         <div>
-                            <label className="text-navy dark:text-slate-300 text-[12px] opacity-80 font-semibold ml-1">{t('settings.fullName')}</label>
+                            <label className="m-label">{t('settings.fullName')}</label>
                             <input
                                 type="text"
                                 value={editFullName}
                                 onChange={(e) => setEditFullName(e.target.value)}
-                                className="w-full h-11 bg-white dark:bg-slate-800 border border-card-bg/30 dark:border-slate-700 rounded-xl px-4 text-[14px] text-navy dark:text-slate-200 outline-none focus:border-accent shadow-sm"
+                                className="m-input"
                             />
                         </div>
                         <div>
-                            <label className="text-navy dark:text-slate-300 text-[12px] opacity-80 font-semibold ml-1">{t('settings.profileType')}</label>
+                            <label className="m-label">{t('settings.profileType')}</label>
                             <select
                                 value={editProfileType}
                                 onChange={(e) => setEditProfileType(e.target.value)}
-                                className="w-full h-11 bg-white dark:bg-slate-800 border border-card-bg/30 dark:border-slate-700 rounded-xl px-4 text-[14px] text-navy dark:text-slate-200 outline-none focus:border-accent shadow-sm appearance-none"
+                                className="m-input appearance-none"
                             >
                                 <option value="student">{t('settings.student')}</option>
                                 <option value="professional">{t('settings.professional')}</option>
@@ -264,18 +256,18 @@ export default function AccountPage() {
                                 <option value="entrepreneur">{t('settings.entrepreneur')}</option>
                             </select>
                         </div>
-                        <div className="flex gap-2 mt-2">
+                        <div className="flex gap-3 mt-1">
                             <button
                                 onClick={() => setIsEditing(false)}
                                 disabled={isSaving}
-                                className="flex-1 border border-navy dark:border-slate-700 text-navy dark:text-slate-200 text-[13px] font-semibold py-2 rounded-xl hover:bg-navy/5 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                className="m-btn m-btn-secondary m-press flex-1"
                             >
                                 {t('settings.cancel')}
                             </button>
                             <button
                                 onClick={handleSaveProfile}
                                 disabled={isSaving}
-                                className="flex-1 bg-accent text-white text-[13px] font-semibold py-2 rounded-xl hover:bg-accent/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="m-btn m-btn-primary m-press flex-1"
                             >
                                 {isSaving ? t('settings.saving') : t('settings.saveChanges')}
                             </button>
@@ -283,19 +275,26 @@ export default function AccountPage() {
                     </div>
                 ) : (
                     <>
-                        <h2 className="text-navy dark:text-slate-100 text-[18px] font-bold mt-4">{user?.full_name || 'No Name'}</h2>
-                        <p className="text-blue-muted dark:text-slate-400 text-[13px]">{user?.email}</p>
-                        {user?.profile_type && (
-                            <p className="text-accent text-[12px] font-semibold mt-1 capitalize">
-                                {t(`settings.${user.profile_type}`, user.profile_type.replace('_', ' '))}
-                            </p>
-                        )}
+                        <h2 className="m-title-2 text-ink mt-4 text-center">{user?.full_name || 'No name yet'}</h2>
+                        <p className="m-subhead !font-normal text-ink-2 mt-1">{user?.email}</p>
+                        <div className="flex items-center gap-2 mt-3">
+                            {user?.plan === 'free' ? (
+                                <span className="m-chip m-chip-neutral">{t('settings.free')}</span>
+                            ) : (
+                                <span className="m-chip m-chip-info">Pro</span>
+                            )}
+                            {user?.profile_type && (
+                                <span className="m-chip m-chip-neutral capitalize">
+                                    {t(`settings.${user.profile_type}`, user.profile_type.replace('_', ' '))}
+                                </span>
+                            )}
+                        </div>
                         {saveSuccessMessage && (
-                            <p className="text-[#27ae60] text-[12px] font-semibold mt-2">{saveSuccessMessage}</p>
+                            <p role="status" className="m-footnote text-[var(--m-success-text)] mt-2">{saveSuccessMessage}</p>
                         )}
                         <button
                             onClick={() => setIsEditing(true)}
-                            className="mt-4 border border-navy dark:border-slate-700 text-navy dark:text-slate-200 text-[13px] font-semibold px-6 py-1.5 rounded-xl hover:bg-navy/5 dark:hover:bg-slate-800 transition-colors"
+                            className="m-btn m-btn-secondary m-btn-sm m-press mt-4"
                         >
                             {t('settings.editProfile')}
                         </button>
@@ -303,20 +302,20 @@ export default function AccountPage() {
                 )}
 
                 {/* My Plan Card */}
-                <div className="w-full bg-navy rounded-2xl p-6 mt-8 relative overflow-hidden shadow-md">
+                <div className="w-full rounded-[24px] p-6 mt-8 relative overflow-hidden bg-[image:var(--m-grad-brand)] text-snow shadow-[var(--m-glow)]">
                     <div className="relative z-10">
-                        <p className="text-white/80 text-sm font-medium">{t('settings.plan')}</p>
+                        <p className="m-footnote text-snow/80">{t('settings.plan')}</p>
                         <div className="flex items-center gap-2 mt-1">
-                            <h3 className="text-white text-xl font-bold uppercase">
+                            <h3 className="m-title-2 text-snow">
                                 {user?.plan === 'free' ? t('settings.free') : user?.plan === 'lifetime' ? t('settings.lifetime', 'Lifetime') : t('settings.pro', 'Pro')}
                             </h3>
                             {user?.plan !== 'free' && user?.plan !== 'lifetime' && (
-                                <span className="bg-white/20 text-white text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                                <span className="bg-snow/20 text-snow m-caption px-2 h-6 inline-flex items-center rounded-full">
                                     {user?.plan === 'pro_yearly' ? t('settings.annual', 'Annual') : t('settings.monthly', 'Monthly')}
                                 </span>
                             )}
                         </div>
-                        <p className="text-white/70 text-[12px] mt-2">
+                        <p className="m-footnote text-snow/75 mt-1">
                             {user?.plan === 'lifetime' ? t('settings.focusForever', 'Focus forever') : `${t('settings.renewalDate', 'Renewal Date')}: Dec 12, 2026`}
                         </p>
 
@@ -337,33 +336,33 @@ export default function AccountPage() {
                                     }
                                 }
                             }}
-                            className="w-full bg-white text-navy text-[15px] font-semibold h-11 rounded-xl mt-5 hover:bg-white/90 transition-colors cursor-pointer"
+                            className="m-btn m-press w-full mt-5 bg-snow text-[#0B2CB1] hover:bg-snow/90"
                         >
                             {!user?.plan || user.plan === 'free' ? t('settings.upgrade', 'Upgrade to Pro') : t('settings.manage', 'Manage plan')}
                         </button>
                     </div>
                     {/* Background Decorative Icon */}
-                    <div className="absolute top-2 -right-4 opacity-10">
+                    <div aria-hidden className="absolute top-2 -right-4 opacity-10">
                         <DiamondIcon size={120} color="#FFFFFF" />
                     </div>
                 </div>
 
                 {/* Preferences */}
-                <div className="w-full mt-8">
-                    <h3 className="text-navy dark:text-slate-100 text-[16px] font-semibold mb-3">{t('settings.preferences')}</h3>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-card-bg/30 dark:border-slate-800 transition-colors duration-300">
+                <div className="w-full mt-7">
+                    <SectionHeader label={t('settings.preferences')} as="h3" />
+                    <div className="m-glass overflow-hidden">
                         {isNative && (
                             <>
                                 <PreferenceRow
                                     icon={<BellIcon size={20} color="currentColor" />}
-                                    iconBg="bg-navy/10 dark:bg-slate-800 text-navy dark:text-slate-400"
+                                    iconBg="text-ink-2"
                                     label={t('settings.taskRemindersSoon', 'Task Reminders (Soon)')}
                                     value={false}
                                     onChange={() => { }}
                                 />
                                 <PreferenceRow
                                     icon={<CycleIcon size={20} color="currentColor" />}
-                                    iconBg="bg-accent/10 dark:bg-slate-800 text-accent dark:text-accent"
+                                    iconBg="text-ink-2"
                                     label={t('settings.habitRemindersSoon', 'Habit Reminders (Soon)')}
                                     value={false}
                                     onChange={() => { }}
@@ -372,19 +371,19 @@ export default function AccountPage() {
                         )}
                         <PreferenceRow
                             icon={<TimerIcon size={20} color="currentColor" />}
-                            iconBg="bg-error/10 dark:bg-slate-800 text-error"
+                            iconBg="text-ink-2"
                             label={t('settings.pomodoroAlertsSoon', 'Pomodoro Alerts (Soon)')}
                             value={false}
                             onChange={() => { }}
                         />
-                        <div className="flex items-center justify-between p-4 border-t border-card-bg/30 dark:border-slate-800">
+                        <div className="flex items-center justify-between gap-3 min-h-14 px-4 border-t border-line">
                             <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-navy/10 dark:bg-slate-800 flex items-center justify-center text-navy dark:text-slate-400">
-                                    <GlobeIcon size={20} color="currentColor" />
-                                </div>
-                                <span className="text-navy-darker dark:text-slate-100 text-[14px] font-medium">{t('settings.language')}</span>
+                                <span className="m-tile !w-9 !h-9 text-ink-2">
+                                    <GlobeIcon size={18} color="currentColor" />
+                                </span>
+                                <span className="m-callout text-ink">{t('settings.language')}</span>
                             </div>
-                            <div className="flex items-center gap-1 text-blue-muted dark:text-slate-400">
+                            <div className="flex items-center gap-1 text-ink-2">
                                 <div className="relative">
                                     <select
                                         value={i18n.language || 'en'}
@@ -393,18 +392,18 @@ export default function AccountPage() {
                                             i18n.changeLanguage(lang);
                                             localStorage.setItem('language', lang);
                                         }}
-                                        className="bg-transparent text-[13px] text-blue-muted dark:text-slate-400 outline-none pr-6 pl-2 py-1 appearance-none cursor-pointer text-right font-medium"
+                                        className="bg-transparent text-[16px] text-ink-2 outline-none pr-6 pl-2 min-h-11 appearance-none cursor-pointer text-right"
                                     >
-                                        <option value="en" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">English</option>
-                                        <option value="es" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">Español</option>
-                                        <option value="fr" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">Français</option>
-                                        <option value="de" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">Deutsch</option>
-                                        <option value="ja" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">日本語</option>
-                                        <option value="ko" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">한국어</option>
-                                        <option value="zh-CN" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">简体中文</option>
-                                        <option value="hi" className="bg-white dark:bg-slate-900 text-navy dark:text-slate-200">हिन्दी</option>
+                                        <option value="en" className="bg-[var(--m-surface)] text-ink">English</option>
+                                        <option value="es" className="bg-[var(--m-surface)] text-ink">Español</option>
+                                        <option value="fr" className="bg-[var(--m-surface)] text-ink">Français</option>
+                                        <option value="de" className="bg-[var(--m-surface)] text-ink">Deutsch</option>
+                                        <option value="ja" className="bg-[var(--m-surface)] text-ink">日本語</option>
+                                        <option value="ko" className="bg-[var(--m-surface)] text-ink">한국어</option>
+                                        <option value="zh-CN" className="bg-[var(--m-surface)] text-ink">简体中文</option>
+                                        <option value="hi" className="bg-[var(--m-surface)] text-ink">हिन्दी</option>
                                     </select>
-                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-blue-muted dark:text-slate-400">
+                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none text-ink-2">
                                         <ChevronRightIcon size={18} color="currentColor" />
                                     </div>
                                 </div>
@@ -415,22 +414,25 @@ export default function AccountPage() {
                 </div>
 
                 {/* AI connections */}
-                <div className="w-full mt-8">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-card-bg/30 dark:border-slate-800 transition-colors duration-300">
-                        <Link href="/settings?tab=connections" className="flex items-center justify-between p-4 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300 cursor-pointer">
+                <div className="w-full mt-7">
+                    <SectionHeader label="AI" as="h3" />
+                    <div className="m-glass overflow-hidden">
+                        <Link href="/settings?tab=connections" className="m-press flex items-center justify-between gap-3 min-h-14 px-4 hover:bg-[var(--m-surface-strong)] cursor-pointer">
                             <span className="flex items-center gap-3">
-                                <Plug className="h-[18px] w-[18px] text-navy dark:text-slate-300" aria-hidden />
-                                <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">AI connections</span>
+                                <span className="m-tile !w-9 !h-9 text-ink-2">
+                                    <Plug className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
+                                </span>
+                                <span className="m-callout text-ink">AI connections</span>
                             </span>
-                            <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+                            <ChevronRightIcon size={18} color="currentColor" className="text-ink-2" />
                         </Link>
                     </div>
                 </div>
 
                 {/* Support */}
-                <div className="w-full mt-8">
-                    <h3 className="text-navy dark:text-slate-100 text-[16px] font-semibold mb-3">{t('settings.support')}</h3>
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl overflow-hidden shadow-sm border border-card-bg/30 dark:border-slate-800 transition-colors duration-300">
+                <div className="w-full mt-7">
+                    <SectionHeader label={t('settings.support')} as="h3" />
+                    <div className="m-glass overflow-hidden">
                         <SupportLink
                             label="How to use Focalyst"
                             to="/how-to"
@@ -460,39 +462,48 @@ export default function AccountPage() {
                     </div>
                 </div>
 
-                {/* Destructive Actions */}
-                <button
-                    onClick={() => setShowDeleteModal(true)}
-                    className="w-full bg-navy text-white text-[15px] font-semibold h-12 rounded-xl mt-10 hover:bg-navy-dark transition-colors"
-                >
-                    {t('settings.deleteAccount')}
-                </button>
-
-                {/* Version & Credits */}
-                <div className="mt-8 text-center">
-                    <p className="text-blue-muted text-[11px]">{t('settings.version')}</p>
-                    <p className="text-blue-muted text-[11px] mt-1">{t('settings.builtBy')}</p>
+                {/* Account actions: destructive rows last */}
+                <div className="w-full mt-7">
+                    <SectionHeader label="Account" as="h3" />
+                    <div className="m-glass overflow-hidden">
+                        <button
+                            onClick={handleLogout}
+                            className="m-press w-full flex items-center gap-3 min-h-14 px-4 text-left hover:bg-[var(--m-surface-strong)]"
+                        >
+                            <span className="m-tile !w-9 !h-9 text-[var(--m-danger-text)]">
+                                <LogOut size={18} strokeWidth={1.75} aria-hidden />
+                            </span>
+                            <span className="m-callout text-[var(--m-danger-text)]">{t('settings.logout')}</span>
+                        </button>
+                        <button
+                            onClick={() => setShowDeleteModal(true)}
+                            className="m-press w-full flex items-center gap-3 min-h-14 px-4 text-left border-t border-line hover:bg-[var(--m-surface-strong)]"
+                        >
+                            <span className="m-tile !w-9 !h-9 text-[var(--m-danger-text)]">
+                                <Trash2 size={18} strokeWidth={1.75} aria-hidden />
+                            </span>
+                            <span className="m-callout text-[var(--m-danger-text)]">{t('settings.deleteAccount')}</span>
+                        </button>
+                    </div>
                 </div>
 
-                {/* Logout Button */}
-                <button
-                    onClick={handleLogout}
-                    className="w-full bg-accent text-white text-[15px] font-semibold h-12 rounded-xl mt-6 mb-10 hover:bg-accent-dark transition-colors shadow-lg shadow-accent/20"
-                >
-                    {t('settings.logout')}
-                </button>
+                {/* Version & Credits */}
+                <div className="mt-8 mb-4 text-center">
+                    <p className="m-caption text-ink-2">{t('settings.version')}</p>
+                    <p className="m-caption text-ink-2 mt-1">{t('settings.builtBy')}</p>
+                </div>
             </div>
 
             {/* Delete Modal */}
             {showDeleteModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
-                    <div className="absolute inset-0 bg-navy/50 backdrop-blur-sm" onClick={() => setShowDeleteModal(false)} />
-                    <div className="bg-white dark:bg-slate-900 w-full max-w-[340px] rounded-2xl p-6 relative z-10 shadow-2xl border dark:border-slate-800">
-                        <h3 className="text-navy dark:text-slate-100 text-lg font-bold">{t('settings.deleteAccountConfirmTitle')}</h3>
-                        <p className="text-blue-muted dark:text-slate-400 text-sm mt-2">
+                <div className="fixed inset-0 z-[80] flex items-center justify-center px-5" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+                    <div className="absolute inset-0 m-backdrop" onClick={() => setShowDeleteModal(false)} />
+                    <div className="m-sheet !rounded-[28px] !border w-full max-w-[360px] p-6 relative z-10 shadow-[var(--shadow-glass)]">
+                        <h3 id="delete-title" className="m-title-2 text-ink">{t('settings.deleteAccountConfirmTitle')}</h3>
+                        <p className="m-footnote text-ink-2 mt-2">
                             {t('settings.deleteAccountConfirmDesc')}
                         </p>
-                        <p className="text-navy-darker dark:text-slate-200 text-[13px] font-medium mt-4">
+                        <p className="m-footnote text-ink mt-4">
                             {t('settings.deleteAccountConfirmType')}
                         </p>
                         <input
@@ -500,19 +511,19 @@ export default function AccountPage() {
                             value={deleteConfirmText}
                             onChange={(e) => setDeleteConfirmText(e.target.value)}
                             placeholder={t('settings.typeDelete')}
-                            className="w-full h-11 bg-card-bg dark:bg-slate-800 border border-card-border dark:border-slate-700 rounded-xl px-4 mt-2 text-sm outline-none focus:border-error text-navy dark:text-slate-100"
+                            className="m-input mt-2"
                         />
                         <div className="flex gap-3 mt-6">
                             <button
                                 onClick={() => setShowDeleteModal(false)}
-                                className="flex-1 h-11 bg-card-bg dark:bg-slate-800 text-navy dark:text-slate-200 text-[14px] font-semibold rounded-xl"
+                                className="m-btn m-btn-secondary m-press flex-1"
                             >
                                 {t('settings.cancel')}
                             </button>
                             <button
                                 onClick={handleDeleteAccount}
                                 disabled={deleteConfirmText !== 'DELETE'}
-                                className="flex-1 h-11 bg-error text-white text-[14px] font-semibold rounded-xl disabled:opacity-40"
+                                className="m-btn m-btn-danger m-press flex-1"
                             >
                                 {t('settings.delete')}
                             </button>
@@ -539,20 +550,15 @@ function PreferenceRow({
     onChange: (val: boolean) => void
 }) {
     return (
-        <div className="flex items-center justify-between p-4 border-b border-card-bg/30 dark:border-slate-800 last:border-0 transition-colors duration-300">
-            <div className="flex items-center gap-3">
-                <div className={`w-9 h-9 rounded-xl ${iconBg} flex items-center justify-center`}>
+        <div className="flex items-center justify-between gap-3 min-h-14 px-4 border-b border-line last:border-0">
+            <div className="flex items-center gap-3 min-w-0">
+                <span className={`m-tile !w-9 !h-9 ${iconBg}`}>
                     {icon}
-                </div>
-                <span className="text-navy-darker dark:text-slate-100 text-[14px] font-medium">{label}</span>
+                </span>
+                <span className="m-callout text-ink">{label}</span>
             </div>
             {/* Custom Toggle */}
-            <button
-                onClick={() => onChange(!value)}
-                className={`w-12 h-6 rounded-full transition-colors relative ${value ? 'bg-accent' : 'bg-card-bg dark:bg-slate-700'}`}
-            >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm ${value ? 'left-7' : 'left-1'}`} />
-            </button>
+            <MSwitch checked={value} onClick={() => onChange(!value)} label={label} />
         </div>
     )
 }
@@ -560,53 +566,53 @@ function PreferenceRow({
 function SupportLink({ label, href, to, onClick, isExpanded, expandContent }: { label: string, href?: string, to?: string, onClick?: () => void, isExpanded?: boolean, expandContent?: string }) {
     if (to) {
         return (
-            <Link href={to} className="flex items-center justify-between p-4 border-b border-card-bg/30 dark:border-slate-800 last:border-0 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300 cursor-pointer">
-                <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">{label}</span>
-                <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+            <Link href={to} className="m-press flex items-center justify-between gap-3 min-h-14 px-4 border-b border-line last:border-0 hover:bg-[var(--m-surface-strong)] cursor-pointer">
+                <span className="m-callout text-ink">{label}</span>
+                <ChevronRightIcon size={18} color="currentColor" className="text-ink-2" />
             </Link>
         )
     }
 
     if (href) {
         return (
-            <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between p-4 border-b border-card-bg/30 dark:border-slate-800 last:border-0 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300">
-                <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">{label}</span>
-                <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+            <a href={href} target="_blank" rel="noopener noreferrer" className="m-press flex items-center justify-between gap-3 min-h-14 px-4 border-b border-line last:border-0 hover:bg-[var(--m-surface-strong)]">
+                <span className="m-callout text-ink">{label}</span>
+                <ChevronRightIcon size={18} color="currentColor" className="text-ink-2" />
             </a>
         )
     }
 
     if (onClick) {
         return (
-            <div className="border-b border-card-bg/30 dark:border-slate-800 last:border-0 transition-colors duration-300">
-                <div onClick={onClick} className="flex items-center justify-between p-4 bg-white dark:bg-slate-900 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300 cursor-pointer">
-                    <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">{label}</span>
+            <div className="border-b border-line last:border-0">
+                <div onClick={onClick} className="m-press flex items-center justify-between gap-3 min-h-14 px-4 hover:bg-[var(--m-surface-strong)] cursor-pointer">
+                    <span className="m-callout text-ink">{label}</span>
                     <div className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
-                        <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+                        <ChevronRightIcon size={18} color="currentColor" className="text-ink-2" />
                     </div>
                 </div>
                 {isExpanded && (
-                    <div className="p-4 bg-page-bg/30 dark:bg-slate-950/30 border-t border-card-bg/10 dark:border-slate-800/50 text-[13px] text-navy dark:text-slate-200 transition-colors duration-300">
+                    <div className="p-4 border-t border-line m-footnote text-ink">
                         {expandContent ? (
                             <ReactMarkdown
                                 components={{
-                                    h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-navy dark:text-slate-100 mt-4 mb-2" {...props} />,
-                                    h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-navy dark:text-slate-100 mt-4 mb-2" {...props} />,
-                                    h3: ({ node, ...props }) => <h3 className="text-[15px] font-medium text-navy dark:text-slate-200 mt-3 mb-1" {...props} />,
-                                    p: ({ node, ...props }) => <p className="text-[13px] text-blue-muted dark:text-slate-400 mb-3 leading-relaxed" {...props} />,
-                                    ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-3 text-[13px] text-blue-muted dark:text-slate-400" {...props} />,
-                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-3 text-[13px] text-blue-muted dark:text-slate-400" {...props} />,
+                                    h1: ({ node, ...props }) => <h1 className="text-lg font-bold text-ink mt-4 mb-2" {...props} />,
+                                    h2: ({ node, ...props }) => <h2 className="text-base font-semibold text-ink mt-4 mb-2" {...props} />,
+                                    h3: ({ node, ...props }) => <h3 className="text-[15px] font-medium text-ink mt-3 mb-1" {...props} />,
+                                    p: ({ node, ...props }) => <p className="text-[13px] text-ink-2 mb-3 leading-relaxed" {...props} />,
+                                    ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-3 text-[13px] text-ink-2" {...props} />,
+                                    ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-3 text-[13px] text-ink-2" {...props} />,
                                     li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                                    a: ({ node, ...props }) => <a className="text-accent hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
-                                    strong: ({ node, ...props }) => <strong className="font-semibold text-navy dark:text-slate-100" {...props} />,
-                                    hr: ({ node, ...props }) => <hr className="border-card-bg/50 dark:border-slate-800 my-4" {...props} />,
+                                    a: ({ node, ...props }) => <a className="text-primary-text hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                                    strong: ({ node, ...props }) => <strong className="font-semibold text-ink" {...props} />,
+                                    hr: ({ node, ...props }) => <hr className="border-line my-4" {...props} />,
                                 }}
                             >
                                 {expandContent}
                             </ReactMarkdown>
                         ) : (
                             <div className="flex items-center justify-center p-4">
-                                <div className="animate-pulse bg-card-bg dark:bg-slate-800 w-8 h-8 rounded-full" />
+                                <div className="animate-pulse bg-[var(--m-surface-strong)] w-8 h-8 rounded-full" />
                             </div>
                         )}
                     </div>
@@ -616,20 +622,21 @@ function SupportLink({ label, href, to, onClick, isExpanded, expandContent }: { 
     }
 
     return (
-        <div className="flex items-center justify-between p-4 border-b border-card-bg/30 dark:border-slate-800 last:border-0 hover:bg-page-bg/50 dark:hover:bg-slate-800/50 transition-colors duration-300 cursor-pointer">
-            <span className="text-navy dark:text-slate-100 opacity-90 text-[14px] font-medium">{label}</span>
-            <ChevronRightIcon size={18} color="currentColor" className="text-blue-muted dark:text-slate-400" />
+        <div className="m-press flex items-center justify-between gap-3 min-h-14 px-4 border-b border-line last:border-0 hover:bg-[var(--m-surface-strong)] cursor-pointer">
+            <span className="m-callout text-ink">{label}</span>
+            <ChevronRightIcon size={18} color="currentColor" className="text-ink-2" />
         </div>
     )
 }
 
 function LoadingSpinner() {
     return (
-        <div className="min-h-screen bg-page-bg dark:bg-slate-950 flex flex-col items-center justify-center">
-            <div className="flex flex-col items-center space-y-5">
-                <div className="w-12 h-12 rounded-full border-4 border-[#EAE3D9] dark:border-slate-800 border-t-[#3D2E20] dark:border-t-accent animate-spin" />
-                <span className="text-[#3D2E20] dark:text-slate-300 font-bold tracking-[0.25em] text-sm animate-pulse">FOCALYST</span>
-            </div>
+        <div className="px-5 pt-6 flex flex-col items-center" aria-hidden>
+            <div className="m-skel w-[72px] h-[72px] !rounded-full" />
+            <div className="m-skel h-7 w-40 mt-4 !rounded-lg" />
+            <div className="m-skel h-4 w-52 mt-2 !rounded-md" />
+            <div className="m-skel h-[170px] w-full mt-8 !rounded-[24px]" />
+            <div className="m-skel h-[168px] w-full mt-7 !rounded-[24px]" />
         </div>
     )
 }

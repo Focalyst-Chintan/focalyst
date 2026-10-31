@@ -793,3 +793,78 @@
   }
   .mp-save:disabled { opacity: 0.4; box-shadow: none; }
 }
+
+/* Forms: selected and on states read from the classes the forms already toggle */
+@media (max-width: 1023.98px) {
+  .mp-choice[class*="bg-[#2B6BFF]"], .mp-choice[class*="bg-[#FF6B00]"] {
+    background: var(--m-grad-primary);
+    border-color: transparent;
+    color: #FFFFFF;
+    box-shadow: none;
+  }
+  .mp-icon-pick {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    background: var(--m-surface);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .mp-icon-pick[class*="border-[#FF6B00]"] { background: var(--m-surface-strong); border: 2px solid var(--m-brand-400); }
+  .mp-swatch { width: 36px; height: 36px; box-shadow: none; }
+  .mp-swatch[class*="ring-[#FF6B00]"] {
+    --tw-ring-shadow: 0 0 0 0 transparent;
+    box-shadow: 0 0 0 2px var(--canvas), 0 0 0 4px var(--ink);
+  }
+  .mp-switch {
+    background: var(--m-surface-strong);
+    border: 1px solid var(--line-strong);
+  }
+  .mp-switch[class*="bg-[#FF6B00]"], .mp-switch[class*="bg-navy"]:not([class*="bg-card-bg"]) {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+  .mp-link { color: var(--primary-text); }
+  .mp-error {
+    background: color-mix(in srgb, var(--m-danger) 12%, transparent);
+    border: 1px solid color-mix(in srgb, var(--m-danger) 35%, transparent);
+    color: var(--m-danger-text);
+    border-radius: 12px;
+  }
+  .mp-popover {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow-glass);
+  }
+  .mp-save-icon svg { color: var(--primary-text); }
+  .mp-save-sticky {
+    position: sticky;
+    bottom: calc(env(safe-area-inset-bottom) + 88px);
+    z-index: 5;
+  }
+}
+@media (max-width: 1023.98px) {
+  .mp-text-ink { color: var(--ink); }
+}
+
+/* Toasts (spec 7.13): a glass pill above the tab bar, centred */
+@media (max-width: 1023.98px) {
+  .mp-toast-stack {
+    left: 16px;
+    right: 16px;
+    bottom: calc(env(safe-area-inset-bottom) + 88px);
+    max-width: none;
+    align-items: center;
+    z-index: 90;
+  }
+  .mp-toast {
+    border-radius: 9999px;
+    min-height: 44px;
+    padding: 8px 16px;
+    font-size: 14px;
+    line-height: 19px;
+    font-weight: 500;
+    animation: m-rise 200ms var(--ease) both;
+  }
+}
