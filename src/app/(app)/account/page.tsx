@@ -41,10 +41,6 @@ export default function AccountPage() {
     const [showDeleteModal, setShowDeleteModal] = useState(false)
     const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
-    if (isDesktop) {
-        return <DesktopSettingsView />;
-    }
-
     const [isEditing, setIsEditing] = useState(false)
     const [editFullName, setEditFullName] = useState('')
     const [editProfileType, setEditProfileType] = useState<string>('')
@@ -191,6 +187,10 @@ export default function AccountPage() {
             console.error('[ACCOUNT_DELETE] Error:', err?.message)
             alert(err?.message || 'Failed to delete account. Please try again or contact support.')
         }
+    }
+
+    if (isDesktop) {
+        return <DesktopSettingsView />;
     }
 
     if (loading) {

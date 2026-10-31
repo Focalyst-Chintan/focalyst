@@ -14,6 +14,7 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 
 | § | What the spec said | What we do now | Status | Entry |
 |---|---|---|---|---|
+| **All** | Section 10 describes new layouts, orders and sets of elements per screen | **Reskin, not relayout.** Each phone screen keeps its original structure, section order, content, components and what is shown or hidden. Only the visual layer changes (colours, gradients, glass, glow, type, radii, spacing values, icons, chips, press and motion). Where section 10 describes a different layout, only its visual treatment is taken. Filtering, sorting and conditional rendering of data are logic | Sohan refinement | 016 |
 | 2.2 | `canvas` #060A1A dark / #F5F8FF light | Web `--canvas` #05070F / #F4F6FB | web wins | 002 |
 | 2.2 | `ink` #F4F7FF / #0A1033, `ink-2` #B7C0D8 / #3D4566 | Web `--ink` #F2F5FF / #0A1022, `--ink-2` #A3ADC8 / #4B5675 | web wins | 002 |
 | 2.2 | `ink-3` #7F8AA8 / #5F6787, allowed for captions | Web `--ink-3` #6B7591 / #8A93AB is 4.4:1 dark and 2.8:1 light, so it is used only for placeholders, disabled text and inactive icons. Every caption, meta line and axis label uses `ink-2` | web wins + amended | 002 |
@@ -278,3 +279,23 @@ Native instruction: §11: keep white text on blue fills at 90% opacity or more; 
 - `NotesList` calls `useRef` / `useEffect` after early returns (rules of hooks); it works today but can break when the list switches between loading, empty and filled.
 - `SeamlessRadialTimerDial.tsx` and `insights/FocusTimeCard.tsx` are no longer used by any screen.
 - The habit colour picker still offers the old palette (spec 2.4); changing it changes the values saved with new habits, so it needs your call.
+
+---
+
+## Sohan refinements
+
+## Entry 016 · Correction round 1 · 2026-10-31
+Type: Sohan refinement
+What changed: New rule for this round and every later phase: reskin, not relayout. Every phone screen and shared phone component touched since base commit 3332763 gets its original JSX structure, section order, content and show/hide logic back, and only the visual styling is re-applied on top. New tokens and UI primitives stay where they are used purely for styling. Desktop stays as it is.
+Why: The earlier phases redesigned screens; the brief was to apply the design language to the existing layouts.
+Exact values: base commit 3332763 ("fix(guides): category chips wrap on phones"). Compare with `git diff 3332763 -- <path>` and `git show 3332763:<path>`.
+Port to native: yes
+Native instruction: All of §10: keep each existing native screen's layout, order and elements; take only the visual treatment from the spec.
+
+## Entry 017 · Correction round 1 · 2026-10-31
+Type: bug fix
+What changed: Notes crashed with "Minified React error #310" (more hooks than the previous render). `NotesList` called `useRef` and `useEffect` below its loading, error and empty early returns, so the first full render after loading added two hooks. Both now sit above every early return; nothing else changed. The same pattern was found and fixed in two other files changed since the base: `account/page.tsx` (`if (isDesktop) return <DesktopSettingsView />` above eight `useState` calls and two effects) and `focus/timer/page.tsx` (`if (isDesktop === true) return null` above the timer's state, refs and effects); both early returns moved below the last hook, unchanged. Those two crash only in a desktop-width window, where `isDesktop` goes from null to true.
+Why: The pattern existed before the facelift; the earlier lint check compared error counts per file, so a pre-existing rules-of-hooks error was not flagged.
+Exact values: rules-of-hooks violations in `src`: 3 files before, 0 after. Every push now runs ESLint with `react-hooks/rules-of-hooks` as an error on all files changed since the base, and the count must be 0.
+Port to native: yes
+Native instruction: Native lesson: keep every hook (useState, useEffect, useFocusEffect, useRef, custom hooks) above all early returns in every screen and component; lint with react-hooks/rules-of-hooks as an error before every build.

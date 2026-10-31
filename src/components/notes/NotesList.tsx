@@ -144,6 +144,23 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
         });
     }, [notes, searchQuery])
 
+    const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        if (!hasMore || loading) return;
+        const el = sentinelRef.current;
+        if (!el || typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
+
+        const observer = new IntersectionObserver((entries) => {
+            if (entries[0]?.isIntersecting) {
+                loadMore();
+            }
+        }, { rootMargin: '200px' });
+
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [hasMore, loading, loadMore]);
+
     if (error) {
         return (
             <div className="flex flex-col items-center justify-center p-8 mt-4 text-center">
@@ -194,23 +211,6 @@ export const NotesList = ({ userId, searchQuery, activeFilter, onNotesCountParse
             />
         )
     }
-
-    const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-    useEffect(() => {
-        if (!hasMore || loading) return;
-        const el = sentinelRef.current;
-        if (!el || typeof window === 'undefined' || !('IntersectionObserver' in window)) return;
-
-        const observer = new IntersectionObserver((entries) => {
-            if (entries[0]?.isIntersecting) {
-                loadMore();
-            }
-        }, { rootMargin: '200px' });
-
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [hasMore, loading, loadMore]);
 
     // Render logic based on view mode
     return (

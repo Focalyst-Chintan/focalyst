@@ -95,10 +95,6 @@ function TimerContent() {
         }
     }, [isDesktop, router])
 
-    if (isDesktop === true) {
-        return null
-    }
-
     const focusMins = parseInt(searchParams.get('focus') || '25', 10)
     const breakMins = parseInt(searchParams.get('break') || '5', 10)
     const totalSets = parseInt(searchParams.get('sets') || '4', 10)
@@ -349,6 +345,10 @@ function TimerContent() {
     const dialSize = isLandscape
         ? Math.max(195, Math.min(dimensions.height - 135, 235))
         : Math.min(dimensions.width * 0.84, 330)
+
+    if (isDesktop === true) {
+        return null
+    }
 
     const isBreak = mode === 'BREAK'
 
