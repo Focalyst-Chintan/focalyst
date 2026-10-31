@@ -5,8 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useTranslation } from 'react-i18next'
 import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 import { takeRecommendedPreset } from '@/lib/onboarding/plan'
-import { ChevronDown, Lock, Play } from 'lucide-react'
-import { HeroCard, MButton, Stepper } from '@/components/mobile/ui'
+import { Lock, Play } from 'lucide-react'
+import { HeroCard } from '@/components/mobile/ui'
 import { plainCopy } from '@/components/mobile/copy'
 
 const POMODORO_PRESETS = [
@@ -34,8 +34,6 @@ export default function PomodoroSection({ userPlan }: { userPlan: string }) {
     const [breakDuration, setBreakDuration] = useState(String(recommended?.breakMinutes ?? 5))
     const [sets, setSets] = useState(String(recommended?.sets ?? 4))
     const [toast, setToast] = useState<string | null>(null)
-    // UI only: the Customise section is collapsed until opened
-    const [customOpen, setCustomOpen] = useState(false)
 
     useEffect(() => {
         const completed = searchParams.get('completed')
@@ -79,21 +77,75 @@ export default function PomodoroSection({ userPlan }: { userPlan: string }) {
     }
 
 
-    const focusNum = Number(focusDuration) || 0
-    const breakNum = Number(breakDuration) || 0
-    const setsNum = Number(sets) || 0
-
     return (
-        <HeroCard grid className="p-6">
-            <p className="m-overline text-ink-2">{t('focus.pomodoro')}</p>
-            <p className="m-stat-xl text-ink mt-2" aria-label={`${focusNum} minutes of focus`}>
-                {String(focusNum).padStart(2, '0')}:00
-            </p>
-            <p className="m-subhead text-ink-2 mt-1">
-                {setsNum} {setsNum === 1 ? 'set' : 'sets'} · {breakNum} min {breakNum === 1 ? 'break' : 'breaks'}
-            </p>
+        <HeroCard className="p-5 mb-8">
+            <div className="flex justify-between items-center mb-4">
+                <h2 className="m-title-3 text-ink">{t('focus.pomodoro')}</h2>
+                <button
+                    onClick={startSession}
+                    className="m-btn m-btn-primary m-btn-sm m-press"
+                >
+                    <Play size={16} strokeWidth={2} className="fill-current" aria-hidden />
+                    {t('focus.start')}
+                </button>
+            </div>
 
-            <div className="flex gap-2 overflow-x-auto fx-no-scrollbar -mx-6 px-6 mt-5 pb-1" role="group" aria-label="Presets">
+            <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                    <label className="m-label !mb-1.5">{t('focus.duration')}</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            className={`m-input m-num ${isFree ? 'opacity-60' : ''}`}
+                            value={focusDuration}
+                            onChange={(e) => setFocusDuration(e.target.value)}
+                            disabled={isFree}
+                        />
+                        {isFree && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-2" title="Custom timer is a Pro feature. Upgrade to unlock.">
+                                <LockIcon />
+                            </div>
+                        )}
+                    </div>
+                </div>
+                <div>
+                    <label className="m-label !mb-1.5">{t('focus.break')}</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            className={`m-input m-num ${isFree ? 'opacity-60' : ''}`}
+                            value={breakDuration}
+                            onChange={(e) => setBreakDuration(e.target.value)}
+                            disabled={isFree}
+                        />
+                        {isFree && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-2" title="Custom timer is a Pro feature. Upgrade to unlock.">
+                                <LockIcon />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="mb-5">
+                    <label className="m-label !mb-1.5">{t('focus.sets')}</label>
+                    <div className="relative">
+                        <input
+                            type="number"
+                            className={`m-input m-num ${isFree ? 'opacity-60' : ''}`}
+                            value={sets}
+                            onChange={(e) => setSets(e.target.value)}
+                            disabled={isFree}
+                        />
+                        {isFree && (
+                            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-ink-2" title="Custom timer is a Pro feature. Upgrade to unlock.">
+                                <LockIcon />
+                            </div>
+                        )}
+                    </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
                 {POMODORO_PRESETS.map((p, index) => {
                     const isActive = p.focusMinutes.toString() === focusDuration &&
                         p.breakMinutes.toString() === breakDuration &&
@@ -112,7 +164,7 @@ export default function PomodoroSection({ userPlan }: { userPlan: string }) {
                                 setPreset(p.focusMinutes, p.breakMinutes, p.sets);
                             }}
                             aria-pressed={isActive}
-                            className={`m-pill m-press shrink-0 ${isLocked ? 'text-ink-2' : ''}`}
+                            className={`m-pill m-press w-full ${isLocked ? 'opacity-60' : ''}`}
                         >
                             {presetLabel(p.label)}
                             {isLocked && <LockIcon />}
@@ -120,29 +172,6 @@ export default function PomodoroSection({ userPlan }: { userPlan: string }) {
                     )
                 })}
             </div>
-
-            <button
-                type="button"
-                onClick={() => setCustomOpen((o) => !o)}
-                aria-expanded={customOpen}
-                className="m-press mt-3 -ml-1 inline-flex items-center gap-1.5 min-h-11 px-1 m-callout text-primary-text"
-            >
-                Customise
-                {isFree && <span className="m-chip m-chip-info !h-6 !text-[12px]">Pro</span>}
-                <ChevronDown size={18} strokeWidth={1.75} aria-hidden className={`transition-transform duration-200 ${customOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {customOpen && (
-                <div className="mt-1 mb-2 divide-y divide-line rounded-[16px] bg-[var(--m-surface-strong)] border border-line px-4 m-rise" title={isFree ? 'Custom timer is a Pro feature' : undefined}>
-                    <Stepper label={t('focus.duration')} value={focusDuration} unit="min" onChange={setFocusDuration} disabled={isFree} trailing={isFree ? <LockIcon /> : undefined} />
-                    <Stepper label={t('focus.break')} value={breakDuration} unit="min" onChange={setBreakDuration} disabled={isFree} trailing={isFree ? <LockIcon /> : undefined} />
-                    <Stepper label={t('focus.sets')} value={sets} onChange={setSets} disabled={isFree} trailing={isFree ? <LockIcon /> : undefined} />
-                </div>
-            )}
-
-            <MButton block className="mt-4" icon={<Play size={18} strokeWidth={2} className="fill-current" aria-hidden />} onClick={startSession}>
-                {t('focus.start')}
-            </MButton>
 
             {/* Toast Notification */}
             {toast && (

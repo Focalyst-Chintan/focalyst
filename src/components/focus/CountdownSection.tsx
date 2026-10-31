@@ -9,7 +9,6 @@ import { FREE_TIER_LIMITS } from '@/lib/featureGates'
 import { Countdown } from '@/types'
 import { PendingCountdownCard } from '@/components/onboarding/PendingCountdownCard'
 import { MoreHorizontal, Plus } from 'lucide-react'
-import { SectionHeader, StatusChip } from '@/components/mobile/ui'
 
 export default function CountdownSection({ userId, userPlan }: { userPlan: string, userId: string }) {
     const router = useRouter()
@@ -42,9 +41,9 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
     }
 
     return (
-        <section aria-labelledby="countdown-heading">
-            <SectionHeader label={<span id="countdown-heading">{t('focus.countdown')}</span>} count={loading ? undefined : countdowns.length} />
-            <PendingCountdownCard className="mb-3" />
+        <section className="mt-8">
+            <h2 className="m-title-3 text-ink mb-4">{t('focus.countdown')}</h2>
+            <PendingCountdownCard className="mb-4" />
 
             {loading ? (
                 <div className="m-skel h-[120px] w-full !rounded-[24px]" aria-hidden />
@@ -58,17 +57,19 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                         target.setHours(0, 0, 0, 0)
                         const diffTime = target.getTime() - today.getTime()
                         const daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)))
-                        // Display only: which chip to show
-                        const isPassed = diffTime < 0
-                        const isToday = diffTime === 0
 
                         // dynamic z-index to stop lower cards from overlapping the dropdown of upper cards
                         const zIndex = openMenuId === countdown.id ? 50 : countdowns.length - index
 
                         return (
                             <div key={countdown.id} className="m-glass p-5 flex flex-col" style={{ zIndex }}>
-                                <div className="flex justify-between items-start gap-3 w-full">
-                                    <h3 className="m-title-3 text-ink m-clamp-2 min-w-0 pt-1">{countdown.event_name}</h3>
+                                <div className="flex justify-between items-start w-full">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className="m-stat-l text-ink">{daysRemaining}</span>
+                                        <span className="m-subhead text-ink-2">
+                                            {daysRemaining === 1 ? t('focus.dayLeft') : t('focus.daysLeft')}
+                                        </span>
+                                    </div>
 
                                     {/* Three dots menu */}
                                     <div className="relative z-50 shrink-0">
@@ -130,18 +131,8 @@ export default function CountdownSection({ userId, userPlan }: { userPlan: strin
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-end justify-between gap-3 mt-3">
-                                    <div className="flex items-baseline gap-1.5">
-                                        <span className="m-stat-l text-ink">{daysRemaining}</span>
-                                        <span className="m-subhead text-ink-2">
-                                            {daysRemaining === 1 ? t('focus.dayLeft') : t('focus.daysLeft')}
-                                        </span>
-                                    </div>
-                                    {isPassed && <StatusChip kind="passed">{t('focus.passed')}</StatusChip>}
-                                    {isToday && <StatusChip kind="today">{t('plan.today')}</StatusChip>}
-                                </div>
                                 <div className="m-footnote text-ink-2 mt-1">
-                                    {target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                    {target.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} · <span className="text-ink">{countdown.event_name}</span>
                                 </div>
                             </div>
                         )

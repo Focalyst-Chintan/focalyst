@@ -360,7 +360,7 @@ function TimerContent() {
             <div aria-hidden className={`m-timer-glow ${isBreak ? 'is-break' : ''}`} />
 
             {/* Top Bar */}
-            <div className="relative w-full max-w-xl flex items-center justify-between">
+            <div className="relative w-full max-w-xl flex items-center justify-between gap-2">
                 <button
                     onClick={handleEndSession}
                     className="m-icon-btn m-press"
@@ -368,6 +368,16 @@ function TimerContent() {
                 >
                     <ArrowLeft size={20} strokeWidth={1.75} aria-hidden />
                 </button>
+
+                <div className="flex items-center gap-2 min-w-0">
+                    <span className={`inline-flex items-center gap-2 px-3.5 rounded-full m-glass !rounded-full text-ink ${isLandscape ? 'h-7 m-caption' : 'h-8 m-subhead'}`}>
+                        <span aria-hidden className={`w-2 h-2 rounded-full ${isBreak ? 'bg-[var(--m-brand-100)]' : 'bg-[var(--m-brand-400)]'}`} />
+                        {mode === 'FOCUS' ? t('focus.focusTime') : t('focus.breakTime')}
+                    </span>
+                    <span className={`text-ink-2 m-num whitespace-nowrap ${isLandscape ? 'm-caption' : 'm-footnote'}`}>
+                        {t('focus.setOf', { current: currentSet, total: totalSets })}
+                    </span>
+                </div>
 
                 <button
                     onClick={toggleFullscreen}
@@ -377,35 +387,6 @@ function TimerContent() {
                 >
                     {isFullscreen ? <Minimize2 size={20} strokeWidth={1.75} aria-hidden /> : <Maximize2 size={20} strokeWidth={1.75} aria-hidden />}
                 </button>
-            </div>
-
-            {/* Mode pill and set progress */}
-            <div className={`relative flex flex-col items-center ${isLandscape ? 'gap-1.5' : 'gap-3'}`}>
-                <span className="inline-flex items-center gap-2 h-8 px-3.5 rounded-full m-glass !rounded-full m-subhead text-ink">
-                    <span aria-hidden className={`w-2 h-2 rounded-full ${isBreak ? 'bg-[var(--m-brand-100)]' : 'bg-[var(--m-brand-400)]'}`} />
-                    {mode === 'FOCUS' ? t('focus.focusTime') : t('focus.breakTime')}
-                </span>
-                <div className="flex items-center gap-2">
-                    {totalSets <= 8 && (
-                        <span aria-hidden className="flex items-center gap-1.5">
-                            {Array.from({ length: totalSets }).map((_, i) => (
-                                <span
-                                    key={i}
-                                    className={`w-2 h-2 rounded-full ${
-                                        i < currentSet - 1
-                                            ? 'bg-primary-text'
-                                            : i === currentSet - 1
-                                                ? 'border-[1.5px] border-[var(--m-brand-400)]'
-                                                : 'bg-[var(--m-surface-strong)]'
-                                    }`}
-                                />
-                            ))}
-                        </span>
-                    )}
-                    <span className="m-footnote text-ink-2 m-num">
-                        {t('focus.setOf', { current: currentSet, total: totalSets })}
-                    </span>
-                </div>
             </div>
 
             {/* Center Dial & Giant Digits - isolated in MobileTimerDisplay */}
