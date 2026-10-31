@@ -77,6 +77,8 @@
 
   /* Shell */
   --m-tab-h: 64px;
+  --m-seg-track: rgba(3, 25, 91, 0.06);
+  --m-seg-glow: 0 4px 12px -2px rgba(25, 81, 252, 0.30);
   --m-tab-gap: 8px;
 }
 
@@ -113,6 +115,8 @@
   --m-ai-bg: rgba(203, 233, 253, 0.14);
   --m-ai-fg: #CBE9FD;
   --m-ai-border: var(--line-strong);
+  --m-seg-track: rgba(255, 255, 255, 0.06);
+  --m-seg-glow: 0 4px 14px -2px rgba(25, 81, 252, 0.45);
 }
 
 /* Component classes sit in the components layer so Tailwind utilities can still adjust them. */
@@ -416,20 +420,21 @@
     position: relative;
     display: flex;
     height: 40px;
-    padding: 3px;
+    padding: 0;
     border-radius: 9999px;
-    background: var(--m-surface);
-    border: 1px solid var(--line);
+    background: var(--m-seg-track);
+    border: 0;
     isolation: isolate;
   }
+  /* One clean gradient fill, edge to edge, with only a soft glow (no ring) */
   .m-seg-thumb {
     position: absolute;
-    top: 3px;
-    bottom: 3px;
-    left: 3px;
+    top: 0;
+    bottom: 0;
+    left: 0;
     border-radius: 9999px;
     background: var(--m-grad-primary);
-    box-shadow: var(--m-glow);
+    box-shadow: var(--m-seg-glow);
     z-index: -1;
     transition: transform var(--m-base) var(--m-spring);
   }

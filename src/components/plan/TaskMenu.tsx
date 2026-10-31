@@ -94,7 +94,7 @@ export default function TaskMenu({ onEdit, onDelete, onRename, onTag, onOpenChan
             <button
                 ref={triggerRef}
                 onClick={handleToggle}
-                className={`m-press w-11 h-11 -mr-2 flex items-center justify-center rounded-full cursor-pointer text-ink-2 ${
+                className={`m-press w-11 h-11 -mr-2 -my-2 flex items-center justify-center rounded-full cursor-pointer text-ink-2 ${
                     open ? 'bg-[var(--m-surface-strong)]' : 'hover:bg-[var(--m-surface-strong)]'
                 }`}
                 aria-label="Options"

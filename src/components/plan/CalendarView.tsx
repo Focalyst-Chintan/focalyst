@@ -482,7 +482,7 @@ export default function CalendarView({ onDateSelect }: { onDateSelect?: (date: D
     return (
         <div className="w-full space-y-5">
             {/* Calendar Card Container */}
-            <div className="m-glass p-5">
+            <div className="p-1">
                 {/* Header: Clickable Month/Year Quick-Jump Picker */}
                 <div className="flex items-center justify-between mb-4">
                     <button

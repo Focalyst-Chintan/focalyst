@@ -61,7 +61,7 @@ export function FocusActivityCard({ data, isPaid }: { data: DailyData[], isPaid:
             <div className="flex justify-between items-center gap-3 mb-1">
                 <h3 className="m-title-3 text-ink">{t('insights.activity')}</h3>
                 <div className="m-seg !h-9" role="tablist" aria-label="Period">
-                    <span aria-hidden className="m-seg-thumb" style={{ width: 'calc((100% - 6px) / 2)', transform: `translateX(${view === 'monthly' ? 100 : 0}%)` }} />
+                    <span aria-hidden className="m-seg-thumb" style={{ width: 'calc(100% / 2)', transform: `translateX(${view === 'monthly' ? 100 : 0}%)` }} />
                     <button
                         role="tab"
                         aria-selected={view === 'weekly'}

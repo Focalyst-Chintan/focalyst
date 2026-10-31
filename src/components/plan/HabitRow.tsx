@@ -145,44 +145,35 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
         return () => clearInterval(intervalId)
     }, [])
 
-    // Display only: the habit colour tints the icon tile (16% fill, 40% border).
-    const tileStyle = habit.color
-        ? {
-            background: `color-mix(in srgb, ${habit.color} 16%, transparent)`,
-            borderColor: `color-mix(in srgb, ${habit.color} 40%, transparent)`,
-        }
-        : undefined
-
     return (
         <div className={`habit-card m-glass m-glass-md flex flex-col !overflow-visible ${isMenuOpen ? 'z-50' : 'z-10'}`}>
             {/* Main Card Header */}
             <div
-                className="flex items-center gap-3 min-h-[64px] py-3 pl-3 pr-4 cursor-pointer select-none"
+                className="flex items-center gap-2.5 min-h-[56px] py-3 pl-3.5 pr-3.5 cursor-pointer select-none"
                 onClick={() => setIsExpanded(!isExpanded)}
                 aria-expanded={isExpanded}
             >
-                {/* Habit Icon */}
-                <span className="m-tile text-[22px] leading-none select-none" style={tileStyle} aria-hidden="true">
-                    {habit.icon || '🎯'}
-                </span>
-
-                {/* Habit Name + streak */}
-                <div className="flex-1 min-w-0">
-                    <span className="m-headline text-ink block truncate">
-                        {habit.name}
-                    </span>
-                    <StreakChip className="mt-1 !h-6 !text-[12px]">
-                        {localStreak} {localStreak === 1 ? 'day' : 'days'}
-                    </StreakChip>
-                </div>
-
                 {/* 0ms Checkbox */}
                 <MCheckbox
                     checked={isCheckedToday}
                     onClick={handleToggle}
                     label={isCheckedToday ? 'Unmark habit' : 'Complete habit'}
-                    size="lg"
                 />
+
+                {/* Habit Icon */}
+                <span className="text-xl leading-none shrink-0 select-none" aria-hidden="true">
+                    {habit.icon || '🎯'}
+                </span>
+
+                {/* Habit Name */}
+                <span className={`flex-1 min-w-0 m-callout !font-semibold truncate ${isCheckedToday ? 'text-ink-2 line-through' : 'text-ink'}`}>
+                    {habit.name}
+                </span>
+
+                {/* Streak Badge */}
+                <StreakChip className="!h-6 !px-2 !text-[12px] shrink-0">
+                    {localStreak}d streak
+                </StreakChip>
 
                 {/* Task Menu */}
                 <div onClick={e => e.stopPropagation()}>
@@ -198,15 +189,15 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
 
             {/* Expanded 365-Day Dot Matrix */}
             {isExpanded && (
-                <div className="border-t border-line px-4 pt-4 pb-3">
+                <div className="border-t border-line px-4 py-4 rounded-b-[16px]">
                     <div className="flex justify-between items-center mb-3">
                         <span className="m-overline text-ink-2">{t('insights.performance')}</span>
-                        <span className="m-footnote text-ink-2 m-num">{completedCount} of 365 days</span>
+                        <span className="m-caption text-ink m-num">{completedCount} / 365 total days</span>
                     </div>
 
                     {/* True 365-Day Grid: 7 rows × 53 columns starting from top-left */}
                     <div
-                        className="mb-4 overflow-x-auto pb-2 fx-no-scrollbar"
+                        className="mb-5 overflow-x-auto pb-2 fx-no-scrollbar"
                         style={{
                             display: 'grid',
                             gridTemplateRows: 'repeat(7, min-content)',
@@ -223,24 +214,24 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
                                     dot.isFilled
                                         ? 'bg-[var(--m-brand-500)]'
                                         : 'bg-[var(--m-heat-0)]'
-                                } ${dot.isToday ? 'ring-1 ring-[var(--m-brand-400)] ring-offset-1 ring-offset-transparent' : ''}`}
+                                }`}
                             />
                         ))}
                     </div>
 
                     {/* Performance Metrics */}
-                    <div className="grid grid-cols-2 gap-2">
-                        <div className="rounded-[16px] bg-[var(--m-surface-strong)] px-3 py-2.5">
-                            <div className="m-stat-m text-ink">
+                    <div className="grid grid-cols-2 divide-x divide-line py-1 text-center">
+                        <div className="flex flex-col items-center">
+                            <span className="m-overline text-ink-2">Completion</span>
+                            <div className="m-stat-m text-ink mt-0.5">
                                 {completionPercentage}%
                             </div>
-                            <span className="m-caption text-ink-2">Completion</span>
                         </div>
-                        <div className="rounded-[16px] bg-[var(--m-surface-strong)] px-3 py-2.5">
-                            <div className="m-stat-m text-ink">
-                                {averagePerDay}<span className="m-subhead text-ink-2 ml-1">per day</span>
+                        <div className="flex flex-col items-center">
+                            <span className="m-overline text-ink-2">Average</span>
+                            <div className="m-stat-m text-ink mt-0.5">
+                                {averagePerDay} <span className="m-caption text-ink-2">/day</span>
                             </div>
-                            <span className="m-caption text-ink-2">Average</span>
                         </div>
                     </div>
                 </div>

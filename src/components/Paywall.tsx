@@ -213,7 +213,7 @@ export default function Paywall({ isOnboarding = false, onSkipRoute }: PaywallPr
 
                 {/* ─── Billing Toggle ──────────────────────── */}
                 <div className="m-seg mb-6" role="tablist" aria-label="Billing">
-                    <span aria-hidden className="m-seg-thumb" style={{ width: 'calc((100% - 6px) / 2)', transform: `translateX(${billing === 'yearly' ? 100 : 0}%)` }} />
+                    <span aria-hidden className="m-seg-thumb" style={{ width: 'calc(100% / 2)', transform: `translateX(${billing === 'yearly' ? 100 : 0}%)` }} />
                     <button
                         role="tab"
                         aria-selected={billing === 'monthly'}

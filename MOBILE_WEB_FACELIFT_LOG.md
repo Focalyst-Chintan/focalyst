@@ -15,6 +15,11 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | § | What the spec said | What we do now | Status | Entry |
 |---|---|---|---|---|
 | **All** | Section 10 describes new layouts, orders and sets of elements per screen | **Reskin, not relayout.** Each phone screen keeps its original structure, section order, content, components and what is shown or hidden. Only the visual layer changes (colours, gradients, glass, glow, type, radii, spacing values, icons, chips, press and motion). Where section 10 describes a different layout, only its visual treatment is taken. Filtering, sorting and conditional rendering of data are logic | Sohan refinement | 016 |
+| 10.1 | Plan: greeting + subhead line, segmented control, sections | Original Plan order restored: greeting, Today/Calendar, then the date block (big day and month, weekday, events link), To-do list, Habits; Calendar inside its card. Greeting in `title-2` serif | Sohan refinement | 019 |
+| 10.1 | To-do shows every task | Completed tasks are hidden on screen (display-only; the loaded list and its order are untouched). Count chip shows the pending count. With nothing pending, the original "No tasks yet…" line and the dashed Add task row | Sohan refinement | 019 |
+| 7.10 | Task row min height 60, padding 14/16, 2-line title | Min height 56, padding 12/14, gap 8; title one line with ellipsis, priority chip 22 on the same line, tags as a slim `#tag` line only when present; drag handle kept (the original showed it) | Sohan refinement | 019 |
+| 7.10 | Habit row: tile · name · streak · check | Original order restored: check (24) · emoji · name (struck through when done) · streak chip "Nd streak" · more; expanded view keeps the original two-column Completion / Average layout | Sohan refinement | 019 |
+| 7.6 | Selected segment `grad-primary` with glow inside a glass track | Thumb fills its segment edge to edge (no inset, no ring), track is a subtle tint with no border, glow only 0 4px 12–14px −2px rgba(25,81,252,0.30 light / 0.45 dark) | Sohan refinement | 019 |
 | 7.2 | Active tab: 44-high pill behind icon and label, slides | Pill is centred on its tab: same size on every tab (tab width minus 8, height 44), vertically centred with insets (no transform offset), slides by exactly one tab. No focus ring on tap; a ring only for keyboard focus (`:focus-visible`) | bug fix | 018 |
 | 2.2 | `canvas` #060A1A dark / #F5F8FF light | Web `--canvas` #05070F / #F4F6FB | web wins | 002 |
 | 2.2 | `ink` #F4F7FF / #0A1033, `ink-2` #B7C0D8 / #3D4566 | Web `--ink` #F2F5FF / #0A1022, `--ink-2` #A3ADC8 / #4B5675 | web wins | 002 |
@@ -308,3 +313,17 @@ Why: The pill had both Tailwind's `-translate-y-1/2` (the CSS `translate` proper
 Exact values: pill `inset-y-0 my-auto`, height 44, left 10 px, width = (bar inner width − 12) / 5 − 8, `translateX(i × (100% + 8px))`, 280 ms spring curve; tab links get `mx-1` so they match the pill; `.m-press:focus { outline: none }`, ring only on `:focus-visible` (2 px canvas gap, 4 px `--ring`).
 Port to native: yes
 Native instruction: §7.2: centre the active pill on its tab with equal insets (tab width − 8, height 44); never show a focus outline after a tap.
+
+## Entry 019 · Correction round 1 · 2026-10-31
+Type: Sohan refinement
+What changed: Plan tab reskinned on its original layout (base 3332763). `plan/page.tsx`: greeting, Today/Calendar control, date block with the events link, To-do, Habits, Calendar in a card (the subhead line I had added is gone). `TodoList`: original header, list and add button positions; completed tasks hidden; pending count chip. `HabitList`: original header without a count. `HabitRow`: original order and expanded layout. `TaskMenu`: trigger keeps a 44 target but takes no extra row height (−8 vertical margin). Segmented control restyled (all uses: Plan, Focus by day, paywall).
+Why: Reskin, not relayout (entry 016); rows were too tall, habits sat too far down, completed tasks crowded the list, the count showed 100.
+Exact values:
+- Completed tasks: the base commit listed them (struck through) in the to-do list. They are now hidden by a display-only filter: every row is still rendered with `hidden` when `is_completed`, so the drag and touch reorder (which counts `[data-task-row]` elements by position) keeps matching the loaded `tasks` array. No query changed.
+- Count chip: pending tasks (`!is_completed`). The base had no count chip.
+- Rows: min height 56, padding 12 / 14 (10 on the handle side), gap 8, checkbox 24, title `callout` 600 one line, priority chip 22 tall (the base had no priority chip; added on request), tags `caption` in `primary-text`.
+- Habit row: min height 56, same paddings, streak chip 24 tall.
+- Date block: day 42 Inter 600 tabular, month 42 Inter 300 in `ink-2`, weekday `footnote`.
+- Segmented control: height 40, track `--m-seg-track` (rgba(3,25,91,0.06) light / rgba(255,255,255,0.06) dark), no border, thumb `grad-primary` edge to edge.
+Port to native: adapt
+Native instruction: §10.1: keep the existing Plan order and the big date block; hide completed tasks from the to-do list on screen only; rows 56 min height with one-line titles. §7.6: segmented thumb fills the segment edge to edge with a soft glow, no ring.

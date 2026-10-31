@@ -29,7 +29,7 @@ export function SegmentedControl<T extends string>({
             <span
                 aria-hidden
                 className="m-seg-thumb"
-                style={{ width: `calc((100% - 6px) / ${options.length})`, transform: `translateX(${index * 100}%)` }}
+                style={{ width: `calc(100% / ${options.length})`, transform: `translateX(${index * 100}%)` }}
             />
             {options.map((o) => (
                 <button

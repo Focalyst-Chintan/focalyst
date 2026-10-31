@@ -120,24 +120,12 @@ function MobilePlanContent() {
                     </button>
                 </div>
             )}
-            <h1 className="m-display text-ink m-clamp-2">
+            <h1 className="m-title-2 text-ink m-clamp-2">
                 {t(`plan.${greetingKey}`)}, {userName}
             </h1>
-            <p className="m-subhead text-ink-2 mt-1.5 flex items-center gap-1.5 flex-wrap">
-                <span>{date.weekday}, {date.day} {date.month}</span>
-                <span aria-hidden>·</span>
-                <button
-                    onClick={() => setActiveTab('calendar')}
-                    className="text-ink-2 hover:text-ink underline-offset-4 hover:underline min-h-11 -my-3"
-                >
-                    {eventCount === 0
-                        ? t('plan.noEvents')
-                        : `${eventCount} ${t(eventCount > 1 ? 'plan.events' : 'plan.event')}`}
-                </button>
-            </p>
 
             <SegmentedControl
-                className="mt-5 mb-7"
+                className="mt-3 mb-4 max-w-[260px]"
                 label="Plan view"
                 value={activeTab}
                 onSelect={setActiveTab}
@@ -149,12 +137,30 @@ function MobilePlanContent() {
 
             {activeTab === 'today' ? (
                 <>
+                    <div className="flex items-baseline justify-between mb-5">
+                        <div>
+                            <span className="m-stat-l !text-[42px] !leading-none text-ink">{date.day}</span>
+                            <span className="m-sans text-[42px] leading-none font-light text-ink-2 ml-1">{date.month}</span>
+                            <p className="m-footnote text-ink-2 mt-1">{date.weekday}</p>
+                        </div>
+                        <button
+                            onClick={() => setActiveTab('calendar')}
+                            className="m-press m-footnote text-ink-2 hover:text-ink hover:underline underline-offset-4 min-h-11 px-1 -mr-1"
+                        >
+                            {eventCount === 0
+                                ? t('plan.noEvents')
+                                : `${eventCount} ${t(eventCount > 1 ? 'plan.events' : 'plan.event')}`}
+                        </button>
+                    </div>
+
                     <TodoList />
-                    <div className="h-7" />
+                    <div className="h-6" />
                     <HabitList />
                 </>
             ) : (
-                <CalendarView />
+                <div className="m-glass p-4">
+                    <CalendarView />
+                </div>
             )}
         </div>
         </>

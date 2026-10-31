@@ -7,7 +7,7 @@ import { usePlan } from '@/context/PlanContext'
 import TaskMenu from './TaskMenu'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
 import { GripVertical, Plus } from 'lucide-react'
-import { MCheckbox, SectionHeader, StatusChip } from '@/components/mobile/ui'
+import { MCheckbox, StatusChip } from '@/components/mobile/ui'
 
 export default function TodoList() {
     const { tasks, loading, error, updateTask, deleteTask, reorderTasks, refreshData } = usePlan()
@@ -97,9 +97,16 @@ export default function TodoList() {
         ? t('plan.errorLoading')
         : error
 
+    // Display only: completed tasks stay in `tasks` (and in the DOM, hidden) so the drag and
+    // touch reorder indices still line up with the loaded list; they are just not shown.
+    const pendingCount = tasks.filter((task) => !task.is_completed).length
+
     return (
-        <section aria-labelledby="todo-heading">
-            <SectionHeader label={<span id="todo-heading">{t('plan.todo')}</span>} count={loading ? undefined : tasks.length} />
+        <section>
+            <div className="flex items-center gap-2 mb-2">
+                <h2 className="m-overline text-ink-2">{t('plan.todo')}</h2>
+                {!loading && <span className="m-chip m-chip-neutral !h-[22px] !px-2 !text-[12px]">{pendingCount}</span>}
+            </div>
 
             {/* Loading skeleton */}
             {loading && <LoadingSkeleton rows={3} type="task" />}
@@ -110,12 +117,12 @@ export default function TodoList() {
             {/* Task list */}
             {!loading && (
                 <div className="flex flex-col gap-2">
-                    {tasks.length === 0 ? (
-                        <p className="m-footnote text-ink-2 py-2">
+                    {pendingCount === 0 ? (
+                        <p className="m-footnote text-ink-2 py-1">
                             {t('plan.noTasks')}
                         </p>
-                    ) : (
-                        tasks.map((task, index) => (
+                    ) : null}
+                    {tasks.map((task, index) => (
                             <div
                                 key={task.id}
                                 data-task-row
@@ -127,8 +134,8 @@ export default function TodoList() {
                                 onTouchStart={(e) => handleTouchStart(index, e)}
                                 onTouchMove={handleTouchMove}
                                 onTouchEnd={handleTouchEnd}
-                                className={`m-glass m-glass-md flex items-center gap-3 min-h-[60px] py-3.5 pl-2 pr-4 cursor-grab active:cursor-grabbing transition-[transform,opacity] duration-[120ms] ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : task.is_completed ? 'opacity-70' : 'opacity-100'
-                                    } ${openMenuId === task.id ? 'z-50' : 'z-10'}`}
+                                className={`m-glass m-glass-md flex items-center gap-2.5 min-h-[56px] py-3 pl-2.5 pr-3.5 cursor-grab active:cursor-grabbing transition-[transform,opacity] duration-[120ms] ${draggingIdx === index ? 'opacity-50 scale-[0.97]' : 'opacity-100'
+                                    } ${openMenuId === task.id ? 'z-50' : 'z-10'} ${task.is_completed ? 'hidden' : ''}`}
                             >
                                 {/* Drag handle */}
                                 <span className="shrink-0 text-ink-3 touch-none" aria-hidden>
@@ -142,19 +149,21 @@ export default function TodoList() {
                                     label={task.is_completed ? 'Mark incomplete' : 'Mark complete'}
                                 />
 
-                                {/* Title + meta */}
+                                {/* Title + Tags */}
                                 <div className="flex-1 min-w-0">
-                                    <span className={`m-headline block m-clamp-2 break-words ${task.is_completed ? 'text-ink-2 line-through' : 'text-ink'
-                                        }`}>
-                                        {task.title}
-                                    </span>
-                                    {(task.priority || task.tags.length > 0) && (
-                                        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                                            {task.priority && (
-                                                <StatusChip kind={task.priority} className="!h-6 !text-[12px]">{priorityLabel(task.priority)}</StatusChip>
-                                            )}
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <span className={`m-callout !font-semibold block truncate min-w-0 ${task.is_completed ? 'text-ink-2 line-through' : 'text-ink'
+                                            }`}>
+                                            {task.title}
+                                        </span>
+                                        {task.priority && (
+                                            <StatusChip kind={task.priority} className="!h-[22px] !px-2 !text-[12px] shrink-0">{priorityLabel(task.priority)}</StatusChip>
+                                        )}
+                                    </div>
+                                    {task.tags.length > 0 && (
+                                        <div className="flex gap-1.5 mt-0.5 flex-wrap">
                                             {task.tags.map((tag) => (
-                                                <span key={tag} className="m-footnote text-ink-2">#{tag}</span>
+                                                <span key={tag} className="m-caption text-primary-text">#{tag}</span>
                                             ))}
                                         </div>
                                     )}
@@ -169,8 +178,7 @@ export default function TodoList() {
                                     onOpenChange={(isOpen) => setOpenMenuId(isOpen ? task.id : null)}
                                 />
                             </div>
-                        ))
-                    )}
+                        ))}
                 </div>
             )}
 

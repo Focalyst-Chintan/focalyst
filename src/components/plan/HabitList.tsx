@@ -6,7 +6,6 @@ import { usePlan } from '@/context/PlanContext'
 import LoadingSkeleton, { ErrorCard } from './LoadingSkeleton'
 import HabitRow from './HabitRow'
 import { Plus } from 'lucide-react'
-import { SectionHeader } from '@/components/mobile/ui'
 
 export default function HabitList() {
     const { habits, loading, error, updateHabit, deleteHabit, refreshData } = usePlan()
@@ -33,8 +32,8 @@ export default function HabitList() {
         : error
 
     return (
-        <section aria-labelledby="habits-heading">
-            <SectionHeader label={<span id="habits-heading">{t('plan.habits')}</span>} count={loading ? undefined : habits.length} />
+        <section>
+            <h2 className="m-overline text-ink-2 mb-2">{t('plan.habits')}</h2>
 
             {/* Loading skeleton */}
             {loading && <LoadingSkeleton rows={2} type="habit" />}
@@ -46,7 +45,7 @@ export default function HabitList() {
             {!loading && (
                 <div className="flex flex-col gap-2">
                     {habits.length === 0 ? (
-                        <p className="m-footnote text-ink-2 py-2">
+                        <p className="m-footnote text-ink-2 py-1">
                             {t('plan.noHabits')}
                         </p>
                     ) : (
