@@ -4,6 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { BlogPost } from '@/lib/blog/source';
+import TypographicCover from './TypographicCover';
 
 export default function PostCard({ post }: { post: BlogPost }) {
   return (
@@ -17,7 +18,11 @@ export default function PostCard({ post }: { post: BlogPost }) {
             className="object-cover transition-transform duration-300 group-hover:scale-105"
           />
         </div>
-      ) : null}
+      ) : (
+        <Link href={`/blog/${post.slug}`} tabIndex={-1}>
+          <TypographicCover title={post.title} pillar={post.pillar} size="card" />
+        </Link>
+      )}
       <div className="flex flex-1 flex-col p-6">
         <div className="flex items-center gap-2 text-[12px] text-ink-3">
           <span>{post.publishedAt}</span>

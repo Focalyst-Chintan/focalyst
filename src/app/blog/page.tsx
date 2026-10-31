@@ -3,6 +3,12 @@ import PublicLayout from '@/components/desktop/public/PublicLayout';
 import KitWaitlist from '@/components/desktop/mcp/KitWaitlist';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { breadcrumb } from '@/lib/seo/schema';
+import FeaturedPostCard from '@/components/desktop/blog/FeaturedPostCard';
+import PostCard from '@/components/desktop/blog/PostCard';
+import PillarChips from '@/components/desktop/blog/PillarChips';
+import { getPosts } from '@/lib/blog/source';
+
+export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: 'Blog',
@@ -10,6 +16,7 @@ export const metadata: Metadata = {
     'Ideas on focus, habits and productivity from the Focalyst team.',
   alternates: {
     canonical: 'https://focalyst.online/blog',
+    types: { 'application/rss+xml': 'https://focalyst.online/blog/rss.xml' },
   },
   openGraph: {
     title: 'Blog | Focalyst',
@@ -19,15 +26,9 @@ export const metadata: Metadata = {
   },
 };
 
-const TOPICS = [
-  'Focus',
-  'Habits',
-  'Study systems',
-  'Deep work',
-  'Behaviour science',
-];
-
-export default function BlogPage() {
+export default async function BlogPage() {
+  const { posts } = await getPosts({ limit: 25 });
+  const [featured, ...rest] = posts;
   const breadcrumbData = breadcrumb([
     { name: 'Focalyst', path: '/' },
     { name: 'Blog', path: '/blog' },
@@ -51,37 +52,39 @@ export default function BlogPage() {
           </p>
         </section>
 
-        {/* Empty State Glass Card */}
-        <section
-          className="fx-reveal glass liquid mx-auto mt-12 max-w-[680px] rounded-[28px] p-8 text-center md:p-12"
-          style={{ ['--fx-delay' as string]: '80ms' }}
-        >
-          <h2 className="font-display text-[32px] leading-tight text-ink">
-            First posts are on the way.
-          </h2>
-          <p className="mx-auto mb-6 mt-2 max-w-[500px] text-[15px] leading-[24px] text-ink-2">
-            Thoughtful, practical writing on doing deep work in a distracted world. Be the first to read it.
-          </p>
-          <div className="mx-auto max-w-[480px]">
-            <KitWaitlist buttonLabel="Notify me" />
-          </div>
-        </section>
-
-        {/* Topics Row */}
-        <div
-          className="fx-reveal mt-8 flex flex-wrap items-center justify-center gap-2"
-          style={{ ['--fx-delay' as string]: '160ms' }}
-        >
-          <span className="mr-2 text-[12px] text-ink-3">Topics coming soon</span>
-          {TOPICS.map((topic) => (
-            <span
-              key={topic}
-              className="frost rounded-full px-3 py-1 text-[12px] font-medium text-ink-2"
-            >
-              {topic}
-            </span>
-          ))}
+        <div className="fx-reveal mt-8" style={{ ['--fx-delay' as string]: '60ms' }}>
+          <PillarChips />
         </div>
+
+        {featured ? (
+          <>
+            <div className="fx-reveal mt-12" style={{ ['--fx-delay' as string]: '120ms' }}>
+              <FeaturedPostCard post={featured} />
+            </div>
+            {rest.length ? (
+              <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {rest.map((post) => (
+                  <PostCard key={post.slug} post={post} />
+                ))}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <section
+            className="fx-reveal glass liquid mx-auto mt-12 max-w-[680px] rounded-[28px] p-8 text-center md:p-12"
+            style={{ ['--fx-delay' as string]: '120ms' }}
+          >
+            <h2 className="font-display text-[32px] leading-tight text-ink">
+              First posts are on the way.
+            </h2>
+            <p className="mx-auto mb-6 mt-2 max-w-[500px] text-[15px] leading-[24px] text-ink-2">
+              Thoughtful, practical writing on doing deep work in a distracted world. Be the first to read it.
+            </p>
+            <div className="mx-auto max-w-[480px]">
+              <KitWaitlist buttonLabel="Notify me" />
+            </div>
+          </section>
+        )}
       </div>
     </PublicLayout>
   );

@@ -18,6 +18,9 @@ const PRIVATE = [
   '/auth/',
 ];
 
+// Public pages the AI crawlers are explicitly allowed to read
+const AI_ALLOW = ['/', '/blog', '/guides', '/app'];
+
 const AI_BOTS = [
   'OAI-SearchBot',
   'ChatGPT-User',
@@ -37,7 +40,7 @@ export default function robots(): MetadataRoute.Robots {
   return {
     rules: [
       { userAgent: '*', allow: '/', disallow: PRIVATE },
-      ...AI_BOTS.map((userAgent) => ({ userAgent, allow: '/', disallow: PRIVATE })),
+      ...AI_BOTS.map((userAgent) => ({ userAgent, allow: AI_ALLOW, disallow: PRIVATE })),
     ],
     sitemap: 'https://focalyst.online/sitemap.xml',
     host: 'https://focalyst.online',

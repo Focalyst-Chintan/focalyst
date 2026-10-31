@@ -4,10 +4,13 @@ const { execSync } = require('child_process');
 
 const root = path.join(__dirname, '..');
 const appDir = path.join(root, 'src', 'app');
-const apiDir = path.join(appDir, 'api');
-const authDir = path.join(appDir, 'auth');
-const apiBackup = path.join(root, 'api_backup');
-const authBackup = path.join(root, 'auth_backup');
+// Web-only routes, hidden from the static export: API and auth handlers, and the
+// blog (database-backed, ISR, web only) plus llms.txt, which lists blog posts
+const WEB_ONLY = ['api', 'auth', 'blog', 'llms.txt'].map((name) => ({
+  name,
+  dir: path.join(appDir, name),
+  backup: path.join(root, `${name.replace('.', '_')}_backup`),
+}));
 
 // Check if we are running in Vercel production environment
 if (process.env.VERCEL === '1') {
@@ -21,20 +24,16 @@ if (process.env.VERCEL === '1') {
   }
 } else {
   console.log('--- Local Mobile Build for Capacitor detected ---');
-  let apiRenamed = false;
-  let authRenamed = false;
+  const hidden = [];
 
   try {
-    // 1. Rename API and Auth folders so they are not statically parsed by next build
-    if (fs.existsSync(apiDir)) {
-      console.log('Hiding API routes directory...');
-      fs.renameSync(apiDir, apiBackup);
-      apiRenamed = true;
-    }
-    if (fs.existsSync(authDir)) {
-      console.log('Hiding Auth route handler directory...');
-      fs.renameSync(authDir, authBackup);
-      authRenamed = true;
+    // 1. Rename web-only folders so they are not statically parsed by next build
+    for (const route of WEB_ONLY) {
+      if (fs.existsSync(route.dir)) {
+        console.log(`Hiding ${route.name} route directory...`);
+        fs.renameSync(route.dir, route.backup);
+        hidden.push(route);
+      }
     }
 
     // 2. Set EXPORT_MOBILE=true to force static export in next.config.ts
@@ -52,13 +51,11 @@ if (process.env.VERCEL === '1') {
   } finally {
     // 3. Always restore directories to maintain workspace integrity
     console.log('Restoring project directory structure...');
-    if (apiRenamed && fs.existsSync(apiBackup)) {
-      fs.renameSync(apiBackup, apiDir);
-      console.log('Restored API directory.');
-    }
-    if (authRenamed && fs.existsSync(authBackup)) {
-      fs.renameSync(authBackup, authDir);
-      console.log('Restored Auth directory.');
+    for (const route of hidden) {
+      if (fs.existsSync(route.backup)) {
+        fs.renameSync(route.backup, route.dir);
+        console.log(`Restored ${route.name} directory.`);
+      }
     }
   }
 }

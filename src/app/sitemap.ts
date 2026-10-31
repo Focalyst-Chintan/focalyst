@@ -1,9 +1,11 @@
 import type { MetadataRoute } from 'next';
 import { GUIDES } from '@/content/guides';
+import { getAllSlugs } from '@/lib/blog/source';
+import { PILLAR_KEYS } from '@/lib/blog/constants';
 
-export const dynamic = 'force-static';
+export const revalidate = 3600;
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const routes = [
     { path: '', changeFrequency: 'weekly' as const, priority: 1 },
     { path: '/app', changeFrequency: 'weekly' as const, priority: 0.9 },
@@ -36,6 +38,23 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
   ];
 
+  // Focalyst Journal: every published post and every topic hub
+  const posts = await getAllSlugs();
+  const journal: MetadataRoute.Sitemap = [
+    ...PILLAR_KEYS.map((pillar) => ({
+      url: `https://focalyst.online/blog/topics/${pillar}`,
+      lastModified: new Date(posts.find((p) => p.pillar === pillar)?.updatedIso ?? now),
+      changeFrequency: 'daily' as const,
+      priority: 0.6,
+    })),
+    ...posts.map((p) => ({
+      url: `https://focalyst.online/blog/${p.slug}`,
+      lastModified: new Date(p.updatedIso),
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
+  ];
+
   return [
     ...routes.map((r) => ({
       url: `https://focalyst.online${r.path}`,
@@ -44,5 +63,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: r.priority,
     })),
     ...guides,
+    ...journal,
   ];
 }
