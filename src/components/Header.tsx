@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
-import { UserAccountIcon, AIChatIcon } from '@/components/icons'
+import { Sparkles } from 'lucide-react'
+import { useScrolledPast } from '@/components/mobile/hooks'
 import { useChat } from '@/context/ChatContext'
 import { useAuth } from '@/context/AuthContext'
 
@@ -13,6 +14,7 @@ export default function Header() {
     const { user } = useAuth()
     const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const supabase = createClient()
+    const scrolled = useScrolledPast(8)
 
     useEffect(() => {
         async function fetchProfile() {
@@ -30,54 +32,50 @@ export default function Header() {
         fetchProfile()
     }, [user, supabase])
 
+    const initial = (user?.user_metadata?.full_name || user?.email || '?').trim().charAt(0).toUpperCase()
+
     return (
-        <header 
-            style={{ 
-                paddingTop: 'env(safe-area-inset-top)',
-                height: 'calc(56px + env(safe-area-inset-top))',
-                backgroundColor: '#FAF8F5',
-                borderBottomColor: '#EAE3D9',
-            }}
-            className="sticky top-0 z-[60] flex items-center justify-between px-5 border-b transition-colors duration-300"
+        <header
+            className={`sticky top-0 z-[60] flex items-center justify-between px-5 h-[calc(56px+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] border-b transition-[background-color,border-color,backdrop-filter] duration-150 ${
+                scrolled ? 'm-blur border-line' : 'bg-transparent border-transparent'
+            }`}
         >
-            <Link 
-                href="/account" 
-                aria-label="Account" 
-                className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center transition-colors"
-                style={{ backgroundColor: '#EAE3D9' }}
+            <Link
+                href="/account"
+                aria-label="Account"
+                className="m-press w-11 h-11 -ml-1 flex items-center justify-center rounded-full"
             >
-                {avatarUrl ? (
-                    <Image
-                        src={avatarUrl}
-                        alt="Profile"
-                        width={32}
-                        height={32}
-                        sizes="32px"
-                        className="w-full h-full object-cover"
-                    />
-                ) : (
-                    <UserAccountIcon size={28} color="#3D2E20" />
-                )}
+                <span className="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center bg-[image:var(--m-grad-primary)] text-snow text-[15px] font-semibold ring-1 ring-line">
+                    {avatarUrl ? (
+                        <Image
+                            src={avatarUrl}
+                            alt="Profile"
+                            width={36}
+                            height={36}
+                            sizes="36px"
+                            className="w-full h-full object-cover"
+                        />
+                    ) : (
+                        <span aria-hidden>{initial}</span>
+                    )}
+                </span>
             </Link>
 
-            <div className="flex items-center justify-center">
-                <Link href="/app" className="cursor-pointer">
-                    <span 
-                        className="font-bold text-[18px] tracking-[0.2em] transition-colors"
-                        style={{ color: '#3D2E20' }}
-                    >
-                        FOCALYST
-                    </span>
-                </Link>
-            </div>
+            <Link href="/app" className="m-press flex items-center justify-center min-h-11 px-2">
+                <span className="font-ui font-semibold text-[15px] tracking-[0.35em] mr-[-0.35em] text-ink">
+                    FOCALYST
+                </span>
+            </Link>
 
-            <button 
-                onClick={openChat} 
-                aria-label="AI Chat" 
-                className="hover:opacity-80 transition-opacity"
-                style={{ color: '#3D2E20' }}
+            <button
+                type="button"
+                onClick={openChat}
+                aria-label="Ask Focalyst AI"
+                className="m-press w-11 h-11 -mr-1 flex items-center justify-center rounded-full"
             >
-                <AIChatIcon size={28} color="currentColor" />
+                <span className="w-10 h-10 rounded-[12px] flex items-center justify-center bg-[var(--m-ai-bg)] text-[var(--m-ai-fg)] border border-[var(--m-ai-border)]">
+                    <Sparkles size={20} strokeWidth={1.75} aria-hidden />
+                </span>
             </button>
         </header>
     )

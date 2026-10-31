@@ -32,6 +32,11 @@ Grouped by the `MOBILE_DESIGN_FACELIFT.md` section each row changes. Status: **w
 | 7.15 | Shimmer sweep rgba(255,255,255,0.06) | Same in dark; light uses rgba(3,25,91,0.05) (a white sweep is invisible on white) | amended | 005 |
 | 9.1 | Durations 120 / 200 / 280 / 450; desktop uses 140 / 220 / 420 | Spec durations on the phone; spring approximated as cubic-bezier(0.32, 1.25, 0.5, 1) | kept + web-only | 006 |
 | 3.2 | `overline` uppercase; unslop says sentence case labels | Kept uppercase as spec 3 says (source text stays sentence case) | kept | 006 |
+| 7.1 | Wordmark "exactly as now" with 0.35em tracking | Inter 600, 15 px, tracking 0.35em, `ink` (the web header used 18 px bold at 0.2em in a beige bar) | amended | 008 |
+| 7.1 | Avatar: photo or initial on `grad-primary` | Same; the initial is the first letter of the account's full name, else the email | gap | 008 |
+| 7.2 | Tab icons: lucide, inactive `ink-3` | Lucide `CalendarCheck2`, `Timer`, `NotebookPen`, `ChartColumn` (the desktop sidebar's icons); inactive icon and label use `ink-2` because `ink-3` text fails contrast | web wins | 008 |
+| 7.2 | Add button: same action as now | Same action; the plus turns 45° while the add menu is open, and the menu is a glass bar above the tab bar | amended | 008 |
+| 7.2 | (silent) | Tab bar hides while the on-screen keyboard is open (slides down 280 ms) | gap | 008 |
 | 9.1 | easing cubic-bezier(0.2, 0.8, 0.2, 1) | Web `--ease` cubic-bezier(0.22, 1, 0.36, 1) | web wins | 002 |
 | 10 | Screens listed in 10.1 to 10.11 | Web phone has extra screens (Groups, Guides, AI connections, Starting report, XP level card, group leaderboard) that get the same tokens; spec items with no web data are skipped, not invented (see entry 004) | gap | 004 |
 
@@ -96,3 +101,17 @@ Why: Spec 7, built once and reused by every phase.
 Exact values: press = scale 0.97, opacity 0.92, 120 ms; hover styles only under `@media (hover: hover)`; tap highlight off. Stepper: long press repeats every 120 ms after 400 ms; the value stays a text field so typing still works; buttons call the screen's existing setter. Switch and checkbox get an invisible 44 px hit area.
 Port to native: no
 Native instruction: none; the native app builds its own `src/ui/`.
+
+## Entry 008 · Phase W2 · 2026-10-31
+Type: spec as written
+What changed: Phone shell. Header (`src/components/Header.tsx`), floating tab bar (`BottomNav.tsx`), add menu (`QuickAddMenu.tsx`), scroll inset in `(app)/layout.tsx`. UI-only hooks in `src/components/mobile/hooks.ts`.
+Why: Spec 7.1, 7.2, 4 (scroll insets).
+Exact values:
+- Header: 56 + top safe area, transparent until the page scrolls past 8 px, then real blur with a 1 px `line` bottom border (150 ms). Avatar 36 in a 44 hit area, initial on `grad-primary`. Wordmark Inter 600, 15 px, tracking 0.35em. AI button 40 × 40, radius 12, `Sparkles` 20 (light: #CBE9FD fill, #1951FC icon; dark: rgba(203,233,253,0.14) fill, `line-strong` border, #CBE9FD icon), label "Ask Focalyst AI", same `openChat` handler.
+- Tab bar: glass pill, height 64, inset 16, bottom = safe area + 8, real blur. Five equal columns. Active tab: 44-high `surface-strong` pill that slides between tabs (280 ms spring curve), icon and label in `ink`; inactive in `ink-2`. Icons 22, stroke 1.75; labels `caption`.
+- Add: 52 circle, `grad-primary`, white plus 24, raised 6, glow (dark) or soft shadow (light). Same toggle handler. Plus rotates 45° while the menu is open.
+- Add menu: glass bar 88 above the bottom safe area, radius 28, three 48 icon tiles (Task, Session, Note) with captions; backdrop rgba(3,9,30,0.40). Same actions.
+- Keyboard: while a text field has focus and the visible height drops by more than 150 px, the tab bar slides down and fades (280 ms).
+- Scroll inset: page bottom padding = 64 + 8 + 24 = 96 px + bottom safe area.
+Port to native: adapt
+Native instruction: §7.2: inactive tab icon and label use ink-2, not ink-3; the Add plus rotates 45° while its menu is open; hide the tab bar while the keyboard is up.

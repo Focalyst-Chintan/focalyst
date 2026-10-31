@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { NewTaskIcon, NewSessionIcon, NewNoteIcon } from '@/components/icons'
+import { ListTodo, NotebookPen, Timer } from 'lucide-react'
 
 interface QuickAddMenuProps {
     open: boolean
@@ -9,9 +9,9 @@ interface QuickAddMenuProps {
 }
 
 const ACTIONS = [
-    { href: '/plan/new-task', label: 'Task', Icon: NewTaskIcon },
-    { href: '/focus', label: 'Session', Icon: NewSessionIcon },
-    { href: '/notes/new', label: 'Note', Icon: NewNoteIcon },
+    { href: '/plan/new-task', label: 'Task', Icon: ListTodo },
+    { href: '/focus', label: 'Session', Icon: Timer },
+    { href: '/notes/new', label: 'Note', Icon: NotebookPen },
 ]
 
 export default function QuickAddMenu({ open, onClose }: QuickAddMenuProps) {
@@ -35,22 +35,26 @@ export default function QuickAddMenu({ open, onClose }: QuickAddMenuProps) {
         <>
             {/* Backdrop */}
             <div
-                className="fixed inset-0 z-50 bg-black/20"
+                className="fixed inset-0 z-50 bg-[rgba(3,9,30,0.40)] animate-[m-fade_200ms_ease-out_both]"
                 onClick={onClose}
             />
 
-            {/* Floating capsule */}
-            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 bg-navy rounded-full px-6 py-3 flex items-center gap-6 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-200">
+            {/* Glass menu above the tab bar */}
+            <div
+                role="menu"
+                className="fixed left-1/2 -translate-x-1/2 bottom-[calc(env(safe-area-inset-bottom)+88px)] z-50 m-blur border border-line rounded-[28px] p-2 flex items-center gap-1 shadow-[var(--m-glow)] animate-[m-rise_200ms_var(--ease)_both]"
+            >
                 {ACTIONS.map((action) => (
                     <button
                         key={action.label}
+                        role="menuitem"
                         onClick={(e) => handleAction(action, e)}
-                        className="flex flex-col items-center gap-1.5 active:scale-95 transition-transform cursor-pointer border-none bg-transparent outline-none p-0"
+                        className="m-press flex flex-col items-center gap-1.5 w-[84px] py-2 rounded-[20px] cursor-pointer border-none bg-transparent outline-none"
                     >
-                        <div className="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center">
-                            <action.Icon size={28} color="#FFFFFF" />
-                        </div>
-                        <span className="text-white text-[11px] font-medium">
+                        <span className="w-12 h-12 rounded-[14px] bg-[var(--m-surface-strong)] border border-line flex items-center justify-center text-primary-text">
+                            <action.Icon size={24} strokeWidth={1.75} aria-hidden />
+                        </span>
+                        <span className="m-caption text-ink">
                             {action.label}
                         </span>
                     </button>
