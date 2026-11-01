@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/utils/supabase';
+import { ContentColumn } from '../../src/layout/adaptive';
 
 export default function NameScreen() {
   const router = useRouter();
@@ -76,6 +77,7 @@ export default function NameScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <ContentColumn style={{ flex: 1 }}>
       <StatusBar style="dark" />
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <KeyboardAvoidingView
@@ -131,6 +133,7 @@ export default function NameScreen() {
           </View>
         </KeyboardAvoidingView>
       </TouchableWithoutFeedback>
+      </ContentColumn>
     </SafeAreaView>
   );
 }

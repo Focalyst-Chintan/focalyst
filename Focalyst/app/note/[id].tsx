@@ -8,7 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Dimensions,
   DeviceEventEmitter,
   KeyboardAvoidingView,
   Platform,
@@ -27,6 +26,7 @@ import { RichEditor, RichToolbar, actions } from 'react-native-pell-rich-editor'
 import { debounce } from 'lodash';
 import NetInfo from '@react-native-community/netinfo';
 import { processTranscriptWithAI } from '../../services/voiceNoteAI';
+import { ContentColumn } from '../../src/layout/adaptive';
 
 function cleanContent(text: string): string {
   if (!text) return '';
@@ -163,7 +163,6 @@ const getMarkdownStyles = (isDarkMode: boolean) => ({
   },
 });
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── Brand colors ─────────────────────────────────────────────────────────
 const BRAND      = '#4a6c8c';
@@ -608,6 +607,7 @@ export default function NoteDetailScreen() {
 
   return (
     <SafeAreaView style={[styles.container, isDarkMode && { backgroundColor: '#0B1021' }]}>
+      <ContentColumn style={{ flex: 1 }}>
       <Stack.Screen options={{ headerShown: false }} />
       {/* Header */}
       <View style={[styles.header, isDarkMode && { backgroundColor: '#0B1021', borderBottomColor: '#222A41' }]}>
@@ -920,6 +920,7 @@ export default function NoteDetailScreen() {
           />
         </KeyboardAvoidingView>
       )}
+      </ContentColumn>
     </SafeAreaView>
   );
 }

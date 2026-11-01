@@ -92,7 +92,7 @@ export function ShortPause({ onDone }: Props) {
   };
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.root, { backgroundColor: c.bg }]}>
       <TopRow label="GENTLE" onClose={onDone} />
       <Animated.ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <ProgressRing size={120} stroke={10} progress={left / 5}>
@@ -174,7 +174,7 @@ export function MindfulUnlock({ onDone }: Props) {
 
   if (unlocksLeft <= 0) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.root, { backgroundColor: c.bg }]}>
         <TopRow label="FIRM · 0 UNLOCKS LEFT" onClose={onDone} />
         <View style={styles.center}>
           <IconCircle icon="hand-right-outline" size={64} />
@@ -215,7 +215,7 @@ export function MindfulUnlock({ onDone }: Props) {
   };
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.root, { backgroundColor: c.bg }]}>
       <TopRow label={`FIRM · ${leftCount} ${leftCount === 1 ? 'UNLOCK' : 'UNLOCKS'} LEFT`} onClose={onDone} />
       <Animated.ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Animated.View
@@ -350,7 +350,7 @@ export function LockedScreen({ onDone }: Props) {
   useEffect(() => stopHold, []);
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+    <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.root, { backgroundColor: c.bg }]}>
       <TopRow label="LOCKED MODE" onClose={onDone} />
       <View style={styles.center}>
         <IconCircle icon="lock-closed-outline" size={64} />

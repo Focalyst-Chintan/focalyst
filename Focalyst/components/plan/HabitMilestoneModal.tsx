@@ -5,7 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
+  useWindowDimensions,
   ActivityIndicator,
   Alert,
   Platform,
@@ -86,7 +86,7 @@ export default function HabitMilestoneModal({
   const [sharing, setSharing] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
 
   // Compute responsive card poster dimensions (9:16 story-friendly proportion)
   const cardWidth = Math.min(SCREEN_WIDTH - 44, 350);

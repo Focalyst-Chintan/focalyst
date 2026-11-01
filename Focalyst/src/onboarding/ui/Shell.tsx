@@ -13,6 +13,7 @@ import Animated, {
 import { ChevronLeft } from 'lucide-react-native';
 import { CHAPTER_COUNT } from '../steps';
 import { GUTTER, useOnboardingTheme } from './theme';
+import { useColumnStyle, useHorizontalInsetStyle } from '../../layout/adaptive';
 
 // Section 3.2: the shell around every onboarding screen.
 
@@ -49,8 +50,11 @@ export function OnboardingTopBar({
 }) {
   const t = useOnboardingTheme();
   const insets = useSafeAreaInsets();
+  const sideInsets = useHorizontalInsetStyle();
+  const column = useColumnStyle();
   return (
-    <View style={[styles.topBar, { marginTop: insets.top + 8 }]}>
+    <View style={sideInsets}>
+    <View style={[styles.topBar, { marginTop: insets.top + 8 }, column]}>
       <View style={styles.backSlot}>
         {onBack && (
           <Pressable
@@ -78,6 +82,7 @@ export function OnboardingTopBar({
         ))}
       </View>
       <View style={styles.backSlot} />
+    </View>
     </View>
   );
 }
@@ -121,6 +126,8 @@ export function StepLayout({
   centered?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const sideInsets = useHorizontalInsetStyle();
+  const column = useColumnStyle();
   const bottomPad = insets.bottom + 16;
   const pinned = !footerInline && !!footer;
 
@@ -129,6 +136,7 @@ export function StepLayout({
       style={styles.flex}
       contentContainerStyle={[
         styles.content,
+        column,
         centered && styles.centered,
         footerInline && { paddingBottom: bottomPad },
         // Keep resting content clear of the 32 pt fade.
@@ -143,7 +151,7 @@ export function StepLayout({
   );
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={[styles.flex, sideInsets]} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {pinned ? (
         // The content itself fades out above the pinned button, so the ambient background behind
         // it shows through untouched (painting a canvas-coloured fade left a visible band).
@@ -161,7 +169,7 @@ export function StepLayout({
       ) : (
         scroll
       )}
-      {pinned ? <View style={[styles.footer, { paddingBottom: bottomPad }]}>{footer}</View> : null}
+      {pinned ? <View style={[styles.footer, { paddingBottom: bottomPad }, column]}>{footer}</View> : null}
     </KeyboardAvoidingView>
   );
 }

@@ -21,6 +21,7 @@ import { useTranslation } from 'react-i18next';
 
 import { isReportWindowOpen, markReportDismissedThisWeek } from '../src/utils/reportUtils';
 import { supabase } from '../src/utils/supabase';
+import { useSheetFrame } from '../src/layout/adaptive';
 
 interface WeeklyReportSheetProps {
   isOpen: boolean;
@@ -49,6 +50,7 @@ export default function WeeklyReportSheet({
 }: WeeklyReportSheetProps) {
   const { t } = useTranslation();
   const bottomSheetRef = useRef<BottomSheet>(null);
+  const sheetFrame = useSheetFrame();
   const snapPoints = useMemo(() => ['85%', '95%'], []);
 
   useEffect(() => {
@@ -207,6 +209,7 @@ export default function WeeklyReportSheet({
       onChange={handleSheetChanges}
       enablePanDownToClose={true}
       backdropComponent={renderBackdrop}
+      style={sheetFrame}
       backgroundStyle={[styles.bottomSheetBg, isDarkMode && { backgroundColor: '#0B1021' }]}
       handleIndicatorStyle={[styles.bottomSheetIndicator, isDarkMode && { backgroundColor: '#222A41' }]}
     >

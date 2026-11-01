@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton } from './primitives';
 import { GUTTER, type, useOnboardingTheme } from './theme';
+import { useSheetFrame } from '../../layout/adaptive';
 
 // Section 8.6: how to add a Focalyst widget.
 
@@ -16,12 +17,14 @@ const STEPS = [
 export function WidgetHowToSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const t = useOnboardingTheme();
   const insets = useSafeAreaInsets();
+  const sheetFrame = useSheetFrame();
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose} accessibilityLabel="Close" accessibilityRole="button" />
       <View
         style={[
           styles.sheet,
+          sheetFrame,
           { backgroundColor: t.dark ? '#0E1428' : '#FFFFFF', paddingBottom: insets.bottom + 16, borderColor: t.surfaceBorder },
         ]}
         accessibilityViewIsModal

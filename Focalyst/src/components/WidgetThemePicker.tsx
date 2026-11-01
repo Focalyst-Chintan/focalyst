@@ -26,6 +26,8 @@ const PRESETS: {
   { id: 'amber', label: 'Amber Gold', sub: 'Morning Sun', topGlow: '#6B420D', bg: '#170F04', accent: '#F59E0B' },
 ];
 
+const GRID_GAP = 12;
+
 // Theme cards show their own background, so their text must contrast with it (Pure White is light).
 const isLightHex = (hex: string) => {
   const n = parseInt(hex.replace('#', ''), 16);
@@ -38,6 +40,13 @@ const isLightHex = (hex: string) => {
 export const WidgetThemePicker: React.FC = () => {
   const systemScheme = useColorScheme() === 'light' ? 'light' : 'dark';
   const [payload, setPayload] = useState(getWidgetPayload());
+  // Preview grid: 2 square cells per row on phones, 4 once the grid is wide (iPhone Duo open,
+  // iPad). Measured, so it follows resizes live; until measured the flex fallback below applies.
+  const [gridWidth, setGridWidth] = useState(0);
+  const gridCols = gridWidth >= 560 ? 4 : 2;
+  const cellStyle = gridWidth > 0
+    ? { width: Math.floor((gridWidth - GRID_GAP * (gridCols - 1)) / gridCols), flexGrow: 0, flexBasis: 'auto' as const }
+    : null;
 
   useEffect(() => {
     const unsub = subscribeToWidgetPayload(() => setPayload({ ...getWidgetPayload() }));
@@ -107,9 +116,15 @@ export const WidgetThemePicker: React.FC = () => {
       </ScrollView>
 
       {/* Live Interactive Widget Previews */}
-      <View style={styles.previewGrid}>
+      <View
+        style={styles.previewGrid}
+        onLayout={(e) => {
+          const w = Math.round(e.nativeEvent.layout.width);
+          if (w > 0 && w !== gridWidth) setGridWidth(w);
+        }}
+      >
         {/* 1. Streak Widget */}
-        <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
             <Text style={[styles.bandText, { color: primaryText }]}>🔥 {payload.habitName}</Text>
             <Text style={[styles.bandSub, { color: mutedText }]}>{payload.totalDays}d</Text>
@@ -124,7 +139,7 @@ export const WidgetThemePicker: React.FC = () => {
         </View>
 
         {/* 2. Heatmap Widget */}
-        <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
             <Text style={[styles.bandText, { color: primaryText }]}>Oct 2026</Text>
             <Text style={[styles.bandSub, { color: mutedText }]}>{payload.totalDays}d</Text>
@@ -146,7 +161,7 @@ export const WidgetThemePicker: React.FC = () => {
         </View>
 
         {/* 3. Interactive To-Do Widget */}
-        <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
             <Text style={[styles.bandText, { color: primaryText }]}>To-Do List</Text>
             <Text style={[styles.bandText, { color: accentColor }]}>
@@ -185,7 +200,7 @@ export const WidgetThemePicker: React.FC = () => {
         </View>
 
         {/* 4. Day Countdown Widget */}
-        <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg, flexDirection: 'column', alignItems: 'flex-start' }]}>
             <Text style={[styles.bandSub, { color: mutedText }]}>{(payload.countdown.title || 'AUDIT').toUpperCase()}</Text>
             <Text style={[styles.bandText, { color: primaryText, fontSize: 13 }]}>{`${Math.max(0, Math.floor(Math.max(0, new Date(payload.countdown.targetDateIso).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))} days left`}</Text>
@@ -199,7 +214,7 @@ export const WidgetThemePicker: React.FC = () => {
         </View>
 
         {/* 5. Interactive Pomodoro Widget */}
-        <View style={[styles.widgetBox, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
             <Text style={[styles.bandText, { color: primaryText }]}>{payload.pomodoro.taskLabel || 'Focus'}</Text>
             <Text style={[styles.bandSub, { color: mutedText }]}>
@@ -269,7 +284,7 @@ export const WidgetThemePicker: React.FC = () => {
                 ];
 
             return (
-              <View style={[styles.widgetBox, { backgroundColor: calPalette.bg }]}>
+              <View style={[styles.widgetBox, cellStyle, { backgroundColor: calPalette.bg }]}>
                 <View style={{ alignItems: 'flex-start', paddingLeft: 2 }}>
                   <Text style={[styles.calWeekday, { color: calPalette.weekdayColor }]}>
                     WEDNESDAY
@@ -357,7 +372,7 @@ const styles = StyleSheet.create({
   swatchTitle: { color: '#FFFFFF', fontSize: 11, fontWeight: '700' },
   swatchSub: { color: '#94A3B8', fontSize: 9, marginTop: 1 },
   // Two columns; every preview is a small widget, so each takes one square cell.
-  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  previewGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: GRID_GAP },
   widgetBox: {
     flexGrow: 1,
     flexBasis: '40%',

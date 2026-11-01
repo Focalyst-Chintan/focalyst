@@ -13,6 +13,7 @@ import {
   Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColumnStyle, useSheetFrame } from '../../src/layout/adaptive';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -58,6 +59,8 @@ export default function HabitForm({
   onRefresh,
 }: HabitFormProps) {
   const insets = useSafeAreaInsets();
+  const sheetFrame = useSheetFrame();
+  const column = useColumnStyle();
   const isEditing = !!editingHabit;
   const router = useRouter();
   const { profile } = useUser();
@@ -372,16 +375,16 @@ export default function HabitForm({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: theme.bg }]}>
+      <View style={[styles.modalContainer, { backgroundColor: theme.bg, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* Header */}
-        <View style={{
+        <View style={[column, {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingTop: Math.max(insets.top, 20) + 8,
           paddingBottom: 16,
           paddingHorizontal: 16,
-        }}>
+        }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity onPress={onClose} style={{ padding: 4 }} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
               <Ionicons name="chevron-back" size={26} color={theme.textPrimary || '#FFFFFF'} />
@@ -396,7 +399,7 @@ export default function HabitForm({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formWrapper}>
+        <View style={[styles.formWrapper, column]}>
           {/* Form Fields Container */}
           <ScrollView 
             contentContainerStyle={styles.scrollContent} 
@@ -655,7 +658,7 @@ export default function HabitForm({
                   onPress={() => setShowTimePicker(false)}
                 >
                   <View
-                    style={[styles.timePickerModalContainer, { backgroundColor: theme.cardBg }]}
+                    style={[styles.timePickerModalContainer, sheetFrame, { backgroundColor: theme.cardBg }]}
                     onStartShouldSetResponder={() => true}
                   >
                     <View style={styles.timePickerHeader}>

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColumnStyle } from '../../src/layout/adaptive';
 import { supabase } from '../../src/utils/supabase';
 import { getFirstName } from '../../src/utils/displayName';
 import TaskCard from '../../components/TaskCard';
@@ -170,6 +171,7 @@ function getRepeatLabel(repeatOpt: string, freq?: string | null, every?: number 
 export default function PlanTab() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const { user, profile } = useUser();
   const currentUserId = user?.id || profile?.id || '';
   // Follows the signed-in account directly, so a switch never shows the previous user's name.
@@ -2396,7 +2398,7 @@ export default function PlanTab() {
         >
           <SafeAreaView style={[styles.customModalContainer, { backgroundColor: theme.bg }]}>
             {/* Custom Header */}
-            <View style={[styles.customModalHeader, { paddingTop: insets.top, backgroundColor: theme.cardBg, borderBottomColor: theme.modalBorder }]}>
+            <View style={[styles.customModalHeader, { paddingTop: insets.top, backgroundColor: theme.cardBg, borderBottomColor: theme.modalBorder }, { paddingLeft: 16 + insets.left, paddingRight: 16 + insets.right }]}>
               <TouchableOpacity
                 style={[styles.customModalBackButton, { backgroundColor: darkMode ? '#1E253A' : '#F4F6FA' }]}
                 onPress={() => {
@@ -2411,7 +2413,7 @@ export default function PlanTab() {
               <View style={{ width: 36 }} />
             </View>
 
-            <View style={styles.customModalContent}>
+            <View style={[styles.customModalContent, column, { marginLeft: insets.left, marginRight: insets.right }]}>
               {/* Card Container */}
               <View style={[styles.customCard, { backgroundColor: theme.cardBg, borderColor: theme.modalBorder }]}>
                 {/* Frequency Row */}

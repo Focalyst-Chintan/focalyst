@@ -17,6 +17,7 @@ import { openPaywall, useBlocking } from '../../src/blocking/BlockingContext';
 import { ProgressRing, RING_SIZES } from './ProgressRing';
 import { PrimaryButton, SecondaryButton, TextButton } from './Buttons';
 import { AppIcon } from './AppIcon';
+import { useColumnStyle } from '../../src/layout/adaptive';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
@@ -110,6 +111,7 @@ export function SessionSummaryModal({
 }) {
   const { c, isDark } = useBlockingTheme();
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const { isPro } = useBlocking();
   const quick = record.kind === 'quick';
   const [history, setHistory] = useState<BlockingSessionRecord[]>([record]);
@@ -138,8 +140,8 @@ export function SessionSummaryModal({
   return (
     <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
       {/* SafeAreaView reports no insets inside a full-screen Modal, so pad with the hook's insets. */}
-      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top }]}>
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={[styles.root, { backgroundColor: c.bg, paddingTop: insets.top, paddingLeft: insets.left, paddingRight: insets.right }]}>
+        <ScrollView contentContainerStyle={[styles.content, column]} showsVerticalScrollIndicator={false}>
           <View style={{ alignItems: 'center', marginTop: 24 }}>
             <ProgressRing {...RING_SIZES.summary} progress={1} animateIn>
               <Ionicons name="checkmark" size={36} color={c.accent} />
@@ -276,7 +278,7 @@ export function SessionSummaryModal({
           )}
         </ScrollView>
 
-        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
+        <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }, column]}>
           <PrimaryButton label="Start next session" onPress={onStartNext} />
           <TextButton label="View in Insights" onPress={onViewInsights} />
         </View>

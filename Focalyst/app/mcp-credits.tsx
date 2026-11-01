@@ -17,6 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../src/utils/supabase';
 import { formatMcpDate, useMcpSummary } from '../src/hooks/useMcpStatus';
 import { openMcpConnections } from '../src/utils/openMcpConnections';
+import { useColumnStyle } from '../src/layout/adaptive';
 
 // Same tokens as the Profile screen
 const ACCENT_ORANGE = '#FF6B00';
@@ -25,6 +26,7 @@ type ToolCost = { tool: string; label: string; cost: number; is_write: boolean }
 
 export default function McpCreditsScreen() {
   const router = useRouter();
+  const column = useColumnStyle();
   const [darkMode, setDarkMode] = useState(true);
   const [showInfo, setShowInfo] = useState(false);
   const [costs, setCosts] = useState<ToolCost[] | null>(null);
@@ -84,7 +86,7 @@ export default function McpCreditsScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, column]} showsVerticalScrollIndicator={false}>
         {/* ═══ Header ═══ */}
         <View style={styles.headerRow}>
           <TouchableOpacity

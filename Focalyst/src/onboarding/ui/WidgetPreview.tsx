@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Check } from 'lucide-react-native';
 import { haptics } from './haptics';
 import { GUTTER, useOnboardingTheme } from './theme';
 import { ProChip } from './PlanCard';
+import { useAdaptiveLayout } from '../../layout/adaptive';
 
 // Screen 26: React Native mock-ups that copy the real widgets' default look
 // (src/widgets: dark container, white text, 60% secondary text, white pill buttons).
@@ -160,9 +161,13 @@ function DateWidget({ size }: { size: number }) {
 
 export function WidgetPreview({ data }: { data: WidgetPreviewData }) {
   const t = useOnboardingTheme();
-  const { width } = useWindowDimensions();
-  const inner = width - GUTTER * 2 - PANEL_PAD * 2;
-  const small = Math.floor((inner - GAP) / 2);
+  // Size from the content column, not the window: on a wide display the window is ~950 pt.
+  const { contentWidth } = useAdaptiveLayout();
+  const inner = contentWidth - GUTTER * 2 - PANEL_PAD * 2;
+  // Two small widgets per row on phones; four on a wide column, so each stays widget-sized.
+  const perRow = inner >= 520 ? 4 : 2;
+  const small = Math.floor((inner - GAP * (perRow - 1)) / perRow);
+  const medium = perRow === 4 ? small * 2 + GAP : inner;
 
   const smalls: React.ReactNode[] = [<FocusWidget key="focus" size={small} label={data.focusLabel} />];
   if (data.habit) smalls.push(<HabitWidget key="habit" size={small} habit={data.habit} />);
@@ -181,7 +186,7 @@ export function WidgetPreview({ data }: { data: WidgetPreviewData }) {
       </View>
       <View style={styles.grid}>
         {smalls}
-        {data.tasks.length > 0 ? <TodoWidget width={inner} tasks={data.tasks} /> : null}
+        {data.tasks.length > 0 ? <TodoWidget width={medium} tasks={data.tasks} /> : null}
       </View>
     </LinearGradient>
   );

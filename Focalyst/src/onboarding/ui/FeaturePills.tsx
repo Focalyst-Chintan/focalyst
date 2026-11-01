@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from 'lucide-react-native';
 import { GUTTER, useOnboardingTheme, withAlpha } from './theme';
+import { useAdaptiveLayout } from '../../layout/adaptive';
 
 // Section 3.5. The colours are a deliberate exception to the brand-blue rule, for this cloud only.
 // tint = text on dark (Tailwind 200 family), shade = text on light (800 family): both above 4.5:1.
@@ -120,7 +121,8 @@ function FeaturePill({ pill, index, compact }: { pill: Pill; index: number; comp
 }
 
 export function FeaturePills() {
-  const { width } = useWindowDimensions();
+  // The column's width, not the window's, so the cloud never outgrows the capped column.
+  const { contentWidth: width } = useAdaptiveLayout();
   const compact = width < 360;
   return (
     <View

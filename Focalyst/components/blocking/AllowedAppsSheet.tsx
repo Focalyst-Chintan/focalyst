@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Dimensions, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import type { AndroidAppItem } from '../../modules/screen-time-blocker';
 import { type, useBlockingTheme } from '../../constants/blockingTheme';
@@ -9,11 +9,10 @@ import { BottomSheet } from './Overlays';
 import { PrimaryButton } from './Buttons';
 import { AppRow, SearchField, filterApps } from './AndroidAppList';
 
-const LIST_HEIGHT = Math.round(Dimensions.get('window').height * 0.5);
-
 /** Android S6 "+ Add": pick the apps that never get locked. */
 export function AllowedAppsSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { c } = useBlockingTheme();
+  const listHeight = Math.round(useWindowDimensions().height * 0.5);
   const { installedApps, loadInstalledApps, allowedPackages, setAllowedPackages, canEditAllowed, showSnackbar } =
     useBlocking();
   const [query, setQuery] = useState('');
@@ -65,7 +64,7 @@ export function AllowedAppsSheet({ visible, onClose }: { visible: boolean; onClo
       <View style={{ marginTop: 16 }}>
         <SearchField value={query} onChangeText={setQuery} />
       </View>
-      <View style={{ height: LIST_HEIGHT, marginTop: 16 }}>
+      <View style={{ height: listHeight, marginTop: 16 }}>
         {installedApps ? (
           <FlatList
             data={apps}

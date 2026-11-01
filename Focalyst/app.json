@@ -185,7 +185,8 @@
             "extraProguardRules": "-keepattributes *Annotation*, InnerClasses, Signature, EnclosingMethod\n-keepclassmembers class * {\n  @com.facebook.react.uimanager.annotations.ReactProp <methods>;\n  @com.facebook.react.uimanager.annotations.ReactPropGroup <methods>;\n}\n-keep class com.facebook.react.bridge.JavaScriptModule { *; }\n-keep class com.facebook.react.bridge.NativeModule { *; }\n-keep class com.facebook.hermes.unicode.** { *; }\n-keep class com.swmansion.reanimated.** { *; }\n-dontwarn com.facebook.react.**\n-dontwarn okhttp3.**\n-dontwarn okio.**\n-dontwarn javax.annotation.**\n# Distraction blocker: services, shield activity and receiver are reached by reflection and the manifest.\n-keep class expo.modules.screentimeblocker.** { *; }"
           },
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "enableSceneSupport": true
           }
         }
       ],

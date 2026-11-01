@@ -31,6 +31,7 @@ import { queryCache } from '../src/utils/queryCache';
 import { FAQ_DATA, PRIVACY_DATA, TERMS_DATA } from '../constants/supportCopy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WIDGETS_ENABLED_KEY } from './widgets';
+import { useColumnStyle, useSheetFrame } from '../src/layout/adaptive';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 const ACCENT_ORANGE = '#FF6B00';
@@ -66,6 +67,7 @@ interface UserProfile {
 
 // ─── Main Screen ───────────────────────────────────────────────────────────────
 export default function ProfileScreen() {
+  const column = useColumnStyle();
   const router = useRouter();
   const { t, i18n } = useTranslation();
 
@@ -240,7 +242,7 @@ export default function ProfileScreen() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.bg }]}>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, column]}
         showsVerticalScrollIndicator={false}
       >
         {/* ═══ Header ═══ */}
@@ -717,6 +719,7 @@ function LanguagePickerModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const sheetFrame = useSheetFrame();
   return (
     <Modal
       visible={visible}
@@ -729,7 +732,7 @@ function LanguagePickerModal({
         activeOpacity={1}
         onPress={onClose}
       >
-        <View style={[styles.modalSheet, { backgroundColor: theme.cardBg }]} onStartShouldSetResponder={() => true}>
+        <View style={[styles.modalSheet, sheetFrame, { backgroundColor: theme.cardBg }]} onStartShouldSetResponder={() => true}>
           <View style={[styles.modalHandle, { backgroundColor: theme.borderColor }]} />
           <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>{t('settings.language')}</Text>
           <FlatList

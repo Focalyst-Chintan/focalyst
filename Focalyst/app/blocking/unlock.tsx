@@ -33,7 +33,7 @@ export default function BlockingUnlock() {
 
   if (!shield.active) {
     return (
-      <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: c.bg }]}>
+      <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.root, { backgroundColor: c.bg }]}>
         <View style={styles.center}>
           <Text style={[type.setupTitle, { color: c.textPrimary, textAlign: 'center' }]}>Nothing is locked</Text>
           <Text style={[type.body, { color: c.textSecondary, textAlign: 'center', marginTop: 8 }]}>

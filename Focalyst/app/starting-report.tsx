@@ -10,12 +10,14 @@ import { buildStartingReport } from '../src/onboarding/startingReport';
 import { StartingReportView } from '../src/onboarding/ui/StartingReportView';
 import { AmbientBackground } from '../src/onboarding/ui/primitives';
 import { GUTTER, useOnboardingTheme } from '../src/onboarding/ui/theme';
+import { useColumnStyle } from '../src/layout/adaptive';
 
 // The starting report page, opened from the Insights card (7.6). Same component as screen 28.
 export default function StartingReportPage() {
   const router = useRouter();
   const t = useOnboardingTheme();
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const { user, profile, refreshProfile } = useUser();
   const [row, setRow] = useState<OnboardingProfileRow | null | undefined>(undefined);
   const paywallOpen = useRef(false);
@@ -42,10 +44,10 @@ export default function StartingReportPage() {
   );
 
   return (
-    <View style={[styles.root, { backgroundColor: t.canvas }]}>
+    <View style={[styles.root, { backgroundColor: t.canvas, paddingLeft: insets.left, paddingRight: insets.right }]}>
       <StatusBar style={t.dark ? 'light' : 'dark'} />
       <AmbientBackground />
-      <View style={[styles.topBar, { marginTop: insets.top + 8 }]}>
+      <View style={[styles.topBar, { marginTop: insets.top + 8 }, column]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
@@ -59,7 +61,7 @@ export default function StartingReportPage() {
         </Pressable>
       </View>
       {report ? (
-        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+        <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }, column]}>
           <StartingReportView
             report={report}
             isPro={isPro}

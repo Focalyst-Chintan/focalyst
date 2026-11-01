@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Animated,
-  Dimensions,
   KeyboardAvoidingView,
   Modal,
   PanResponder,
@@ -10,14 +9,15 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { floatingShadow, type, useBlockingTheme } from '../../constants/blockingTheme';
 import { useHideDevFab } from '../../src/blocking/devFab';
 import { PrimaryButton, TextButton } from './Buttons';
+import { useSheetFrame } from '../../src/layout/adaptive';
 
-const SCREEN_H = Dimensions.get('window').height;
 
 const SHEET_SCRIM = 'rgba(0, 0, 0, 0.65)';
 
@@ -36,14 +36,17 @@ export function BottomSheet({
 }) {
   const { c, isDark } = useBlockingTheme();
   const insets = useSafeAreaInsets();
+  // Read live: the window can change size while the app is open (fold, rotate, Split View).
+  const { height: windowHeight } = useWindowDimensions();
+  const sheetFrame = useSheetFrame();
   useHideDevFab(visible);
-  const translate = useRef(new Animated.Value(SCREEN_H)).current;
+  const translate = useRef(new Animated.Value(windowHeight)).current;
   const scrim = useRef(new Animated.Value(0)).current;
   const height = useRef(400);
 
   useEffect(() => {
     if (!visible) return;
-    translate.setValue(SCREEN_H);
+    translate.setValue(windowHeight);
     Animated.parallel([
       Animated.spring(translate, { toValue: 0, stiffness: 300, damping: 26, useNativeDriver: true }),
       Animated.timing(scrim, { toValue: 1, duration: 250, useNativeDriver: true }),
@@ -82,6 +85,7 @@ export function BottomSheet({
           onLayout={(e) => (height.current = e.nativeEvent.layout.height)}
           style={[
             styles.sheet,
+            sheetFrame,
             floatingShadow(isDark),
             {
               backgroundColor: c.surface,

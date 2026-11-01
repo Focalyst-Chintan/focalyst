@@ -8,7 +8,6 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  Dimensions,
   Modal,
   Pressable,
   DeviceEventEmitter,
@@ -28,7 +27,6 @@ import { Platform } from 'react-native';
 import { queryCache } from '../../src/utils/queryCache';
 import { ScreenSkeleton } from '../../components/ui/ScreenSkeleton';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── Brand colors ─────────────────────────────────────────────────────────
 const BRAND      = '#4a6c8c';

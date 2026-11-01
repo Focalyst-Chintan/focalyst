@@ -45,3 +45,6 @@ yarn-error.*
 modules/*/android/build/
 modules/*/android/.gradle/
 modules/*/android/.cxx/
+
+# iPhone Duo work: local screenshots and installed agent skills
+duo-shots/

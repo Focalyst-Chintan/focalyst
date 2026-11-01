@@ -11,7 +11,6 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  Dimensions,
   Pressable,
   DeviceEventEmitter,
   BackHandler,
@@ -29,6 +28,7 @@ import { fetchAuthorizedUserContext } from '../src/services/focalystContextServi
 import { sendChatMessageToGroq as sendChatMessageToOpenRouter } from '../src/services/openRouterService';
 import { useUser } from '../src/utils/UserContext';
 import { isProPlan } from '../src/utils/plan';
+import { useSheetFrame } from '../src/layout/adaptive';
 
 // ─── Official Markdown Display Style Definitions ──────────────────────────────
 const markdownStyles = {
@@ -48,8 +48,6 @@ const markdownStyles = {
     marginVertical: 4,
   },
 };
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // ─── Theme Colors ────────────────────────────────────────────────────────────
 const BRAND = '#4a6c8c';       // Premium Slate Blue
@@ -76,6 +74,7 @@ interface Message {
 
 export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDarkModeProp }: AskFocalystModalProps) {
   const router = useRouter();
+  const sheetFrame = useSheetFrame();
   const { user } = useUser();
   const activeUserId = user?.id || '';
   const scrollViewRef = useRef<ScrollView>(null);
@@ -365,7 +364,7 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
         style={[styles.modalContainer, { backgroundColor: theme.backdropBg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={[styles.contentContainer, { backgroundColor: theme.bg }]}>
+        <View style={[styles.contentContainer, sheetFrame, { backgroundColor: theme.bg }]}>
           <ChatBottomGlow isDark={isDarkMode} />
           {/* Header */}
           <View style={[styles.header, { borderBottomColor: theme.border }]}>

@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
 import {
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   Switch,
@@ -10,14 +9,16 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WidgetThemePicker } from '../src/components/WidgetThemePicker';
+import { useColumnStyle } from '../src/layout/adaptive';
 
 export const WIDGETS_ENABLED_KEY = '@focalyst_widgets_enabled';
 
 export default function WidgetsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function WidgetsScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
+      <View style={[styles.header, column]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Text style={styles.backIcon}>{'‹'}</Text>
         </TouchableOpacity>
@@ -41,7 +42,7 @@ export default function WidgetsScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }]}>
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 24 }, column]}>
         <View style={styles.toggleCard}>
           <View style={{ flex: 1, paddingRight: 12 }}>
             <Text style={styles.toggleTitle}>Enable Home Screen Widgets</Text>

@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync } from 'expo-audio';
 import { transcribeAudioUri, processTranscriptWithAI } from '../services/voiceNoteAI';
+import { useColumnStyle } from '../src/layout/adaptive';
 import { mutateWithOfflineQueue } from '../src/services/outageResilienceService';
 
 interface VoiceNoteRecorderModalProps {
@@ -43,6 +44,7 @@ const VoiceNoteRecorderModalContent: React.FC<VoiceNoteRecorderModalProps> = ({
 }) => {
   const colorScheme = useColorScheme();
   const isDark = propDarkMode !== undefined ? propDarkMode : colorScheme !== 'light';
+  const column = useColumnStyle();
 
   const audioRecorder = useAudioRecorder({
     ...(RecordingPresets?.HIGH_QUALITY || {
@@ -367,7 +369,7 @@ const VoiceNoteRecorderModalContent: React.FC<VoiceNoteRecorderModalProps> = ({
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible={visible}>
       <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? '#121c2a' : '#f8fafc' }]}>
-        <View style={styles.container}>
+        <View style={[styles.container, column]}>
           {/* TOP RECORDING CARD: Static Elegant iOS Widget Gradient */}
           <View
             style={[

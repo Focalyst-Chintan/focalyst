@@ -1,6 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useColorScheme, View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { useColorScheme, useWindowDimensions, View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import AskFocalystModal from '../../components/AskFocalystModal';
@@ -10,6 +10,7 @@ import { supabase } from '../../src/utils/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
+import { AdaptiveFrame } from '../../src/layout/adaptive';
 
 function ProfileButton({ isDarkMode }: { isDarkMode: boolean }) {
   const router = useRouter();
@@ -73,6 +74,7 @@ export default function TabLayout() {
   const [isVoiceModalVisible, setIsVoiceModalVisible] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
 
   useEffect(() => {
     const checkTheme = async () => {
@@ -119,6 +121,9 @@ export default function TabLayout() {
       <Tabs
         initialRouteName="plan"
         detachInactiveScreens={false}
+        // Every tab: content clear of the left/right safe area (side status bar on iPhone Duo)
+        // and centred in a capped column on regular width. Header and tab bar handle their own insets.
+        screenLayout={({ children }) => <AdaptiveFrame>{children}</AdaptiveFrame>}
         screenOptions={{
           lazy: false,
           sceneStyle: { backgroundColor: isDarkMode ? '#0B1021' : '#F4F6FA' },
@@ -140,8 +145,14 @@ export default function TabLayout() {
             borderBottomColor: headerBorderColor,
           },
           headerTitleAlign: 'center',
+          // The header's own title limit uses a frame that can stay at the portrait width after
+          // rotating, which squeezed "FOCALYST" onto two lines in landscape. Same formula, live width.
+          headerTitleContainerStyle: {
+            maxWidth: windowWidth - (80 + 16 + Math.max(insets.left, insets.right)) * 2,
+          },
           headerTitle: () => (
             <Text
+              numberOfLines={1}
               style={{
                 fontSize: 16,
                 fontWeight: '700',

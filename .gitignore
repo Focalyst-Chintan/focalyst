@@ -49,3 +49,8 @@ next-env.d.ts
 
 # written by next dev (agentRules)
 AGENTS.md
+
+# Agent skill installs (npx skills add)
+.agents/
+.claude/skills/
+skills-lock.json

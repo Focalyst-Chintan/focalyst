@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
   Modal,
   Pressable,
   Platform,
@@ -27,6 +27,7 @@ import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 import { syncAllWidgetsFromApp } from '../../src/services/widgetSync';
 import { calculateHabitStreak } from '../../src/utils/streak';
+import { useAdaptiveLayout } from '../../src/layout/adaptive';
 
 interface DayEntry {
   date: string;       // 'YYYY-MM-DD'
@@ -114,6 +115,7 @@ export default function HabitList({
   onMilestonePress?: (habit: any, streak: number) => void;
 }) {
   const { t } = useTranslation();
+  const { height: windowHeight, gutterRight } = useAdaptiveLayout();
   const cachedHabits = userId ? (queryCache.getSync<any[]>(`user:${userId}:habits_v2`) || []) : [];
   const [habits, setHabits] = useState<any[]>(cachedHabits);
 
@@ -160,16 +162,16 @@ export default function HabitList({
 
   const openMenuForHabit = (item: any, e?: any) => {
     e?.stopPropagation?.();
-    const { height: SCREEN_HEIGHT } = Dimensions.get('window');
     const pageY = e?.nativeEvent?.pageY || 420;
     const MENU_HEIGHT = 290;
     const topPosition =
-      SCREEN_HEIGHT - 110 - pageY < MENU_HEIGHT
+      windowHeight - 110 - pageY < MENU_HEIGHT
         ? Math.max(70, pageY - MENU_HEIGHT - 8)
         : pageY + 12;
 
     setActiveMenuHabit(item);
-    setMenuAnchor({ top: topPosition, right: 24 });
+    // Anchor to the content column's edge, not the window's (side status bar, centred column).
+    setMenuAnchor({ top: topPosition, right: gutterRight + 24 });
     setMenuVisible(true);
   };
 
@@ -699,6 +701,7 @@ function PerformanceHeatmapGrid({
 }: PerformanceHeatmapGridProps) {
   const [layoutWidth, setLayoutWidth] = useState<number>(0);
   const [pageOffset, setPageOffset] = useState<number>(0);
+  const { width: screenWidth } = useWindowDimensions();
 
   const today = new Date();
   const todayYMD = formatLocalYMD(today);
@@ -726,7 +729,6 @@ function PerformanceHeatmapGrid({
   const averagePerDay = (totalCompletedDays / 365).toFixed(1);
 
   // Responsive layout geometry
-  const screenWidth = Dimensions.get('window').width;
   const availableWidth = Math.max(260, layoutWidth || (screenWidth - 72));
   const DAY_LABEL_WIDTH = 14;
   const DAY_LABEL_MARGIN = 8;
@@ -734,7 +736,10 @@ function PerformanceHeatmapGrid({
   const gridAvailableWidth = Math.max(220, availableWidth - DAY_LABEL_WIDTH - DAY_LABEL_MARGIN);
 
   // 19-week window for chunkier ~13-14px boxy tiles with borderRadius: 4
-  const numCols = Math.min(19, Math.max(16, Math.floor((gridAvailableWidth + GAP) / (13 + GAP))));
+  // Phones stay at 16–19 weeks. A wide grid (iPhone Duo open, iPad) shows more weeks instead of
+  // ever-bigger cells; cells stay square either way.
+  const maxCols = gridAvailableWidth > 480 ? 26 : 19;
+  const numCols = Math.min(maxCols, Math.max(16, Math.floor((gridAvailableWidth + GAP) / (13 + GAP))));
   const cellSize = Math.floor(((gridAvailableWidth - (numCols - 1) * GAP) / numCols) * 10) / 10;
 
   // Strict Monday-to-Sunday alignment: Monday=0, Tuesday=1, ..., Sunday=6

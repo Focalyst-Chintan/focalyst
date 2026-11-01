@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColumnStyle } from '../../src/layout/adaptive';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Notifications from 'expo-notifications';
 import * as Crypto from 'expo-crypto';
@@ -60,6 +61,7 @@ export default function TaskForm({
   onRefresh,
 }: TaskFormProps) {
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const { scheduleTaskStartAndEndReminders } = useNotifications();
   const isEditing = !!editingTask;
   const [taskDescription, setTaskDescription] = useState('');
@@ -248,16 +250,16 @@ export default function TaskForm({
       presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <View style={[styles.modalContainer, { backgroundColor: theme.bg }]}>
+      <View style={[styles.modalContainer, { backgroundColor: theme.bg, paddingLeft: insets.left, paddingRight: insets.right }]}>
         {/* Header */}
-        <View style={{
+        <View style={[column, {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           paddingTop: Math.max(insets.top, 20) + 8,
           paddingBottom: 16,
           paddingHorizontal: 16,
-        }}>
+        }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <TouchableOpacity onPress={onClose} style={{ padding: 4 }} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
               <Ionicons name="chevron-back" size={26} color={theme.textPrimary || '#FFFFFF'} />
@@ -277,7 +279,7 @@ export default function TaskForm({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.formWrapper}>
+        <View style={[styles.formWrapper, column]}>
           {/* Scrollable Form Content */}
           <ScrollView
             contentContainerStyle={styles.scrollContent}

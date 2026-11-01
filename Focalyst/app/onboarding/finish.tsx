@@ -47,7 +47,7 @@ export default function OnboardingFinish() {
   }, []);
 
   return (
-    <View style={[styles.root, { backgroundColor: t.canvas, paddingTop: insets.top + 60, paddingBottom: insets.bottom + 16 }]}>
+    <View style={[styles.root, { backgroundColor: t.canvas, paddingTop: insets.top + 60, paddingBottom: insets.bottom + 16, paddingLeft: GUTTER + insets.left, paddingRight: GUTTER + insets.right }]}>
       <StatusBar style={t.dark ? 'light' : 'dark'} />
       <AmbientBackground />
       <Statement title="Saving your plan…" />

@@ -42,6 +42,7 @@ import { useHideDevFab } from '../../src/blocking/devFab';
 import { formatClock } from '../../src/blocking/levels';
 import { useBlocking } from '../../src/blocking/BlockingContext';
 import { ORANGE_FILL } from '../../constants/blockingTheme';
+import { useColumnStyle } from '../../src/layout/adaptive';
 import {
   ensureWidgetStateHydrated,
   formatDateDMY,
@@ -105,6 +106,7 @@ export default function FocusTab() {
   const { t } = useTranslation();
   const { width, height } = useWindowDimensions();
   const isLandscape = width > height;
+  const columnStyle = useColumnStyle();
 
   const { user, profile } = useUser();
   const currentUserId = user?.id || profile?.id || '';
@@ -1662,8 +1664,8 @@ export default function FocusTab() {
         transparent={false}
       >
         <SafeAreaProvider>
-          <SafeAreaView edges={['top', 'bottom']} style={[styles.formContainer, isDarkMode && { backgroundColor: '#0B1021' }, { paddingTop: 12 }]}>
-            <ScrollView contentContainerStyle={styles.formScrollContainer} showsVerticalScrollIndicator={false}>
+          <SafeAreaView edges={['top', 'bottom', 'left', 'right']} style={[styles.formContainer, isDarkMode && { backgroundColor: '#0B1021' }, { paddingTop: 12 }]}>
+            <ScrollView contentContainerStyle={[styles.formScrollContainer, columnStyle]} showsVerticalScrollIndicator={false}>
               {/* Header toolbar */}
               <View style={styles.formToolbar}>
                 <Text style={[styles.formTitle, isDarkMode && { color: '#FFFFFF' }]} numberOfLines={1}>

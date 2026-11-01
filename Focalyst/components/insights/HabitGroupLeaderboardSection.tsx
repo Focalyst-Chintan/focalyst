@@ -22,6 +22,7 @@ import {
   HABIT_GROUP_UPDATED_EVENT,
 } from '../../src/services/habitGroupService';
 import { FormGroupModal, EnterGroupModal } from '../plan/HabitGroupModals';
+import { useColumnStyle } from '../../src/layout/adaptive';
 
 interface HabitGroupLeaderboardSectionProps {
   isDark: boolean;
@@ -37,6 +38,7 @@ export default function HabitGroupLeaderboardSection({
   onRefreshInsights,
 }: HabitGroupLeaderboardSectionProps) {
   const insets = useSafeAreaInsets();
+  const column = useColumnStyle();
   const viewShotRef = useRef<any>(null);
   const [groupData, setGroupData] = useState<GroupLeaderboardData>({
     in_group: false,
@@ -371,7 +373,7 @@ export default function HabitGroupLeaderboardSection({
         onRequestClose={() => setModalVisible(false)}
       >
         <View
-          style={[styles.modalSafeArea, { backgroundColor: isDark ? '#05070E' : '#FFFFFF' }]}
+          style={[styles.modalSafeArea, { backgroundColor: isDark ? '#05070E' : '#FFFFFF', paddingLeft: insets.left, paddingRight: insets.right }]}
         >
           {/* Brand Gradients */}
           <LinearGradient
@@ -388,6 +390,7 @@ export default function HabitGroupLeaderboardSection({
           <View
             style={[
               styles.modalTopNav,
+              column,
               {
                 paddingTop: Math.max(insets.top, 52) + 6,
               },
@@ -460,6 +463,7 @@ export default function HabitGroupLeaderboardSection({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={[
               styles.modalScrollContent,
+              column,
               {
                 paddingBottom: Math.max(insets.bottom, 24) + 24,
               },

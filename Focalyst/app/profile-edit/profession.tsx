@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { supabase } from '../../src/utils/supabase';
+import { useColumnStyle } from '../../src/layout/adaptive';
 
 const OPTIONS = [
   { value: 'Student', label: 'Student' },
@@ -39,6 +40,7 @@ const REVERSE_MAPPING: Record<string, string> = {
 
 export default function ProfileTypeScreen() {
   const router = useRouter();
+  const column = useColumnStyle();
   const { isEditing } = useLocalSearchParams();
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -112,7 +114,7 @@ export default function ProfileTypeScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="dark" />
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, column]} showsVerticalScrollIndicator={false}>
         {/* Header / Back arrow on editing */}
         {isEditing === 'true' && (
           <TouchableOpacity

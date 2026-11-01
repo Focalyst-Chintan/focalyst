@@ -17,6 +17,7 @@ import { useRouter } from 'expo-router';
 import { supabase } from '../src/utils/supabase';
 import { useUser } from '../src/utils/UserContext';
 import { isProPlan } from '../src/utils/plan';
+import { useColumnStyle } from '../src/layout/adaptive';
 import {
   initConnection,
   endConnection,
@@ -63,6 +64,8 @@ export default function PaywallScreen() {
   const { refreshProfile } = useUser();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
   const insets = useSafeAreaInsets();
+  // Wide displays: one centred column, so price, button and legal stay together in one block.
+  const column = useColumnStyle();
 
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -343,8 +346,8 @@ export default function PaywallScreen() {
       
       {/* Scrollable Area */}
       <ScrollView 
-        style={styles.scrollContainer} 
-        contentContainerStyle={styles.scrollContent}
+        style={[styles.scrollContainer, { paddingLeft: insets.left, paddingRight: insets.right }]}
+        contentContainerStyle={[styles.scrollContent, column]}
         showsVerticalScrollIndicator={false}
       >
         <View>
@@ -537,7 +540,8 @@ export default function PaywallScreen() {
       </ScrollView>
 
       {/* Sticky Bottom Dark Footer */}
-      <View style={styles.footerContainer}>
+      <View style={[styles.footerContainer, { paddingLeft: 20 + insets.left, paddingRight: 20 + insets.right }]}>
+        <View style={column}>
         {/* Dynamic Disclaimer Text */}
         <Text style={styles.disclaimerText}>
           {billingCycle === 'yearly' ? (
@@ -610,6 +614,7 @@ export default function PaywallScreen() {
           <TouchableOpacity onPress={() => Linking.openURL('https://focalyst.online/privacy')}>
             <Text style={styles.complianceText}>Privacy Policy</Text>
           </TouchableOpacity>
+        </View>
         </View>
       </View>
     </View>
