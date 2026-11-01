@@ -46,7 +46,11 @@ export const SOFTWARE_APP = {
   '@id': `${SITE}/#app`,
   name: 'Focalyst',
   applicationCategory: 'ProductivityApplication',
-  operatingSystem: 'Web, iOS, Android',
+  operatingSystem: 'iOS, Android, Web',
+  sameAs: [
+    'https://apps.apple.com/app/focalyst-ai-productivity-hub/id6774425442',
+    'https://play.google.com/store/apps/details?id=online.focalyst',
+  ],
   url: SITE,
   description:
     'Focalyst is an all-in-one productivity app for planning, deep focus and habits, with tasks, a Pomodoro focus timer, habit streaks, accountability groups, notes, voice notes and Focalyst AI.',

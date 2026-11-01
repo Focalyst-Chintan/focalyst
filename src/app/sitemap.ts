@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next';
 import { GUIDES } from '@/content/guides';
-import { getAllSlugs } from '@/lib/blog/source';
+import { getPosts } from '@/lib/blog/source';
 import { PILLAR_KEYS } from '@/lib/blog/constants';
 
 export const revalidate = 3600;
@@ -39,7 +39,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   // Focalyst Journal: every published post and every topic hub
-  const posts = await getAllSlugs();
+  // Same query as /blog/rss.xml
+  const { posts } = await getPosts({ limit: 1000 });
   const journal: MetadataRoute.Sitemap = [
     ...PILLAR_KEYS.map((pillar) => ({
       url: `https://focalyst.online/blog/topics/${pillar}`,

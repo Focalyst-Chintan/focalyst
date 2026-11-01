@@ -1,48 +1,10 @@
 import { getPosts } from '@/lib/blog/source';
 import { PILLARS, PILLAR_KEYS, SITE_URL } from '@/lib/blog/constants';
+import { BASE } from '@/lib/blog/llms';
 
 export const revalidate = 3600;
 
-const BASE = `# Focalyst
 
-> Focalyst is an all-in-one productivity app for web, iOS and Android by Focalyst by Chintan (Kolkata, India). It combines tasks, habits, a Pomodoro focus timer, notes, voice notes, accountability groups and Focalyst AI so people can plan their day, focus deeply and build lasting habits.
-
-Key facts:
-- Platforms: web at https://focalyst.online, iOS and Android. One account syncs across all.
-- Free plan: unlimited tasks, focus timer, a limited number of habits and notes, one countdown, 5 Focalyst AI messages a day.
-- Focalyst Pro: $4.99 a month or $39.99 a year; Lifetime $99.99 one-time. In India: ₹99 a month, ₹999 a year, ₹2,999 Lifetime.
-- Pro adds more habits, notes and voice notes, custom timers, up to 3 countdowns, the AI Productivity Score, the weekly Catalyst Report and more AI messages.
-- Focalyst MCP: connect your Focalyst data to Claude, ChatGPT and Gemini (Pro)
-- Privacy: no data selling, no advertising trackers, AI chats deleted after 90 days.
-- Company: Focalyst by Chintan, a registered MSME in Kolkata, West Bengal, India. Founder and CEO: Sohan Tamang. Contact: contactfocalyst@gmail.com.
-
-## Pages
-- [Features](https://focalyst.online/app): everything Focalyst can do
-- [Pricing](https://focalyst.online/pricing): Free, Pro and Lifetime plans in USD and INR
-- [Help and FAQ](https://focalyst.online/help): answers about accounts, plans, timers, habits, notes, AI and privacy
-- [About](https://focalyst.online/about): who builds Focalyst and why
-- [MCP](https://focalyst.online/mcp-preview): connect Focalyst to ChatGPT, Claude or Gemini (Pro)
-- [Privacy Policy](https://focalyst.online/privacy)
-- [Terms of Service](https://focalyst.online/terms)
-
-## Guides
-- [How to use Focalyst](https://focalyst.online/guides): step-by-step guides for the web app and the phone app
-- [Add a task](https://focalyst.online/guides/add-a-task): How do I add a task in Focalyst?
-- [Reorder your tasks](https://focalyst.online/guides/reorder-tasks): How do I change the order of my tasks?
-- [Add a habit](https://focalyst.online/guides/add-a-habit): How do I add a habit in Focalyst?
-- [See how a habit is going](https://focalyst.online/guides/habit-progress): How do I see my habit streak and completion rate?
-- [Add a calendar event](https://focalyst.online/guides/add-a-calendar-event): How do I add an event or reminder to my Focalyst calendar?
-- [Start a focus session](https://focalyst.online/guides/start-a-focus-session): How do I start a Pomodoro focus session in Focalyst?
-- [Block distracting apps](https://focalyst.online/guides/block-distracting-apps): How do I block distracting apps with Focalyst?
-- [Add a countdown](https://focalyst.online/guides/add-a-countdown): How do I add a countdown to an exam or event?
-- [Write a note](https://focalyst.online/guides/write-a-note): How do I write a note in Focalyst?
-- [Record a voice note](https://focalyst.online/guides/record-a-voice-note): How do I record a voice note and get a transcript?
-- [Check your insights](https://focalyst.online/guides/check-your-insights): Where can I see my focus time, streaks and weekly report?
-- [Ask Focalyst AI](https://focalyst.online/guides/ask-focalyst-ai): How do I use Focalyst AI?
-- [Add home screen widgets](https://focalyst.online/guides/add-widgets): How do I add Focalyst widgets to my home screen?
-- [Switch to dark mode](https://focalyst.online/guides/dark-mode): How do I turn on dark mode in Focalyst?
-- [Change the language](https://focalyst.online/guides/change-language): How do I change the language in Focalyst?
-- [Connect Claude, ChatGPT or Gemini](https://focalyst.online/guides/connect-ai-apps): How do I connect Focalyst to Claude, ChatGPT or Gemini?`;
 
 export async function GET() {
   const { posts } = await getPosts({ limit: 50 });
@@ -57,6 +19,7 @@ export async function GET() {
 
 ## Journal
 The Focalyst Journal: [${SITE_URL}/blog](${SITE_URL}/blog), RSS at ${SITE_URL}/blog/rss.xml
+Full text of the latest posts: [${SITE_URL}/llms-full.txt](${SITE_URL}/llms-full.txt)
 
 ### Topic hubs
 ${hubs}

@@ -54,7 +54,7 @@ function graph(post: BlogPost) {
       description: post.description,
       datePublished: post.publishedIso,
       dateModified: post.updatedIso,
-      author: { '@type': 'Organization', name: 'Focalyst', url: SITE_URL },
+      author: { '@type': 'Person', name: 'Sohan Tamang', url: `${SITE_URL}/about` },
       publisher: {
         '@type': 'Organization',
         '@id': `${SITE_URL}/#organization`,
@@ -78,7 +78,7 @@ function graph(post: BlogPost) {
       ],
     },
   ];
-  if (post.faq.length) {
+  if (post.faq.length >= 2) {
     nodes.push({
       '@type': 'FAQPage',
       mainEntity: post.faq.map((f) => ({

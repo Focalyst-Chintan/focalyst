@@ -1,8 +1,8 @@
-import { revalidatePath } from 'next/cache';
+import { revalidatePath, revalidateTag } from 'next/cache';
 import { NextResponse, type NextRequest } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
 import { rateLimit } from '@/lib/rate-limit';
-import { getPost } from '@/lib/blog/source';
+import { BLOG_TAG, getPost } from '@/lib/blog/source';
 
 // Called by the blog-worker Edge Function after it publishes a post.
 // No user session (like the Polar webhook); the shared secret is the auth.
@@ -35,6 +35,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid slug' }, { status: 400 });
   }
 
+  // Expire the cached Supabase reads first so every route below rebuilds with fresh data
+  revalidateTag(BLOG_TAG, { expire: 0 });
   const post = await getPost(slug);
   revalidatePath(`/blog/${slug}`);
   revalidatePath('/blog');
@@ -43,6 +45,7 @@ export async function POST(req: NextRequest) {
   revalidatePath('/sitemap.xml');
   revalidatePath('/blog/rss.xml');
   revalidatePath('/llms.txt');
+  revalidatePath('/llms-full.txt');
 
   return NextResponse.json({ revalidated: true, slug });
 }

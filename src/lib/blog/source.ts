@@ -85,11 +85,19 @@ const LIST_COLUMNS =
 
 export const PAGE_SIZE = 12;
 
+export const BLOG_TAG = 'blog-posts';
+
 function client() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } });
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    // Tagged so /api/revalidate can expire every blog read (pages, sitemap, rss, llms) at once
+    global: {
+      fetch: (input, init) => fetch(input, { ...init, next: { revalidate: 3600, tags: [BLOG_TAG] } }),
+    },
+  });
 }
 
 export function formatDate(iso: string) {
@@ -225,4 +233,17 @@ export async function getAllSlugs(): Promise<{ slug: string; updatedIso: string;
     updatedIso: r.updated_at ?? r.published_at ?? new Date().toISOString(),
     pillar: isPillar(r.pillar) ? r.pillar : null,
   }));
+}
+
+// Full rows for /llms-full.txt, newest first
+export async function getFullPosts(limit = 20): Promise<BlogPost[]> {
+  const table = published();
+  if (!table) return [];
+  const { data, error } = await table
+    .select('*')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as BlogPostRow[]).map(toPost);
 }
