@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import type { BlogPost } from '@/lib/blog/source';
-import { PILLARS } from '@/lib/blog/constants';
+import TypographicCover from './TypographicCover';
 
 export default function FeaturedPostCard({ post }: { post: BlogPost }) {
   return (
@@ -19,16 +19,9 @@ export default function FeaturedPostCard({ post }: { post: BlogPost }) {
           />
         </div>
       ) : (
-        <div
-          className="relative flex min-h-[260px] items-end p-8"
-          style={{ background: 'radial-gradient(120% 120% at 0% 100%, #1951FC 0%, #0B2CB1 45%, #03195B 100%)' }}
-          aria-hidden="true"
-        >
-          <div className="ambient-grain" style={{ opacity: 0.08 }} />
-          <span className="relative font-display text-[36px] italic leading-tight text-white">
-            {post.pillar ? PILLARS[post.pillar].name : 'The Focalyst Journal'}
-          </span>
-        </div>
+        <Link href={`/blog/${post.slug}`} tabIndex={-1} className="block min-h-[260px]">
+          <TypographicCover title={post.title} pillar={post.pillar} size="featured" />
+        </Link>
       )}
       <div className="flex flex-col p-8 md:p-10">
         <div className="flex items-center gap-2 text-[12px] text-ink-3">

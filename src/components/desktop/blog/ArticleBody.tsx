@@ -2,7 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { BlogComparison } from '@/lib/blog/source';
+import type { BlogComparison, BlogSource } from '@/lib/blog/source';
 import { APP_CTA_URL, WEB_CTA_URL, ctaUrl } from '@/lib/blog/constants';
 
 export function headingId(text: string) {
@@ -34,7 +34,22 @@ export function extractHeadings(md: string) {
 const components: Components = {
   h2: ({ children }) => <h2 id={headingId(textOf(children))}>{children}</h2>,
   a: ({ href = '', children }) => {
-    if (href.startsWith('/') || href.startsWith('#')) return <Link href={href}>{children}</Link>;
+    const cite = /^#source-(\d+)$/.exec(href);
+    if (cite)
+      return (
+        <sup>
+          <a href={href} className="fx-cite" aria-label={`Source ${cite[1]}`}>
+            {cite[1]}
+          </a>
+        </sup>
+      );
+    if (href.startsWith('#')) return <a href={href}>{children}</a>;
+    if (href.startsWith('/'))
+      return (
+        <Link href={href} className="fx-internal">
+          {children}
+        </Link>
+      );
     return (
       <a href={href} target="_blank" rel="noopener">
         {children}
@@ -48,6 +63,24 @@ const components: Components = {
   ),
   img: () => null,
 };
+
+function normUrl(u: string) {
+  return u.trim().replace(/#.*$/, '').replace(/\/+$/, '').replace(/^https?:\/\/(www\.)?/, '').toLowerCase();
+}
+
+// Links that point at one of the post's sources become numbered citations ([N](#source-N));
+// the publisher name is dropped from the sentence, and the space before it too
+export function citeSources(md: string, sources: BlogSource[]) {
+  const index = new Map<string, number>();
+  sources.forEach((s, i) => {
+    const k = normUrl(s.url);
+    if (!index.has(k)) index.set(k, i + 1);
+  });
+  return md.replace(/[ \t]*\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, (m, _text, url) => {
+    const n = index.get(normUrl(url));
+    return n ? `[${n}](#source-${n})` : m;
+  });
+}
 
 function Markdown({ md }: { md: string }) {
   return (
@@ -76,7 +109,7 @@ export function CtaButtons({ slug, medium }: { slug: string; medium: 'inline' | 
     <div className="mt-5 flex flex-col gap-3 sm:flex-row">
       <a
         href={ctaUrl(APP_CTA_URL, medium, slug)}
-        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-white no-underline transition-colors hover:bg-primary-hover sm:w-auto"
+        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-primary px-6 text-[15px] font-semibold text-snow no-underline transition-colors hover:bg-primary-hover sm:w-auto"
       >
         Get the app
       </a>
@@ -125,12 +158,14 @@ export default function ArticleBody({
   md,
   slug,
   comparison,
+  sources = [],
 }: {
   md: string;
   slug: string;
   comparison: BlogComparison | null;
+  sources?: BlogSource[];
 }) {
-  const sections = md.split(/^(?=## )/m);
+  const sections = citeSources(md, sources).split(/^(?=## )/m);
   const out: React.ReactNode[] = [];
   let h2Count = 0;
   let pending = comparison;
@@ -139,10 +174,19 @@ export default function ArticleBody({
     const pieces = section.split(/^\s*\[\[cta\]\]\s*$/m);
     pieces.forEach((piece, pi) => {
       if (pi > 0) out.push(<InlineCta key={`cta-${si}-${pi}`} slug={slug} />);
-      if (piece.trim()) out.push(<Markdown key={`md-${si}-${pi}`} md={piece} />);
+      if (piece.trim())
+        out.push(
+          <div key={`md-${si}-${pi}`} className="fx-article fx-blog">
+            <Markdown md={piece} />
+          </div>
+        );
     });
     if (pending && h2Count === 2 && section.startsWith("## ") && pending.rows?.length) {
-      out.push(<ComparisonTable key="comparison" comparison={pending} />);
+      out.push(
+        <div key="comparison" className="fx-article fx-blog">
+          <ComparisonTable comparison={pending} />
+        </div>
+      );
       pending = null;
     }
   });

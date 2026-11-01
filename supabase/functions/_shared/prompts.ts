@@ -43,6 +43,25 @@ export function kindFor(topic: Topic, jobKind: string): Kind {
 
 export const TAGS = ["Focus", "Study", "Habits", "Screen time", "AI", "Planning", "Comparisons", "Exams", "Students"];
 
+export const SOURCE_RULES = `SOURCES, in order of preference:
+1. government and public health bodies (.gov, nih.gov, cdc.gov, who.int, nhs.uk)
+2. universities (.edu, .ac.*)
+3. journals and research databases (pubmed, nature.com, sciencedirect, thelancet, jamanetwork, apa.org)
+4. hospitals and health systems (mayoclinic.org, clevelandclinic.org, hopkinsmedicine.org and similar)
+5. established research and news organisations (pewresearch.org, reuters.com, bbc.com, apnews.com)
+6. official company pages, only for facts about that company's product
+Never use statistics roundup or SEO content sites (for example sqmagazine.co.uk or any "statistics" listicle
+aggregator), marketing blogs of companies selling a related product, or press-release wires. A press release is
+allowed only when it is the only source for a named survey; then the claim reads "a survey by {organisation}".
+For health, sleep or mental health topics, at least 2 facts must come from groups 1 to 4.`;
+
+export const HEALTH_TOPIC =
+  /\b(sleep|insomnia|melatonin|health|mental|anxiety|stress|burnout|depress|adhd|caffeine|exercise|nap|diet|blue light|circadian|wellbeing|well-being|brain)/i;
+
+export function isHealthTopic(t: Topic) {
+  return HEALTH_TOPIC.test(`${t.title} ${t.primary_keyword} ${t.pain_point ?? ""}`);
+}
+
 // 7.1 Research (grounded)
 export function researchPrompt(t: Topic, date: string, primary = false) {
   return `Research this blog topic for ${t.icp ?? "students and ambitious people"}. Today is ${date}.
@@ -57,7 +76,8 @@ help centre or App Store / Play Store listing only.\n` : ""}Find:
 Return one JSON object in a \`\`\`json block:
 { "questions": [..], "facts": [{ "id": "f1", "claim": "...", "source_title": "...", "source_url": "...",
   "publisher": "..." }], "gaps": [..], "angle": "...", "secondary_keywords": [..] }
-Only include facts you found in the search results. Do not guess.${
+Only include facts you found in the search results. Do not guess.
+${SOURCE_RULES}${
     primary
       ? "\nFind primary sources: official sites, government and university pages, peer-reviewed journals, reputable news. Give the exact article URL, not a homepage."
       : ""
@@ -173,7 +193,15 @@ PRODUCT FACTS. Output JSON matching the schema.
 - sections: 4 to 7, each { h2 (question or clear statement a reader would search), lead (2 to 3
   sentences answering it directly), points (3 to 6 bullet notes), fact_ids, feature_keys }.
 - cta_after_section: 2 or 3.
-- faq: 3 to 5 { q (real question from research), a (40 to 80 words, self-contained) }, not repeating H2s.
+- faq: 0 to 3 { q, a }. Each q must be a real question from QUESTIONS PEOPLE ASK that the sections do NOT
+  already answer. Each a (40 to 70 words) must add new information, never a summary of a section. If fewer
+  than 2 questions qualify, return an empty faq [].
+- practical advice: across the sections, plan at least 3 specific actions the reader can do tonight or this
+  week (for example "charge your phone outside the bedroom", "set a 10:30 pm wind-down alarm"), not general
+  principles. Put them in the points.
+- health claims: plan wording that matches what the source supports and how strongly ("can", "is linked to",
+  "in one study of ..."). Never "direct impact" or "really" unless the source says so.
+- Never write fact ids (f1, f7) in any text field; fact ids belong only in fact_ids.
 - comparison (comparison posts only): { columns: ["", "Focalyst", "${t.competitor ?? "{competitor}"}"], rows: 6 to 9
   [job to be done, short factual cell, short factual cell] }, every competitor cell backed by a fact_id.
 - internal_links: 3 to 5 { anchor, href } chosen ONLY from INTERNAL LINKS.
@@ -219,8 +247,19 @@ export function draftPrompt(o: {
 - Start each section with its lead (you may refine the wording), then develop it with specifics,
   an example and, when useful, a short list or table. Not every section needs a list.
 - Put the line [[cta]] alone on its own line after section ${o.outline.cta_after_section}.
-- Cite facts inline as [publisher](url) right after the claim. Use each listed source at least once
-  if relevant. No other external links.
+- Cite facts inline as [publisher](url) right after the claim. The site turns each citation into a small
+  superscript number, so the link text disappears: write every sentence so it reads naturally WITHOUT the
+  publisher name. Good: "Screens before bed can delay sleep [Sleep Foundation](url)." Bad: "According to
+  [Sleep Foundation](url), screens delay sleep." Use each listed source at least once if relevant. No other
+  external links.
+- Never write fact ids such as f1, f7, (f2) or [f3] anywhere in the text.
+- Health, sleep and mental health claims: say only what the source supports and how strongly ("can",
+  "is linked to", "in one study of 2,000 students ..."). Never "direct impact", "proven" or "really" unless
+  the source says so.
+- Include at least 3 specific actions the reader can do tonight or this week (for example "charge your phone
+  outside the bedroom", "set a 10:30 pm wind-down alarm"), not general principles.
+- Every sentence must be specific to this topic: a concrete action, a number from VERIFIED FACTS, an example
+  or a time. Cut sentences that could appear in any article on the topic.
 - Add the internal links from the outline naturally in the text.
 - Mention Focalyst only where it solves the reader's problem, using PRODUCT FACTS, 1 to 3 times,
   each with the matching /guides link when one exists. Say clearly when something is Pro-only or
@@ -252,7 +291,7 @@ export const CRITIC_SCHEMA = {
             type: "string",
             enum: [
               "unsupported_claim", "wrong_focalyst_claim", "unfair_competitor_claim", "generic", "no_position",
-              "repetition", "slop",
+              "repetition", "slop", "overclaim", "missing_actions", "fact_id",
             ],
           },
           quote: { type: "string" },
@@ -261,6 +300,7 @@ export const CRITIC_SCHEMA = {
         required: ["type", "quote", "fix"],
       },
     },
+    faq_remove: { type: "array", items: { type: "integer" } },
   },
   required: ["verdict", "issues"],
 };
@@ -278,14 +318,25 @@ and STYLE GUIDE. Report only real problems, quoting the exact sentence. Check fo
 - claims not supported by the facts (unsupported_claim)
 - wrong Focalyst claims: features, platforms or free vs Pro limits that differ from PRODUCT FACTS (wrong_focalyst_claim)
 - unfair competitor claims, or competitor claims not backed by a verified official page (unfair_competitor_claim)
-- generic or "could fit any topic" sentences (generic)
+- generic sentences that could appear in any article on the topic, for example "This small change can greatly
+  improve your sleep hygiene" or "Replacing a habit requires finding appealing alternatives" (generic). Be strict.
+  The fix must give a concrete replacement: a specific action, a number from VERIFIED FACTS, an example or a time.
+- health or research claims stated more strongly than the source supports ("direct impact", "proven", "really")
+  (overclaim); the fix uses "can", "is linked to" or "in one study of ..."
+- fewer than 3 specific actions the reader can do tonight or this week (missing_actions); quote the weakest
+  advice sentence and give a concrete action as the fix
+- fact ids such as f1, (f7) or [f3] in the text (fact_id)
 - missing position or recommendation (no_position)
 - repeated points (repetition)
 - slop patterns: formulaic contrasts, empty reassurance, brochure tone (slop)
+FAQ: return faq_remove, the 0-based indexes of FAQ items whose question the DRAFT already answers or whose
+answer only repeats the body. Return [] when every item adds new information.
 Return verdict "pass" when there is nothing that a careful editor would change, otherwise "fix".
 
 TITLE: ${o.outline.title}
 QUICK ANSWER: ${o.outline.quick_answer}
+FAQ:
+${(o.outline.faq ?? []).map((f, i) => `${i}. Q: ${f.q}\n   A: ${f.a}`).join("\n") || "(none)"}
 
 DRAFT:
 ${o.md}
@@ -317,10 +368,14 @@ export function rewritePrompt(o: {
       ? `Final pass on this Focalyst Journal post. DELETE every sentence that contains: a number not in VERIFIED FACTS or
 PRODUCT FACTS, a link not in the allowed lists, a claim about Focalyst that differs from PRODUCT FACTS, a banned
 word or phrase, an em or en dash, or an exclamation mark. Rewrite the surrounding sentence only if the paragraph
-no longer reads naturally. Keep headings, [[cta]], citations and internal links that are allowed.`
+no longer reads naturally. Also delete [generic] sentences beyond the first 2 listed. Keep headings, [[cta]],
+citations and internal links that are allowed.`
       : `Fix only these problems in the Focalyst Journal post below; keep everything else the same (headings, order,
-[[cta]] line, citations, internal links, voice).`
+[[cta]] line, citations, internal links, voice). Replace each generic sentence with a concrete one: a
+specific action, a number from VERIFIED FACTS, an example or a time.`
   }
+Never write fact ids (f1, (f7), [f3]). Citations stay as [publisher](url) and sentences read naturally without
+the publisher name.
 Stay between ${o.minWords} and ${o.maxWords} words.
 PROBLEMS:
 ${list}

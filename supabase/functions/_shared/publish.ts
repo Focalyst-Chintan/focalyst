@@ -1,6 +1,6 @@
 // 7.5 Publish: write the blog_posts row, refresh the site, ping IndexNow.
 import { db, log, type BlogConfig } from "./db.ts";
-import { wordCount } from "./lint.ts";
+import { stripFactIds, wordCount } from "./lint.ts";
 import type { Kind, Outline, Topic } from "./prompts.ts";
 import type { VerifiedFact } from "./verify.ts";
 
@@ -28,17 +28,26 @@ export async function writePost(o: {
   checks: unknown;
   config: BlogConfig;
   publish: boolean;
+  faqRemove?: number[]; // FAQ indexes the critic found repeating the body
 }) {
-  const words = wordCount(o.md);
-  const cited = o.facts.filter((f) => o.md.includes(f.source_url));
+  const md = stripFactIds(o.md);
+  const words = wordCount(md);
+  const drop = new Set(o.faqRemove ?? []);
+  let faq = (o.outline.faq ?? [])
+    .filter((_, i) => !drop.has(i))
+    .map((f) => ({ q: stripFactIds(f.q), a: stripFactIds(f.a) }))
+    .filter((f) => f.q && f.a)
+    .slice(0, 3);
+  if (faq.length < 2) faq = [];
+  const cited = o.facts.filter((f) => md.includes(f.source_url));
   const row = {
     slug: o.outline.slug,
     title: o.outline.title,
     meta_title: o.outline.title,
     description: o.outline.description,
-    quick_answer: o.outline.quick_answer,
-    content_md: o.md,
-    faq: o.outline.faq,
+    quick_answer: stripFactIds(o.outline.quick_answer),
+    content_md: md,
+    faq,
     sources: sourcesFrom(cited.length ? cited : o.facts),
     comparison: o.kind === "comparison" ? o.outline.comparison ?? null : null,
     tags: o.outline.tags,

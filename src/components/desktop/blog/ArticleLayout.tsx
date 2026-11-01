@@ -89,11 +89,16 @@ export default function ArticleLayout({ post, related }: { post: BlogPost; relat
           {post.coverImageUrl ? null : <TypographicCover title={post.title} pillar={post.pillar} />}
         </div>
 
-        <article className="fx-article fx-blog mt-8">
-          <ArticleBody md={post.contentMd ?? ''} slug={post.slug} comparison={post.comparison} />
+        <article className="mt-8">
+          <ArticleBody
+            md={post.contentMd ?? ''}
+            slug={post.slug}
+            comparison={post.comparison}
+            sources={post.sources}
+          />
         </article>
 
-        {post.faq.length ? (
+        {post.faq.length >= 2 ? (
           <section className="mt-14">
             <h2 className="font-display text-[28px] leading-tight text-ink">Frequently asked questions</h2>
             <div className="mt-5 space-y-3">
@@ -114,8 +119,8 @@ export default function ArticleLayout({ post, related }: { post: BlogPost; relat
           <section className="mt-14">
             <h2 className="font-display text-[28px] leading-tight text-ink">Sources</h2>
             <ol className="mt-4 list-decimal space-y-2 pl-5 text-[15px] leading-[24px] text-ink-2">
-              {post.sources.map((s) => (
-                <li key={s.url}>
+              {post.sources.map((s, i) => (
+                <li key={s.url} id={`source-${i + 1}`} className="scroll-mt-28">
                   <a
                     href={s.url}
                     target="_blank"

@@ -11,7 +11,61 @@ const BLOCKED = [
   "scribd.com", "slideshare.net", "coursehero.com", "chegg.com", "brainly.", "answers.com",
   "ezinearticles", "hubpages.com", "wikihow.com", "blogspot.", "wordpress.com", "substack.com",
   "vertexaisearch.cloud.google.com", "focalyst.online",
+  // statistics roundups and SEO content sites
+  "sqmagazine.co.uk", "demandsage.com", "explodingtopics.com", "backlinko.com", "zippia.com", "statista.com",
+  "gitnux.org", "zipdo.co", "worldmetrics.org", "wifitalents.com", "enterpriseappstoday.com", "earthweb.com",
+  "financesonline.com", "techjury.net", "notta.ai", "cropink.com", "amraandelma.com", "electroiq.com",
+  "marketsplash.com", "teamstage.io", "crossrivertherapy.com", "thezebra.com", "headphonesaddict.com",
+  "businessdasher.com", "truelist.co", "colorlib.com", "authorityhacker.com", "semrush.com", "ahrefs.com",
+  "hubspot.com",
 ];
+
+// Statistics listicle aggregators by domain name ("xyzstatistics.com", "stats-hub.net")
+const STATS_DOMAIN = /(statistic|stats)/;
+// Press-release wires: allowed only as the last resort for a named survey (lowest tier)
+const PRESS_WIRES = ["prnewswire.com", "businesswire.com", "globenewswire.com", "einpresswire.com", "newswire.com", "prweb.com", "accesswire.com"];
+
+const HOSPITALS = [
+  "mayoclinic.org", "clevelandclinic.org", "hopkinsmedicine.org", "health.harvard.edu", "massgeneral.org",
+  "mountsinai.org", "nyulangone.org", "stanfordhealthcare.org", "uclahealth.org", "kp.org", "sleepfoundation.org",
+  "aasm.org", "sleepeducation.org", "heart.org", "psychiatry.org", "nami.org", "mind.org.uk", "cedars-sinai.org",
+  "health.clevelandclinic.org", "medlineplus.gov", "webmd.com",
+];
+const JOURNALS = [
+  "pubmed.ncbi.nlm.nih.gov", "ncbi.nlm.nih.gov", "nature.com", "sciencedirect.com", "thelancet.com",
+  "jamanetwork.com", "apa.org", "bmj.com", "nejm.org", "cell.com", "science.org", "springer.com", "wiley.com",
+  "plos.org", "frontiersin.org", "mdpi.com", "oup.com", "tandfonline.com", "sagepub.com", "cochranelibrary.com",
+  "pnas.org", "arxiv.org", "biorxiv.org", "medrxiv.org", "nber.org",
+];
+const PUBLIC_BODIES = ["who.int", "nhs.uk", "nih.gov", "cdc.gov", "europa.eu", "un.org", "unesco.org", "oecd.org"];
+const NEWS_RESEARCH = [
+  "pewresearch.org", "reuters.com", "bbc.com", "bbc.co.uk", "apnews.com", "gallup.com", "nytimes.com",
+  "theguardian.com", "economist.com", "ft.com", "npr.org", "washingtonpost.com", "wsj.com", "bloomberg.com",
+  "thehindu.com", "indianexpress.com", "hindustantimes.com", "timesofindia.indiatimes.com", "ofcom.org.uk",
+  "commonsensemedia.org", "rand.org", "brookings.edu",
+];
+
+const onList = (d: string, list: string[]) => list.some((b) => d === b || d.endsWith(`.${b}`));
+
+// 1 government and public health, 2 universities, 3 journals, 4 hospitals and health systems,
+// 5 established research and news organisations, 6 anything else (official company pages), 7 press wires
+export function sourceTier(url: string): number {
+  const d = domainOf(url);
+  if (!d) return 7;
+  if (onList(d, PRESS_WIRES)) return 7;
+  if (onList(d, PUBLIC_BODIES) || /\.gov(\.[a-z]{2})?$/.test(d) || /\.gov\.[a-z]{2}$/.test(d) || /\.nic\.in$/.test(d)) return 1;
+  if (onList(d, JOURNALS)) return 3;
+  if (onList(d, HOSPITALS)) return 4;
+  if (/\.edu(\.[a-z]{2})?$/.test(d) || /\.ac\.[a-z]{2}$/.test(d)) return 2;
+  if (onList(d, NEWS_RESEARCH)) return 5;
+  return 6;
+}
+
+export const STRONG_TIER = 4; // tiers 1 to 4 count as strong sources for health claims
+
+export function strongDomains(facts: { source_url: string }[]) {
+  return new Set(facts.filter((f) => sourceTier(f.source_url) <= STRONG_TIER).map((f) => domainOf(f.source_url))).size;
+}
 
 export function domainOf(url: string) {
   try {
@@ -25,12 +79,18 @@ export function isBlocked(url: string) {
   const d = domainOf(url);
   return (
     !d ||
+    (STATS_DOMAIN.test(d) && sourceTierSafe(d)) ||
     BLOCKED.some((b) => {
       if (b.endsWith(".")) return d.startsWith(b) || d.includes(`.${b}`); // any TLD, e.g. "pinterest."
       if (!b.includes(".")) return d.includes(b); // name fragments, e.g. "ghostbin"
       return d === b || d.endsWith(`.${b}`);
     })
   );
+}
+
+// A domain with "stats" or "statistic" in its name is blocked unless it is an official body (e.g. ons.gov.uk)
+function sourceTierSafe(d: string) {
+  return !(onList(d, PUBLIC_BODIES) || /\.gov(\.[a-z]{2})?$/.test(d) || /\.(edu|ac)(\.|$)/.test(d));
 }
 
 export function normaliseUrl(url: string) {
@@ -143,9 +203,12 @@ export async function verifyFacts(facts: RawFact[], grounding: GroundingLink[]):
       };
     }),
   );
-  results.forEach((r, i) => {
-    if (r) out.push({ id: `f${i + 1}`, ...r });
-  });
+  // Best sources first; press wires only when nothing else backs a fact
+  const kept = results.filter((r): r is NonNullable<typeof r> => !!r);
+  const nonWire = kept.filter((r) => sourceTier(r.source_url) < 7);
+  (nonWire.length >= 3 ? nonWire : kept)
+    .sort((a, b) => sourceTier(a.source_url) - sourceTier(b.source_url))
+    .forEach((r, i) => out.push({ id: `f${i + 1}`, ...r }));
   return out;
 }
 

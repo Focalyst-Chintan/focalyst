@@ -7,12 +7,12 @@ import { GUIDES } from "../_shared/guides.ts";
 import { describe, lint, scrub, type LintInput, type Violation } from "../_shared/lint.ts";
 import {
   CRITIC_SCHEMA, DRAFT_SCHEMA, findTopicPrompt, kindFor, LENGTHS, newsTemplate, OUTLINE_SCHEMA, outlinePrompt,
-  draftPrompt, criticPrompt, rewritePrompt, researchPrompt, TAGS, type CriticIssue, type Kind, type Outline,
+  draftPrompt, criticPrompt, rewritePrompt, researchPrompt, isHealthTopic, TAGS, type CriticIssue, type Kind, type Outline,
   type Topic,
 } from "../_shared/prompts.ts";
 import { refreshSite, writePost } from "../_shared/publish.ts";
 import { TERMS, voiceBlock } from "../_shared/style.ts";
-import { distinctDomains, domainOf, verifyFacts, type RawFact, type VerifiedFact } from "../_shared/verify.ts";
+import { distinctDomains, domainOf, sourceTier, STRONG_TIER, strongDomains, verifyFacts, type RawFact, type VerifiedFact } from "../_shared/verify.ts";
 
 const FN = "blog-worker";
 const MAX_ATTEMPTS = 3;
@@ -47,6 +47,7 @@ interface ReviewState {
   history: { round: number; violations: string[]; issues: number }[];
   published_with?: string[];
   removed?: string[];
+  faq_remove?: number[];
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -131,7 +132,20 @@ async function research(job: Job, config: BlogConfig) {
   }>({ model: config.model_research, prompt: researchPrompt(topic, today(), retry), grounded: true, temperature: 0.3 });
 
   const raw = r.json ?? {};
-  const facts = await verifyFacts(raw.facts ?? [], r.grounding);
+  let facts = await verifyFacts(raw.facts ?? [], r.grounding);
+  // Health, sleep and mental health need 2+ strong sources (groups 1 to 4); research again once,
+  // then keep only the strong-source facts plus official product pages
+  const health = isHealthTopic(topic);
+  const weakHealth = health && strongDomains(facts) < 2;
+  if (weakHealth && !retry) {
+    await stay(job, { research: { retry: true } });
+    return { step: "research_retry_health", strong: strongDomains(facts) };
+  }
+  if (health) {
+    facts = facts
+      .filter((f) => sourceTier(f.source_url) <= STRONG_TIER || (sourceTier(f.source_url) === 6 && !!topic.competitor))
+      .map((f, i) => ({ ...f, id: `f${i + 1}` }));
+  }
   const competitorOk =
     !topic.competitor ||
     facts.some((f) => {
@@ -310,7 +324,7 @@ async function review(job: Job, config: BlogConfig) {
 
   if (state.phase === "check") {
     const violations = lint(input);
-    const r = await gemini<{ verdict: string; issues: CriticIssue[] }>({
+    const r = await gemini<{ verdict: string; issues: CriticIssue[]; faq_remove?: number[] }>({
       model: config.model_writer,
       system: voiceBlock(o.my_term ?? topic.my_term),
       prompt: criticPrompt({ md: input.md, outline: o, facts: job.research!.facts, features }),
@@ -318,6 +332,8 @@ async function review(job: Job, config: BlogConfig) {
       temperature: 0.2,
     });
     const issues = r.json?.issues ?? [];
+    const faqRemove = [...new Set([...(state.faq_remove ?? []), ...(r.json?.faq_remove ?? [])])];
+    state.faq_remove = faqRemove;
     const pass = violations.length === 0 && (r.json?.verdict === "pass" || issues.length === 0);
     const history = [...state.history, { round: state.round, violations: describe(violations), issues: issues.length }];
 
@@ -331,7 +347,11 @@ async function review(job: Job, config: BlogConfig) {
     }
 
     // Two rewrites done: remove what's left of the integrity problems in code, then publish
-    const quotes = issues.filter((i) => INTEGRITY_ISSUES.has(i.type)).map((i) => i.quote);
+    // Integrity problems, plus generic sentences beyond the 2 allowed, are removed
+    const quotes = [
+      ...issues.filter((i) => INTEGRITY_ISSUES.has(i.type)).map((i) => i.quote),
+      ...issues.filter((i) => i.type === "generic").slice(2).map((i) => i.quote),
+    ];
     const cleaned = scrub(input.md, input, quotes);
     const remaining = lint({ ...input, md: cleaned });
     const final: ReviewState = {
@@ -391,6 +411,7 @@ async function publish(job: Job, config: BlogConfig) {
     facts: job.research!.facts,
     secondaryKeywords: job.research!.secondary_keywords,
     checks: job.checks,
+    faqRemove: (job.checks as ReviewState | null)?.faq_remove ?? [],
     config,
     publish: config.auto_publish,
   });

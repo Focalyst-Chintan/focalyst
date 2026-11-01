@@ -101,6 +101,11 @@ export function formatDate(iso: string) {
   });
 }
 
+// Internal fact ids from the writer, e.g. "(f7)", "(f2, f5)", "[f3]"
+export function stripFactLabels(text: string): string {
+  return text.replace(/\s*[\(\[]f\d+(?:\s*,\s*f\d+)*[\)\]]/g, '');
+}
+
 function toPost(row: Partial<BlogPostRow>): BlogPost {
   const publishedIso = row.published_at ?? row.created_at ?? new Date().toISOString();
   return {
@@ -115,10 +120,12 @@ function toPost(row: Partial<BlogPostRow>): BlogPost {
     readingMinutes: row.reading_minutes ?? Math.max(1, Math.ceil((row.word_count ?? 0) / 230)),
     pillar: isPillar(row.pillar) ? row.pillar : null,
     kind: row.kind ?? 'article',
-    contentMd: row.content_md,
+    contentMd: row.content_md ? stripFactLabels(row.content_md) : row.content_md,
     metaTitle: row.meta_title ?? undefined,
-    quickAnswer: row.quick_answer ?? undefined,
-    faq: Array.isArray(row.faq) ? row.faq : [],
+    quickAnswer: row.quick_answer ? stripFactLabels(row.quick_answer) : undefined,
+    faq: Array.isArray(row.faq)
+      ? row.faq.map((f) => ({ ...f, q: stripFactLabels(f.q ?? ''), a: stripFactLabels(f.a ?? '') }))
+      : [],
     sources: Array.isArray(row.sources) ? row.sources : [],
     comparison: row.comparison ?? null,
     primaryKeyword: row.primary_keyword ?? undefined,

@@ -6,6 +6,18 @@ import type { Kind } from "./prompts.ts";
 // integrity: facts, links and claims (removed before publishing); style: everything else
 export type Severity = "integrity" | "style";
 
+// Internal fact ids like "(f7)", "(f2, f5)", "[f3]" or a bare "f7" must never reach readers
+const FACT_LABEL = /\s*[\(\[]f\d+(?:\s*,\s*f\d+)*[\)\]]/g;
+const BARE_FACT_ID = /(?<=^|\s)f\d{1,2}(?=$|[\s.,;:)])/g;
+
+export function stripFactIds(text: string): string {
+  return (text ?? "").replace(FACT_LABEL, "").replace(BARE_FACT_ID, "").replace(/ {2,}/g, " ").replace(/ ([.,;:])/g, "$1");
+}
+
+export function hasFactIds(text: string): string | null {
+  return (text ?? "").match(FACT_LABEL)?.[0]?.trim() ?? (text ?? "").match(BARE_FACT_ID)?.[0] ?? null;
+}
+
 export interface Violation {
   rule: string;
   severity: Severity;
@@ -115,6 +127,10 @@ export function lint(i: LintInput): Violation[] {
     if (m) add("banned_word", "style", m[0]);
   }
   for (const p of BANNED_PHRASES) if (lower.includes(p)) add("banned_phrase", "style", p);
+
+  // Internal fact ids (f1, (f7), [f2, f5]) in the body or quick answer
+  const label = hasFactIds(stripCode(i.md).replace(/\]\([^)]*\)/g, "]")) ?? hasFactIds(i.quickAnswer);
+  if (label) add("fact_id", "style", label);
 
   // Dashes and exclamation marks
   for (const s of sentences(prose)) {
