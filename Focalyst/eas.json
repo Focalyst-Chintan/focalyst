@@ -19,7 +19,8 @@
       "environment": "production",
       "ios": {
         "simulator": false,
-        "buildConfiguration": "Release"
+        "buildConfiguration": "Release",
+        "image": "macos-tahoe-26.6-xcode-27.1"
       },
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
