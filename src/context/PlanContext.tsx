@@ -11,6 +11,7 @@ import { awardXP } from '@/lib/xp/award'
 import { useData } from '@/lib/data/useData'
 import { useSWRConfig } from 'swr'
 import { useToast } from '@/components/desktop/ui/Toast'
+import { calculateHabitStreak } from '@/lib/habits/streak'
 
 // ── Types ──
 export interface TaskItem {
@@ -142,18 +143,35 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             throw taskError
         }
 
-        return (taskData || []).map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            is_completed: t.is_completed,
-            start_date: t.due_date || '',
-            end_date: t.due_date || '',
-            due_date: t.due_date || null,
-            completed_at: t.completed_at || null,
-            tags: t.tags || [],
-            priority: normalizePriority(t.priority),
-            reminders: !!t.reminder_time,
-        }))
+        type DbTask = {
+            id: string
+            title: string
+            is_completed: boolean
+            due_date: string | null
+            completed_at: string | null
+            tags: string[] | null
+            priority: unknown
+            reminder_time: string | null
+        }
+        const seen = new Set<string>()
+        return (taskData as unknown as DbTask[] || [])
+            .filter((t) => {
+                if (seen.has(t.id)) return false
+                seen.add(t.id)
+                return true
+            })
+            .map((t) => ({
+                id: t.id,
+                title: t.title,
+                is_completed: t.is_completed,
+                start_date: t.due_date || '',
+                end_date: t.due_date || '',
+                due_date: t.due_date || null,
+                completed_at: t.completed_at || null,
+                tags: t.tags || [],
+                priority: normalizePriority(t.priority),
+                reminders: !!t.reminder_time,
+            }))
     }, [user])
 
     const fetchHabitsFromDb = useCallback(async (): Promise<HabitItem[]> => {
@@ -173,7 +191,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
         }
 
         const habitIds = (habitData || []).map((h: any) => h.id)
-        let todayCompletions: string[] = []
+        const todayCompletions: string[] = []
         const habitCompletions: Record<string, string[]> = {}
 
         if (habitIds.length > 0) {
@@ -205,23 +223,31 @@ export function PlanProvider({ children }: { children: ReactNode }) {
             }
         }
 
-        return (habitData || []).map((h: any) => ({
-            id: h.id,
-            name: h.name,
-            current_streak: h.current_streak,
-            completed_today: todayCompletions.includes(h.id),
-            start_date: '',
-            end_date: '',
-            repeat_days: h.custom_days || [0, 1, 2, 3, 4, 5, 6],
-            all_days: h.frequency === 'daily',
-            reminders: !!h.reminder_time,
-            reminder_time: h.reminder_time || '07:00',
-            position: h.position,
-            completedDates: habitCompletions[h.id] || [],
-            created_at: h.created_at || new Date().toISOString(),
-            icon: h.icon || '🎯',
-            color: h.color || '#3B82F6',
-        }))
+        return (habitData || []).map((h: any) => {
+            const completedDates = habitCompletions[h.id] || []
+            const { currentStreak } = calculateHabitStreak(
+                { frequency: h.frequency, custom_days: h.custom_days },
+                completedDates,
+                todayStr()
+            )
+            return {
+                id: h.id,
+                name: h.name,
+                current_streak: currentStreak,
+                completed_today: todayCompletions.includes(h.id),
+                start_date: '',
+                end_date: '',
+                repeat_days: h.custom_days || [0, 1, 2, 3, 4, 5, 6],
+                all_days: h.frequency === 'daily',
+                reminders: !!h.reminder_time,
+                reminder_time: h.reminder_time || '07:00',
+                position: h.position,
+                completedDates,
+                created_at: h.created_at || new Date().toISOString(),
+                icon: h.icon || '🎯',
+                color: h.color || '#3B82F6',
+            }
+        })
     }, [user])
 
     const tasksKey = user ? `tasks:${user.id}` : null
@@ -300,22 +326,24 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                 const { data: { user } } = await supabase.auth.getUser()
                 if (!user) throw new Error('Not authenticated')
 
+                const taskId = crypto.randomUUID()
                 const { data, error: insertError } = await supabase
                     .from('tasks')
-                    .insert({
+                    .upsert({
+                        id: taskId,
                         user_id: user.id,
                         title: task.title.trim(),
                         due_date: task.start_date || null,
                         priority: normalizePriority(task.priority),
                         reminder_time: task.reminders ? new Date().toISOString() : null,
                         tags: task.tags.length > 0 ? task.tags : null,
-                    })
+                    }, { onConflict: 'id' })
                     .select()
                     .single()
 
                 if (insertError) throw insertError
 
-                setTasks((prev) => [{
+                const newTaskItem: TaskItem = {
                     id: data.id,
                     title: data.title,
                     is_completed: false,
@@ -324,7 +352,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                     tags: data.tags || [],
                     priority: normalizePriority(data.priority),
                     reminders: !!data.reminder_time,
-                }, ...prev])
+                }
+
+                setTasks((prev) => [newTaskItem, ...prev.filter((t) => t.id !== data.id)])
                 return
             } catch (err) {
                 console.error('Failed to add task:', err)
@@ -524,12 +554,14 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
             const applyToggle = (h: HabitItem): HabitItem => {
                 if (h.id !== id) return h
-                const nextStreak = nextCompleted
-                    ? (h.current_streak || 0) + 1
-                    : Math.max(0, (h.current_streak || 0) - 1)
                 const nextCompletedDates = nextCompleted
                     ? Array.from(new Set([...(h.completedDates || []), today]))
                     : (h.completedDates || []).filter((d) => d !== today)
+                const { currentStreak: nextStreak } = calculateHabitStreak(
+                    { frequency: h.all_days ? 'daily' : 'custom', custom_days: h.repeat_days },
+                    nextCompletedDates,
+                    today
+                )
                 return {
                     ...h,
                     completed_today: nextCompleted,
@@ -548,6 +580,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
                         key,
                         async (current = []) => {
                             const supabase = createClient()
+                            const toggledHabit = applyToggle(habit)
+                            const nextStreak = toggledHabit.current_streak
+
                             if (nextCompleted) {
                                 const { error: upsertErr } = await supabase
                                     .from('habit_logs')
@@ -560,7 +595,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
                                 const { error: habitErr } = await supabase
                                     .from('habits')
-                                    .update({ current_streak: (habit.current_streak || 0) + 1 })
+                                    .update({ current_streak: nextStreak })
                                     .eq('id', id)
                                 if (habitErr) throw habitErr
                             } else {
@@ -573,7 +608,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
                                 const { error: habitErr } = await supabase
                                     .from('habits')
-                                    .update({ current_streak: Math.max(0, (habit.current_streak || 0) - 1) })
+                                    .update({ current_streak: nextStreak })
                                     .eq('id', id)
                                 if (habitErr) throw habitErr
                             }

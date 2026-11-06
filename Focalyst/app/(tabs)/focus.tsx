@@ -535,6 +535,37 @@ export default function FocusTab() {
       );
 
       if (freshCountdowns) {
+        // Deduplicate active countdowns having identical normalized event_name and target calendar date (YYYY-MM-DD)
+        const seen = new Set<string>();
+        const deduplicatedRaw: any[] = [];
+        const duplicateIdsToDeactivate: string[] = [];
+
+        for (const item of freshCountdowns) {
+          const normalizedName = (item.event_name || '').trim().toLowerCase();
+          const targetYMD = item.target_date ? new Date(item.target_date).toISOString().slice(0, 10) : '';
+          const dedupKey = `${normalizedName}_${targetYMD}`;
+
+          if (seen.has(dedupKey)) {
+            duplicateIdsToDeactivate.push(item.id);
+          } else {
+            seen.add(dedupKey);
+            deduplicatedRaw.push(item);
+          }
+        }
+
+        // Silently mark redundant duplicates as inactive in Supabase in the background
+        if (duplicateIdsToDeactivate.length > 0) {
+          supabase
+            .from('countdowns')
+            .update({ is_active: false })
+            .in('id', duplicateIdsToDeactivate)
+            .then(({ error }) => {
+              if (error) {
+                console.warn('Failed to deactivate duplicate countdowns in background:', error);
+              }
+            });
+        }
+
         // Hydrate showHoursMinutes from local storage
         let savedPrefs: Record<string, boolean> = {};
         try {
@@ -542,10 +573,12 @@ export default function FocusTab() {
           if (raw) savedPrefs = JSON.parse(raw);
         } catch {}
 
-        const merged: CountdownItem[] = freshCountdowns.map((c: any) => ({
+        const merged: CountdownItem[] = deduplicatedRaw.map((c: any) => ({
           ...c,
           showHoursMinutes: Boolean(savedPrefs[c.id] ?? c.showHoursMinutes ?? false),
         }));
+
+        queryCache.setSync(cacheKey, merged);
         setCountdowns(merged);
       }
     } catch (e) {
@@ -1047,6 +1080,7 @@ export default function FocusTab() {
 
   // Save countdown trigger (insert or update)
   const handleSaveCountdown = async () => {
+    if (submittingCountdown) return;
     if (!eventName.trim() || !targetDate.trim()) {
       Alert.alert('Required Fields', 'Please describe the event and pick a target date.');
       return;
@@ -1076,17 +1110,35 @@ export default function FocusTab() {
         return;
       }
 
+      const cacheKey = `user:${currentUserId}:countdowns`;
+
       if (editingCountdown) {
         // Update countdown
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('countdowns')
           .update({
             event_name: eventName.trim(),
             target_date: dateString,
           })
-          .eq('id', editingCountdown.id);
+          .eq('id', editingCountdown.id)
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Immediate optimistic update in state & cache
+        const updatedItem = data || {
+          ...editingCountdown,
+          event_name: eventName.trim(),
+          target_date: dateString,
+        };
+        const nextList = countdowns
+          .map(c => (c.id === editingCountdown.id ? { ...c, ...updatedItem } : c))
+          .sort((a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime());
+
+        setCountdowns(nextList);
+        queryCache.setSync(cacheKey, nextList);
+
         Alert.alert('Success', 'Countdown updated successfully.');
       } else {
         // Insert new countdown - check free tier limit
@@ -1097,7 +1149,7 @@ export default function FocusTab() {
           return;
         }
 
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('countdowns')
           .insert([
             {
@@ -1106,9 +1158,23 @@ export default function FocusTab() {
               target_date: dateString,
               is_active: true,
             },
-          ]);
+          ])
+          .select()
+          .single();
 
         if (error) throw error;
+
+        // Immediate optimistic update in state & cache
+        if (data) {
+          const deduplicated = [
+            data,
+            ...countdowns.filter(c => c.id !== data.id)
+          ].sort((a, b) => new Date(a.target_date).getTime() - new Date(b.target_date).getTime());
+
+          setCountdowns(deduplicated);
+          queryCache.setSync(cacheKey, deduplicated);
+        }
+
         Alert.alert('Success', 'New countdown saved!');
       }
 
@@ -1122,10 +1188,10 @@ export default function FocusTab() {
       });
 
       setIsFormOpen(false);
-      await fetchCountdowns(currentUserId);
+      await fetchCountdowns(currentUserId, true);
 
-      // Schedule countdown alert
-      if (notifPrefs.task_reminders_enabled) {
+      // Schedule countdown alert if getReminders is enabled AND task reminders are enabled
+      if (getReminders && notifPrefs.task_reminders_enabled) {
         await scheduleCountdownAlert(eventName.trim(), combinedTarget);
       }
     } catch (e: any) {
@@ -1138,16 +1204,27 @@ export default function FocusTab() {
   // Delete countdown hook
   const handleDeleteCountdown = async (id: string) => {
     try {
-      setCountdowns(prev => prev.filter(c => c.id !== id));
+      const targetUserId = currentUserId || userId;
+      const nextList = countdowns.filter(c => c.id !== id);
+      setCountdowns(nextList);
+      if (targetUserId) {
+        queryCache.setSync(`user:${targetUserId}:countdowns`, nextList);
+      }
+
       const { error } = await supabase
         .from('countdowns')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
+
+      if (targetUserId) {
+        await fetchCountdowns(targetUserId, true);
+      }
     } catch (e: any) {
       Alert.alert('Database Error', e.message || 'Failed to delete countdown.');
-      if (userId) fetchCountdowns(userId);
+      const targetUserId = currentUserId || userId;
+      if (targetUserId) fetchCountdowns(targetUserId, true);
     }
   };
 

@@ -8,6 +8,7 @@ import { MCheckbox, StreakChip } from '@/components/mobile/ui'
 import { localDateStr, parseYMDToLocalNoon, addDaysYMD } from '@/lib/utils/date'
 import { createClient } from '@/lib/supabase'
 import { awardXP } from '@/lib/xp/award'
+import { calculateHabitStreak } from '@/lib/habits/streak'
 
 interface HabitRowProps {
     habit: HabitItem
@@ -33,9 +34,15 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
     // Sync with prop changes
     useEffect(() => {
         setIsCheckedToday(habit.completed_today || (habit.completedDates || []).includes(todayYMD))
-        setLocalCompletedDates(habit.completedDates || [])
-        setLocalStreak(habit.current_streak || 0)
-    }, [habit.completed_today, habit.completedDates, habit.current_streak, todayYMD])
+        const dates = habit.completedDates || []
+        setLocalCompletedDates(dates)
+        const { currentStreak } = calculateHabitStreak(
+            { frequency: habit.all_days ? 'daily' : 'custom', custom_days: habit.repeat_days },
+            dates,
+            todayYMD
+        )
+        setLocalStreak(currentStreak)
+    }, [habit.completed_today, habit.completedDates, habit.current_streak, habit.all_days, habit.repeat_days, todayYMD])
 
     // 2. Instant 0ms Checkbox Toggle with Supabase persistence & event dispatch
     const handleToggle = async (e: React.MouseEvent) => {
@@ -49,7 +56,11 @@ export default function HabitRow({ habit, onToggle, onEdit, onDelete, onRename }
             : localCompletedDates.filter(d => d !== todayYMD)
         setLocalCompletedDates(nextDates)
 
-        const nextStreak = nextChecked ? localStreak + 1 : Math.max(0, localStreak - 1)
+        const { currentStreak: nextStreak } = calculateHabitStreak(
+            { frequency: habit.all_days ? 'daily' : 'custom', custom_days: habit.repeat_days },
+            nextDates,
+            todayYMD
+        )
         setLocalStreak(nextStreak)
 
         // Instant dispatch so other views (Insights, Leaderboard) react immediately

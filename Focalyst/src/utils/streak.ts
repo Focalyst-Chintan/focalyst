@@ -34,19 +34,19 @@ export function addDaysYMD(ymd: string, n: number): string {
 }
 
 export function isHabitScheduledOn(habit: HabitSchedule, ymd: string): boolean {
-  if (habit.frequency === 'daily') {
+  if (!habit.frequency || habit.frequency === 'daily') {
     return true;
   }
   if (habit.frequency === 'custom') {
     const days = habit.custom_days || habit.repeat_days;
     if (!days || !Array.isArray(days) || days.length === 0) {
-      return false;
+      return true;
     }
-    const dow = getDayOfWeekFromYMD(ymd);
-    return days.includes(dow);
+    const dow = getDayOfWeekFromYMD(ymd); // 0 = Sun .. 6 = Sat
+    return days.includes(dow) || (dow === 0 && days.includes(7));
   }
-  // Any non-daily frequency that isn't based on custom_days is not treated as daily
-  return false;
+  // Any other/legacy frequency string without custom_days defaults to true
+  return true;
 }
 
 export function calculateHabitStreak(
@@ -75,13 +75,14 @@ export function calculateHabitStreak(
   let currentStreak = 0;
   let checkDate: string;
 
-  const todayIsSched = isHabitScheduledOn(habit, todayYMD);
   const todayLogged = dateSet.has(todayYMD);
 
-  if (todayIsSched && todayLogged) {
+  if (todayLogged) {
+    // If the user logged the habit today, streak is ALWAYS at least 1
     currentStreak = 1;
     checkDate = addDaysYMD(todayYMD, -1);
   } else {
+    // Today is not logged yet. Find the most recent scheduled day strictly before today (yesterday or earlier)
     let lastSched: string | null = null;
     let step = addDaysYMD(todayYMD, -1);
     for (let i = 0; i < 14; i++) {
@@ -104,31 +105,31 @@ export function calculateHabitStreak(
   if (currentStreak > 0 && checkDate) {
     const minDate = sortedDates[0];
     while (checkDate >= minDate) {
-      if (isHabitScheduledOn(habit, checkDate)) {
-        if (dateSet.has(checkDate)) {
-          currentStreak += 1;
-        } else {
-          break;
-        }
+      if (dateSet.has(checkDate)) {
+        // Logged on this day (scheduled or bonus day)
+        currentStreak += 1;
+      } else if (isHabitScheduledOn(habit, checkDate)) {
+        // Scheduled day was missed -> streak ends
+        break;
       }
+      // Unscheduled rest day and not logged -> skip without breaking
       checkDate = addDaysYMD(checkDate, -1);
     }
   }
 
+  // 2. Best streak calculation (longest consecutive run of scheduled days in history)
   let bestStreak = 0;
   let tempRun = 0;
-  let prevSchedDate: string | null = null;
+  let prevDate: string | null = null;
 
-  const schedLogs = sortedDates.filter((d) => isHabitScheduledOn(habit, d));
-
-  for (const d of schedLogs) {
-    if (!prevSchedDate) {
+  for (const d of sortedDates) {
+    if (!prevDate) {
       tempRun = 1;
     } else {
       let missedBetween = false;
-      let s = addDaysYMD(prevSchedDate, 1);
+      let s = addDaysYMD(prevDate, 1);
       while (s < d) {
-        if (isHabitScheduledOn(habit, s)) {
+        if (isHabitScheduledOn(habit, s) && !dateSet.has(s)) {
           missedBetween = true;
           break;
         }
@@ -140,7 +141,7 @@ export function calculateHabitStreak(
         tempRun += 1;
       }
     }
-    prevSchedDate = d;
+    prevDate = d;
     if (tempRun > bestStreak) {
       bestStreak = tempRun;
     }

@@ -18,6 +18,7 @@ const WIDGET_PRESET_STORAGE_KEY = '@focalyst_widget_color_preset';
 export const POMODORO_SESSION_STORAGE_KEY = '@focalyst_pomodoro_session_v1';
 const COMPLETED_FROM_WIDGET_KEY = '@focalyst_widget_completed_task_ids';
 export const CALENDAR_EVENTS_STORAGE_KEY = '@focalyst_calendar_events_widget_v1';
+export const SELECTED_WIDGET_HABIT_KEY = '@focalyst/selected_widget_habit_id';
 
 export type FocalystWidgetPayload = {
   preset: WidgetColorPreset;
@@ -28,6 +29,7 @@ export type FocalystWidgetPayload = {
   habits: HabitHeatmapItem[];
   tasks: TodoItem[];
   calendarEvents: CalendarEventItem[];
+  upcomingCalendarEvents: CalendarEventItem[];
   countdown: { title: string; dateLabel: string; targetDateIso: string };
   pomodoro: {
     taskLabel: string;
@@ -53,6 +55,7 @@ let currentPayload: FocalystWidgetPayload = {
   habits: [],
   tasks: [],
   calendarEvents: [],
+  upcomingCalendarEvents: [],
   countdown: {
     title: 'AUDIT',
     dateLabel: '17/12/2026',
@@ -126,6 +129,9 @@ export const ensureWidgetStateHydrated = async (): Promise<void> => {
           const parsedCal = JSON.parse(savedCalendar);
           if (Array.isArray(parsedCal)) {
             currentPayload.calendarEvents = parsedCal;
+          } else if (parsedCal && typeof parsedCal === 'object') {
+            if (Array.isArray(parsedCal.today)) currentPayload.calendarEvents = parsedCal.today;
+            if (Array.isArray(parsedCal.upcoming)) currentPayload.upcomingCalendarEvents = parsedCal.upcoming;
           }
         } catch {}
       }
@@ -378,6 +384,7 @@ const pushSnapshotsToNativeWidgets = async (overrideScheme?: SystemColorScheme) 
     weekdayLabel,
     dayNumber,
     events: currentPayload.calendarEvents ?? [],
+    upcomingEvents: currentPayload.upcomingCalendarEvents ?? [],
   });
 
   // Schedule live timeline entries for PomodoroWidget so it counts down even when app is closed!
@@ -449,10 +456,13 @@ export const syncAllWidgetsFromApp = async (
         JSON.stringify(currentPayload.pomodoro)
       );
     }
-    if (partialData.calendarEvents) {
+    if (partialData.calendarEvents || partialData.upcomingCalendarEvents) {
       await AsyncStorage.setItem(
         CALENDAR_EVENTS_STORAGE_KEY,
-        JSON.stringify(currentPayload.calendarEvents)
+        JSON.stringify({
+          today: currentPayload.calendarEvents,
+          upcoming: currentPayload.upcomingCalendarEvents,
+        })
       );
     }
   }

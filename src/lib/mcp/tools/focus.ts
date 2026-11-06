@@ -3,7 +3,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { McpUserError, must } from '../run';
 import { addDays, daysBetween, localDate, localTime, todayIn, utcRange } from '../time';
-import { READ, dateSchema, defineTool, loadSessions, round1 } from './shared';
+import { READ, dateSchema, defineTool, loadBlockingStats, loadSessions, round1 } from './shared';
 
 const MAX_SPAN_DAYS = 92;
 
@@ -14,7 +14,7 @@ export function registerFocusTools(server: McpServer) {
     {
       title: 'Focus stats',
       description:
-        "Get the user's focus (Pomodoro) time for a date range: totals, minutes per day, best day, the hours they focus most and the tasks they focused on. Defaults to the last 7 days including today.",
+        "Get the user's focus (Pomodoro) time for a date range: totals, minutes per day, best day, the hours they focus most and the tasks they focused on, plus distraction blocking (attempts blocked, unlocks used, most tempting app, top unlock reason) when they use it. Defaults to the last 7 days including today.",
       inputSchema: z.object({
         from: dateSchema.optional().describe('YYYY-MM-DD, defaults to 6 days before to'),
         to: dateSchema.optional().describe('YYYY-MM-DD, defaults to today'),
@@ -29,7 +29,11 @@ export function registerFocusTools(server: McpServer) {
       const span = daysBetween(from, to) + 1;
       if (span > MAX_SPAN_DAYS) throw new McpUserError(`Choose a range of ${MAX_SPAN_DAYS} days or less.`);
 
-      const sessions = await loadSessions(sb, userId, utcRange(from, to, tz));
+      const range = utcRange(from, to, tz);
+      const [sessions, blocking] = await Promise.all([
+        loadSessions(sb, userId, range),
+        loadBlockingStats(sb, userId, range),
+      ]);
 
       const byDay = new Map<string, { minutes: number; sessions: number }>();
       for (let i = 0; i < span; i++) byDay.set(addDays(from, i), { minutes: 0, sessions: 0 });
@@ -91,6 +95,7 @@ export function registerFocusTools(server: McpServer) {
           title: titles.get(task_id) ?? null,
           minutes: Math.round(minutes),
         })),
+        ...(blocking ? { distraction_blocking: blocking } : {}),
       };
     }
   );

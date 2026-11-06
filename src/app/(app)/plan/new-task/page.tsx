@@ -83,7 +83,9 @@ export default function NewTaskForm() {
                     ? new Date(`${startDate}T${startTime || '09:00'}:00`).toISOString()
                     : null
 
+                const taskId = crypto.randomUUID()
                 const fullPayload = {
+                    id: taskId,
                     user_id: user.id,
                     title: trimmed,
                     start_date: startDate || null,
@@ -96,11 +98,12 @@ export default function NewTaskForm() {
                     reminder_time: reminderTimestamp,
                 }
 
-                let { error: insertErr } = await supabase.from('tasks').insert(fullPayload)
+                let { error: insertErr } = await supabase.from('tasks').upsert(fullPayload, { onConflict: 'id' })
 
                 // Fallback if optional schema columns aren't supported
                 if (insertErr && (insertErr.code === 'PGRST204' || insertErr.message?.toLowerCase().includes('column'))) {
                     const fallbackPayload = {
+                        id: taskId,
                         user_id: user.id,
                         title: trimmed,
                         tags: tagList,
@@ -108,7 +111,7 @@ export default function NewTaskForm() {
                         is_completed: false,
                         reminder_time: reminderTimestamp,
                     }
-                    const res = await supabase.from('tasks').insert(fallbackPayload)
+                    const res = await supabase.from('tasks').upsert(fallbackPayload, { onConflict: 'id' })
                     insertErr = res.error
                 }
 
@@ -144,9 +147,10 @@ export default function NewTaskForm() {
 
             await refreshData()
             router.push('/plan')
-        } catch (err: any) {
+        } catch (err: unknown) {
             console.error('Failed to save task:', err)
-            setError(err?.message || 'Failed to save task. Please try again.')
+            const msg = err instanceof Error ? err.message : 'Failed to save task. Please try again.'
+            setError(msg)
         } finally {
             setSaving(false)
         }
@@ -282,7 +286,7 @@ export default function NewTaskForm() {
 
                             {/* Dynamic Helper Caption */}
                             <p className="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-[#0B1021] p-3 rounded-xl border border-slate-200/60 dark:border-[#222A41] leading-relaxed mp-text-2">
-                                🔔 You'll get a notification at <span className="font-semibold text-slate-700 dark:text-slate-200">{formatTime12(startTime)}</span> when it starts and at <span className="font-semibold text-slate-700 dark:text-slate-200">{formatTime12(endTime)}</span> asking if you finished.
+                                🔔 You&apos;ll get a notification at <span className="font-semibold text-slate-700 dark:text-slate-200">{formatTime12(startTime)}</span> when it starts and at <span className="font-semibold text-slate-700 dark:text-slate-200">{formatTime12(endTime)}</span> asking if you finished.
                             </p>
                         </div>
                     )}

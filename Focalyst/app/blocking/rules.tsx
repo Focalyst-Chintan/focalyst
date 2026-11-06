@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
+import * as Blocker from '../../modules/screen-time-blocker';
 import { AppTokenLabelView } from '../../modules/screen-time-blocker';
 import { floatingShadow, type, useBlockingTheme } from '../../constants/blockingTheme';
 import { RATCHET_MESSAGE, useBlocking } from '../../src/blocking/BlockingContext';
@@ -245,6 +246,16 @@ export default function BlockingRules() {
             onPress={() => router.push('/blocking/schedules')}
           />
         </SettingsGroup>
+
+        {manage && IS_ANDROID && (
+          <SettingsGroup label="Android Accessibility Service">
+            <SettingsRow
+              title="Manage or Disable in Android Settings"
+              chevron
+              onPress={() => Blocker.openAccessibilitySettings()}
+            />
+          </SettingsGroup>
+        )}
 
         {manage && (
           <View style={{ alignItems: 'center' }}>

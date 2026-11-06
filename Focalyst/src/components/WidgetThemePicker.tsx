@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getWidgetPayload,
+  SELECTED_WIDGET_HABIT_KEY,
   setWidgetColorPreset,
   subscribeToWidgetPayload,
   syncAllWidgetsFromApp,
@@ -54,6 +56,31 @@ export const WidgetThemePicker: React.FC = () => {
       unsub();
     };
   }, []);
+
+  const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+
+  // Load persisted habit selection
+  useEffect(() => {
+    AsyncStorage.getItem(SELECTED_WIDGET_HABIT_KEY).then((id) => {
+      if (id) setSelectedHabitId(id);
+    }).catch(() => {});
+  }, []);
+
+  const habitList = Array.isArray(payload.habits) && payload.habits.length > 0 ? payload.habits : [];
+  const selectedHabit = (selectedHabitId && habitList.find((h) => h.id === selectedHabitId)) || habitList[0] || null;
+
+  const selectHabit = async (habitId: string) => {
+    setSelectedHabitId(habitId);
+    try { await AsyncStorage.setItem(SELECTED_WIDGET_HABIT_KEY, habitId); } catch {}
+    const habit = habitList.find((h) => h.id === habitId);
+    if (habit) {
+      syncAllWidgetsFromApp({
+        habitName: habit.habitName || 'Habit',
+        totalDays: habit.totalDays || 0,
+        gridLevels: habit.gridLevels || [],
+      });
+    }
+  };
 
   const activePreset = PRESETS.find((p) => p.id === payload.preset) ?? PRESETS[0];
   const isLight = payload.preset === 'white' || (payload.preset === 'monochrome' && systemScheme === 'light');
@@ -115,6 +142,32 @@ export const WidgetThemePicker: React.FC = () => {
         })}
       </ScrollView>
 
+      {/* Habit Selector Pill Bar */}
+      {habitList.length > 0 && (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+          {habitList.map((h) => {
+            const isSelected = selectedHabit?.id === h.id;
+            return (
+              <TouchableOpacity
+                key={h.id}
+                onPress={() => selectHabit(h.id)}
+                style={[
+                  styles.habitPill,
+                  isSelected && { backgroundColor: accentColor, borderColor: accentColor },
+                ]}
+              >
+                <Text style={[styles.habitPillText, isSelected && { color: isLight ? '#FFFFFF' : cardBg }]}>
+                  {h.habitName}
+                </Text>
+                <Text style={[styles.habitPillStreak, isSelected && { color: isLight ? 'rgba(255,255,255,0.7)' : `rgba(0,0,0,0.5)` }]}>
+                  {`${h.totalDays || 0}d`}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
+
       {/* Live Interactive Widget Previews */}
       <View
         style={styles.previewGrid}
@@ -141,18 +194,22 @@ export const WidgetThemePicker: React.FC = () => {
         {/* 2. Heatmap Widget */}
         <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
-            <Text style={[styles.bandText, { color: primaryText }]}>Oct 2026</Text>
-            <Text style={[styles.bandSub, { color: mutedText }]}>{payload.totalDays}d</Text>
+            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText, flex: 1 }]}>
+              {selectedHabit?.habitName || payload.habitName || 'Habit'}
+            </Text>
+            <Text style={[styles.bandSub, { color: mutedText }]}>
+              {`${selectedHabit?.totalDays ?? payload.totalDays ?? 0}d`}
+            </Text>
           </View>
-          <View style={styles.heatmapGrid}>
-            {payload.gridLevels.slice(0, 28).map((lvl, idx) => (
+          <View style={styles.heatmapGrid35}>
+            {(selectedHabit?.gridLevels || payload.gridLevels || []).slice(0, 35).map((lvl: number, idx: number) => (
               <View
                 key={idx}
                 style={[
-                  styles.heatCell,
+                  styles.heatCell35,
                   {
                     backgroundColor: accentColor,
-                    opacity: lvl === 0 ? 0.15 : lvl * 0.25,
+                    opacity: lvl === 0 ? 0.1 : lvl <= 1 ? 0.28 : Math.min(1, lvl * 0.25),
                   },
                 ]}
               />
@@ -283,37 +340,42 @@ export const WidgetThemePicker: React.FC = () => {
                   { id: 'p2', title: 'Urgent Review', timeLabel: '7:00 PM - 8:50 PM', accentColor: '#EF4444' },
                 ];
 
+            const isLightPreset = payload.preset === 'white' || (payload.preset === 'monochrome' && systemScheme === 'light');
+            const hexToRgba = (hex: string, alpha: number) => {
+              const h = hex.replace('#', '');
+              const r = parseInt(h.substring(0, 2), 16);
+              const g = parseInt(h.substring(2, 4), 16);
+              const b = parseInt(h.substring(4, 6), 16);
+              return `rgba(${isNaN(r) ? 59 : r}, ${isNaN(g) ? 130 : g}, ${isNaN(b) ? 246 : b}, ${alpha})`;
+            };
+
             return (
               <View style={[styles.widgetBox, cellStyle, { backgroundColor: calPalette.bg }]}>
                 <View style={{ alignItems: 'flex-start', paddingLeft: 2 }}>
                   <Text style={[styles.calWeekday, { color: calPalette.weekdayColor }]}>
-                    WEDNESDAY
+                    SUNDAY
                   </Text>
-                  <Text style={[styles.calDayNumber, { color: calPalette.dayNumberColor }]}>
-                    28
+                  <Text style={[styles.calDayNumber, { color: calPalette.dayNumberColor, fontWeight: '300' }]}>
+                    1
                   </Text>
                 </View>
 
                 <View style={{ marginTop: 'auto', gap: 5 }}>
                   {previewEvents.map((ev, idx) => {
-                    const isFirst = idx === 0;
-                    const cBg = isFirst ? calPalette.primaryCardBg : calPalette.secondaryCardBg;
-                    const barC = ev.accentColor || (isFirst ? calPalette.primaryBarColor : calPalette.secondaryBarColor);
-                    const tColor = isFirst ? calPalette.primaryTitleColor : calPalette.secondaryTitleColor;
-                    const timeC = isFirst ? calPalette.primaryTimeColor : calPalette.secondaryTimeColor;
+                    const color = ev.accentColor || '#3B82F6';
+                    const pillBgColor = hexToRgba(color, isLightPreset ? 0.16 : 0.22);
 
                     return (
                       <View
                         key={ev.id || `cal-${idx}`}
-                        style={[styles.calCardRow, { backgroundColor: cBg }]}
+                        style={[styles.calCardRow, { backgroundColor: pillBgColor }]}
                       >
-                        <View style={[styles.calAccentBar, { backgroundColor: barC }]} />
-                        <View style={{ flex: 1, marginLeft: 6 }}>
-                          <Text numberOfLines={1} style={[styles.calEventTitle, { color: tColor }]}>
+                        <View style={styles.calBadge}>
+                          <View style={[styles.calBadgeCircle, { backgroundColor: color }]} />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 5 }}>
+                          <Text numberOfLines={1} style={[styles.calEventTitle, { color: isLightPreset ? '#1C1C1E' : '#FFFFFF', fontSize: 12, fontWeight: '600' }]}>
                             {ev.title}
-                          </Text>
-                          <Text numberOfLines={1} style={[styles.calEventTime, { color: timeC }]}>
-                            {ev.timeLabel || 'All-day'}
                           </Text>
                         </View>
                       </View>
@@ -408,7 +470,27 @@ const styles = StyleSheet.create({
     gap: 4,
     marginTop: 6,
   },
+  heatmapGrid35: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 3,
+    marginTop: 6,
+  },
   heatCell: { width: 14, height: 14, borderRadius: 3.5 },
+  heatCell35: { width: 12, height: 12, borderRadius: 3 },
+  habitPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    backgroundColor: '#0F172A',
+  },
+  habitPillText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
+  habitPillStreak: { color: '#64748B', fontSize: 10, fontWeight: '600', marginLeft: 6 },
   todoRow: { paddingVertical: 3 },
   todoText: { fontSize: 12, fontWeight: '600' },
   countdownDigits: { fontSize: 14, fontWeight: '800', textAlign: 'center' },
@@ -428,6 +510,8 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   calAccentBar: { width: 3.5, height: 22, borderRadius: 2 },
+  calBadge: { width: 16, height: 16, justifyContent: 'center', alignItems: 'center' },
+  calBadgeCircle: { width: 16, height: 16, borderRadius: 8 },
   calEventTitle: { fontSize: 11, fontWeight: '700' },
   calEventTime: { fontSize: 9, fontWeight: '500', marginTop: 1 },
 });

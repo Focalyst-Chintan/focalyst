@@ -25,8 +25,10 @@ import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService'
 import { getHabitColorShades, HabitColorShades } from '../../src/utils/habitColorHelper';
 import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
-import { syncAllWidgetsFromApp } from '../../src/services/widgetSync';
+import { syncAllWidgetsFromApp, SELECTED_WIDGET_HABIT_KEY } from '../../src/services/widgetSync';
 import { calculateHabitStreak } from '../../src/utils/streak';
+import { buildMonthlyHeatmapCells } from '../../src/utils/heatmapCells';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAdaptiveLayout } from '../../src/layout/adaptive';
 
 interface DayEntry {
@@ -119,16 +121,30 @@ export default function HabitList({
   const cachedHabits = userId ? (queryCache.getSync<any[]>(`user:${userId}:habits_v2`) || []) : [];
   const [habits, setHabits] = useState<any[]>(cachedHabits);
 
-  // Sync active habit streak and stats to Home Screen Widgets
+  // Sync selected habit streak, heatmap & stats to Home Screen Widgets
   useEffect(() => {
-    if (habits && habits.length > 0) {
-      const primary = habits[0];
+    if (!habits || habits.length === 0) return;
+    (async () => {
+      let savedId: string | null = null;
+      try { savedId = await AsyncStorage.getItem(SELECTED_WIDGET_HABIT_KEY); } catch {}
+      const selected = (savedId && habits.find((h: any) => h.id === savedId)) || habits[0];
+      const cells = buildMonthlyHeatmapCells(selected.completedDates || []);
+      // Map 3-state cells (0/1/2) to 5-level gridLevels for the existing heat ramp
+      const gridLevels = cells.map((v: number) => (v === 2 ? 4 : v === 1 ? 1 : 0));
+      const allHabits = habits.map((h: any) => ({
+        id: h.id,
+        habitName: h.name || 'Habit',
+        totalDays: h.total_days || 0,
+        gridLevels: buildMonthlyHeatmapCells(h.completedDates || []).map((v: number) => (v === 2 ? 4 : v === 1 ? 1 : 0)),
+      }));
       syncAllWidgetsFromApp({
-        habitName: primary.name || 'Habit',
-        streakDays: primary.current_streak || 0,
-        totalDays: primary.total_days || primary.current_streak || 0,
+        habitName: selected.name || 'Habit',
+        streakDays: selected.current_streak || 0,
+        totalDays: selected.total_days || 0,
+        gridLevels,
+        habits: allHabits,
       });
-    }
+    })();
   }, [habits]);
   const [loading, setLoading] = useState(cachedHabits.length === 0);
   const [newName, setNewName] = useState('');
@@ -259,7 +275,18 @@ export default function HabitList({
     if (userId) {
       queryCache.getOrHydrate<any[]>(`user:${userId}:habits_v2`).then((cached) => {
         if (cached && cached.length > 0) {
-          setHabits(cached);
+          const today = getTodayStr();
+          const refreshedCached = cached.map((h: any) => {
+            const completedDates = Array.isArray(h.completedDates) ? h.completedDates : [];
+            const { currentStreak, bestStreak } = calculateHabitStreak(h, completedDates, today);
+            return {
+              ...h,
+              current_streak: currentStreak,
+              longest_streak: bestStreak,
+              completed_today: completedDates.includes(today),
+            };
+          });
+          setHabits(refreshedCached);
           setLoading(false);
         }
       });
@@ -708,9 +735,11 @@ function PerformanceHeatmapGrid({
 
   const completedSet = useMemo(() => {
     return new Set<string>(
-      (item.completedDates || []).map((d: string) => String(d).slice(0, 10))
+      (item.completedDates || [])
+        .map((d: string) => String(d).slice(0, 10))
+        .filter((d: string) => d <= todayYMD)
     );
-  }, [item.completedDates]);
+  }, [item.completedDates, todayYMD]);
 
   // Compute consecutive streak runs for any completed date
   const getStreakRun = useCallback((targetDate: string): number => {

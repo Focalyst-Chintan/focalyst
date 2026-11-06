@@ -111,7 +111,13 @@ function IosBlockingPermission() {
 
 /** S3: two Android permissions, or Screen Time access on iOS. */
 export default function BlockingPermission() {
-  return Platform.OS === 'android' ? <AndroidPermission /> : <IosBlockingPermission />;
+  return Platform.OS === 'android' ? (
+    <View style={{ flex: 1, backgroundColor: '#08090C' }}>
+      <AndroidPermission />
+    </View>
+  ) : (
+    <IosBlockingPermission />
+  );
 }
 
 const styles = StyleSheet.create({

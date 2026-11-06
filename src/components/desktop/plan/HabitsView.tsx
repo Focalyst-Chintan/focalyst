@@ -14,6 +14,7 @@ import { createClient } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { onDataChanged } from '@/lib/events';
 import { AccountabilitySection } from './AccountabilitySection';
+import { calculateHabitStreak, isHabitScheduledOn } from '@/lib/habits/streak';
 
 export function HabitsView() {
   const { habits, loading, error, refreshData, updateHabit, deleteHabit } = usePlan();
@@ -78,8 +79,6 @@ export function HabitsView() {
       return { currentStreak: 0, bestStreak: 0, completionPct: 0 };
     }
 
-    const currentStreak = selectedHabit.current_streak || 0;
-
     // Filter logs for this habit
     const thisHabitLogs = new Set(
       habitLogs.filter((l) => l.habit_id === selectedHabit.id).map((l) => l.completed_date)
@@ -93,28 +92,11 @@ export function HabitsView() {
       thisHabitLogs.add(todayStr);
     }
 
-    // Sort unique log dates
-    const sortedDates = Array.from(thisHabitLogs).sort();
-
-    // Compute best streak
-    let bestStreak = currentStreak;
-    let tempStreak = 0;
-    let prevDate: string | null = null;
-
-    for (const dStr of sortedDates) {
-      if (!prevDate) {
-        tempStreak = 1;
-      } else {
-        const expectedNext = addDaysYMD(prevDate, 1);
-        if (dStr === expectedNext) {
-          tempStreak += 1;
-        } else if (dStr !== prevDate) {
-          tempStreak = 1;
-        }
-      }
-      prevDate = dStr;
-      if (tempStreak > bestStreak) bestStreak = tempStreak;
-    }
+    const { currentStreak, bestStreak } = calculateHabitStreak(
+      selectedHabit,
+      Array.from(thisHabitLogs),
+      todayStr
+    );
 
     // Completion % since start date
     const startDate = selectedHabit.start_date || selectedHabit.created_at?.slice(0, 10) || todayStr;
@@ -125,7 +107,7 @@ export function HabitsView() {
 
     return {
       currentStreak,
-      bestStreak: Math.max(bestStreak, currentStreak),
+      bestStreak,
       completionPct,
     };
   }, [selectedHabit, habitLogs, todayStr]);
@@ -141,7 +123,7 @@ export function HabitsView() {
       ? 'Every day'
       : selectedHabit.repeat_days && selectedHabit.repeat_days.length > 0
       ? selectedHabit.repeat_days
-          .map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d] || 'Day')
+          .map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d] || 'Day')
           .join(', ')
       : 'Every day';
 
@@ -303,18 +285,17 @@ export function HabitsView() {
           ? 'Every day'
           : habit.repeat_days && habit.repeat_days.length > 0
           ? habit.repeat_days
-              .map((d) => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][d] || '')
+              .map((d) => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d] || '')
+              .filter(Boolean)
               .join(', ')
           : 'Every day';
 
         // Check is scheduled for given date
         const isScheduledForDate = (dateYMD: string) => {
-          if (habit.all_days) return true;
-          if (!habit.repeat_days || habit.repeat_days.length === 0) return true;
-          const d = new Date(dateYMD);
-          const jsDay = d.getDay();
-          const dayIdx = jsDay === 0 ? 6 : jsDay - 1;
-          return habit.repeat_days.includes(dayIdx);
+          return isHabitScheduledOn(
+            { frequency: habit.all_days ? 'daily' : 'custom', custom_days: habit.repeat_days },
+            dateYMD
+          );
         };
 
         const isDoneOnDate = (dateYMD: string) => {

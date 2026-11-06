@@ -22,13 +22,13 @@ const DatePicker = dynamic(
 );
 
 const DAYS = [
-  { label: 'M', index: 0 },
-  { label: 'T', index: 1 },
-  { label: 'W', index: 2 },
-  { label: 'T', index: 3 },
-  { label: 'F', index: 4 },
-  { label: 'S', index: 5 },
+  { label: 'M', index: 1 },
+  { label: 'T', index: 2 },
+  { label: 'W', index: 3 },
+  { label: 'T', index: 4 },
+  { label: 'F', index: 5 },
   { label: 'S', index: 6 },
+  { label: 'S', index: 0 },
 ];
 
 const PRESET_ICONS = ['💧', '🚶‍♂️', '🧘', '📚', '💪', '🎯', '😴', '🏃', '☕', '✍️', '🥦', '🎸'];

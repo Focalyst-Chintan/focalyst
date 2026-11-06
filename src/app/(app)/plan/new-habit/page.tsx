@@ -7,7 +7,15 @@ import { HexColorPicker } from 'react-colorful'
 import { Palette, Check, ChevronLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-const DAYS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
+const DAYS = [
+    { label: 'M', index: 1 },
+    { label: 'T', index: 2 },
+    { label: 'W', index: 3 },
+    { label: 'T', index: 4 },
+    { label: 'F', index: 5 },
+    { label: 'S', index: 6 },
+    { label: 'S', index: 0 },
+]
 const PRESET_ICONS = ['💧', '🚶‍♂️', '🧘', '📚', '💪', '🎯', '😴']
 const RECOMMENDED_COLORS = [
     '#FF6B00', // Focalyst Orange
@@ -329,18 +337,18 @@ export default function NewHabitForm() {
                         </button>
                     </div>
                     <div className="flex gap-2">
-                        {DAYS.map((day, i) => (
+                        {DAYS.map((day) => (
                             <button
-                                key={i}
+                                key={day.index}
                                 type="button"
-                                onClick={() => toggleDay(i)}
+                                onClick={() => toggleDay(day.index)}
                                 className={`flex-1 h-11 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
-                                    selectedDays.includes(i)
+                                    selectedDays.includes(day.index)
                                         ? 'bg-[#FF6B00] text-white shadow-sm'
                                         : 'bg-white dark:bg-[#151B2E] border border-slate-200 dark:border-[#222A41] text-slate-700 dark:text-slate-300'
                                 } mp-choice`}
                             >
-                                {day}
+                                {day.label}
                             </button>
                         ))}
                     </div>

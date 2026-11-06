@@ -1,4 +1,6 @@
 import { createClient } from '@/lib/supabase'
+import { calculateHabitStreak } from '@/lib/habits/streak'
+import { localDateStr } from '@/lib/utils/date'
 
 export interface GroupLeaderboardMember {
     user_id: string
@@ -77,48 +79,72 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
         const habitIds = (allGroupMembers as { user_id: string; habit_id: string | null }[]).map((m) => m.habit_id).filter((id): id is string => Boolean(id))
 
         // Prefer group_member_profiles RPC to avoid reading protected users table rows
-        let profilesMap = new Map<string, string>()
+        const profilesMap = new Map<string, string>()
         try {
             const { data: profilesData, error: profilesErr } = await supabase.rpc('group_member_profiles', {
                 p_group: memberRow.group_id,
             })
             if (!profilesErr && Array.isArray(profilesData)) {
-                for (const p of profilesData) {
+                for (const p of profilesData as { id: string; full_name?: string | null }[]) {
                     profilesMap.set(String(p.id), String(p.full_name || 'Member'))
                 }
             }
         } catch {}
+
+        interface ProfileUserRow {
+            id: string
+            full_name?: string | null
+            email?: string | null
+        }
+        interface HabitScheduleRow {
+            id: string
+            name: string
+            current_streak?: number | null
+            frequency?: string | null
+            custom_days?: number[] | null
+        }
+        interface HabitLogRow {
+            habit_id: string
+            completed_date?: string | null
+        }
 
         const [usersRes, habitsRes, logsRes] = await Promise.all([
             profilesMap.size === 0
                 ? supabase.from('users').select('id, full_name, email').in('id', userIds)
                 : Promise.resolve({ data: [] }),
             habitIds.length > 0
-                ? supabase.from('habits').select('id, name, current_streak').in('id', habitIds)
+                ? supabase.from('habits').select('id, name, current_streak, frequency, custom_days').in('id', habitIds)
                 : Promise.resolve({ data: [] }),
             habitIds.length > 0
-                ? supabase.from('habit_logs').select('habit_id')
+                ? supabase.from('habit_logs').select('habit_id, completed_date').in('habit_id', habitIds)
                 : Promise.resolve({ data: [] }),
         ])
 
         const usersMap = profilesMap.size > 0
             ? profilesMap
             : new Map<string, string>(
-                (usersRes.data || []).map((u: any) => [String(u.id), String(u.full_name || u.email?.split('@')[0] || 'Member')])
+                ((usersRes.data || []) as ProfileUserRow[]).map((u) => [String(u.id), String(u.full_name || u.email?.split('@')[0] || 'Member')])
             )
-        const habitsMap = new Map<string, any>((habitsRes.data || []).map((h: any) => [String(h.id), h]))
+        const habitsMap = new Map<string, HabitScheduleRow>(((habitsRes.data || []) as HabitScheduleRow[]).map((h) => [String(h.id), h]))
 
-        // Count total log days per habit
-        const logCounts: Record<string, number> = {}
-        for (const log of ((logsRes.data || []) as any[])) {
+        // Group unique log dates per habit
+        const logsByHabit: Record<string, string[]> = {}
+        for (const log of ((logsRes.data || []) as HabitLogRow[])) {
             const hId = String(log.habit_id)
-            logCounts[hId] = (logCounts[hId] || 0) + 1
+            if (!logsByHabit[hId]) logsByHabit[hId] = []
+            if (log.completed_date) {
+                logsByHabit[hId].push(String(log.completed_date).slice(0, 10))
+            }
         }
 
+        const todayStr = localDateStr()
         const members: GroupLeaderboardMember[] = (allGroupMembers as { user_id: string; habit_id: string | null }[]).map((m) => {
             const isMe = m.user_id === userId
             const h = m.habit_id ? habitsMap.get(String(m.habit_id)) : null
             const name = usersMap.get(m.user_id) || (isMe ? 'You' : 'Member')
+            const habitDates = m.habit_id ? (logsByHabit[String(m.habit_id)] || []) : []
+            const streak = h ? calculateHabitStreak(h, habitDates, todayStr).currentStreak : 0
+            const totalDays = habitDates.length
 
             return {
                 user_id: m.user_id,
@@ -126,8 +152,8 @@ export async function fetchMyGroupLeaderboard(): Promise<GroupLeaderboardData> {
                 display_name: isMe ? `${name} (You)` : name,
                 habit_id: m.habit_id,
                 habit_name: String(h?.name || 'Active Habit'),
-                streak: Number(h?.current_streak || 0),
-                total_days: m.habit_id ? Number(logCounts[String(m.habit_id)] || 0) : 0,
+                streak,
+                total_days: totalDays,
             }
         })
 

@@ -264,14 +264,15 @@ If the user asks to plan their day, first ask them for their goals and available
 
                 if (call.name === 'create_todos') {
                     const args = call.args as { tasks: { task_name: string, estimated_minutes?: number }[] }
-                    const tasksToInsert = args.tasks.map((t: any) => ({
+                    const tasksToInsert = args.tasks.map((t) => ({
+                        id: crypto.randomUUID(),
                         user_id: user.id,
                         title: t.task_name,
                         due_date: localDateStr(),
                         priority: 'medium'
                     }))
 
-                    const { error: insertError } = await supabase.from('tasks').insert(tasksToInsert)
+                    const { error: insertError } = await supabase.from('tasks').upsert(tasksToInsert, { onConflict: 'id' })
 
                     toolResults.push({
                         name: 'create_todos',

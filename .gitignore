@@ -54,3 +54,6 @@ AGENTS.md
 .agents/
 .claude/skills/
 skills-lock.json
+
+# supabase temp
+supabase/.temp/

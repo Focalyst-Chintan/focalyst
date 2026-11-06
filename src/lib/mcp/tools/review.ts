@@ -3,7 +3,16 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { must } from '../run';
 import { addDays, daysBetween, localDate, todayIn, utcRange, weekdayIndex } from '../time';
-import { READ, countIn, defineTool, loadActiveHabits, loadHabitLogs, loadSessions, mustCount } from './shared';
+import {
+  READ,
+  countIn,
+  defineTool,
+  loadActiveHabits,
+  loadBlockingStats,
+  loadHabitLogs,
+  loadSessions,
+  mustCount,
+} from './shared';
 
 export function registerReviewTools(server: McpServer) {
   defineTool(
@@ -12,7 +21,7 @@ export function registerReviewTools(server: McpServer) {
     {
       title: 'Weekly review',
       description:
-        "Get a review of the user's week, Sunday to Saturday: tasks completed, focus time by day, habit consistency and notes created, plus the saved Focalyst weekly report if there is one. Defaults to last week.",
+        "Get a review of the user's week, Sunday to Saturday: tasks completed, focus time by day, habit consistency, notes created and distraction blocking (when used), plus the saved Focalyst weekly report if there is one. Defaults to last week.",
       inputSchema: z.object({ week: z.enum(['this', 'last']).default('last') }),
       annotations: READ,
     },
@@ -33,7 +42,7 @@ export function registerReviewTools(server: McpServer) {
           .gte('created_at', range.gte)
           .lt('created_at', range.lt);
 
-      const [doneCount, doneTitles, sessions, habits, logs, notesCount, voiceCount, report] = await Promise.all([
+      const [doneCount, doneTitles, sessions, habits, logs, notesCount, voiceCount, report, blocking] = await Promise.all([
         sb
           .from('tasks')
           .select('id', { count: 'exact', head: true })
@@ -64,6 +73,7 @@ export function registerReviewTools(server: McpServer) {
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle(),
+        loadBlockingStats(sb, userId, range),
       ]);
 
       const byDay = new Map<string, number>();
@@ -102,6 +112,7 @@ export function registerReviewTools(server: McpServer) {
         notes_created: mustCount(notesCount),
         voice_notes_created: mustCount(voiceCount),
         ...(saved ? { saved_report: { score: saved.score, summary: saved.week_summary_text } } : {}),
+        ...(blocking ? { distraction_blocking: blocking } : {}),
       };
     }
   );

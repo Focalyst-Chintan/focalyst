@@ -93,7 +93,7 @@ export function registerTodayTools(server: McpServer) {
           name: h.name,
           icon: h.icon,
           done_today: logs.get(h.id)?.has(today) ?? false,
-          streak: streakOf(logs.get(h.id), today),
+          streak: streakOf(logs.get(h.id), today, h),
         })),
         focus_today_minutes: Math.round(sessions.reduce((sum, s) => sum + (s.focus_minutes || 0), 0)),
         countdowns: ((must(countdowns) ?? []) as { id: string; event_name: string; target_date: string }[]).map(

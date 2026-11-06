@@ -163,7 +163,7 @@ export default function DesktopGroupsView() {
         return {
           ...m,
           display_name: cleanName || 'You',
-          streak: Math.max(m.streak, localHabit?.current_streak || 0),
+          streak: localHabit ? (localHabit.current_streak ?? 0) : (m.streak || 0),
           total_days: Math.max(m.total_days, (localHabit as any)?.completedDates?.length || 0),
           habit_name:
             m.habit_name && m.habit_name !== 'Active Habit'

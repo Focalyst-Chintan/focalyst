@@ -41,8 +41,8 @@ export function registerHabitTools(server: McpServer, { writes }: { writes: bool
             icon: h.icon,
             schedule: h.frequency === 'custom' ? 'custom days' : 'daily',
             done_today: days?.has(today) ?? false,
-            streak: streakOf(days, today),
-            best_streak_365d: bestRun(days, addDays(today, -364), today),
+            streak: streakOf(days, today, h),
+            best_streak_365d: bestRun(days, addDays(today, -364), today, h),
             done_last_7_days: countIn(days, addDays(today, -6), today),
             done_last_30_days: countIn(days, addDays(today, -29), today),
           };
@@ -66,8 +66,13 @@ export function registerHabitTools(server: McpServer, { writes }: { writes: bool
     },
     async (args, { sb, userId, tz }) => {
       const habit = must(
-        await sb.from('habits').select('id, name').eq('id', args.habit_id).eq('user_id', userId).maybeSingle()
-      ) as { id: string; name: string } | null;
+        await sb
+          .from('habits')
+          .select('id, name, frequency, custom_days')
+          .eq('id', args.habit_id)
+          .eq('user_id', userId)
+          .maybeSingle()
+      ) as { id: string; name: string; frequency?: string | null; custom_days?: number[] | null } | null;
       if (!habit) throw new McpNotFound();
 
       const today = todayIn(tz);
@@ -82,7 +87,7 @@ export function registerHabitTools(server: McpServer, { writes }: { writes: bool
         done_dates: doneDates,
         done_count: doneDates.length,
         rate_percent: Math.round((doneDates.length / args.days) * 100),
-        streak: streakOf(logs, today),
+        streak: streakOf(logs, today, habit),
       };
     }
   );

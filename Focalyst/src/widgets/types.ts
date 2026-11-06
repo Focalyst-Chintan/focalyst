@@ -80,15 +80,18 @@ export type CalendarEventItem = {
   id: string;
   title: string;
   timeLabel: string; // e.g. "09:00 - 10:45", "9–10PM", or "All-day"
-  category?: string; // e.g. "Study" | "Personal" | "Work" | "Health"
-  accentColor?: string; // e.g. "#8B5CF6" | "#F97316" | "#EF4444" | "#10B981"
+  category?: string;
+  accentColor?: string;
   completed?: boolean;
   dateIso?: string; // YYYY-MM-DD
+  dateHeader?: string; // e.g. "TUESDAY, 3 NOV" for upcoming days
+  isToday?: boolean;
 };
 
 export type CalendarWidgetProps = BaseWidgetThemeProps & {
-  weekdayLabel: string; // e.g. "WEDNESDAY"
-  dayNumber: string; // e.g. "28"
+  weekdayLabel: string;
+  dayNumber: string;
   events: CalendarEventItem[];
+  upcomingEvents?: CalendarEventItem[];
 };
 

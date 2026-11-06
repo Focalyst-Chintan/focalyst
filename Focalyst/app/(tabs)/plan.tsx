@@ -638,9 +638,48 @@ export default function PlanTab() {
         accentColor: getCategoryAccent(r.tag, r.color),
         completed: !!(r.is_completed ?? r.isCompleted),
         dateIso: r.day || todayYMD,
+        isToday: true,
       }));
 
-      syncAllWidgetsFromApp({ calendarEvents: mappedEvents });
+      // Build upcoming events (future days) for systemMedium right column
+      const todayDate = new Date(todayYMD);
+      const tomorrowDate = new Date(todayDate);
+      tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+      const tomorrowYMD = `${tomorrowDate.getFullYear()}-${String(tomorrowDate.getMonth() + 1).padStart(2, '0')}-${String(tomorrowDate.getDate()).padStart(2, '0')}`;
+
+      const futureReminders = (rawRemindersList || []).filter((r: any) => {
+        if (r.is_completed || r.isCompleted) return false;
+        const rDay = r.day;
+        return rDay && rDay > todayYMD;
+      });
+      futureReminders.sort((a: any, b: any) => {
+        const cmp = (a.day || '').localeCompare(b.day || '');
+        if (cmp !== 0) return cmp;
+        return (a.start_time || a.starts || '').localeCompare(b.start_time || b.starts || '');
+      });
+
+      const upcomingMapped: CalendarEventItem[] = futureReminders.slice(0, 5).map((r: any) => {
+        const dateObj = new Date(r.day + 'T00:00:00');
+        const isTomorrow = r.day === tomorrowYMD;
+        const dateHeader = isTomorrow
+          ? 'TOMORROW'
+          : dateObj.toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase() +
+            ', ' + dateObj.getDate() + ' ' +
+            dateObj.toLocaleDateString('en-US', { month: 'short' }).toUpperCase();
+        return {
+          id: String(r.id),
+          title: r.title || 'Untitled Event',
+          timeLabel: formatTime(r.start_time || r.starts, r.end_time || r.ends, r.all_day ?? r.allDay),
+          category: r.tag || 'Work',
+          accentColor: getCategoryAccent(r.tag, r.color),
+          completed: false,
+          dateIso: r.day,
+          dateHeader,
+          isToday: false,
+        };
+      });
+
+      syncAllWidgetsFromApp({ calendarEvents: mappedEvents, upcomingCalendarEvents: upcomingMapped });
     } catch (e) {
       console.warn('Error syncing calendar events to widget:', e);
     }

@@ -2,9 +2,9 @@
 
 **Focalyst**
 **Effective Date:** March 1, 2026
-**Last Updated:** 25 May 2026
+**Last Updated:** 7 November 2026
 
-This Privacy Policy describes how Focalyst ("we", "our", or "us") collects, uses, stores, and protects your personal information when you use the Focalyst web application ("the App"). By using Focalyst, you agree to the practices described in this policy.
+This Privacy Policy describes how Focalyst ("we", "our", or "us") collects, uses, stores, and protects your personal information when you use the Focalyst web and mobile applications ("the App"). By using Focalyst, you agree to the practices described in this policy.
 
 ---
 
@@ -129,6 +129,30 @@ We use the following third-party services to operate Focalyst. Each has their ow
 | **Vercel** | App hosting | vercel.com/legal/privacy-policy |
 
 We do not use Google Analytics, Facebook Pixel, or any advertising networks.
+
+---
+
+## Android AccessibilityService API & App Blocking Disclosure
+
+On Android devices, Focalyst offers an optional **Distraction Blocking** feature that helps users lock distracting applications during active Pomodoro focus sessions or scheduled focus blocks. To provide this feature, Focalyst uses Android's `AccessibilityService` (`android.accessibilityservice.AccessibilityService`) and `UsageStatsManager` (`android.permission.PACKAGE_USAGE_STATS`), subject to your explicit, affirmative in-app consent.
+
+### 1. Why Focalyst Uses the AccessibilityService API
+- Focalyst uses `AppBlockerAccessibilityService` solely to detect when an application that you have manually selected on your blocklist is brought to the foreground during an active focus session, and to immediately display Focalyst's focus pause screen (`ShieldActivity`) over that blocked application.
+- Focalyst is a productivity utility and does not claim to be an assistive accessibility tool (`android:isAccessibilityTool="false"`).
+
+### 2. What Information Is Accessed at Runtime
+- **Window State Changes Only:** The Accessibility Service listens exclusively to `AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED` (`typeWindowStateChanged`) to read the foreground application's package name (`event.packageName`) and application label.
+- **No Screen Content or Keystrokes:** Window content retrieval is strictly disabled (`android:canRetrieveWindowContent="false"`). Focalyst never reads, inspects, or captures your screen content, UI text, private messages, passwords, form inputs, or keystrokes.
+- **Installed Application List & Usage Stats:** When you configure your blocklist in the app picker, Focalyst queries launchable applications on your device and aggregates 7-day foreground usage duration via `UsageStatsManager` so you can identify and select your most distracting apps.
+
+### 3. How App Blocking Data Is Stored and Synced
+- **Local Storage:** Your selected blocklist/allowlist package names (`blockedPackages`, `allowedPackages`) and active session blocking logs (`sessionBlockingLog`) are stored locally on your device in Android `SharedPreferences`.
+- **Account Sync (Supabase):** If you are signed into a Focalyst account, your blocklist settings (`blocking_settings`) and focus session blocking telemetry (`blocking_sessions` and `blocking_events`, containing blocked attempt counts, timestamps, unlock reasons, and blocked app package names/labels) are synced over HTTPS to your authenticated Supabase account. This enables cross-device settings restoration and powers your personal focus insights.
+- **No Third-Party Sharing or Selling:** Information accessed through the AccessibilityService API and `UsageStatsManager` is never sold, rented, or shared with advertisers, data brokers, or any third parties for marketing purposes.
+
+### 4. User Control and Revocation
+- **Optional & Consent-Gated:** Granting Accessibility Service permission is completely optional. If you decline the prominent disclosure, all other Focalyst features (timers, tasks, habits, notes, and countdowns) remain fully functional.
+- **Revoke Anytime:** You can disable or revoke Focalyst's Accessibility Service and Usage Access permissions at any time via **Android Settings → Accessibility → Focalyst app blocking** (or directly from the **Manage or Disable in Android Settings** button inside Focalyst's Blocking settings).
 
 ---
 
