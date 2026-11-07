@@ -11,6 +11,7 @@ import { createClient } from '@/lib/supabase';
 import { FREE_TIER_LIMITS } from '@/lib/featureGates';
 import { useAuth } from '@/context/AuthContext';
 import { useRecorder } from '@/lib/audio/useRecorder';
+import { usePushToTalkDictation } from '@/lib/audio/usePushToTalkDictation';
 
 interface ChatMessage {
   id: string;
@@ -59,6 +60,20 @@ export function ChatUI() {
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastUserPromptRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Spacebar Push-to-Talk shortcut
+  const { isPushToTalkActive } = usePushToTalkDictation({
+    enabled: isChatOpen,
+    inputRef,
+    inputValue,
+    setInputValue,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    isRecording,
+    isTranscribing,
+  });
 
   const isLoading = status === 'loading';
 
@@ -490,7 +505,20 @@ export function ChatUI() {
             </div>
           ) : (
             <form onSubmit={handleSendAction} className="w-full">
-              {isRecording ? (
+              {/* Push-to-Talk Status Indicator Banner */}
+              {isPushToTalkActive && (
+                <div className="mb-2 px-3.5 py-1.5 rounded-full bg-[#08090C] border border-[#1D4ED8]/50 shadow-[0_0_12px_rgba(59,130,246,0.35)] flex items-center justify-between text-[12px] animate-pulse">
+                  <div className="flex items-center gap-2 text-[#93C5FD]">
+                    <span className="w-2 h-2 rounded-full bg-[#3B82F6] animate-ping" />
+                    <span className="font-medium text-snow">Listening... release Space to finish</span>
+                  </div>
+                  <span className="text-[#93C5FD] font-mono text-[11px]">
+                    {formatTimer(recordingSeconds)}
+                  </span>
+                </div>
+              )}
+
+              {isRecording && !isPushToTalkActive ? (
                 <div className="min-h-14 rounded-full flex items-center justify-between pl-4 pr-2 mb-2 bg-[color-mix(in_srgb,var(--m-danger)_14%,transparent)] border border-[color-mix(in_srgb,var(--m-danger)_40%,transparent)]">
                   <div className="flex items-center gap-2">
                     <span aria-hidden className="w-2.5 h-2.5 rounded-full bg-[var(--m-danger)] animate-pulse" />
@@ -514,8 +542,13 @@ export function ChatUI() {
                   <span className="m-subhead text-ink">Transcribing speech</span>
                 </div>
               ) : (
-                <div className="m-chat-composer rounded-full min-h-14 mb-2 flex items-center gap-2 pl-5 pr-2">
+                <div className={`m-chat-composer rounded-full min-h-14 mb-2 flex items-center gap-2 pl-5 pr-2 transition-all duration-200 ${
+                  isPushToTalkActive
+                    ? 'ring-2 ring-[#3B82F6] border-[#1D4ED8] shadow-[0_0_16px_rgba(59,130,246,0.3)]'
+                    : ''
+                }`}>
                   <input
+                    ref={inputRef}
                     type="text"
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
@@ -523,12 +556,19 @@ export function ChatUI() {
                     aria-label="Message"
                     className="flex-1 bg-transparent border-none outline-none text-[16px] leading-[23px] text-ink placeholder:text-ink-2 min-w-0"
                   />
+                  <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#08090C]/60 text-[#93C5FD] border border-[#1D4ED8]/30 select-none pointer-events-none whitespace-nowrap">
+                    Hold Space to talk
+                  </span>
                   <button
                     type="button"
                     onClick={handleMicClick}
-                    className="m-press w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center bg-[var(--m-surface-strong)] border border-line text-ink"
+                    className={`m-press w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center transition-all ${
+                      isPushToTalkActive
+                        ? 'text-[#3B82F6] bg-[#1D4ED8]/20 ring-2 ring-[#3B82F6] animate-pulse'
+                        : 'bg-[var(--m-surface-strong)] border border-line text-ink'
+                    }`}
                     aria-label="Voice input"
-                    title="Dictate with voice"
+                    title="Dictate with voice (Hold Space to talk)"
                   >
                     <Mic size={18} strokeWidth={1.75} aria-hidden />
                   </button>

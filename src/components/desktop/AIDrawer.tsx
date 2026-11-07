@@ -9,6 +9,7 @@ import { usePlan } from '@/context/PlanContext';
 import { createClient } from '@/lib/supabase';
 import { getDisplayName, getFirstName } from '@/lib/utils/name';
 import { useRecorder } from '@/lib/audio/useRecorder';
+import { usePushToTalkDictation } from '@/lib/audio/usePushToTalkDictation';
 
 interface AIDrawerProps {
   open: boolean;
@@ -46,6 +47,19 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const lastUserPromptRef = useRef<string>('');
+
+  // Spacebar Push-to-Talk shortcut
+  const { isPushToTalkActive } = usePushToTalkDictation({
+    enabled: open,
+    inputRef,
+    inputValue,
+    setInputValue,
+    startRecording,
+    stopRecording,
+    cancelRecording,
+    isRecording,
+    isTranscribing,
+  });
 
   const supabase = createClient();
   const isPro = plan !== 'free';
@@ -402,7 +416,20 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
 
         {/* Input Bar */}
         <div className="m-4 relative z-10 shrink-0">
-          {isRecording ? (
+          {/* Push-to-Talk Status Indicator Banner */}
+          {isPushToTalkActive && (
+            <div className="mb-2 px-3.5 py-1.5 rounded-full bg-[#08090C] border border-[#1D4ED8]/50 shadow-[0_0_12px_rgba(59,130,246,0.35)] flex items-center justify-between text-[12px] animate-pulse">
+              <div className="flex items-center gap-2 text-[#93C5FD]">
+                <span className="w-2 h-2 rounded-full bg-[#3B82F6] animate-ping" />
+                <span className="font-medium text-snow">Listening... release Space to finish</span>
+              </div>
+              <span className="text-[#93C5FD] font-mono text-[11px]">
+                {formatTimer(recordingSeconds)}
+              </span>
+            </div>
+          )}
+
+          {isRecording && !isPushToTalkActive ? (
             <div className="h-14 rounded-full bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 px-5 flex items-center justify-between shadow-sm animate-pulse">
               <div className="flex items-center gap-2.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
@@ -431,17 +458,27 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
                 e.preventDefault();
                 sendMessage(inputValue);
               }}
-              className="h-14 rounded-full glass pl-3 pr-2 flex items-center gap-2 shadow-sm"
+              className={`h-14 rounded-full glass pl-3 pr-2 flex items-center gap-2 shadow-sm transition-all duration-200 ${
+                isPushToTalkActive
+                  ? 'ring-2 ring-[#3B82F6] border-[#1D4ED8] shadow-[0_0_16px_rgba(59,130,246,0.3)]'
+                  : ''
+              }`}
             >
-              <button
-                type="button"
-                onClick={handleMicClick}
-                className="p-2 text-ink-3 hover:text-ink transition-colors rounded-full"
-                aria-label="Voice input"
-                title="Dictate with voice"
-              >
-                <Mic size={18} />
-              </button>
+              <div className="relative flex items-center">
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  className={`p-2 transition-all rounded-full relative ${
+                    isPushToTalkActive
+                      ? 'text-[#3B82F6] bg-[#1D4ED8]/20 ring-2 ring-[#3B82F6] animate-pulse'
+                      : 'text-ink-3 hover:text-ink'
+                  }`}
+                  aria-label="Voice input"
+                  title="Dictate with voice (Hold Space to talk)"
+                >
+                  <Mic size={18} />
+                </button>
+              </div>
               <input
                 ref={inputRef}
                 type="text"
@@ -450,6 +487,9 @@ export function AIDrawer({ open, onClose }: AIDrawerProps) {
                 placeholder="Ask anything..."
                 className="flex-1 bg-transparent text-[15px] text-ink placeholder:text-ink-3 outline-none min-w-0"
               />
+              <span className="hidden md:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-[#08090C]/60 text-[#93C5FD] border border-[#1D4ED8]/30 select-none pointer-events-none whitespace-nowrap">
+                Hold Space to talk
+              </span>
               <button
                 type="submit"
                 disabled={!inputValue.trim() || status === 'loading'}
