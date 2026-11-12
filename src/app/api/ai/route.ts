@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase-server'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/lib/server/auth'
 import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@google/generative-ai'
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates'
 import { rateLimit } from '@/lib/rate-limit'
@@ -8,8 +8,14 @@ import { localDateStr } from '@/lib/utils/date'
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
     try {
+        const auth = await requireUser(req);
+        if (!auth) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const { user, supabase } = auth;
+
         const ip = req.headers.get('x-forwarded-for') || '127.0.0.1';
         if (!rateLimit(ip, 20, 60000)) {
             return NextResponse.json({ error: 'Too many requests. Please wait a minute before sending more messages.' }, { status: 429 });
@@ -39,56 +45,6 @@ export async function POST(req: Request) {
             })
         }
         const message = rawMessage.length > 3000 ? rawMessage.slice(0, 3000) + '... [truncated for length]' : rawMessage
-
-        // ── Auth: try Bearer token first (Capacitor), fall back to cookie-based session (web) ──
-        let user: any = null;
-        let supabase: any = null;
-        const authHeader = req.headers.get('Authorization');
-        const token = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
-
-        if (token) {
-            try {
-                // In Capacitor native WebView, cookies are not reliable or stripped, so we use
-                // the Bearer token passed in the Authorization header to authenticate the user.
-                // We create a server client passing the token globally to ensure all subsequent
-                // database queries satisfy RLS policies for that specific user.
-                const { createServerClient } = await import('@supabase/ssr');
-                supabase = createServerClient(
-                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                    {
-                        cookies: {
-                            getAll() { return []; },
-                            setAll() {}
-                        },
-                        global: {
-                            headers: {
-                                Authorization: `Bearer ${token}`
-                            }
-                        }
-                    }
-                );
-                const { data: { user: jwtUser } } = await supabase.auth.getUser(token);
-                user = jwtUser;
-            } catch (bearerErr) {
-                console.error('[AI_API] Bearer token auth failed:', bearerErr);
-            }
-        }
-
-        if (!user) {
-            // Cookie-based auth fallback
-            try {
-                supabase = await createServerSupabaseClient();
-                const { data: { user: cookieUser } } = await supabase.auth.getUser();
-                user = cookieUser;
-            } catch (cookieErr) {
-                console.warn('[AI_API] Cookie-based auth unavailable:', cookieErr);
-            }
-        }
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
 
         // Database Atomic Quota Verification
         const { data: quotaResult, error: quotaError } = await supabase.rpc('check_and_increment_ai_quota', {

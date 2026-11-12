@@ -20,10 +20,13 @@ const EXT: Record<string, string> = {
   'audio/x-wav': 'wav',
 };
 
+const ALLOWED_TRANSCRIBE_MODEL = 'openai/whisper-large-v3-turbo';
+const ALLOWED_GEMINI_MODEL = 'gemini-2.5-flash';
+
 async function transcribeOpenRouter(file: Blob, ext: string, mime: string): Promise<string> {
   const out = new FormData();
   out.append('file', new File([await file.arrayBuffer()], `audio.${ext}`, { type: mime || 'audio/webm' }));
-  out.append('model', process.env.SPEECH_MODEL || 'openai/whisper-large-v3-turbo');
+  out.append('model', ALLOWED_TRANSCRIBE_MODEL);
   const r = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
     method: 'POST',
     headers: {
@@ -40,7 +43,7 @@ async function transcribeOpenRouter(file: Blob, ext: string, mime: string): Prom
 }
 
 async function transcribeGemini(file: Blob, mime: string): Promise<string> {
-  const model = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  const model = ALLOWED_GEMINI_MODEL;
   const data = Buffer.from(await file.arrayBuffer()).toString('base64');
   const r = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,

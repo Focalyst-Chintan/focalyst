@@ -22,8 +22,14 @@ export function cleanWhisperTranscript(rawText: string): string {
   return trimmed;
 }
 
-const OPENROUTER_CHAT_MODEL_LIGHT = 'meta-llama/llama-3.3-70b-instruct';
-const OPENROUTER_CHAT_MODEL_HEAVY = 'meta-llama/llama-3.3-70b-instruct';
+export const ALLOWED_OPENROUTER_MODELS = {
+  CHAT: 'meta-llama/llama-3.3-70b-instruct',
+  TRANSCRIPTION: 'openai/whisper-large-v3-turbo',
+} as const;
+
+const OPENROUTER_CHAT_MODEL_LIGHT = ALLOWED_OPENROUTER_MODELS.CHAT;
+const OPENROUTER_CHAT_MODEL_HEAVY = ALLOWED_OPENROUTER_MODELS.CHAT;
+const OPENROUTER_TRANSCRIBE_MODEL = ALLOWED_OPENROUTER_MODELS.TRANSCRIPTION;
 const GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
 
 export interface ChatMessageParam {
@@ -440,9 +446,9 @@ export async function transcribeAudio(
   const extMatch = filename.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);
   const audioFormat = extMatch ? extMatch[1] : (mimeType.includes('webm') ? 'webm' : (mimeType.includes('mp4') ? 'm4a' : 'wav'));
 
-  // 1. Try OpenRouter Whisper STT with multipart FormData
+  // 1. Try OpenRouter Whisper STT with multipart FormData (hardcoded allowlist model)
   if (openRouterKey) {
-    const whisperModels = ['openai/whisper-large-v3-turbo', 'openai/whisper-large-v3'];
+    const whisperModels = [OPENROUTER_TRANSCRIBE_MODEL];
     for (const modelId of whisperModels) {
       try {
         const formData = new FormData();

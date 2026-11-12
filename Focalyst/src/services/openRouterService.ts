@@ -136,24 +136,27 @@ export interface GroqChatResponse {
   }>;
 }
 
+const FOCALYST_BACKEND_URL = 'https://focalyst.online';
+
 export function getOpenRouterApiKey(): string {
-  return (
-    process.env.EXPO_PUBLIC_OPENROUTER_API_KEY ||
-    process.env.OPENROUTER_API_KEY ||
-    ''
-  );
+  return '';
 }
 
 export function getGeminiApiKey(): string {
-  return (
-    process.env.EXPO_PUBLIC_GEMINI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    ''
-  );
+  return '';
 }
 
 export function getGroqApiKey(): string {
-  return getOpenRouterApiKey();
+  return '';
+}
+
+async function getAuthAccessToken(): Promise<string> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  if (!token) {
+    throw new AIRateLimitError('Please sign in to use Focalyst AI.', 'UNAUTHENTICATED');
+  }
+  return token;
 }
 
 /**
@@ -701,9 +704,8 @@ ${antiHallucinationGuardrail}
 }
 
 /**
- * Unified AI completion engine:
- * 1. Primary: OpenRouter (meta-llama/llama-3.1-8b-instruct or meta-llama/llama-3.3-70b-instruct)
- * 2. Automatic Zero-Cost Safety Backup: Google Gemini (gemini-3.8-flash) via official OpenAI-compatible endpoint
+ * Unified AI completion engine routed through the authenticated Next.js backend
+ * on https://focalyst.online/api/ai/chat (OpenRouter primary + Gemini server-side fallback).
  */
 export async function executeChatCompletion({
   messages,
@@ -724,114 +726,102 @@ export async function executeChatCompletion({
 }): Promise<{ data: any; modelUsed: string }> {
   await enforceAIRateLimit('chat');
   const safeMessages = boundChatMessages(messages);
+  const accessToken = await getAuthAccessToken();
 
   const primaryModel =
     mode === 'light' ? AI_MODELS.LIGHTWEIGHT : AI_MODELS.HEAVY_REASONING;
 
-  const openRouterApiKey = getOpenRouterApiKey();
-  const geminiApiKey = getGeminiApiKey();
+  // Filter out client-side system prompt messages because /api/ai/chat builds the authorized system context server-side
+  const nonSystemMessages = safeMessages.filter((m) => m.role !== 'system' && m.role !== 'tool');
+  const outboundMessages = (nonSystemMessages.length > 0 ? nonSystemMessages : safeMessages).map(
+    (m) => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content ?? ''),
+    })
+  );
 
-  // 1. Primary Execution via OpenRouter (131k context window, no 7k ITPM 413 bottlenecks)
-  if (openRouterApiKey) {
-    try {
-      const requestBody: Record<string, any> = {
-        model: primaryModel,
-        messages: safeMessages,
-        temperature,
-        max_tokens: mode === 'light' ? Math.min(max_tokens, 700) : Math.min(max_tokens, 1200),
-        provider: {
-          sort: 'throughput',
-          allow_fallbacks: true,
-        },
-      };
-      if (tools && tools.length > 0) requestBody.tools = tools;
-      if (tool_choice) requestBody.tool_choice = tool_choice;
-      if (response_format) requestBody.response_format = response_format;
+  try {
+    const response = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/chat`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: outboundMessages,
+      }),
+    });
 
-      const openRouterRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${openRouterApiKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://focalyst.online',
-          'X-Title': 'Focalyst',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      if (openRouterRes.ok) {
-        const data = await openRouterRes.json();
-        if (data?.choices?.[0]?.message) {
-          return { data, modelUsed: primaryModel };
-        }
-      }
-
-      const errText = await openRouterRes.text();
-      if (__DEV__) {
-        console.warn(
-          `[Focalyst AI] OpenRouter (${primaryModel}) returned ${openRouterRes.status}: ${errText}. Failing over to ${AI_MODELS.GEMINI_BACKUP}...`
-        );
-      }
-    } catch (openRouterErr) {
-      if (__DEV__) {
-        console.warn(
-          `[Focalyst AI] OpenRouter network error on ${primaryModel}. Failing over to ${AI_MODELS.GEMINI_BACKUP}:`,
-          openRouterErr
-        );
-      }
-    }
-  }
-
-  // 2. Automatic Zero-Cost Safety Backup: Google Gemini
-  if (geminiApiKey) {
-    const geminiModels = [AI_MODELS.GEMINI_BACKUP, 'gemini-2.5-flash'];
-    for (const geminiModel of geminiModels) {
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '');
+      let parsedErr: any = null;
       try {
-        const geminiBody: Record<string, any> = {
-          model: geminiModel,
-          messages: safeMessages,
-          temperature,
-          max_tokens: mode === 'light' ? Math.min(max_tokens, 700) : Math.min(max_tokens, 1200),
-        };
-        if (geminiModel === AI_MODELS.GEMINI_BACKUP) {
-          geminiBody.reasoning_effort = 'low';
-        }
-        if (tools && tools.length > 0) geminiBody.tools = tools;
-        if (tool_choice) geminiBody.tool_choice = tool_choice;
-        if (response_format) geminiBody.response_format = response_format;
-
-        const geminiRes = await fetch(
-          'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${geminiApiKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(geminiBody),
-          }
-        );
-
-        if (geminiRes.ok) {
-          const data = await geminiRes.json();
-          if (data?.choices?.[0]?.message) {
-            return { data, modelUsed: `google/${geminiModel}` };
-          }
-        } else {
-          const geminiErr = await geminiRes.text();
-          if (__DEV__) {
-            console.warn(`[Focalyst AI] Gemini backup (${geminiModel}) failed (${geminiRes.status}): ${geminiErr}`);
-          }
-        }
-      } catch (geminiNetworkErr) {
-        if (__DEV__) {
-          console.warn(`[Focalyst AI] Gemini backup (${geminiModel}) network error:`, geminiNetworkErr);
-        }
+        parsedErr = JSON.parse(errText);
+      } catch {
+        // non-JSON error body
       }
-    }
-  }
 
-  throw new Error('Focalyst AI is temporarily unreachable. Please check your internet connection and try again.');
+      if (response.status === 401) {
+        throw new AIRateLimitError('Please sign in to use Focalyst AI.', 'UNAUTHENTICATED');
+      }
+      if (response.status === 429) {
+        throw new AIRateLimitError(
+          parsedErr?.error || 'Daily AI limit reached. Please try again tomorrow.',
+          'DAILY_LIMIT_REACHED',
+          0
+        );
+      }
+
+      throw new Error(
+        parsedErr?.error || `Focalyst AI returned status ${response.status}`
+      );
+    }
+
+    const providerHeader = response.headers.get('X-AI-Provider');
+    const rawBody = await response.text();
+
+    let content = rawBody;
+    try {
+      const parsed = JSON.parse(rawBody);
+      if (parsed?.choices?.[0]?.message) {
+        return {
+          data: parsed,
+          modelUsed: providerHeader === 'gemini' ? `google/${AI_MODELS.GEMINI_BACKUP}` : primaryModel,
+        };
+      }
+      if (typeof parsed?.reply === 'string') {
+        content = parsed.reply;
+      } else if (typeof parsed?.content === 'string') {
+        content = parsed.content;
+      }
+    } catch {
+      // Plain text stream response from /api/ai/chat
+    }
+
+    return {
+      data: {
+        choices: [
+          {
+            message: {
+              role: 'assistant',
+              content: content.trim(),
+            },
+          },
+        ],
+      },
+      modelUsed: providerHeader === 'gemini' ? `google/${AI_MODELS.GEMINI_BACKUP}` : primaryModel,
+    };
+  } catch (err: any) {
+    if (err instanceof AIRateLimitError) {
+      throw err;
+    }
+    if (__DEV__) {
+      console.warn('[Focalyst AI] Backend chat error:', err);
+    }
+    throw new Error(
+      err?.message || 'Focalyst AI is temporarily unreachable. Please check your internet connection and try again.'
+    );
+  }
 }
 
 /**
@@ -1122,154 +1112,98 @@ function sanitizeTranscriptText(raw: string): string {
 
 export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
   await enforceAIRateLimit('voice');
+  const accessToken = await getAuthAccessToken();
 
-  const openRouterKey = process.env.EXPO_PUBLIC_OPENROUTER_API_KEY || getOpenRouterApiKey() || '';
-  const geminiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY || getGeminiApiKey() || '';
+  const normalizedUri =
+    Platform.OS !== 'web' && !audioUri.startsWith('file://') && !audioUri.startsWith('content://')
+      ? `file://${audioUri}`
+      : audioUri;
 
-  const base64Audio = await readAudioUriAsRawBase64(audioUri);
-  if (base64Audio.length > MAX_AUDIO_BASE64_LENGTH) {
-    throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+  // Validate audio exists and check size cap
+  try {
+    const expoFile = new File(normalizedUri);
+    if (expoFile.exists) {
+      if (expoFile.size < 500) {
+        throw new Error('Recorded audio file is too short or empty.');
+      }
+      if (expoFile.size > 15 * 1024 * 1024) {
+        throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+      }
+    }
+  } catch (fileCheckErr: any) {
+    if (
+      fileCheckErr instanceof AIRateLimitError ||
+      fileCheckErr?.message?.includes('too short')
+    ) {
+      throw fileCheckErr;
+    }
   }
+
   const extMatch = audioUri.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);
   const audioFormat = extMatch ? extMatch[1] : 'm4a';
+  const mimeMap: Record<string, string> = {
+    m4a: 'audio/mp4',
+    mp4: 'audio/mp4',
+    wav: 'audio/wav',
+    mp3: 'audio/mpeg',
+    webm: 'audio/webm',
+    ogg: 'audio/ogg',
+    flac: 'audio/flac',
+    aac: 'audio/aac',
+  };
+  const mimeType = mimeMap[audioFormat] || 'audio/mp4';
 
-  // 1A. Primary: OpenRouter STT with Whisper Large V3 Turbo / V3
-  if (openRouterKey) {
-    const whisperModels = ['openai/whisper-large-v3-turbo', 'openai/whisper-large-v3'];
-
-    for (const modelId of whisperModels) {
-      try {
-        const response = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${openRouterKey}`,
-            'Content-Type': 'application/json',
-            'HTTP-Referer': 'https://focalyst.online',
-            'X-Title': 'Focalyst',
-          },
-          body: JSON.stringify({
-            model: modelId,
-            input_audio: {
-              data: base64Audio,
-              format: audioFormat,
-            },
-          }),
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          const transcript = sanitizeTranscriptText(
-            data?.text || data?.choices?.[0]?.message?.content || ''
-          );
-          if (transcript) return transcript;
-        } else {
-          const errText = await response.text();
-          if (__DEV__) {
-            console.warn(`[OpenRouter STT] ${modelId} status ${response.status}:`, errText);
-          }
-        }
-      } catch (err) {
-        if (__DEV__) {
-          console.warn(`[OpenRouter STT] ${modelId} error:`, err);
-        }
-      }
+  const formData = new FormData();
+  if (Platform.OS === 'web') {
+    const fileRes = await fetch(normalizedUri);
+    const blob = await fileRes.blob();
+    if (blob.size < 500) {
+      throw new Error('Recorded audio file is too short or empty.');
     }
-
-    // 1B. OpenRouter Multimodal Chat Completions Audio Fallback (uses same OpenRouter key)
-    try {
-      const orChatAudioRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${openRouterKey}`,
-          'Content-Type': 'application/json',
-          'HTTP-Referer': 'https://focalyst.online',
-          'X-Title': 'Focalyst',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          temperature: 0,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'text',
-                  text: 'Transcribe the spoken words in this audio recording into clean text. Output ONLY what the speaker said. If silence, output an empty string.',
-                },
-                {
-                  type: 'input_audio',
-                  input_audio: {
-                    data: base64Audio,
-                    format: audioFormat,
-                  },
-                },
-              ],
-            },
-          ],
-        }),
-      });
-
-      if (orChatAudioRes.ok) {
-        const orData = await orChatAudioRes.json();
-        const transcript = sanitizeTranscriptText(
-          orData?.choices?.[0]?.message?.content || ''
-        );
-        if (transcript) return transcript;
-      }
-    } catch (orChatErr) {
-      if (__DEV__) {
-        console.warn('[OpenRouter Chat Audio Fallback] Error:', orChatErr);
-      }
-    }
+    formData.append('file', blob, `audio.${audioFormat}`);
+  } else {
+    formData.append('file', {
+      uri: normalizedUri,
+      name: `audio.${audioFormat}`,
+      type: mimeType,
+    } as any);
   }
 
-  // 2. Backup: Direct Google Gemini API (gemini-3.8-flash -> gemini-2.5-flash)
-  if (geminiKey) {
-    const geminiModels = ['gemini-3.8-flash', 'gemini-2.5-flash'];
-    for (const geminiModel of geminiModels) {
-      try {
-        const payload: Record<string, any> = {
-          contents: [
-            {
-              parts: [
-                {
-                  text: 'Transcribe the spoken words in this audio recording into clean text. Output ONLY what the speaker said. If silence, output an empty string.',
-                },
-                {
-                  inline_data: {
-                    mime_type: 'audio/mp4',
-                    data: base64Audio,
-                  },
-                },
-              ],
-            },
-          ],
-        };
-        if (geminiModel === 'gemini-3.8-flash') {
-          payload.generationConfig = {
-            thinkingConfig: { thinkingLevel: 'LOW' },
-          };
-        }
+  try {
+    const response = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/transcribe`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
 
-        const geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          }
-        );
-
-        if (geminiRes.ok) {
-          const geminiData = await geminiRes.json();
-          const transcript = sanitizeTranscriptText(extractGemini38Text(geminiData));
-          if (transcript) return transcript;
-        }
-      } catch (err) {
-        if (__DEV__) {
-          console.warn(`[Gemini ${geminiModel} STT Backup] Error:`, err);
-        }
+    if (response.ok) {
+      const data = await response.json();
+      const transcript = sanitizeTranscriptText(
+        data?.text || data?.transcript || data?.choices?.[0]?.message?.content || ''
+      );
+      if (transcript) return transcript;
+    } else {
+      const errData = await response.json().catch(() => null);
+      if (response.status === 401) {
+        throw new AIRateLimitError('Please sign in to use Focalyst AI.', 'UNAUTHENTICATED');
       }
+      if (response.status === 413) {
+        throw new AIRateLimitError(
+          errData?.error || 'Recording exceeds the 10-minute maximum length.'
+        );
+      }
+      if (__DEV__) {
+        console.warn(`[Backend STT] status ${response.status}:`, errData);
+      }
+    }
+  } catch (err: any) {
+    if (err instanceof AIRateLimitError) {
+      throw err;
+    }
+    if (__DEV__) {
+      console.warn('[Backend STT] Error:', err);
     }
   }
 

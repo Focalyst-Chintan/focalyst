@@ -1,7 +1,7 @@
 // scripts/check-ai.mjs
 const pick = (...n) => { for (const k of n) if (process.env[k]) return [k, process.env[k]]; return ['MISSING', null]; };
-const [orName, orKey] = pick('OPENROUTER_API_KEY', 'NEXT_PUBLIC_OPENROUTER_API_KEY', 'EXPO_PUBLIC_OPENROUTER_API_KEY');
-const [gName, gKey] = pick('GEMINI_API_KEY', 'NEXT_PUBLIC_GEMINI_API_KEY', 'EXPO_PUBLIC_GEMINI_API_KEY');
+const [orName, orKey] = pick('OPENROUTER_API_KEY');
+const [gName, gKey] = pick('GEMINI_API_KEY');
 console.log('keys from:', 'openrouter', orName, '| gemini', gName);
 async function t(name, fn) {
   const s = Date.now();

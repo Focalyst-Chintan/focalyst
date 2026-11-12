@@ -65,8 +65,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400, headers: cors });
     }
 
-    // Sanitize and extract latest user prompt
-    const bounded = rawMessages.slice(-10);
+    // Sanitize and extract latest user prompt (ignore any client-supplied model or system messages)
+    const nonSystem = rawMessages.filter((m: any) => m?.role !== 'system');
+    const bounded = (nonSystem.length > 0 ? nonSystem : rawMessages).slice(-10);
     const normalizedMessages: ChatMessageParam[] = bounded.map((m: any) => {
       let content = '';
       if (typeof m.content === 'string') {

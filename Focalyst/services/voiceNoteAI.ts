@@ -1,10 +1,13 @@
-import { transcribeVoiceAudio, executeChatCompletion, AI_MODELS, getGeminiApiKey } from '../src/services/openRouterService';
+import { transcribeVoiceAudio } from '../src/services/openRouterService';
+import { supabase } from '../src/utils/supabase';
 
 export interface ProcessedVoiceNote {
   title: string;
   cleanedTranscript: string;
   summary: string;
 }
+
+const FOCALYST_BACKEND_URL = 'https://focalyst.online';
 
 // Common Whisper hallucinations when audio is silent
 const WHISPER_SILENCE_PHRASES = new Set([
@@ -20,7 +23,7 @@ const WHISPER_SILENCE_PHRASES = new Set([
 ]);
 
 /**
- * Transcribes an audio file using OpenRouter Whisper Large V3 Turbo with Gemini 3.8 Flash failover.
+ * Transcribes an audio file via the authenticated Focalyst backend (/api/ai/transcribe).
  */
 export async function transcribeAudioUri(audioUri: string): Promise<string> {
   const rawText = await transcribeVoiceAudio(audioUri);
@@ -34,8 +37,8 @@ export async function transcribeAudioUri(audioUri: string): Promise<string> {
 }
 
 /**
- * Cleans grammar/punctuation and summarizes ONLY what the user actually said.
- * Uses meta-llama/llama-3.1-8b-instruct on OpenRouter with Gemini 3.8 Flash fallback.
+ * Cleans grammar/punctuation and summarizes ONLY what the user actually said
+ * via the authenticated Focalyst backend (/api/ai/voice-summary).
  */
 export async function processTranscriptWithAI(rawTranscript: string): Promise<ProcessedVoiceNote> {
   if (!rawTranscript || !rawTranscript.trim()) {
@@ -46,112 +49,60 @@ export async function processTranscriptWithAI(rawTranscript: string): Promise<Pr
     };
   }
 
-  const systemPrompt = `You are a precise voice note editor and summarizer inside the Focalyst app.
-You will receive a raw speech-to-text transcript spoken by the user.
-
-STRICT RULES:
-1. ONLY use the information actually present in the user's transcript. NEVER invent, assume, or add any external topics, brand names, or examples that the user did not speak.
-2. "cleanedTranscript": Fix obvious speech-to-text grammar, punctuation, and homophone errors while strictly preserving the user's exact meaning and words.
-3. "title": Generate a concise, accurate 3-to-6 word title based strictly on what the user talked about.
-4. "summary": Write a concise summary of the user's note using standard paragraphs and simple "- " bullet points starting at column 0 (never indent bullets with spaces and never use code blocks).
-
-Respond ONLY in valid JSON format:
-{
-  "title": "Concise Note Title",
-  "cleanedTranscript": "Corrected transcript...",
-  "summary": "Summary of the spoken note..."
-}`;
-
   try {
-    const { data } = await executeChatCompletion({
-      mode: 'light', // meta-llama/llama-3.1-8b-instruct for ultra-fast <0.5s processing
-      temperature: 0.1,
-      max_tokens: 700,
-      response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `User Spoken Transcript:\n"""\n${rawTranscript}\n"""` },
-      ],
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+    if (!accessToken) {
+      return {
+        title: 'Voice Note',
+        cleanedTranscript: rawTranscript,
+        summary: rawTranscript,
+      };
+    }
+
+    const res = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/voice-summary`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transcript: rawTranscript.trim(),
+        skipSave: true,
+      }),
     });
 
-    const content = data?.choices?.[0]?.message?.content || '{}';
-    const parsed = JSON.parse(content);
+    if (!res.ok) {
+      throw new Error(`Voice summary endpoint returned ${res.status}`);
+    }
+
+    const data = await res.json();
+
+    // If an older server deployment created a note row when skipSave was not yet active,
+    // remove the temporary duplicate row so VoiceNoteRecorderModal's own insert remains canonical.
+    if (data?.note?.id) {
+      supabase
+        .from('notes')
+        .delete()
+        .eq('id', data.note.id)
+        .then(
+          () => {},
+          () => {}
+        );
+    }
+
     return {
-      title: parsed.title || 'Voice Note',
-      cleanedTranscript: parsed.cleanedTranscript || rawTranscript,
-      summary: parsed.summary || parsed.cleanedTranscript || rawTranscript,
+      title: data?.title || data?.note?.title || 'Voice Note',
+      cleanedTranscript: data?.cleanedTranscript || data?.note?.transcript || rawTranscript,
+      summary: data?.summary || data?.note?.content || rawTranscript,
     };
   } catch (err) {
-    console.warn('[Voice Note AI] Primary LLM failed, attempting direct Gemini 3.8 Flash fallback:', err);
-    const geminiKey = getGeminiApiKey();
-    if (!geminiKey) {
-      return {
-        title: 'Voice Note',
-        cleanedTranscript: rawTranscript,
-        summary: rawTranscript,
-      };
-    }
-
-    try {
-      let geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [
-              {
-                parts: [{ text: `${systemPrompt}\n\nUser Spoken Transcript:\n${rawTranscript}` }],
-              },
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              thinkingConfig: { thinkingLevel: 'LOW' },
-            },
-          }),
-        }
-      );
-
-      if (!geminiRes.ok) {
-        console.warn(`[Voice Note AI] Gemini 3.8 Flash returned ${geminiRes.status}. Retrying with gemini-2.5-flash...`);
-        geminiRes = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  parts: [{ text: `${systemPrompt}\n\nUser Spoken Transcript:\n${rawTranscript}` }],
-                },
-              ],
-              generationConfig: {
-                responseMimeType: 'application/json',
-              },
-            }),
-          }
-        );
-      }
-
-      const geminiData = await geminiRes.json();
-      const parts = geminiData?.candidates?.[0]?.content?.parts;
-      const text = Array.isArray(parts)
-        ? parts.filter((p: any) => !p?.thought && typeof p?.text === 'string').map((p: any) => p.text).join('').trim()
-        : geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-
-      const parsed = JSON.parse(text);
-      return {
-        title: parsed.title || 'Voice Note',
-        cleanedTranscript: parsed.cleanedTranscript || rawTranscript,
-        summary: parsed.summary || rawTranscript,
-      };
-    } catch {
-      return {
-        title: 'Voice Note',
-        cleanedTranscript: rawTranscript,
-        summary: rawTranscript,
-      };
-    }
+    console.warn('[Voice Note AI] Backend summarization fallback to raw transcript:', err);
+    return {
+      title: 'Voice Note',
+      cleanedTranscript: rawTranscript,
+      summary: rawTranscript,
+    };
   }
 }
 

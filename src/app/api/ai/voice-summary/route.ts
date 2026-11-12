@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
   try {
     let transcript = '';
     let durationSeconds = 0;
+    let skipSave = false;
 
     const contentType = req.headers.get('content-type') || '';
 
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       const file = formData.get('file') as Blob | null;
       const durationVal = formData.get('durationSeconds');
       if (durationVal) durationSeconds = parseInt(durationVal.toString(), 10) || 0;
+      skipSave = formData.get('skipSave') === 'true';
 
       if (!file) {
         return NextResponse.json({ error: 'Audio file is required' }, { status: 400, headers: cors });
@@ -72,6 +74,7 @@ export async function POST(req: NextRequest) {
       const body = await req.json().catch(() => ({}));
       transcript = body.transcript || '';
       durationSeconds = body.durationSeconds || 0;
+      skipSave = Boolean(body.skipSave);
     }
 
     if (!transcript || !transcript.trim()) {
@@ -138,6 +141,18 @@ export async function POST(req: NextRequest) {
       console.error('[ai:voice-summary]', 'server', 500, summaryErr?.message || 'Summarization fallback used');
     }
 
+    if (skipSave) {
+      return NextResponse.json(
+        {
+          success: true,
+          title: processed.title || 'Voice Note',
+          cleanedTranscript: processed.cleanedTranscript || transcript.trim(),
+          summary: processed.summary || processed.cleanedTranscript,
+        },
+        { status: 200, headers: cors }
+      );
+    }
+
     // Save note in notes table matching the phone app
     const notePayload = {
       user_id: user.id,
@@ -167,6 +182,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        title: processed.title || 'Voice Note',
+        cleanedTranscript: processed.cleanedTranscript || transcript.trim(),
+        summary: processed.summary || processed.cleanedTranscript,
         note: savedNote,
       },
       { status: 200, headers: cors }

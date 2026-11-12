@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-const key = process.env.OPENROUTER_API_KEY || process.env.NEXT_PUBLIC_OPENROUTER_API_KEY;
+const key = process.env.OPENROUTER_API_KEY;
 const model = process.argv[2] || 'openai/whisper-large-v3-turbo';
 if (!key) { console.log('OPENROUTER key MISSING in .env.local'); process.exit(1); }
 for (const [path, name, type] of [['/tmp/fx-test.m4a', 'test.m4a', 'audio/mp4'], ['/tmp/fx-test.wav', 'test.wav', 'audio/wav']]) {

@@ -59,8 +59,8 @@ export async function GET(req: Request) {
         const results = [];
 
         // Make sure we have either OpenRouter or Gemini API key
-        const openRouterApiKey = process.env.OPENROUTER_API_KEY || process.env.EXPO_PUBLIC_OPENROUTER_API_KEY;
-        const geminiApiKey = process.env.GEMINI_API_KEY || process.env.EXPO_PUBLIC_GEMINI_API_KEY;
+        const openRouterApiKey = process.env.OPENROUTER_API_KEY;
+        const geminiApiKey = process.env.GEMINI_API_KEY;
 
         if (!openRouterApiKey && !geminiApiKey) {
             console.error('[CRON_WEEKLY_REPORT] AI API key configuration is missing (need OPENROUTER_API_KEY or GEMINI_API_KEY)');
