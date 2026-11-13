@@ -6,11 +6,17 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EAS_BUILD_NO_EXPO_DOCTOR": "1",
+        "EXPO_NO_CAPABILITY_SYNC": "1"
+      }
     },
     "preview": {
       "distribution": "internal",
       "env": {
+        "EAS_BUILD_NO_EXPO_DOCTOR": "1",
+        "EXPO_NO_CAPABILITY_SYNC": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"
       }
@@ -26,6 +32,7 @@
         "image": "macos-tahoe-26.6-xcode-27.1"
       },
       "env": {
+        "EAS_BUILD_NO_EXPO_DOCTOR": "1",
         "EXPO_NO_CAPABILITY_SYNC": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"

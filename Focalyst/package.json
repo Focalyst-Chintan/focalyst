@@ -85,6 +85,9 @@
         "exclude": [
           "@react-native-voice/voice"
         ]
+      },
+      "appConfigFieldsNotSyncedCheck": {
+        "enabled": false
       }
     }
   },
