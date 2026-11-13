@@ -212,27 +212,48 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         const currentSession = sessionResult?.data?.session ?? null;
         const sessionError = sessionResult?.error;
 
-        // If refresh token explicitly revoked/invalid, sign out
-        if (sessionError && (sessionError.message?.includes('Refresh Token') || sessionError.message?.includes('Invalid Refresh Token'))) {
-          await clearBootSnapshot();
-          queryCache.clearAll();
+        // Validate token against Supabase auth server when a session exists
+        let verifiedUser = currentSession?.user ?? null;
+        let authInvalid = Boolean(
+          sessionError &&
+            (sessionError.message?.includes('Refresh Token') ||
+              sessionError.message?.includes('Invalid Refresh Token'))
+        );
+
+        if (verifiedUser && !authInvalid) {
+          try {
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError || !userData?.user) {
+              console.warn('[UserContext] Session validation failed via getUser():', userError?.message);
+              authInvalid = true;
+              verifiedUser = null;
+            } else {
+              verifiedUser = userData.user;
+            }
+          } catch (getUserErr) {
+            console.warn('[UserContext] getUser() check warning:', getUserErr);
+          }
+        }
+
+        // If session is missing, expired, or invalid, clear stale boot snapshot & sign out
+        if (authInvalid || !verifiedUser) {
+          if (hasCachedSession || authInvalid) {
+            await clearUserLocalData();
+            await supabase.auth.signOut().catch(() => {});
+          }
+          userRef.current = null;
+          profileRef.current = null;
           setUser(null);
           setProfile(null);
           setLoading(false);
           return;
         }
 
-        if (currentSession?.user) {
-          setUser(currentSession.user);
-          setLoading(false);
-          clearTimeout(safetyTimer);
-          // Hydrate queries if not hydrated already
-          await queryCache.hydrateUserSnapshots(currentSession.user.id);
-          void fetchUserProfile(currentSession.user.id, currentSession.user);
-        } else if (!hasCachedSession && currentSession === null) {
-          // No cached session and Supabase verified no active session
-          setLoading(false);
-        }
+        setUser(verifiedUser);
+        setLoading(false);
+        clearTimeout(safetyTimer);
+        await queryCache.hydrateUserSnapshots(verifiedUser.id);
+        void fetchUserProfile(verifiedUser.id, verifiedUser);
       } catch (e) {
         console.warn('[UserContext] Session init warning:', e);
       } finally {

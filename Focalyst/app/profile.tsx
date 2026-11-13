@@ -661,14 +661,24 @@ export default function ProfileScreen() {
           <Text style={[styles.metadataText, { color: theme.textSecondary }]}>{t('settings.builtBy')}</Text>
         </View>
 
-        {/* ═══ Logout ═══ */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          activeOpacity={0.85}
-          onPress={handleLogout}
-        >
-          <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
-        </TouchableOpacity>
+        {/* ═══ Sign In / Logout ═══ */}
+        {!user ? (
+          <TouchableOpacity
+            style={[styles.logoutButton, { backgroundColor: '#2B6BFF', borderColor: '#2B6BFF' }]}
+            activeOpacity={0.85}
+            onPress={() => router.push('/auth')}
+          >
+            <Text style={[styles.logoutButtonText, { color: '#FFFFFF' }]}>Sign In / Log In</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.logoutButton}
+            activeOpacity={0.85}
+            onPress={handleLogout}
+          >
+            <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
+          </TouchableOpacity>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>

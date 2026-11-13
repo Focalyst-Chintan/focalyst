@@ -43,6 +43,28 @@ const PRIORITY_OPTIONS: { value: Priority; label: string }[] = [
   { value: 'low', label: 'Low' },
 ];
 
+export function getLocalYYYYMMDD(date: Date = new Date()): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function formatShortDate(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return ymd;
+  const date = new Date(y, m - 1, d);
+  const weekday = date.toLocaleString('en-US', { weekday: 'short' });
+  const month = date.toLocaleString('en-US', { month: 'short' });
+  return `${weekday}, ${d} ${month}`;
+}
+
+function parseYYYYMMDD(ymd: string): Date {
+  const [y, m, d] = ymd.split('-').map(Number);
+  if (!y || !m || !d) return new Date();
+  return new Date(y, m - 1, d);
+}
+
 interface TaskFormProps {
   isOpen: boolean;
   onClose: () => void;
@@ -66,6 +88,12 @@ export default function TaskForm({
   const isEditing = !!editingTask;
   const [taskDescription, setTaskDescription] = useState('');
   const [tagsInput, setTagsInput] = useState('');
+
+  // Date selector states
+  const [selectedDate, setSelectedDate] = useState<string>(getLocalYYYYMMDD());
+  const [dateMode, setDateMode] = useState<'today' | 'custom'>('today');
+  const [showDatePickerModal, setShowDatePickerModal] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
 
   // Time picker states
   const [startTime, setStartTime] = useState<Date>(getDefaultTime(9, 0));
@@ -139,9 +167,19 @@ export default function TaskForm({
         }
 
         setRemindersEnabled(!!editingTask.reminder_time);
+
+        const todayStr = getLocalYYYYMMDD();
+        const taskDue = editingTask.due_date || todayStr;
+        setSelectedDate(taskDue);
+        setDateMode(taskDue === todayStr ? 'today' : 'custom');
+        setTempDate(parseYYYYMMDD(taskDue));
       } else {
+        const todayStr = getLocalYYYYMMDD();
         setTaskDescription('');
         setTagsInput('');
+        setSelectedDate(todayStr);
+        setDateMode('today');
+        setTempDate(new Date());
         setStartTime(getDefaultTime(9, 0));
         setEndTime(getDefaultTime(10, 0));
         setPriority('medium');
@@ -171,9 +209,9 @@ export default function TaskForm({
       let targetEndDate: Date | null = null;
 
       if (remindersEnabled) {
-        targetStartDate = new Date();
+        targetStartDate = parseYYYYMMDD(selectedDate);
         targetStartDate.setHours(startTime.getHours(), startTime.getMinutes(), 0, 0);
-        if (targetStartDate.getTime() <= Date.now()) {
+        if (targetStartDate.getTime() <= Date.now() && selectedDate === getLocalYYYYMMDD()) {
           targetStartDate.setDate(targetStartDate.getDate() + 1);
         }
         reminderTimeISO = targetStartDate.toISOString();
@@ -185,34 +223,87 @@ export default function TaskForm({
         }
       }
 
+      const { data: { session } } = await supabase.auth.getSession();
+      const activeUserId = session?.user?.id;
+
+      if (!activeUserId) {
+        // Guest / unauthenticated local fallback: never hit Supabase RLS
+        const localUid = userId || 'guest';
+        const cacheKey = `user:${localUid}:tasks`;
+        const localTask = {
+          id: editingTask ? editingTask.id : Crypto.randomUUID(),
+          user_id: localUid,
+          title: taskDescription.trim(),
+          priority: dbPriority,
+          tags: parsedTags,
+          due_date: selectedDate,
+          start_time: timeToString(startTime),
+          end_time: timeToString(endTime),
+          reminder_time: reminderTimeISO,
+          is_completed: editingTask ? !!editingTask.is_completed : false,
+          position: editingTask ? (editingTask.position ?? 0) : 0,
+          created_at: editingTask?.created_at || new Date().toISOString(),
+        };
+
+        const existing = queryCache.getSync<any[]>(cacheKey) || [];
+        const nextTasks = editingTask
+          ? existing.map((t) => (t.id === editingTask.id ? { ...t, ...localTask } : t))
+          : [localTask, ...existing];
+        queryCache.setSync(cacheKey, nextTasks);
+
+        await Promise.resolve(onRefresh(true));
+        onClose();
+        return;
+      }
+
       const payload: any = {
-        user_id: userId,
+        user_id: activeUserId,
         title: taskDescription.trim(),
         priority: dbPriority,
         tags: parsedTags,
+        due_date: selectedDate,
         start_time: timeToString(startTime),
         end_time: timeToString(endTime),
         reminder_time: reminderTimeISO,
       };
 
       if (editingTask) {
-        payload.id = editingTask.id;
         const { error } = await supabase
           .from('tasks')
           .update(payload)
-          .eq('id', editingTask.id);
+          .eq('id', editingTask.id)
+          .eq('user_id', activeUserId);
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '42501' || error.message?.toLowerCase().includes('row-level security')) {
+            console.warn('[TaskForm] RLS error on update:', { activeUserId, sessionUserId: session?.user?.id, payload, error });
+            const cacheKey = `user:${activeUserId}:tasks`;
+            const existing = queryCache.getSync<any[]>(cacheKey) || [];
+            queryCache.setSync(cacheKey, existing.map((t) => (t.id === editingTask.id ? { ...t, ...payload } : t)));
+          } else {
+            throw error;
+          }
+        }
       } else {
-        const taskId = Crypto.randomUUID();
-        payload.id = taskId;
+        payload.id = Crypto.randomUUID();
         payload.is_completed = false;
         payload.position = 0;
         const { error } = await supabase
           .from('tasks')
-          .upsert([payload], { onConflict: 'id' });
+          .insert([payload])
+          .select()
+          .single();
 
-        if (error) throw error;
+        if (error) {
+          if (error.code === '42501' || error.message?.toLowerCase().includes('row-level security')) {
+            console.warn('[TaskForm] RLS error on insert:', { activeUserId, sessionUserId: session?.user?.id, payload, error });
+            const cacheKey = `user:${activeUserId}:tasks`;
+            const existing = queryCache.getSync<any[]>(cacheKey) || [];
+            queryCache.setSync(cacheKey, [{ ...payload, created_at: new Date().toISOString() }, ...existing]);
+          } else {
+            throw error;
+          }
+        }
       }
 
       if (remindersEnabled && targetStartDate && targetEndDate) {
@@ -228,8 +319,8 @@ export default function TaskForm({
       }
 
       // Invalidate Task & Insights caches immediately so UI updates instantly
-      queryCache.invalidatePrefix(`user:${userId}:tasks`);
-      queryCache.invalidatePrefix(`user:${userId}:insights`);
+      queryCache.invalidatePrefix(`user:${activeUserId}:tasks`);
+      queryCache.invalidatePrefix(`user:${activeUserId}:insights`);
       queryCache.invalidatePrefix('user:');
 
       await Promise.resolve(onRefresh(true));
@@ -295,6 +386,67 @@ export default function TaskForm({
                 value={taskDescription}
                 onChangeText={setTaskDescription}
               />
+            </View>
+
+            {/* Set Date Field */}
+            <View style={styles.formField}>
+              <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Set date</Text>
+              <View style={styles.dateSelectorRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.datePill,
+                    dateMode === 'today'
+                      ? { backgroundColor: theme.accentBlue }
+                      : { backgroundColor: theme.cardBg },
+                  ]}
+                  onPress={() => {
+                    const todayStr = getLocalYYYYMMDD();
+                    setSelectedDate(todayStr);
+                    setDateMode('today');
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[
+                      styles.datePillText,
+                      { color: dateMode === 'today' ? '#FFFFFF' : theme.textPrimary },
+                    ]}
+                  >
+                    Today
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[
+                    styles.datePill,
+                    dateMode === 'custom'
+                      ? { backgroundColor: theme.accentBlue }
+                      : { backgroundColor: theme.cardBg },
+                  ]}
+                  onPress={() => {
+                    setTempDate(parseYYYYMMDD(selectedDate));
+                    setShowDatePickerModal(true);
+                  }}
+                  activeOpacity={0.8}
+                >
+                  {dateMode === 'today' && (
+                    <Ionicons
+                      name="calendar-outline"
+                      size={16}
+                      color={theme.textPrimary}
+                      style={{ marginRight: 6 }}
+                    />
+                  )}
+                  <Text
+                    style={[
+                      styles.datePillText,
+                      { color: dateMode === 'custom' ? '#FFFFFF' : theme.textPrimary },
+                    ]}
+                  >
+                    {dateMode === 'custom' ? formatShortDate(selectedDate) : 'Custom'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Set Time Field */}
@@ -443,6 +595,61 @@ export default function TaskForm({
           </ScrollView>
 
         </View>
+
+        {/* Custom Calendar Popup Modal */}
+        <Modal
+          visible={showDatePickerModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowDatePickerModal(false)}
+        >
+          <View style={styles.calendarModalOverlay}>
+            <View style={[styles.calendarModalContent, { backgroundColor: theme.cardBg, borderColor: theme.borderColor }]}>
+              <Text style={[styles.calendarModalTitle, { color: theme.textPrimary }]}>Select Date</Text>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                themeVariant={isDarkMode ? 'dark' : 'light'}
+                accentColor="#FF6B00"
+                onChange={(_, date) => {
+                  if (date) {
+                    setTempDate(date);
+                    if (Platform.OS === 'android') {
+                      const ymd = getLocalYYYYMMDD(date);
+                      setSelectedDate(ymd);
+                      setDateMode(ymd === getLocalYYYYMMDD() ? 'today' : 'custom');
+                      setShowDatePickerModal(false);
+                    }
+                  } else if (Platform.OS === 'android') {
+                    setShowDatePickerModal(false);
+                  }
+                }}
+              />
+              {Platform.OS === 'ios' && (
+                <View style={styles.calendarModalActions}>
+                  <TouchableOpacity
+                    style={[styles.calendarModalBtn, { backgroundColor: isDarkMode ? '#222A41' : '#cbd5e1' }]}
+                    onPress={() => setShowDatePickerModal(false)}
+                  >
+                    <Text style={[styles.calendarModalBtnText, { color: theme.textPrimary }]}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.calendarModalBtn, { backgroundColor: '#FF6B00' }]}
+                    onPress={() => {
+                      const ymd = getLocalYYYYMMDD(tempDate);
+                      setSelectedDate(ymd);
+                      setDateMode(ymd === getLocalYYYYMMDD() ? 'today' : 'custom');
+                      setShowDatePickerModal(false);
+                    }}
+                  >
+                    <Text style={[styles.calendarModalBtnText, { color: '#FFFFFF' }]}>Confirm</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </View>
+        </Modal>
       </View>
     </Modal>
   );
@@ -498,6 +705,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     fontSize: 16,
     fontWeight: '500',
+  },
+  dateSelectorRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  datePill: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 11,
+    borderRadius: 999,
+    minWidth: 100,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  datePillText: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  calendarModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  calendarModalContent: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+  },
+  calendarModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  calendarModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 16,
+  },
+  calendarModalBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  calendarModalBtnText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   datesGrid: {
     flexDirection: 'row',

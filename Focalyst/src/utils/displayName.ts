@@ -1,4 +1,4 @@
-type NameSource = { full_name?: string | null } | null | undefined;
+type NameSource = { full_name?: string | null; name?: string | null } | null | undefined;
 type AuthUserLike = { user_metadata?: Record<string, any> | null } | null | undefined;
 
 const usableName = (value: unknown): string | null => {
@@ -12,7 +12,12 @@ const usableName = (value: unknown): string | null => {
 /** The user's name, or null when none is known. Never falls back to the email. */
 export function getDisplayName(profile: NameSource, authUser?: AuthUserLike): string | null {
   const meta = authUser?.user_metadata ?? {};
-  return usableName(profile?.full_name) ?? usableName(meta.full_name) ?? usableName(meta.name);
+  return (
+    usableName(profile?.full_name) ??
+    usableName(profile?.name) ??
+    usableName(meta.full_name) ??
+    usableName(meta.name)
+  );
 }
 
 /** First word of the display name, for greetings. */

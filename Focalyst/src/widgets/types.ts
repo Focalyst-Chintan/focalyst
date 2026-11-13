@@ -21,26 +21,38 @@ export type BaseWidgetThemeProps = {
   systemScheme?: SystemColorScheme;
 };
 
-export type StreakWidgetProps = BaseWidgetThemeProps & {
-  habitName: string;
-  streakDays: number;
-  totalDays: number;
-  goalDays?: number;
-};
-
 export type HabitHeatmapItem = {
   id: string;
   habitName: string;
+  streakDays?: number;
   totalDays: number;
+  completedToday?: boolean;
   gridLevels: number[];
 };
 
+export type StreakWidgetProps = BaseWidgetThemeProps & {
+  habitName?: string;
+  streakDays?: number;
+  totalDays?: number;
+  goalDays?: number;
+  habits?: HabitHeatmapItem[];
+  toggledHabitMap?: Record<string, boolean>;
+  lastToggledHabitId?: string;
+  updatedAtMs?: number;
+};
+
 export type HeatmapWidgetProps = BaseWidgetThemeProps & {
+  habitId?: string;
   habitName: string;
   totalDays: number;
+  completedToday?: boolean;
+  todayCellIndex?: number;
   gridLevels: number[];
   habits?: HabitHeatmapItem[];
   activeHabitIndex?: number;
+  toggledHabitMap?: Record<string, boolean>;
+  lastToggledHabitId?: string;
+  updatedAtMs?: number;
   monthLabel?: string;
   yearLabel?: string;
 };
@@ -49,6 +61,7 @@ export type TodoItem = {
   id: string;
   title: string;
   completed: boolean;
+  dueDate?: string;
 };
 
 export type TodoWidgetProps = BaseWidgetThemeProps & {

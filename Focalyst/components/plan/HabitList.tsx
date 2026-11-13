@@ -25,7 +25,13 @@ import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService'
 import { getHabitColorShades, HabitColorShades } from '../../src/utils/habitColorHelper';
 import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
-import { syncAllWidgetsFromApp, SELECTED_WIDGET_HABIT_KEY } from '../../src/services/widgetSync';
+import {
+  clearWidgetToggledHabits,
+  consumeWidgetToggledHabits,
+  registerWidgetHabitToggleHandler,
+  SELECTED_WIDGET_HABIT_KEY,
+  syncAllWidgetsFromApp,
+} from '../../src/services/widgetSync';
 import { calculateHabitStreak } from '../../src/utils/streak';
 import { buildMonthlyHeatmapCells } from '../../src/utils/heatmapCells';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -134,7 +140,9 @@ export default function HabitList({
       const allHabits = habits.map((h: any) => ({
         id: h.id,
         habitName: h.name || 'Habit',
+        streakDays: h.current_streak || 0,
         totalDays: h.total_days || 0,
+        completedToday: Boolean(h.completed_today),
         gridLevels: buildMonthlyHeatmapCells(h.completedDates || []).map((v: number) => (v === 2 ? 4 : v === 1 ? 1 : 0)),
       }));
       syncAllWidgetsFromApp({
@@ -146,6 +154,99 @@ export default function HabitList({
       });
     })();
   }, [habits]);
+
+  // Bi-directional Habit Toggle Sync from Home Screen StreakWidget
+  useEffect(() => {
+    if (!userId) return;
+
+    const processWidgetHabitToggles = async (toggledMap: Record<string, boolean>) => {
+      if (!toggledMap || Object.keys(toggledMap).length === 0) return;
+      const today = getTodayStr();
+
+      setHabits((prev) => {
+        if (!prev || prev.length === 0) return prev;
+        let changed = false;
+        const nextHabits = prev.map((h: any) => {
+          if (!(h.id in toggledMap)) return h;
+          const desiredStatus = Boolean(toggledMap[h.id]);
+          const currentStatus = Boolean(h.completed_today);
+          if (currentStatus === desiredStatus) return h;
+
+          changed = true;
+          const existingDates = Array.isArray(h.completedDates) ? h.completedDates : [];
+          const currentTotalDays = h.total_days ?? existingDates.length ?? 0;
+          const nextTotalDays = desiredStatus ? currentTotalDays + 1 : Math.max(0, currentTotalDays - 1);
+          const nextDates = desiredStatus
+            ? Array.from(new Set([...existingDates, today]))
+            : existingDates.filter((d: string) => d !== today);
+
+          const { currentStreak: nextStreak, bestStreak: nextBestStreak } = calculateHabitStreak(
+            h || { frequency: 'daily' },
+            nextDates,
+            today
+          );
+
+          // Persist to Supabase in background
+          (async () => {
+            try {
+              if (desiredStatus) {
+                await supabase
+                  .from('habit_logs')
+                  .delete()
+                  .eq('habit_id', h.id)
+                  .eq('completed_date', today);
+                await supabase
+                  .from('habit_logs')
+                  .insert([{ habit_id: h.id, user_id: userId, completed_date: today }]);
+              } else {
+                await supabase
+                  .from('habit_logs')
+                  .delete()
+                  .eq('habit_id', h.id)
+                  .eq('completed_date', today);
+              }
+              await supabase
+                .from('habits')
+                .update({ current_streak: nextStreak, longest_streak: nextBestStreak })
+                .eq('id', h.id);
+            } catch (err) {
+              console.warn('Error syncing widget-toggled habit to DB:', err);
+            }
+          })();
+
+          return {
+            ...h,
+            completed_today: desiredStatus,
+            current_streak: nextStreak,
+            longest_streak: nextBestStreak,
+            total_days: nextTotalDays,
+            completedDates: nextDates,
+          };
+        });
+
+        if (changed) {
+          queryCache.setSync(`user:${userId}:habits_v2`, nextHabits);
+        }
+        return changed ? nextHabits : prev;
+      });
+
+      await clearWidgetToggledHabits();
+    };
+
+    consumeWidgetToggledHabits().then((map) => {
+      if (map && Object.keys(map).length > 0) {
+        processWidgetHabitToggles(map);
+      }
+    });
+
+    const unsub = registerWidgetHabitToggleHandler(async (map) => {
+      await processWidgetHabitToggles(map);
+    });
+
+    return () => {
+      unsub();
+    };
+  }, [userId]);
   const [loading, setLoading] = useState(cachedHabits.length === 0);
   const [newName, setNewName] = useState('');
   const [newEmoji, setNewEmoji] = useState('🎯');

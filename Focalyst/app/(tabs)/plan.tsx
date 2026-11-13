@@ -21,10 +21,11 @@ import { getFirstName } from '../../src/utils/displayName';
 import TaskCard from '../../components/TaskCard';
 import HabitList from '../../components/plan/HabitList';
 import HabitForm from '../../components/plan/HabitForm';
-import TaskForm from '../../components/plan/TaskForm';
+import TaskForm, { getLocalYYYYMMDD } from '../../components/plan/TaskForm';
 import HabitMilestoneModal, { STREAK_MILESTONES } from '../../components/plan/HabitMilestoneModal';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  clearWidgetCompletedTaskIds,
   consumeWidgetCompletedTaskIds,
   formatDateDMY,
   registerWidgetTaskCompleteHandler,
@@ -177,7 +178,7 @@ export default function PlanTab() {
   // Follows the signed-in account directly, so a switch never shows the previous user's name.
   const userName = useMemo(() => {
     const ownProfile = profile && (!user?.id || profile.id === user.id) ? profile : null;
-    return getFirstName(ownProfile, user) ?? '';
+    return getFirstName(ownProfile, user) ?? 'User';
   }, [user?.id, user?.user_metadata, profile]);
 
   const [activeTab, setActiveTab] = useState<TabView>('today');
@@ -186,19 +187,44 @@ export default function PlanTab() {
   // Synchronous cache hydration: instantaneous 0ms display on tab switch
   const cachedTasks = currentUserId ? (queryCache.getSync<any[]>(`user:${currentUserId}:tasks`) || []) : [];
   const [tasks, setTasks] = useState<any[]>(cachedTasks);
+  const [taskViewMode, setTaskViewMode] = useState<'due' | 'upcoming'>('due');
 
-  // Sync To-Do list to Home Screen Widget
+  const todayYYYYMMDD = getLocalYYYYMMDD();
+
+  const dueTasks = useMemo(
+    () => tasks.filter((t) => !t.due_date || t.due_date <= todayYYYYMMDD),
+    [tasks, todayYYYYMMDD]
+  );
+
+  const upcomingTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => t.due_date && t.due_date > todayYYYYMMDD)
+        .sort((a, b) => {
+          if (a.due_date !== b.due_date) return a.due_date.localeCompare(b.due_date);
+          return (a.position ?? 0) - (b.position ?? 0);
+        }),
+    [tasks, todayYYYYMMDD]
+  );
+
+  const displayedTasks = taskViewMode === 'due' ? dueTasks : upcomingTasks;
+
+  // Sync To-Do list to Home Screen Widget (Strictly Due Today & Uncompleted Only)
   useEffect(() => {
     if (tasks) {
+      const dueTodayOnly = tasks.filter(
+        (t) => !t.is_completed && (!t.due_date || t.due_date <= todayYYYYMMDD)
+      );
       syncAllWidgetsFromApp({
-        tasks: tasks.map((t) => ({
+        tasks: dueTodayOnly.map((t) => ({
           id: String(t.id),
           title: t.title || 'Task',
           completed: !!t.is_completed,
+          dueDate: t.due_date ? String(t.due_date).slice(0, 10) : undefined,
         })),
       });
     }
-  }, [tasks]);
+  }, [tasks, todayYYYYMMDD]);
 
   // Bi-directional To-Do Completion from Home Screen Widget
   useEffect(() => {
@@ -215,6 +241,7 @@ export default function PlanTab() {
             completed_at: new Date().toISOString(),
           })
           .in('id', Array.from(idsSet));
+        await clearWidgetCompletedTaskIds(completedIds);
       } catch (err) {
         console.warn('Error marking widget-completed tasks in DB:', err);
       }
@@ -385,7 +412,13 @@ export default function PlanTab() {
 
   const fetchTasks = async (forceRefresh: boolean = false) => {
     const targetUid = currentUserId || userId;
-    if (!targetUid) return;
+    if (!targetUid) {
+      const guestTasks = queryCache.getSync<any[]>('user:guest:tasks') || [];
+      setTasks(guestTasks);
+      setLoadingTasks(false);
+      setLoading(false);
+      return;
+    }
     try {
       if (tasks.length === 0) setLoadingTasks(true);
       const cacheKey = `user:${targetUid}:tasks`;
@@ -492,6 +525,29 @@ export default function PlanTab() {
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to delete task');
       fetchTasks();
+    }
+  };
+
+  const moveTaskToToday = async (task: any) => {
+    const todayStr = getLocalYYYYMMDD();
+    setTasks((prev) => {
+      const updated = prev.map((t) => (t.id === task.id ? { ...t, due_date: todayStr } : t));
+      const targetUid = currentUserId || userId;
+      if (targetUid) {
+        queryCache.setSync(`user:${targetUid}:tasks`, updated);
+      }
+      return updated;
+    });
+
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ due_date: todayStr })
+        .eq('id', task.id);
+      if (error) throw error;
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to move task to today');
+      fetchTasks(true);
     }
   };
 
@@ -1312,7 +1368,37 @@ export default function PlanTab() {
       </View>
 
       {activeTab === 'today' && (
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>{t('plan.todo')}</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginBottom: 0 }]}>{t('plan.todo')}</Text>
+          <View style={{ flexDirection: 'row', backgroundColor: darkMode ? '#151B2E' : '#e2e8f0', borderRadius: 999, padding: 3 }}>
+            <TouchableOpacity
+              onPress={() => setTaskViewMode('due')}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                borderRadius: 999,
+                backgroundColor: taskViewMode === 'due' ? (darkMode ? '#2D354E' : '#4a6c8c') : 'transparent',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: taskViewMode === 'due' ? '#FFFFFF' : theme.textSecondary }}>
+                DUE
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setTaskViewMode('upcoming')}
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 5,
+                borderRadius: 999,
+                backgroundColor: taskViewMode === 'upcoming' ? (darkMode ? '#2D354E' : '#4a6c8c') : 'transparent',
+              }}
+            >
+              <Text style={{ fontSize: 12, fontWeight: '700', color: taskViewMode === 'upcoming' ? '#FFFFFF' : theme.textSecondary }}>
+                UPCOMING
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -1369,7 +1455,7 @@ export default function PlanTab() {
           >
             {renderHeader()}
             <NestableDraggableFlatList
-              data={tasks}
+              data={displayedTasks}
               keyExtractor={(item) => item.id}
               onDragEnd={onDragEnd}
               renderItem={({ item, drag, isActive }: RenderItemParams<any>) => (
@@ -1379,12 +1465,14 @@ export default function PlanTab() {
                     drag={drag}
                     isActive={isActive}
                     isDarkMode={darkMode}
+                    isUpcoming={taskViewMode === 'upcoming'}
                     onToggle={toggleTaskCompletion}
                     onEdit={(task) => {
                       setEditingTask(task);
                       setIsTaskFormOpen(true);
                     }}
                     onDelete={deleteTask}
+                    onMoveToToday={moveTaskToToday}
                   />
                 </ScaleDecorator>
               )}

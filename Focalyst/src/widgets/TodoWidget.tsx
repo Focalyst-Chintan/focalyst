@@ -1,5 +1,16 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { background, cornerRadius, font, foregroundStyle, padding } from '@expo/ui/swift-ui/modifiers';
+import {
+  background,
+  border,
+  buttonStyle,
+  cornerRadius,
+  font,
+  foregroundStyle,
+  frame,
+  lineLimit,
+  padding,
+  truncationMode,
+} from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
 import type { TodoItem, TodoWidgetProps, WidgetEnv } from './types';
 
@@ -21,6 +32,7 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
   const mode = env?.widgetRenderingMode;
   const isAccented = mode === 'accented' || mode === 'vibrant';
   const rgba = (rgb: string, alpha: number) => `rgba(${rgb}, ${alpha})`;
+  const fill = 1000;
 
   // Clear and Tinted render in the accented mode, which keeps only opacity: every fill there is
   // white at a fixed alpha. Colours are rgba() because natively an 8-digit hex reads as RRGGBBAA.
@@ -29,15 +41,47 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
     const WHITE = '255, 255, 255';
     const INK = '11, 11, 15';
     if (isAccented) {
-      return { text: '#FFFFFF', taskText: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.14), accent: '#FFFFFF' };
+      return {
+        text: '#FFFFFF',
+        taskText: '#FFFFFF',
+        secondaryText: rgba(WHITE, 0.6),
+        pill: rgba(WHITE, 0.14),
+        ghostBg: rgba(WHITE, 0.04),
+        ghostBorder: rgba(WHITE, 0.14),
+        accent: '#FFFFFF',
+      };
     }
     if (preset === 'monochrome') {
       return isDark
-        ? { text: '#FFFFFF', taskText: '#FFFFFF', secondaryText: rgba(WHITE, 0.6), pill: rgba(WHITE, 0.1), accent: '#FFFFFF' }
-        : { text: '#0B0B0F', taskText: '#0B0B0F', secondaryText: rgba(INK, 0.55), pill: rgba(INK, 0.06), accent: '#0B0B0F' };
+        ? {
+            text: '#FFFFFF',
+            taskText: '#FFFFFF',
+            secondaryText: rgba(WHITE, 0.6),
+            pill: rgba(WHITE, 0.1),
+            ghostBg: rgba(WHITE, 0.025),
+            ghostBorder: rgba(WHITE, 0.08),
+            accent: '#FFFFFF',
+          }
+        : {
+            text: '#0B0B0F',
+            taskText: '#0B0B0F',
+            secondaryText: rgba(INK, 0.55),
+            pill: rgba(INK, 0.06),
+            ghostBg: rgba(INK, 0.025),
+            ghostBorder: rgba(INK, 0.08),
+            accent: '#0B0B0F',
+          };
     }
     if (preset === 'white') {
-      return { text: '#090A0F', taskText: '#1E293B', secondaryText: '#475569', pill: rgba('9, 10, 15', 0.06), accent: '#090A0F' };
+      return {
+        text: '#090A0F',
+        taskText: '#1E293B',
+        secondaryText: '#475569',
+        pill: rgba('9, 10, 15', 0.06),
+        ghostBg: rgba('9, 10, 15', 0.025),
+        ghostBorder: rgba('9, 10, 15', 0.08),
+        accent: '#090A0F',
+      };
     }
     const themes: Record<string, { taskText: string; secondaryText: string; accent: string }> = {
       ember: { taskText: '#FFEDD5', secondaryText: '#FDBA74', accent: '#FF5500' },
@@ -48,71 +92,170 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
       amber: { taskText: '#FEF3C7', secondaryText: '#FDE68A', accent: '#FBBF24' },
     };
     const theme = themes[preset] ?? themes.cobalt;
-    return { text: '#FFFFFF', taskText: theme.taskText, secondaryText: theme.secondaryText, pill: rgba(WHITE, 0.1), accent: theme.accent };
+    return {
+      text: '#FFFFFF',
+      taskText: theme.taskText,
+      secondaryText: theme.secondaryText,
+      pill: rgba(WHITE, 0.1),
+      ghostBg: rgba(WHITE, 0.025),
+      ghostBorder: rgba(WHITE, 0.08),
+      accent: theme.accent,
+    };
   };
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
   const safeTasks = Array.isArray(props.tasks) ? props.tasks.filter((t) => t && typeof t === 'object') : [];
   const pendingTasks = safeTasks.filter((t) => !t.completed);
-  const maxChars = isMedium ? 32 : 15;
-  const visibleTasks = pendingTasks.slice(0, 3);
+  const leftTasks = pendingTasks.slice(0, 3);
+  const rightTasks = pendingTasks.slice(3, 6);
+  const smallTasks = pendingTasks.slice(0, 3);
+
+  const renderTaskPill = (task: TodoItem) => {
+    const title = `${task.title ?? ''}`.trim() || 'Task';
+    return (
+      <Button
+        key={task.id}
+        target={`todo-${task.id}`}
+        modifiers={[buttonStyle('plain')]}
+        onPress={() => {
+          const realTasks = Array.isArray(rawProps.tasks) ? rawProps.tasks : [];
+          const prevCompleted = Array.isArray(rawProps.completedTaskIds) ? rawProps.completedTaskIds : [];
+          return {
+            ...rawProps,
+            lastCompletedTaskId: task.id,
+            completedTaskIds: [...prevCompleted, task.id],
+            tasks: realTasks.map((t) =>
+              t.id === task.id ? { ...t, completed: true } : t
+            ),
+          };
+        }}
+      >
+        <HStack
+          alignment="center"
+          spacing={8}
+          modifiers={[
+            padding({ horizontal: 9, vertical: 5 }),
+            background(p.pill),
+            cornerRadius(8),
+            frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
+          ]}
+        >
+          <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundStyle(p.accent), ...accentable]}>
+            ○
+          </Text>
+          <Text
+            modifiers={[
+              font({ size: 13, weight: 'medium' }),
+              foregroundStyle(p.taskText),
+              lineLimit(1),
+              truncationMode('tail'),
+              ...accentable,
+            ]}
+          >
+            {title}
+          </Text>
+          <Spacer minLength={0} />
+        </HStack>
+      </Button>
+    );
+  };
+
+  const renderGhostSlot = (slotIdx: number, showLabel: boolean) => (
+    <HStack
+      key={`ghost-${slotIdx}`}
+      alignment="center"
+      modifiers={[
+        padding({ horizontal: 9, vertical: 5 }),
+        background(p.ghostBg),
+        cornerRadius(8),
+        border({ content: p.ghostBorder, width: 1 }),
+        frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
+      ]}
+    >
+      <Text
+        modifiers={[
+          font({ size: 11, weight: 'medium' }),
+          foregroundStyle(p.secondaryText),
+          lineLimit(1),
+        ]}
+      >
+        {showLabel ? 'No more tasks' : ' '}
+      </Text>
+      <Spacer minLength={0} />
+    </HStack>
+  );
 
   return (
-    <VStack modifiers={[padding({ all: 12 })]}>
-      {/* Header Bar */}
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.pill), cornerRadius(8)]}>
-        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
+    <VStack
+      alignment="leading"
+      spacing={8}
+      modifiers={[
+        padding({ all: 12 }),
+        frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' }),
+      ]}
+    >
+      {/* Fixed Top Header Band */}
+      <HStack
+        modifiers={[
+          padding({ horizontal: 8, vertical: 5 }),
+          background(p.pill),
+          cornerRadius(8),
+          frame({ maxWidth: fill }),
+        ]}
+      >
+        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text), lineLimit(1)]}>
           To-Do List
         </Text>
-        <Spacer />
-        <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(p.accent), ...accentable]}>
+        <Spacer minLength={4} />
+        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.accent), ...accentable]}>
           {`${pendingTasks.length}`}
         </Text>
       </HStack>
 
-      {/* Tasks positioned directly below Header Bar (NO Spacer above tasks!) */}
-      {visibleTasks.length === 0 ? (
-        <VStack modifiers={[padding({ top: 18 })]}>
-          <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
-            No tasks yet
-          </Text>
-          <Text modifiers={[font({ size: 10, weight: 'regular' }), foregroundStyle(p.secondaryText)]}>
-            Tap + in app to add
-          </Text>
-        </VStack>
+      {/* Tasks positioned directly below Header Bar */}
+      {isMedium ? (
+        <HStack
+          alignment="top"
+          spacing={8}
+          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+        >
+          <VStack
+            alignment="leading"
+            spacing={8}
+            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          >
+            {[0, 1, 2].map((slotIdx) => {
+              const task = leftTasks[slotIdx];
+              if (task) return renderTaskPill(task);
+              return renderGhostSlot(slotIdx, slotIdx === leftTasks.length);
+            })}
+          </VStack>
+          <VStack
+            alignment="leading"
+            spacing={8}
+            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          >
+            {[0, 1, 2].map((slotIdx) => {
+              const task = rightTasks[slotIdx];
+              if (task) return renderTaskPill(task);
+              return renderGhostSlot(10 + slotIdx, false);
+            })}
+          </VStack>
+        </HStack>
       ) : (
-        <VStack modifiers={[padding({ top: 6 })]}>
-          {visibleTasks.map((task) => {
-            const title = `${task.title ?? ''}`;
-            const labelText = title.length > maxChars ? `${title.slice(0, maxChars)}…` : title;
-            return (
-              <HStack key={task.id} modifiers={[padding({ vertical: 2 })]}>
-                <Button
-                  label={`○  ${labelText}`}
-                  modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(p.taskText), ...accentable]}
-                  onPress={() => {
-                    const realTasks = Array.isArray(rawProps.tasks) ? rawProps.tasks : [];
-                    const prevCompleted = Array.isArray(rawProps.completedTaskIds) ? rawProps.completedTaskIds : [];
-                    return {
-                      ...rawProps,
-                      lastCompletedTaskId: task.id,
-                      completedTaskIds: [...prevCompleted, task.id],
-                      tasks: realTasks.map((t) =>
-                        t.id === task.id ? { ...t, completed: true } : t
-                      ),
-                    };
-                  }}
-                />
-                <Spacer />
-              </HStack>
-            );
+        <VStack
+          alignment="leading"
+          spacing={8}
+          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+        >
+          {[0, 1, 2].map((slotIdx) => {
+            const task = smallTasks[slotIdx];
+            if (task) return renderTaskPill(task);
+            return renderGhostSlot(slotIdx, slotIdx === smallTasks.length);
           })}
         </VStack>
       )}
-
-      {/* Single Spacer at the bottom keeps tasks pinned right below To-Do List header */}
-      <Spacer />
     </VStack>
   );
 };

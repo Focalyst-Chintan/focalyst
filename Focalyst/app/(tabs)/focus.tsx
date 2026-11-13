@@ -44,12 +44,14 @@ import { useBlocking } from '../../src/blocking/BlockingContext';
 import { ORANGE_FILL } from '../../constants/blockingTheme';
 import { useColumnStyle } from '../../src/layout/adaptive';
 import {
+  type CountdownWidgetItem,
   ensureWidgetStateHydrated,
   formatDateDMY,
   getWidgetPayload,
   POMODORO_SESSION_STORAGE_KEY,
   reconcileWidgetsToApp,
   registerWidgetPomodoroSyncHandler,
+  SELECTED_WIDGET_COUNTDOWN_KEY,
   subscribeToWidgetPayload,
   syncAllWidgetsFromApp,
 } from '../../src/services/widgetSync';
@@ -622,17 +624,46 @@ export default function FocusTab() {
 
   // Synchronize Countdown Widget
   useEffect(() => {
-    if (countdowns && countdowns.length > 0) {
-      const first = countdowns[0];
-      const targetIso = first.target_date || new Date().toISOString();
-      syncAllWidgetsFromApp({
-        countdown: {
-          title: first.event_name || first.title || first.name || first.description || 'Audit',
+    let cancelled = false;
+    const syncCountdowns = async () => {
+      if (!countdowns || countdowns.length === 0) {
+        await syncAllWidgetsFromApp({ countdowns: [] });
+        return;
+      }
+
+      const countdownList: CountdownWidgetItem[] = countdowns.map((item) => {
+        const targetIso = item.target_date || new Date().toISOString();
+        return {
+          id: item.id,
+          title: item.event_name || item.title || item.name || item.description || 'Countdown',
           dateLabel: formatDateDMY(targetIso),
           targetDateIso: targetIso,
-        },
+        };
       });
-    }
+
+      let savedId: string | null = null;
+      try {
+        savedId = await AsyncStorage.getItem(SELECTED_WIDGET_COUNTDOWN_KEY);
+      } catch {}
+      if (cancelled) return;
+
+      const activeCountdown =
+        (savedId && countdownList.find((c) => c.id === savedId)) || countdownList[0];
+
+      syncAllWidgetsFromApp({
+        countdown: {
+          title: activeCountdown.title,
+          dateLabel: activeCountdown.dateLabel,
+          targetDateIso: activeCountdown.targetDateIso,
+        },
+        countdowns: countdownList,
+      });
+    };
+
+    syncCountdowns();
+    return () => {
+      cancelled = true;
+    };
   }, [countdowns]);
 
   // ─── Local YYYY-MM-DD Date Formatter (Prevents UTC midnight backward shift) ──
@@ -1757,9 +1788,16 @@ export default function FocusTab() {
               <View style={styles.formGroup}>
                 <Text style={[styles.formLabel, isDarkMode && { color: '#FFFFFF' }]}>Describe</Text>
                 <TextInput
-                  style={[styles.formInput, isDarkMode && { backgroundColor: '#FFFFFF', color: '#1E2229', borderColor: '#222A41' }]}
+                  style={[
+                    styles.formInput,
+                    {
+                      backgroundColor: isDarkMode ? '#141927' : '#FFFFFF',
+                      borderColor: isDarkMode ? '#232A3E' : '#cbd5e1',
+                      color: isDarkMode ? '#FFFFFF' : '#0F172A',
+                    },
+                  ]}
                   placeholder="Give it a name"
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={isDarkMode ? '#7C859E' : '#64748B'}
                   value={eventName}
                   onChangeText={setEventName}
                 />

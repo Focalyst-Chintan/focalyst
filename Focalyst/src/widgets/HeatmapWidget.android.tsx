@@ -1,5 +1,5 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { background, cornerRadius, font, foregroundStyle, frame, padding } from '@expo/ui/swift-ui/modifiers';
+import { background, buttonStyle, cornerRadius, font, foregroundStyle, frame, lineLimit, padding, truncationMode } from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
 import type { HeatmapWidgetProps, WidgetEnv } from './types';
 
@@ -28,39 +28,77 @@ const HeatmapWidget = (props: HeatmapWidgetProps, env?: WidgetEnv) => {
   };
 
   const t = getTheme();
-  const habitList = Array.isArray(props.habits) && props.habits.length > 0
-    ? props.habits
-    : [{ id: 'default', habitName: props.habitName || 'Yoga', totalDays: props.totalDays ?? 0, gridLevels: props.gridLevels || [] }];
+  const fallbackHabit = Array.isArray(props.habits) && props.habits.length > 0 ? props.habits[0] : null;
+  const activeHabitId = props.habitId || fallbackHabit?.id || 'default';
+  const displayHabitName = props.habitName || fallbackHabit?.habitName || 'Yoga';
+  const displayTotalDays = props.totalDays ?? fallbackHabit?.totalDays ?? 0;
+  const displayCompletedToday = Boolean(props.completedToday ?? fallbackHabit?.completedToday);
+  const displayGridLevels =
+    Array.isArray(props.gridLevels) && props.gridLevels.length > 0
+      ? props.gridLevels
+      : fallbackHabit?.gridLevels || [];
 
-  const currentIndex = (props.activeHabitIndex ?? 0) % habitList.length;
-  const activeHabit = habitList[currentIndex] || habitList[0];
-  const hasMultiple = habitList.length > 1;
+  const getTodayCellIdx = () => {
+    if (typeof props.todayCellIndex === 'number' && props.todayCellIndex >= 0 && props.todayCellIndex < 35) {
+      return props.todayCellIndex;
+    }
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+    return offset + now.getDate() - 1;
+  };
 
   const rows = [0, 1, 2, 3, 4];
   const cols = [0, 1, 2, 3, 4, 5, 6];
 
   return (
     <VStack modifiers={[padding({ all: 11 }), background(t.bg)]}>
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 4 }), background(t.headerBg), cornerRadius(8)]}>
-        {hasMultiple ? (
-          <Button
-            label={`${activeHabit.habitName} ▸`}
-            modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(t.text)]}
-            onPress={() => ({
-              ...props,
-              activeHabitIndex: (currentIndex + 1) % habitList.length,
-            })}
-          />
-        ) : (
-          <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(t.text)]}>
-            {activeHabit.habitName}
+      <Button
+        target={`heatmap-toggle-${activeHabitId}`}
+        modifiers={[buttonStyle('plain')]}
+        onPress={() => {
+          const nextDone = !displayCompletedToday;
+          const curTotal = Math.max(0, Math.floor(Number(displayTotalDays) || 0));
+          const nextTotal = nextDone ? curTotal + 1 : Math.max(0, curTotal - 1);
+          const curGrid = [...displayGridLevels];
+          const todayIdx = getTodayCellIdx();
+          if (todayIdx >= 0 && todayIdx < 35) {
+            while (curGrid.length < 35) curGrid.push(0);
+            curGrid[todayIdx] = nextDone ? 4 : 1;
+          }
+          const prevMap =
+            props.toggledHabitMap && typeof props.toggledHabitMap === 'object'
+              ? props.toggledHabitMap
+              : {};
+          return {
+            ...props,
+            habitId: activeHabitId,
+            completedToday: nextDone,
+            totalDays: nextTotal,
+            gridLevels: curGrid,
+            lastToggledHabitId: activeHabitId,
+            toggledHabitMap: { ...prevMap, [activeHabitId]: nextDone },
+            updatedAtMs: Date.now(),
+          };
+        }}
+      >
+        <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(t.headerBg), cornerRadius(8)]}>
+          <Text
+            modifiers={[
+              font({ size: 12, weight: 'bold' }),
+              foregroundStyle(t.text),
+              lineLimit(1),
+              truncationMode('tail'),
+            ]}
+          >
+            {displayHabitName}
           </Text>
-        )}
-        <Spacer />
-        <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(t.muted)]}>
-          {`${activeHabit.totalDays}d`}
-        </Text>
-      </HStack>
+          <Spacer minLength={4} />
+          <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(t.muted)]}>
+            {`${displayTotalDays}d`}
+          </Text>
+        </HStack>
+      </Button>
 
       <Spacer />
 
@@ -69,7 +107,7 @@ const HeatmapWidget = (props: HeatmapWidgetProps, env?: WidgetEnv) => {
           <HStack key={`row-${r}`} modifiers={[padding({ vertical: 1.5 })]}>
             {cols.map((c) => {
               const idx = r * 7 + c;
-              const lvl = Math.max(0, Math.min(4, activeHabit.gridLevels?.[idx] ?? 0));
+              const lvl = Math.max(0, Math.min(4, displayGridLevels[idx] ?? 0));
               return (
                 <VStack
                   key={`cell-${idx}`}

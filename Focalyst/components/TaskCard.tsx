@@ -11,19 +11,24 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { formatShortDate } from './plan/TaskForm';
+
 interface TaskCardProps {
   item: {
     id: string;
     title: string;
     is_completed: boolean;
     priority?: string;
+    due_date?: string | null;
   };
   drag: () => void;
   isActive: boolean;
   isDarkMode?: boolean;
+  isUpcoming?: boolean;
   onToggle: (id: string, currentStatus: boolean) => void;
   onEdit: (task: any) => void;
   onDelete: (id: string) => void;
+  onMoveToToday?: (task: any) => void;
 }
 
 function getPriorityBadgeStyle(priority: string | undefined, isDark: boolean) {
@@ -61,9 +66,11 @@ export default function TaskCard({
   drag,
   isActive,
   isDarkMode = true,
+  isUpcoming = false,
   onToggle,
   onEdit,
   onDelete,
+  onMoveToToday,
 }: TaskCardProps) {
   
   const handleOptionsMenu = () => {
@@ -133,19 +140,26 @@ export default function TaskCard({
         </TouchableOpacity>
 
         {/* Text */}
-        <Text
-          style={[
-            styles.taskText,
-            { color: textPrimary },
-            item.is_completed && { color: textSecondary, textDecorationLine: 'line-through' },
-          ]}
-          numberOfLines={1}
-        >
-          {item.title}
-        </Text>
+        <View style={styles.titleContainer}>
+          <Text
+            style={[
+              styles.taskText,
+              { color: textPrimary },
+              item.is_completed && { color: textSecondary, textDecorationLine: 'line-through' },
+            ]}
+            numberOfLines={1}
+          >
+            {item.title}
+          </Text>
+          {isUpcoming && item.due_date ? (
+            <Text style={[styles.dueDateText, { color: textSecondary }]}>
+              {formatShortDate(item.due_date)}
+            </Text>
+          ) : null}
+        </View>
       </View>
 
-      {/* Right: Priority Capsule + Three-Dot Button */}
+      {/* Right: Priority Capsule + Three-Dot Button or -> Today */}
       <View style={styles.rightGroup}>
         {(() => {
           const badge = getPriorityBadgeStyle(item.priority, isDarkMode);
@@ -163,19 +177,49 @@ export default function TaskCard({
           );
         })()}
 
-        <TouchableOpacity
-          style={styles.optionsButton}
-          onPress={handleOptionsMenu}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="ellipsis-vertical" size={18} color={textSecondary} />
-        </TouchableOpacity>
+        {isUpcoming && onMoveToToday ? (
+          <TouchableOpacity
+            style={styles.moveToTodayBtn}
+            onPress={() => onMoveToToday(item)}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-forward" size={12} color="#FFFFFF" />
+            <Text style={styles.moveToTodayText}>Today</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.optionsButton}
+            onPress={handleOptionsMenu}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="ellipsis-vertical" size={18} color={textSecondary} />
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  dueDateText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  moveToTodayBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#2B6BFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  moveToTodayText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
   cardContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -226,11 +270,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6B00',
     borderColor: '#FF6B00',
   },
-  taskText: {
+  titleContainer: {
     flex: 1,
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  taskText: {
     fontSize: 15,
     fontWeight: '600',
-    marginRight: 8,
   },
   optionsButton: {
     padding: 6,

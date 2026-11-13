@@ -1,17 +1,40 @@
-import { HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { background, cornerRadius, font, foregroundStyle, frame, padding } from '@expo/ui/swift-ui/modifiers';
+import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
+import {
+  background,
+  buttonStyle,
+  cornerRadius,
+  font,
+  foregroundStyle,
+  frame,
+  lineLimit,
+  padding,
+  truncationMode,
+} from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
-import type { StreakWidgetProps, WidgetEnv } from './types';
+import type { HabitHeatmapItem, StreakWidgetProps, WidgetEnv } from './types';
 
 const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
   'widget';
-  // Gallery and placeholder entries arrive without props: show a realistic sample instead.
-  const props = { habitName: 'Yoga', streakDays: 26, totalDays: 48, goalDays: 30, ...(rawProps as Partial<StreakWidgetProps>) };
+  const defaultHabits: HabitHeatmapItem[] = [
+    { id: 'sample-1', habitName: 'Drink water', streakDays: 6, totalDays: 6, completedToday: false, gridLevels: [] },
+    { id: 'sample-2', habitName: 'Yoga', streakDays: 32, totalDays: 32, completedToday: true, gridLevels: [] },
+    { id: 'sample-3', habitName: 'Skincare', streakDays: 1, totalDays: 1, completedToday: false, gridLevels: [] },
+  ];
+  const props = {
+    habitName: 'Yoga',
+    streakDays: 26,
+    totalDays: 48,
+    goalDays: 30,
+    habits: defaultHabits,
+    ...(rawProps as Partial<StreakWidgetProps>),
+  };
   const preset = props.preset ?? 'ember';
   const isDark = (env?.colorScheme ?? props.systemScheme ?? 'dark') === 'dark';
+  const isMedium = env?.widgetFamily === 'systemMedium';
   const mode = env?.widgetRenderingMode;
   const isAccented = mode === 'accented' || mode === 'vibrant';
   const rgba = (rgb: string, alpha: number) => `rgba(${rgb}, ${alpha})`;
+  const fill = 1000;
 
   // Clear and Tinted render in the accented mode, which keeps only opacity: every fill there is
   // white at a fixed alpha. Colours are rgba() because natively an 8-digit hex reads as RRGGBBAA.
@@ -44,57 +67,158 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const goal = props.goalDays && props.goalDays > 0 ? props.goalDays : 30;
-  const trackWidth = 120;
-  const barHeight = 6;
-  // A missing streak is 0, so the bar width is never NaN.
-  const streakDays = Math.max(0, Math.floor(Number(props.streakDays) || 0));
-  const progress = Math.max(0, Math.min(1, streakDays / goal));
-  // At least the bar's height, so a small streak still shows as a dot.
-  const fillWidth = Math.max(barHeight, Math.round(trackWidth * progress));
+
+  const habitList: HabitHeatmapItem[] =
+    Array.isArray(props.habits) && props.habits.length > 0
+      ? props.habits.filter((h) => h && typeof h === 'object')
+      : defaultHabits;
+
+  const completedCount = habitList.filter((h) => Boolean(h.completedToday)).length;
+  const leftHabits = habitList.slice(0, 3);
+  const rightHabits = habitList.slice(3, 6);
+
+  const renderHabitRow = (h: HabitHeatmapItem) => {
+    const isDone = Boolean(h.completedToday);
+    const streak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
+    const name = `${h.habitName ?? ''}`.trim() || 'Habit';
+
+    return (
+      <Button
+        key={h.id}
+        target={`habit-${h.id}`}
+        modifiers={[buttonStyle('plain')]}
+        onPress={() => {
+          const currentHabits =
+            Array.isArray(rawProps.habits) && rawProps.habits.length > 0 ? rawProps.habits : habitList;
+          const prevMap =
+            rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
+              ? rawProps.toggledHabitMap
+              : {};
+          const nextDone = !Boolean(h.completedToday);
+          const curStreak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
+          const nextStreak = nextDone ? curStreak + 1 : Math.max(0, curStreak - 1);
+          const curTotal = Math.max(0, Math.floor(Number(h.totalDays) || 0));
+          const nextTotal = nextDone ? curTotal + 1 : Math.max(0, curTotal - 1);
+
+          const nextHabits = currentHabits.map((item) =>
+            item.id === h.id
+              ? {
+                  ...item,
+                  completedToday: nextDone,
+                  streakDays: nextStreak,
+                  totalDays: nextTotal,
+                }
+              : item
+          );
+
+          return {
+            ...rawProps,
+            habits: nextHabits,
+            lastToggledHabitId: h.id,
+            toggledHabitMap: { ...prevMap, [h.id]: nextDone },
+            updatedAtMs: Date.now(),
+          };
+        }}
+      >
+        <HStack
+          spacing={6}
+          modifiers={[
+            padding({ horizontal: 8, vertical: 4.5 }),
+            background(p.pill),
+            cornerRadius(7),
+            frame({ maxWidth: fill, alignment: 'leading' }),
+          ]}
+        >
+          <Text
+            modifiers={[
+              font({ size: 11, weight: 'bold' }),
+              foregroundStyle(isDone ? p.accent : p.secondaryText),
+              ...accentable,
+            ]}
+          >
+            {isDone ? '✓' : '○'}
+          </Text>
+          <Text
+            modifiers={[
+              font({ size: 11, weight: 'semibold' }),
+              foregroundStyle(p.text),
+              lineLimit(1),
+              truncationMode('tail'),
+            ]}
+          >
+            {name}
+          </Text>
+          <Spacer minLength={4} />
+          <Text
+            modifiers={[
+              font({ size: 10, weight: 'bold' }),
+              foregroundStyle(isDone ? p.accent : p.secondaryText),
+              lineLimit(1),
+              ...accentable,
+            ]}
+          >
+            {`🔥 ${streak}d`}
+          </Text>
+        </HStack>
+      </Button>
+    );
+  };
 
   return (
-    <VStack modifiers={[padding({ all: 12 })]}>
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 6 }), background(p.pill), cornerRadius(10)]}>
-        <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.text)]}>
-          {`🔥 ${props.habitName}`}
+    <VStack
+      alignment="leading"
+      spacing={6}
+      modifiers={[
+        padding({ all: 11 }),
+        frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' }),
+      ]}
+    >
+      {/* Top Header Band */}
+      <HStack
+        modifiers={[
+          padding({ horizontal: 8, vertical: 5 }),
+          background(p.pill),
+          cornerRadius(8),
+          frame({ maxWidth: fill }),
+        ]}
+      >
+        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text), lineLimit(1)]}>
+          Habits
         </Text>
-        <Spacer />
-        <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
-          {`${Math.max(0, Math.floor(Number(props.totalDays) || 0))}d`}
+        <Spacer minLength={4} />
+        <Text modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.accent), ...accentable]}>
+          {`${completedCount}/${habitList.length}`}
         </Text>
       </HStack>
 
-      <Spacer />
-
-      <VStack>
-        <Text modifiers={[font({ size: 11, weight: 'medium' }), foregroundStyle(p.secondaryText)]}>
-          Streak Days
-        </Text>
-        <Text modifiers={[font({ size: 34, weight: 'bold' }), foregroundStyle(p.text), ...accentable]}>
-          {`${streakDays}`}
-        </Text>
-      </VStack>
-
-      <Spacer />
-
-      <HStack modifiers={[frame({ width: trackWidth, height: barHeight }), background(p.track), cornerRadius(barHeight / 2)]}>
-        <HStack
-          modifiers={[frame({ width: fillWidth, height: barHeight }), background(p.accent), cornerRadius(barHeight / 2), ...accentable]}
-        >
-          {null}
+      {/* Multi-Habit Checklist */}
+      {isMedium ? (
+        <HStack alignment="top" spacing={8} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
+          <VStack alignment="leading" spacing={5} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
+            {leftHabits.map(renderHabitRow)}
+          </VStack>
+          <VStack alignment="leading" spacing={5} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
+            {rightHabits.map(renderHabitRow)}
+          </VStack>
         </HStack>
-        <Spacer />
-      </HStack>
+      ) : (
+        <VStack alignment="leading" spacing={5} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
+          {leftHabits.map(renderHabitRow)}
+        </VStack>
+      )}
+
+      <Spacer minLength={0} />
     </VStack>
   );
 };
 
-export default safeCreateWidget('StreakWidget', StreakWidget, {
+export default safeCreateWidget<StreakWidgetProps>('StreakWidget', StreakWidget, {
   preset: 'ember',
   systemScheme: 'dark',
   habitName: 'Yoga',
   streakDays: 26,
   totalDays: 48,
   goalDays: 30,
+  habits: [],
+  toggledHabitMap: {},
 });

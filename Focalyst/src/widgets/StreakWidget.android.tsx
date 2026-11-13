@@ -30,41 +30,56 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
   };
 
   const p = getPalette();
+  const habitList = Array.isArray(props.habits) && props.habits.length > 0
+    ? props.habits
+    : [
+        { id: 'sample-1', habitName: 'Drink water', streakDays: 6, totalDays: 6, completedToday: false, gridLevels: [] },
+        { id: 'sample-2', habitName: 'Yoga', streakDays: 32, totalDays: 32, completedToday: true, gridLevels: [] },
+        { id: 'sample-3', habitName: 'Skincare', streakDays: 1, totalDays: 1, completedToday: false, gridLevels: [] },
+      ];
+  const completedCount = habitList.filter((h) => Boolean(h.completedToday)).length;
 
   return (
-    <Column modifiers={[fillMaxSize(), paddingAll(12), background(p.outerBg), cornerRadius(16)]}>
-      <Row modifiers={[fillMaxWidth(), background(p.glowBand), cornerRadius(10), paddingAll(6)]}>
-        <Text color={p.text} style={{ fontSize: 11, fontWeight: 'bold' }}>
-          {`🔥 ${props.habitName}`}
+    <Column modifiers={[fillMaxSize(), paddingAll(11), background(p.outerBg), cornerRadius(16)]}>
+      <Row modifiers={[fillMaxWidth(), background(p.glowBand), cornerRadius(8), paddingAll(6)]}>
+        <Text color={p.text} style={{ fontSize: 12, fontWeight: 'bold' }}>
+          Habits
         </Text>
-        <Text color={p.muted} style={{ fontSize: 11, fontWeight: 'bold' }}>
-          {` ${props.totalDays}d`}
+        <Text color={p.accent} style={{ fontSize: 11, fontWeight: 'bold' }}>
+          {`  ${completedCount}/${habitList.length}`}
         </Text>
       </Row>
 
       <Column modifiers={[paddingAll(4)]}>
-        <Text color={p.muted} style={{ fontSize: 11 }}>
-          Streak Days
-        </Text>
-        <Text color={p.text} style={{ fontSize: 34, fontWeight: 'bold' }}>
-          {`${props.streakDays}`}
-        </Text>
+        {habitList.slice(0, 3).map((h) => {
+          const isDone = Boolean(h.completedToday);
+          const streak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
+          return (
+            <Row key={h.id} modifiers={[fillMaxWidth(), background(p.glowBand), cornerRadius(7), paddingAll(5)]}>
+              <Text color={isDone ? p.accent : p.muted} style={{ fontSize: 11, fontWeight: 'bold' }}>
+                {isDone ? '✓ ' : '○ '}
+              </Text>
+              <Text color={p.text} style={{ fontSize: 11, fontWeight: 'bold' }}>
+                {`${h.habitName} `}
+              </Text>
+              <Text color={isDone ? p.accent : p.muted} style={{ fontSize: 10, fontWeight: 'bold' }}>
+                {`🔥 ${streak}d`}
+              </Text>
+            </Row>
+          );
+        })}
       </Column>
-
-      <Row modifiers={[background(p.track), cornerRadius(4), paddingAll(4)]}>
-        <Text color={p.accent} style={{ fontSize: 10, fontWeight: 'bold' }}>
-          {`${props.streakDays} / ${props.goalDays || 30} days`}
-        </Text>
-      </Row>
     </Column>
   );
 };
 
-export default safeCreateWidget('StreakWidget', StreakWidget, {
+export default safeCreateWidget<StreakWidgetProps>('StreakWidget', StreakWidget, {
   preset: 'ember',
   systemScheme: 'dark',
   habitName: 'Yoga',
   streakDays: 26,
   totalDays: 48,
   goalDays: 30,
+  habits: [],
+  toggledHabitMap: {},
 });

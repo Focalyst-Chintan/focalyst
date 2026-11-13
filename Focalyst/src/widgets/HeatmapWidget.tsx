@@ -1,5 +1,5 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { aspectRatio, background, cornerRadius, font, foregroundStyle, frame, padding } from '@expo/ui/swift-ui/modifiers';
+import { aspectRatio, background, buttonStyle, cornerRadius, font, foregroundStyle, frame, lineLimit, padding, truncationMode } from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
 import type { HeatmapWidgetProps, WidgetEnv } from './types';
 
@@ -57,14 +57,25 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
-  const habitList = Array.isArray(props.habits) && props.habits.length > 0
-    ? props.habits
-    : [{ id: 'default', habitName: props.habitName || 'Yoga', totalDays: props.totalDays ?? 0, gridLevels: props.gridLevels || [] }];
+  const fallbackHabit = Array.isArray(props.habits) && props.habits.length > 0 ? props.habits[0] : null;
+  const activeHabitId = props.habitId || fallbackHabit?.id || 'default';
+  const displayHabitName = props.habitName || fallbackHabit?.habitName || 'Yoga';
+  const displayTotalDays = props.totalDays ?? fallbackHabit?.totalDays ?? 0;
+  const displayCompletedToday = Boolean(props.completedToday ?? fallbackHabit?.completedToday);
+  const displayGridLevels =
+    Array.isArray(props.gridLevels) && props.gridLevels.length > 0
+      ? props.gridLevels
+      : fallbackHabit?.gridLevels || [];
 
-  // Bad or negative indexes from storage wrap safely instead of reading past the list.
-  const currentIndex = Math.abs(Math.floor(Number(props.activeHabitIndex) || 0)) % habitList.length;
-  const activeHabit = habitList[currentIndex] || habitList[0];
-  const hasMultiple = habitList.length > 1;
+  const getTodayCellIdx = () => {
+    if (typeof props.todayCellIndex === 'number' && props.todayCellIndex >= 0 && props.todayCellIndex < 35) {
+      return props.todayCellIndex;
+    }
+    const now = new Date();
+    const first = new Date(now.getFullYear(), now.getMonth(), 1);
+    const offset = (first.getDay() + 6) % 7;
+    return offset + now.getDate() - 1;
+  };
 
   const rows = [0, 1, 2, 3, 4];
   const cols = [0, 1, 2, 3, 4, 5, 6];
@@ -78,26 +89,72 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 
   return (
     <VStack spacing={8} modifiers={[padding({ all: 11 })]}>
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 4 }), background(p.pill), cornerRadius(8)]}>
-        {hasMultiple ? (
-          <Button
-            label={`${activeHabit.habitName ?? ''} ▸`}
-            modifiers={[font({ size: 11, weight: 'bold' }), foregroundStyle(p.text)]}
-            onPress={() => ({
-              ...rawProps,
-              activeHabitIndex: (currentIndex + 1) % habitList.length,
-            })}
-          />
-        ) : (
-          <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
-            {`${activeHabit.habitName ?? ''}`}
+      <Button
+        target={`heatmap-toggle-${activeHabitId}`}
+        modifiers={[buttonStyle('plain')]}
+        onPress={() => {
+          const prevDone = Boolean(rawProps.completedToday ?? displayCompletedToday);
+          const nextDone = !prevDone;
+          const curTotal = Math.max(0, Math.floor(Number(rawProps.totalDays ?? displayTotalDays) || 0));
+          const nextTotal = nextDone ? curTotal + 1 : Math.max(0, curTotal - 1);
+          const curGrid =
+            Array.isArray(rawProps.gridLevels) && rawProps.gridLevels.length > 0
+              ? [...rawProps.gridLevels]
+              : [...displayGridLevels];
+          const todayIdx = getTodayCellIdx();
+          if (todayIdx >= 0 && todayIdx < 35) {
+            while (curGrid.length < 35) curGrid.push(0);
+            curGrid[todayIdx] = nextDone ? 4 : 1;
+          }
+          const prevMap =
+            rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
+              ? rawProps.toggledHabitMap
+              : {};
+          const nextHabits = Array.isArray(rawProps.habits)
+            ? rawProps.habits.map((h) => {
+                if (h.id !== activeHabitId) return h;
+                const curStreak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
+                const nextStreak = nextDone ? curStreak + 1 : Math.max(0, curStreak - 1);
+                return {
+                  ...h,
+                  completedToday: nextDone,
+                  streakDays: nextStreak,
+                  totalDays: nextTotal,
+                  gridLevels: curGrid,
+                };
+              })
+            : rawProps.habits;
+
+          return {
+            ...rawProps,
+            habitId: activeHabitId,
+            completedToday: nextDone,
+            totalDays: nextTotal,
+            gridLevels: curGrid,
+            habits: nextHabits,
+            lastToggledHabitId: activeHabitId,
+            toggledHabitMap: { ...prevMap, [activeHabitId]: nextDone },
+            updatedAtMs: Date.now(),
+          };
+        }}
+      >
+        <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.pill), cornerRadius(8)]}>
+          <Text
+            modifiers={[
+              font({ size: 12, weight: 'bold' }),
+              foregroundStyle(p.text),
+              lineLimit(1),
+              truncationMode('tail'),
+            ]}
+          >
+            {`${displayHabitName}`}
           </Text>
-        )}
-        <Spacer />
-        <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
-          {`${Math.max(0, Math.floor(Number(activeHabit.totalDays) || 0))}d`}
-        </Text>
-      </HStack>
+          <Spacer minLength={4} />
+          <Text modifiers={[font({ size: 11, weight: 'semibold' }), foregroundStyle(p.secondaryText)]}>
+            {`${Math.max(0, Math.floor(Number(displayTotalDays) || 0))}d`}
+          </Text>
+        </HStack>
+      </Button>
 
       <VStack modifiers={[frame({ maxWidth: fill, maxHeight: fill })]}>
         <VStack spacing={gap} modifiers={[aspectRatio({ ratio: gridRatio, contentMode: 'fit' })]}>
@@ -106,7 +163,7 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
               {cols.map((c) => {
                 const idx = r * 7 + c;
                 // A missing or non-numeric level is 0, so p.heat is never indexed with NaN.
-                const raw = Number(activeHabit.gridLevels?.[idx]);
+                const raw = Number(displayGridLevels[idx]);
                 const lvl = Number.isFinite(raw) ? Math.max(0, Math.min(4, Math.round(raw))) : 0;
                 return (
                   <VStack

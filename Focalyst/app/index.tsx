@@ -34,7 +34,7 @@ export default function Index() {
           }
         } catch {}
         setLoading(false);
-        router.replace('/onboarding' as any);
+        router.replace('/auth' as any);
       }
     }, 9000);
 
@@ -65,8 +65,20 @@ export default function Index() {
 
         if (redirected) return;
 
-        // If active session exists OR if getSession timed out/failed but we have a valid cached boot user
-        const activeUser = session?.user || cachedBootUser;
+        let activeUser = session?.user ?? null;
+        if (activeUser) {
+          try {
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            if (userError || !userData?.user) {
+              console.warn('[Index] Stale/invalid session detected via getUser(), signing out.');
+              activeUser = null;
+              await AsyncStorage.removeItem('@focalyst_boot_user_v1').catch(() => {});
+              await supabase.auth.signOut().catch(() => {});
+            } else {
+              activeUser = userData.user;
+            }
+          } catch {}
+        }
 
         if (activeUser) {
           redirected = true;

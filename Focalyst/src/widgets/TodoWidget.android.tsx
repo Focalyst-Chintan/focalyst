@@ -1,5 +1,16 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
-import { background, cornerRadius, font, foregroundStyle, padding } from '@expo/ui/swift-ui/modifiers';
+import {
+  background,
+  border,
+  buttonStyle,
+  cornerRadius,
+  font,
+  foregroundStyle,
+  frame,
+  lineLimit,
+  padding,
+  truncationMode,
+} from '@expo/ui/swift-ui/modifiers';
 import { safeCreateWidget } from './safeCreateWidget';
 import type { TodoItem, TodoWidgetProps, WidgetEnv } from './types';
 
@@ -9,6 +20,7 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
   const isDark = scheme === 'dark';
   const preset = props.preset ?? 'cobalt';
   const isMedium = env?.widgetFamily === 'systemMedium';
+  const fill = 1000;
 
   const getPalette = () => {
     if (preset === 'white' || (preset === 'monochrome' && !isDark)) {
@@ -31,63 +43,153 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
   const p = getPalette();
   const safeTasks = Array.isArray(props.tasks) ? props.tasks : [];
   const pendingTasks = safeTasks.filter((t) => !t.completed);
-  const maxChars = isMedium ? 32 : 15;
-  const visibleTasks = pendingTasks.slice(0, 3);
+  const leftTasks = pendingTasks.slice(0, 3);
+  const rightTasks = pendingTasks.slice(3, 6);
+  const smallTasks = pendingTasks.slice(0, 3);
+
+  const renderTaskPill = (task: TodoItem) => {
+    const title = `${task.title ?? ''}`.trim() || 'Task';
+    return (
+      <Button
+        key={task.id}
+        target={`todo-${task.id}`}
+        modifiers={[buttonStyle('plain')]}
+        onPress={() => {
+          const prevCompleted = Array.isArray(props.completedTaskIds) ? props.completedTaskIds : [];
+          return {
+            ...props,
+            lastCompletedTaskId: task.id,
+            completedTaskIds: [...prevCompleted, task.id],
+            tasks: safeTasks.map((t) =>
+              t.id === task.id ? { ...t, completed: true } : t
+            ),
+          };
+        }}
+      >
+        <HStack
+          alignment="center"
+          spacing={8}
+          modifiers={[
+            padding({ horizontal: 9, vertical: 5 }),
+            background(p.headerBand),
+            cornerRadius(8),
+            frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
+          ]}
+        >
+          <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundStyle(p.badge)]}>
+            ○
+          </Text>
+          <Text
+            modifiers={[
+              font({ size: 13, weight: 'medium' }),
+              foregroundStyle(p.taskText),
+              lineLimit(1),
+              truncationMode('tail'),
+            ]}
+          >
+            {title}
+          </Text>
+          <Spacer minLength={0} />
+        </HStack>
+      </Button>
+    );
+  };
+
+  const renderGhostSlot = (slotIdx: number, showLabel: boolean) => (
+    <HStack
+      key={`ghost-${slotIdx}`}
+      alignment="center"
+      modifiers={[
+        padding({ horizontal: 9, vertical: 5 }),
+        background('rgba(255, 255, 255, 0.025)'),
+        cornerRadius(8),
+        border({ content: 'rgba(255, 255, 255, 0.08)', width: 1 }),
+        frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
+      ]}
+    >
+      <Text
+        modifiers={[
+          font({ size: 11, weight: 'medium' }),
+          foregroundStyle(p.muted),
+          lineLimit(1),
+        ]}
+      >
+        {showLabel ? 'No more tasks' : ' '}
+      </Text>
+      <Spacer minLength={0} />
+    </HStack>
+  );
 
   return (
-    <VStack modifiers={[padding({ all: 12 }), background(p.bg)]}>
+    <VStack
+      alignment="leading"
+      spacing={8}
+      modifiers={[
+        padding({ all: 12 }),
+        background(p.bg),
+        frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' }),
+      ]}
+    >
       {/* Header Bar */}
-      <HStack modifiers={[padding({ horizontal: 8, vertical: 5 }), background(p.headerBand), cornerRadius(8)]}>
-        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text)]}>
+      <HStack
+        modifiers={[
+          padding({ horizontal: 8, vertical: 5 }),
+          background(p.headerBand),
+          cornerRadius(8),
+          frame({ maxWidth: fill }),
+        ]}
+      >
+        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.text), lineLimit(1)]}>
           To-Do List
         </Text>
-        <Spacer />
-        <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundStyle(p.badge)]}>
+        <Spacer minLength={4} />
+        <Text modifiers={[font({ size: 12, weight: 'bold' }), foregroundStyle(p.badge)]}>
           {`${pendingTasks.length}`}
         </Text>
       </HStack>
 
-      {/* Tasks positioned directly below Header Bar (NO Spacer above tasks!) */}
-      {visibleTasks.length === 0 ? (
-        <VStack modifiers={[padding({ top: 18 })]}>
-          <Text modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(p.muted)]}>
-            No tasks yet
-          </Text>
-          <Text modifiers={[font({ size: 10, weight: 'regular' }), foregroundStyle(p.muted)]}>
-            Tap + in app to add
-          </Text>
-        </VStack>
+      {isMedium ? (
+        <HStack
+          alignment="top"
+          spacing={8}
+          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+        >
+          <VStack
+            alignment="leading"
+            spacing={8}
+            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          >
+            {[0, 1, 2].map((slotIdx) => {
+              const task = leftTasks[slotIdx];
+              if (task) return renderTaskPill(task);
+              return renderGhostSlot(slotIdx, slotIdx === leftTasks.length);
+            })}
+          </VStack>
+          <VStack
+            alignment="leading"
+            spacing={8}
+            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          >
+            {[0, 1, 2].map((slotIdx) => {
+              const task = rightTasks[slotIdx];
+              if (task) return renderTaskPill(task);
+              return renderGhostSlot(10 + slotIdx, false);
+            })}
+          </VStack>
+        </HStack>
       ) : (
-        <VStack modifiers={[padding({ top: 6 })]}>
-          {visibleTasks.map((task) => {
-            const labelText =
-              task.title.length > maxChars ? `${task.title.slice(0, maxChars)}…` : task.title;
-            return (
-              <HStack key={task.id} modifiers={[padding({ vertical: 2 })]}>
-                <Button
-                  label={`○  ${labelText}`}
-                  modifiers={[font({ size: 12, weight: 'semibold' }), foregroundStyle(p.taskText)]}
-                  onPress={() => {
-                    const prevCompleted = Array.isArray(props.completedTaskIds) ? props.completedTaskIds : [];
-                    return {
-                      ...props,
-                      lastCompletedTaskId: task.id,
-                      completedTaskIds: [...prevCompleted, task.id],
-                      tasks: safeTasks.map((t) =>
-                        t.id === task.id ? { ...t, completed: true } : t
-                      ),
-                    };
-                  }}
-                />
-                <Spacer />
-              </HStack>
-            );
+        <VStack
+          alignment="leading"
+          spacing={8}
+          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+        >
+          {[0, 1, 2].map((slotIdx) => {
+            const task = smallTasks[slotIdx];
+            if (task) return renderTaskPill(task);
+            return renderGhostSlot(slotIdx, slotIdx === smallTasks.length);
           })}
         </VStack>
       )}
-
-      {/* Single Spacer at the bottom keeps tasks pinned right below To-Do List header */}
-      <Spacer />
     </VStack>
   );
 };

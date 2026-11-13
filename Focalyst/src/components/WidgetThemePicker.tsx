@@ -2,12 +2,19 @@ import React, { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, useColorScheme, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  completeTaskFromWidgetPreview,
+  type CountdownWidgetItem,
+  formatDateDMY,
   getWidgetPayload,
+  SELECTED_WIDGET_COUNTDOWN_KEY,
   SELECTED_WIDGET_HABIT_KEY,
   setWidgetColorPreset,
   subscribeToWidgetPayload,
   syncAllWidgetsFromApp,
+  toggleHabitFromWidgetPreview,
 } from '../services/widgetSync';
+import { queryCache } from '../utils/queryCache';
+import { supabase } from '../utils/supabase';
 import type { WidgetColorPreset } from '../widgets/types';
 
 const PRESETS: {
@@ -58,16 +65,85 @@ export const WidgetThemePicker: React.FC = () => {
   }, []);
 
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
+  const [selectedCountdownId, setSelectedCountdownId] = useState<string | null>(null);
 
-  // Load persisted habit selection
+  // Load persisted habit & countdown selections
   useEffect(() => {
     AsyncStorage.getItem(SELECTED_WIDGET_HABIT_KEY).then((id) => {
       if (id) setSelectedHabitId(id);
     }).catch(() => {});
+    AsyncStorage.getItem(SELECTED_WIDGET_COUNTDOWN_KEY).then((id) => {
+      if (id) setSelectedCountdownId(id);
+    }).catch(() => {});
+  }, []);
+
+  // Hydrate countdowns if user opens Widgets screen before visiting Focus tab
+  useEffect(() => {
+    const existing = getWidgetPayload().countdowns;
+    if (Array.isArray(existing) && existing.length > 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        const uid = session?.user?.id;
+        if (!uid || cancelled) return;
+
+        let rawCountdowns = queryCache.getSync<any[]>(`user:${uid}:countdowns`);
+        if (!rawCountdowns || rawCountdowns.length === 0) {
+          const { data, error } = await supabase
+            .from('countdowns')
+            .select('*')
+            .eq('user_id', uid)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false });
+          if (!error && data) {
+            rawCountdowns = data;
+          }
+        }
+        if (cancelled || !rawCountdowns || rawCountdowns.length === 0) return;
+
+        const countdownList: CountdownWidgetItem[] = rawCountdowns.map((item: any) => {
+          const targetIso = item.target_date || new Date().toISOString();
+          return {
+            id: item.id,
+            title: item.event_name || item.title || item.name || item.description || 'Countdown',
+            dateLabel: formatDateDMY(targetIso),
+            targetDateIso: targetIso,
+          };
+        });
+
+        let savedId: string | null = null;
+        try {
+          savedId = await AsyncStorage.getItem(SELECTED_WIDGET_COUNTDOWN_KEY);
+        } catch {}
+        if (cancelled) return;
+
+        const activeCountdown =
+          (savedId && countdownList.find((c) => c.id === savedId)) || countdownList[0];
+
+        syncAllWidgetsFromApp({
+          countdown: {
+            title: activeCountdown.title,
+            dateLabel: activeCountdown.dateLabel,
+            targetDateIso: activeCountdown.targetDateIso,
+          },
+          countdowns: countdownList,
+        });
+      } catch {}
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const habitList = Array.isArray(payload.habits) && payload.habits.length > 0 ? payload.habits : [];
   const selectedHabit = (selectedHabitId && habitList.find((h) => h.id === selectedHabitId)) || habitList[0] || null;
+
+  const countdownList = Array.isArray(payload.countdowns) && payload.countdowns.length > 0 ? payload.countdowns : [];
+  const selectedCountdown =
+    (selectedCountdownId && countdownList.find((c) => c.id === selectedCountdownId)) || countdownList[0] || null;
 
   const selectHabit = async (habitId: string) => {
     setSelectedHabitId(habitId);
@@ -76,8 +152,24 @@ export const WidgetThemePicker: React.FC = () => {
     if (habit) {
       syncAllWidgetsFromApp({
         habitName: habit.habitName || 'Habit',
+        streakDays: habit.streakDays ?? habit.totalDays ?? 0,
         totalDays: habit.totalDays || 0,
         gridLevels: habit.gridLevels || [],
+      });
+    }
+  };
+
+  const selectCountdown = async (countdownId: string) => {
+    setSelectedCountdownId(countdownId);
+    try { await AsyncStorage.setItem(SELECTED_WIDGET_COUNTDOWN_KEY, countdownId); } catch {}
+    const chosen = countdownList.find((c) => c.id === countdownId);
+    if (chosen) {
+      syncAllWidgetsFromApp({
+        countdown: {
+          title: chosen.title,
+          dateLabel: chosen.dateLabel,
+          targetDateIso: chosen.targetDateIso,
+        },
       });
     }
   };
@@ -97,11 +189,28 @@ export const WidgetThemePicker: React.FC = () => {
   const accentColor = isMono ? primaryText : isLight ? '#090A0F' : activePreset.accent;
 
   const toggleTask = (id: string) => {
-    const nextTasks = payload.tasks.map((t) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    syncAllWidgetsFromApp({ tasks: nextTasks });
+    void completeTaskFromWidgetPreview(id);
   };
+
+  const toggleHabit = (id: string) => {
+    void toggleHabitFromWidgetPreview(id);
+  };
+
+  const pendingTasks = payload.tasks.filter((t) => !t.completed);
+  const previewHabits =
+    habitList.length > 0
+      ? habitList
+      : [
+          {
+            id: 'default-habit',
+            habitName: payload.habitName || 'Yoga',
+            streakDays: payload.streakDays || 0,
+            totalDays: payload.totalDays || 0,
+            completedToday: false,
+            gridLevels: payload.gridLevels || [],
+          },
+        ];
+  const completedHabitsCount = previewHabits.filter((h) => Boolean(h.completedToday)).length;
 
   const togglePomodoro = () => {
     syncAllWidgetsFromApp({
@@ -144,28 +253,64 @@ export const WidgetThemePicker: React.FC = () => {
 
       {/* Habit Selector Pill Bar */}
       {habitList.length > 0 && (
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-          {habitList.map((h) => {
-            const isSelected = selectedHabit?.id === h.id;
-            return (
-              <TouchableOpacity
-                key={h.id}
-                onPress={() => selectHabit(h.id)}
-                style={[
-                  styles.habitPill,
-                  isSelected && { backgroundColor: accentColor, borderColor: accentColor },
-                ]}
-              >
-                <Text style={[styles.habitPillText, isSelected && { color: isLight ? '#FFFFFF' : cardBg }]}>
-                  {h.habitName}
-                </Text>
-                <Text style={[styles.habitPillStreak, isSelected && { color: isLight ? 'rgba(255,255,255,0.7)' : `rgba(0,0,0,0.5)` }]}>
-                  {`${h.totalDays || 0}d`}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        <View style={styles.selectorSection}>
+          <Text style={styles.selectorLabel}>HABIT</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {habitList.map((h) => {
+              const isSelected = selectedHabit?.id === h.id;
+              return (
+                <TouchableOpacity
+                  key={h.id}
+                  onPress={() => selectHabit(h.id)}
+                  style={[
+                    styles.habitPill,
+                    isSelected && { backgroundColor: accentColor, borderColor: accentColor },
+                  ]}
+                >
+                  <Text style={[styles.habitPillText, isSelected && { color: isLight ? '#FFFFFF' : cardBg }]}>
+                    {h.habitName}
+                  </Text>
+                  <Text style={[styles.habitPillStreak, isSelected && { color: isLight ? 'rgba(255,255,255,0.7)' : `rgba(0,0,0,0.5)` }]}>
+                    {`${h.totalDays || 0}d`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
+      {/* Countdown Selector Pill Bar */}
+      {countdownList.length > 0 && (
+        <View style={styles.selectorSection}>
+          <Text style={styles.selectorLabel}>COUNTDOWN</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {countdownList.map((c) => {
+              const isSelected = selectedCountdown?.id === c.id;
+              const daysLeft = Math.max(
+                0,
+                Math.floor(Math.max(0, new Date(c.targetDateIso).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+              );
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => selectCountdown(c.id)}
+                  style={[
+                    styles.habitPill,
+                    isSelected && { backgroundColor: accentColor, borderColor: accentColor },
+                  ]}
+                >
+                  <Text style={[styles.habitPillText, isSelected && { color: isLight ? '#FFFFFF' : cardBg }]}>
+                    {c.title}
+                  </Text>
+                  <Text style={[styles.habitPillStreak, isSelected && { color: isLight ? 'rgba(255,255,255,0.7)' : `rgba(0,0,0,0.5)` }]}>
+                    {`${daysLeft}d`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       )}
 
       {/* Live Interactive Widget Previews */}
@@ -176,31 +321,71 @@ export const WidgetThemePicker: React.FC = () => {
           if (w > 0 && w !== gridWidth) setGridWidth(w);
         }}
       >
-        {/* 1. Streak Widget */}
-        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
+        {/* 1. Streak Widget (Interactive Multi-Habit Checklist) */}
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg, justifyContent: 'flex-start' }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
-            <Text style={[styles.bandText, { color: primaryText }]}>🔥 {payload.habitName}</Text>
-            <Text style={[styles.bandSub, { color: mutedText }]}>{payload.totalDays}d</Text>
+            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText }]}>Habits</Text>
+            <Text style={[styles.bandSub, { color: accentColor, fontWeight: '700' }]}>
+              {`${completedHabitsCount}/${previewHabits.length}`}
+            </Text>
           </View>
-          <View>
-            <Text style={[styles.smallLabel, { color: mutedText }]}>Streak Days</Text>
-            <Text style={[styles.bigNumber, { color: primaryText }]}>{payload.streakDays}</Text>
-          </View>
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { backgroundColor: accentColor, width: '78%' }]} />
+          <View style={{ marginTop: 6, gap: 5 }}>
+            {previewHabits.slice(0, 3).map((h) => {
+              const isDone = Boolean(h.completedToday);
+              const streak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
+              return (
+                <TouchableOpacity
+                  key={h.id}
+                  onPress={() => toggleHabit(h.id)}
+                  activeOpacity={0.75}
+                  style={[styles.checklistPillRow, { backgroundColor: bandBg }]}
+                >
+                  <Text
+                    style={{
+                      color: isDone ? accentColor : mutedText,
+                      fontSize: 11,
+                      fontWeight: '800',
+                      marginRight: 6,
+                    }}
+                  >
+                    {isDone ? '✓' : '○'}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.todoText, { color: primaryText, flex: 1, marginRight: 4 }]}
+                  >
+                    {h.habitName}
+                  </Text>
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      color: isDone ? accentColor : mutedText,
+                      fontSize: 10,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {`🔥 ${streak}d`}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
         {/* 2. Heatmap Widget */}
         <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
-          <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
-            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText, flex: 1 }]}>
+          <TouchableOpacity
+            onPress={() => selectedHabit && toggleHabit(selectedHabit.id)}
+            activeOpacity={0.75}
+            style={[styles.widgetBand, { backgroundColor: bandBg }]}
+          >
+            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText, flex: 1, marginRight: 6 }]}>
               {selectedHabit?.habitName || payload.habitName || 'Habit'}
             </Text>
             <Text style={[styles.bandSub, { color: mutedText }]}>
               {`${selectedHabit?.totalDays ?? payload.totalDays ?? 0}d`}
             </Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.heatmapGrid35}>
             {(selectedHabit?.gridLevels || payload.gridLevels || []).slice(0, 35).map((lvl: number, idx: number) => (
               <View
@@ -218,41 +403,75 @@ export const WidgetThemePicker: React.FC = () => {
         </View>
 
         {/* 3. Interactive To-Do Widget */}
-        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg }]}>
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg, justifyContent: 'flex-start' }]}>
           <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
-            <Text style={[styles.bandText, { color: primaryText }]}>To-Do List</Text>
+            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText }]}>To-Do List</Text>
             <Text style={[styles.bandText, { color: accentColor }]}>
-              {payload.tasks.filter((t) => !t.completed).length}
+              {pendingTasks.length}
             </Text>
           </View>
-          <View style={{ marginTop: 6 }}>
-            {payload.tasks.length === 0 ? (
-              <View style={{ paddingVertical: 10 }}>
-                <Text style={{ color: mutedText, fontSize: 11, fontWeight: '600' }}>No tasks yet</Text>
-                <Text style={{ color: mutedText, fontSize: 9, marginTop: 2 }}>Tap + in app to add</Text>
-              </View>
-            ) : (
-              payload.tasks.slice(0, 3).map((task) => (
-                <TouchableOpacity
-                  key={task.id}
-                  onPress={() => toggleTask(task.id)}
-                  style={styles.todoRow}
-                >
-                  <Text
+          <View style={{ flex: 1, marginTop: 8, gap: 8 }}>
+            {[0, 1, 2].map((slotIdx) => {
+              const smallTasks = pendingTasks.slice(0, 3);
+              const task = smallTasks[slotIdx];
+              if (task) {
+                return (
+                  <TouchableOpacity
+                    key={task.id}
+                    onPress={() => toggleTask(task.id)}
+                    activeOpacity={0.75}
                     style={[
-                      styles.todoText,
+                      styles.checklistPillRow,
                       {
-                        color: task.completed ? mutedText : primaryText,
-                        textDecorationLine: task.completed ? 'line-through' : 'none',
+                        flex: 1,
+                        minHeight: 30,
+                        backgroundColor: bandBg,
+                        paddingHorizontal: 9,
+                        borderRadius: 8,
                       },
                     ]}
-                    numberOfLines={1}
                   >
-                    {task.completed ? '● ' : '○ '} {task.title}
+                    <View
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: 8,
+                        borderWidth: 1.5,
+                        borderColor: accentColor,
+                        marginRight: 8,
+                      }}
+                    />
+                    <Text
+                      style={{ color: primaryText, fontSize: 13, fontWeight: '500', flex: 1 }}
+                      numberOfLines={1}
+                    >
+                      {task.title}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }
+              return (
+                <View
+                  key={`ghost-${slotIdx}`}
+                  style={[
+                    styles.checklistPillRow,
+                    {
+                      flex: 1,
+                      minHeight: 30,
+                      paddingHorizontal: 9,
+                      borderRadius: 8,
+                      backgroundColor: isLight ? 'rgba(9,10,15,0.03)' : 'rgba(255,255,255,0.025)',
+                      borderWidth: 1,
+                      borderColor: isLight ? 'rgba(9,10,15,0.08)' : 'rgba(255,255,255,0.08)',
+                    },
+                  ]}
+                >
+                  <Text style={{ color: mutedText, fontSize: 11, fontWeight: '500' }} numberOfLines={1}>
+                    {slotIdx === smallTasks.length ? 'No more tasks' : ' '}
                   </Text>
-                </TouchableOpacity>
-              ))
-            )}
+                </View>
+              );
+            })}
           </View>
         </View>
 
@@ -478,6 +697,16 @@ const styles = StyleSheet.create({
   },
   heatCell: { width: 14, height: 14, borderRadius: 3.5 },
   heatCell35: { width: 12, height: 12, borderRadius: 3 },
+  selectorSection: {
+    marginBottom: 12,
+  },
+  selectorLabel: {
+    color: '#64748B',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 1.2,
+    marginBottom: 6,
+  },
   habitPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -492,7 +721,14 @@ const styles = StyleSheet.create({
   habitPillText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
   habitPillStreak: { color: '#64748B', fontSize: 10, fontWeight: '600', marginLeft: 6 },
   todoRow: { paddingVertical: 3 },
-  todoText: { fontSize: 12, fontWeight: '600' },
+  checklistPillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  todoText: { fontSize: 11, fontWeight: '600' },
   countdownDigits: { fontSize: 14, fontWeight: '800', textAlign: 'center' },
   pomoPill: {
     paddingVertical: 7,

@@ -21,12 +21,23 @@ import { hasPendingFinish } from './finish';
  * changes outside onboarding. Whichever navigation lands last, the user ends up here.
  */
 export function OnboardingAuthRouter() {
-  const { user } = useUser();
+  const { user, loading } = useUser();
   const pathname = usePathname();
   const router = useRouter();
   const userId = user?.id as string | undefined;
 
   useEffect(() => {
+    if (loading) return;
+    if (
+      !userId &&
+      pathname !== '/' &&
+      pathname !== '/auth' &&
+      pathname !== '/forgot-password' &&
+      !pathname.startsWith('/onboarding')
+    ) {
+      router.replace('/auth' as any);
+      return;
+    }
     // "/" is the entry route, which already routes signed-in users (app/index.tsx).
     if (!userId || pathname === '/' || pathname.startsWith('/onboarding')) return;
     let cancelled = false;
@@ -57,7 +68,7 @@ export function OnboardingAuthRouter() {
     return () => {
       cancelled = true;
     };
-  }, [pathname, router, userId]);
+  }, [loading, pathname, router, userId]);
 
   return null;
 }
