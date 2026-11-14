@@ -40,6 +40,8 @@ yarn-error.*
 
 # generated native folders
 /android
+ios/Pods/
+ios/build/
 
 # Local Expo modules: keep their android/ and ios/ sources, never their build output.
 modules/*/android/build/
