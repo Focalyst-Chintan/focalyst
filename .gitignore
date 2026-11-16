@@ -57,3 +57,6 @@ skills-lock.json
 
 # supabase temp
 supabase/.temp/
+
+local.settings.json
+azure-functions/local.settings.json
