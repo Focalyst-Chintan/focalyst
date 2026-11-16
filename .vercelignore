@@ -7,6 +7,8 @@ Focalyst
 ios
 out
 supabase
+azure-functions
+azure
 capacitor.config.ts
 xcode-deep-clean.sh
 nuclear-reset.sh
