@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { getAzurePool } from '@/lib/server/azure-db';
 import { isPillar, type Pillar } from './constants';
 
 // Columns of public.blog_posts (BLOG_01_schema.sql)
@@ -80,25 +80,9 @@ export interface BlogPost {
   aiAssisted: boolean;
 }
 
-const LIST_COLUMNS =
-  'slug,title,description,cover_image_url,tags,reading_minutes,published_at,updated_at,pillar,kind,author,ai_assisted';
-
 export const PAGE_SIZE = 12;
 
 export const BLOG_TAG = 'blog-posts';
-
-function client() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, {
-    auth: { persistSession: false, autoRefreshToken: false },
-    // Tagged so /api/revalidate can expire every blog read (pages, sitemap, rss, llms) at once
-    global: {
-      fetch: (input, init) => fetch(input, { ...init, next: { revalidate: 3600, tags: [BLOG_TAG] } }),
-    },
-  });
-}
 
 export function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', {
@@ -121,7 +105,7 @@ function toPost(row: Partial<BlogPostRow>): BlogPost {
     title: row.title!,
     description: row.description ?? '',
     coverImageUrl: row.cover_image_url ?? undefined,
-    tags: row.tags ?? [],
+    tags: Array.isArray(row.tags) ? row.tags : [],
     publishedAt: formatDate(publishedIso),
     publishedIso,
     updatedIso: row.updated_at ?? publishedIso,
@@ -137,17 +121,10 @@ function toPost(row: Partial<BlogPostRow>): BlogPost {
     sources: Array.isArray(row.sources) ? row.sources : [],
     comparison: row.comparison ?? null,
     primaryKeyword: row.primary_keyword ?? undefined,
-    secondaryKeywords: row.secondary_keywords ?? [],
+    secondaryKeywords: Array.isArray(row.secondary_keywords) ? row.secondary_keywords : [],
     author: row.author ?? 'Focalyst',
     aiAssisted: row.ai_assisted ?? true,
   };
-}
-
-// RLS already limits anon reads to published posts; the filter keeps queries explicit
-function published() {
-  const sb = client();
-  if (!sb) return null;
-  return sb.from('blog_posts');
 }
 
 export async function getPosts({
@@ -159,91 +136,171 @@ export async function getPosts({
   posts: BlogPost[];
   total: number;
 }> {
-  const table = published();
-  if (!table) return { posts: [], total: 0 };
-  const from = (Math.max(1, page) - 1) * limit;
-  let q = table
-    .select(LIST_COLUMNS, { count: 'exact' })
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .range(from, from + limit - 1);
-  if (tag) q = q.contains('tags', [tag]);
-  if (pillar) q = q.eq('pillar', pillar);
-  const { data, count, error } = await q;
-  if (error || !data) return { posts: [], total: 0 };
-  return { posts: (data as Partial<BlogPostRow>[]).map(toPost), total: count ?? data.length };
+  const pool = getAzurePool();
+  if (!pool) return { posts: [], total: 0 };
+
+  try {
+    const params: unknown[] = [];
+    const whereConditions = ["status = 'published'", "published_at <= now()"];
+
+    if (tag) {
+      params.push(tag);
+      whereConditions.push(`$${params.length} = ANY(tags)`);
+    }
+
+    if (pillar) {
+      params.push(pillar);
+      whereConditions.push(`pillar = $${params.length}`);
+    }
+
+    const whereClause = whereConditions.join(' and ');
+
+    const countQuery = `select count(*)::int as total from public.blog_posts where ${whereClause}`;
+    const countRes = await pool.query(countQuery, params);
+    const total = countRes.rows[0]?.total ?? 0;
+
+    const from = (Math.max(1, page) - 1) * limit;
+    params.push(limit);
+    const limitIdx = params.length;
+    params.push(from);
+    const offsetIdx = params.length;
+
+    const selectQuery = `
+      select slug, title, description, cover_image_url, tags, reading_minutes, published_at, updated_at, pillar, kind, author, ai_assisted
+      from public.blog_posts
+      where ${whereClause}
+      order by published_at desc
+      limit $${limitIdx} offset $${offsetIdx}
+    `;
+
+    const selectRes = await pool.query(selectQuery, params);
+    return {
+      posts: (selectRes.rows as Partial<BlogPostRow>[]).map(toPost),
+      total,
+    };
+  } catch (err) {
+    console.error('getPosts error:', err);
+    return { posts: [], total: 0 };
+  }
 }
 
 export async function getPost(slug: string): Promise<BlogPost | null> {
-  const table = published();
-  if (!table) return null;
-  const { data, error } = await table
-    .select('*')
-    .eq('status', 'published')
-    .eq('slug', slug)
-    .maybeSingle();
-  if (error || !data) return null;
-  return toPost(data as BlogPostRow);
+  const pool = getAzurePool();
+  if (!pool) return null;
+
+  try {
+    const query = `
+      select *
+      from public.blog_posts
+      where status = 'published'
+        and published_at <= now()
+        and slug = $1
+      limit 1
+    `;
+    const res = await pool.query(query, [slug]);
+    if (!res.rows.length) return null;
+    return toPost(res.rows[0] as BlogPostRow);
+  } catch (err) {
+    console.error('getPost error:', err);
+    return null;
+  }
 }
 
 export async function getRelated(post: BlogPost, limit = 3): Promise<BlogPost[]> {
-  const table = published();
-  if (!table) return [];
-  const seen = new Set([post.slug]);
-  const out: BlogPost[] = [];
-  if (post.pillar) {
-    const { data } = await table
-      .select(LIST_COLUMNS)
-      .eq('status', 'published')
-      .eq('pillar', post.pillar)
-      .neq('slug', post.slug)
-      .order('published_at', { ascending: false })
-      .limit(limit);
-    for (const row of (data ?? []) as Partial<BlogPostRow>[]) {
-      seen.add(row.slug!);
-      out.push(toPost(row));
+  const pool = getAzurePool();
+  if (!pool) return [];
+
+  try {
+    const seen = new Set<string>([post.slug]);
+    const out: BlogPost[] = [];
+
+    if (post.pillar) {
+      const pillarQuery = `
+        select slug, title, description, cover_image_url, tags, reading_minutes, published_at, updated_at, pillar, kind, author, ai_assisted
+        from public.blog_posts
+        where status = 'published'
+          and published_at <= now()
+          and pillar = $1
+          and slug != $2
+        order by published_at desc
+        limit $3
+      `;
+      const res = await pool.query(pillarQuery, [post.pillar, post.slug, limit]);
+      for (const row of res.rows as Partial<BlogPostRow>[]) {
+        seen.add(row.slug!);
+        out.push(toPost(row));
+      }
     }
-  }
-  if (out.length < limit) {
-    const { data } = await table
-      .select(LIST_COLUMNS)
-      .eq('status', 'published')
-      .order('published_at', { ascending: false })
-      .limit(limit + seen.size);
-    for (const row of (data ?? []) as Partial<BlogPostRow>[]) {
-      if (out.length >= limit) break;
-      if (seen.has(row.slug!)) continue;
-      seen.add(row.slug!);
-      out.push(toPost(row));
+
+    if (out.length < limit) {
+      const remainingLimit = limit + seen.size;
+      const fallbackQuery = `
+        select slug, title, description, cover_image_url, tags, reading_minutes, published_at, updated_at, pillar, kind, author, ai_assisted
+        from public.blog_posts
+        where status = 'published'
+          and published_at <= now()
+        order by published_at desc
+        limit $1
+      `;
+      const res = await pool.query(fallbackQuery, [remainingLimit]);
+      for (const row of res.rows as Partial<BlogPostRow>[]) {
+        if (out.length >= limit) break;
+        if (seen.has(row.slug!)) continue;
+        seen.add(row.slug!);
+        out.push(toPost(row));
+      }
     }
+
+    return out;
+  } catch (err) {
+    console.error('getRelated error:', err);
+    return [];
   }
-  return out;
 }
 
 export async function getAllSlugs(): Promise<{ slug: string; updatedIso: string; pillar: Pillar | null }[]> {
-  const table = published();
-  if (!table) return [];
-  const { data } = await table
-    .select('slug,updated_at,published_at,pillar')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(5000);
-  return ((data ?? []) as Partial<BlogPostRow>[]).map((r) => ({
-    slug: r.slug!,
-    updatedIso: r.updated_at ?? r.published_at ?? new Date().toISOString(),
-    pillar: isPillar(r.pillar) ? r.pillar : null,
-  }));
+  const pool = getAzurePool();
+  if (!pool) return [];
+
+  try {
+    const query = `
+      select slug, updated_at, published_at, pillar
+      from public.blog_posts
+      where status = 'published'
+        and published_at <= now()
+      order by published_at desc
+      limit 5000
+    `;
+    const res = await pool.query(query);
+    return (res.rows as Partial<BlogPostRow>[]).map((r) => ({
+      slug: r.slug!,
+      updatedIso: r.updated_at ?? r.published_at ?? new Date().toISOString(),
+      pillar: isPillar(r.pillar) ? r.pillar : null,
+    }));
+  } catch (err) {
+    console.error('getAllSlugs error:', err);
+    return [];
+  }
 }
 
 // Full rows for /llms-full.txt, newest first
 export async function getFullPosts(limit = 20): Promise<BlogPost[]> {
-  const table = published();
-  if (!table) return [];
-  const { data, error } = await table
-    .select('*')
-    .eq('status', 'published')
-    .order('published_at', { ascending: false })
-    .limit(limit);
-  if (error || !data) return [];
-  return (data as BlogPostRow[]).map(toPost);
+  const pool = getAzurePool();
+  if (!pool) return [];
+
+  try {
+    const query = `
+      select *
+      from public.blog_posts
+      where status = 'published'
+        and published_at <= now()
+      order by published_at desc
+      limit $1
+    `;
+    const res = await pool.query(query, [limit]);
+    return (res.rows as BlogPostRow[]).map(toPost);
+  } catch (err) {
+    console.error('getFullPosts error:', err);
+    return [];
+  }
 }
