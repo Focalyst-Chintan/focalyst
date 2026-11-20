@@ -1,4 +1,5 @@
 import 'server-only';
+import { transcribeWithAzureSpeech } from '@/lib/server/azure-speech';
 
 // Common Whisper hallucinations when audio is silent
 export const WHISPER_SILENCE_PHRASES = new Set([
@@ -439,8 +440,19 @@ export async function transcribeAudio(
   filename: string,
   mimeType: string
 ): Promise<{ text: string; provider: string }> {
+  const azureSpeechKey = process.env.AZURE_SPEECH_KEY;
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+
+  // 1. Try Azure AI Speech Fast Transcription
+  if (azureSpeechKey) {
+    try {
+      const azureText = await transcribeWithAzureSpeech(buffer, filename, mimeType);
+      if (azureText) return { text: azureText, provider: 'azure' };
+    } catch (e: any) {
+      console.warn('[ai:transcribe] azure speech error:', e?.message);
+    }
+  }
 
   const base64Audio = buffer.toString('base64');
   const extMatch = filename.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);

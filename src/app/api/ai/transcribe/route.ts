@@ -1,6 +1,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
+import { transcribeWithAzureSpeech, transcribeWithGemini } from '@/lib/server/azure-speech';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -129,11 +130,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const azureSpeechKey = process.env.AZURE_SPEECH_KEY;
     const openRouterKey = process.env.OPENROUTER_API_KEY;
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    if (!openRouterKey && !geminiKey) {
-      console.error('[ai:transcribe] OPENROUTER_API_KEY and GEMINI_API_KEY missing on the server');
+    if (!azureSpeechKey && !geminiKey && !openRouterKey) {
+      console.error('[ai:transcribe] Neither AZURE_SPEECH_KEY, GEMINI_API_KEY nor OPENROUTER_API_KEY are configured');
       return NextResponse.json(
         { code: 'no_key', error: 'Voice is not available right now. Please try again later.' },
         { status: 503, headers: cors }
@@ -142,28 +144,44 @@ export async function POST(req: NextRequest) {
 
     let text = '';
     let providerName = '';
+    const fileBuffer = Buffer.from(await file.arrayBuffer());
+    const fileName = (file as File).name || `audio.${ext}`;
 
-    // 1. Try OpenRouter
-    if (openRouterKey) {
+    // 1. Try Azure AI Speech REST API first
+    if (azureSpeechKey) {
+      try {
+        const azureText = await transcribeWithAzureSpeech(fileBuffer, fileName, base);
+        if (azureText) {
+          text = azureText;
+          providerName = 'azure-speech';
+        }
+      } catch (e: any) {
+        console.warn('[ai:transcribe] azure-speech failed, falling back:', String(e).slice(0, 200));
+      }
+    }
+
+    // 2. Automatic fallback to Gemini if Azure fails, returns empty, or for formats needing conversion
+    if (!text && geminiKey) {
+      try {
+        const geminiText = await transcribeWithGemini(fileBuffer, base);
+        if (geminiText) {
+          text = geminiText;
+          providerName = 'gemini';
+        }
+      } catch (e: any) {
+        console.warn('[ai:transcribe] gemini fallback failed:', String(e).slice(0, 200));
+      }
+    }
+
+    // 3. Fallback to OpenRouter if still empty
+    if (!text && openRouterKey) {
       try {
         text = await transcribeOpenRouter(file, ext, base);
         if (text) {
           providerName = 'openrouter';
         }
       } catch (e: any) {
-        console.error('[ai:transcribe] openrouter failed', String(e).slice(0, 200));
-      }
-    }
-
-    // 2. Try Gemini backup if OpenRouter failed or returned empty
-    if (!text && geminiKey) {
-      try {
-        text = await transcribeGemini(file, base);
-        if (text) {
-          providerName = 'gemini';
-        }
-      } catch (e: any) {
-        console.error('[ai:transcribe] gemini failed', String(e).slice(0, 200));
+        console.warn('[ai:transcribe] openrouter failed:', String(e).slice(0, 200));
       }
     }
 
@@ -183,7 +201,7 @@ export async function POST(req: NextRequest) {
 
     console.info('[ai:transcribe] ok', providerName, base, file.size);
     return NextResponse.json(
-      { text },
+      { text, transcript: text },
       {
         status: 200,
         headers: {
