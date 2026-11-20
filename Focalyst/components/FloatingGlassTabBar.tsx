@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { Ionicons } from '@expo/vector-icons';
+import { CalendarDays, ChartNoAxesColumnIncreasing, FileText, Hourglass, ListTodo, MessageCircle, Mic, Plus, Timer } from 'lucide-react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -11,20 +11,21 @@ import Animated, {
   useSharedValue,
   withSpring,
 } from 'react-native-reanimated';
+import type { SharedValue } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const NAV_ITEMS = [
-  { route: 'plan', icon: 'calendar-outline' as const, activeIcon: 'calendar' as const },
-  { route: 'focus', icon: 'timer-outline' as const, activeIcon: 'timer' as const },
-  { route: 'notes', icon: 'document-text-outline' as const, activeIcon: 'document-text' as const },
-  { route: 'insights', icon: 'bar-chart-outline' as const, activeIcon: 'bar-chart' as const },
+  { route: 'plan', Icon: CalendarDays },
+  { route: 'focus', Icon: Timer },
+  { route: 'notes', Icon: FileText },
+  { route: 'insights', Icon: ChartNoAxesColumnIncreasing },
 ];
 
 const ACTIONS = [
-  { icon: 'clipboard-outline' as const, label: 'Add Task' },
-  { icon: 'hourglass-outline' as const, label: 'Start Focus Session' },
-  { icon: 'mic-outline' as const, label: 'Record Voice Note' },
-  { icon: 'chatbubble-outline' as const, label: 'Ask AI Chat' },
+  { Icon: ListTodo, label: 'Add Task' },
+  { Icon: Hourglass, label: 'Start Focus Session' },
+  { Icon: Mic, label: 'Record Voice Note' },
+  { Icon: MessageCircle, label: 'Ask AI Chat' },
 ];
 
 const SPRING = { damping: 17, stiffness: 210, mass: 0.85 };
@@ -99,8 +100,7 @@ export default function FloatingGlassTabBar({
             {NAV_ITEMS.map((item, index) => (
               <Pressable key={item.route} accessibilityRole="button" accessibilityLabel={item.route}
                 onPress={() => onNavigate(item.route)} style={styles.slot}>
-                <Ionicons name={index === activeIndex ? item.activeIcon : item.icon} size={24}
-                  color={index === activeIndex ? '#0F3D91' : '#8E9BB5'} />
+                <item.Icon size={24} strokeWidth={2} color={index === activeIndex ? '#0F3D91' : '#8E9BB5'} />
               </Pressable>
             ))}
           </Animated.View>
@@ -118,7 +118,7 @@ export default function FloatingGlassTabBar({
           onPress={toggle} style={styles.actionButton}>
           <BlurView intensity={22} tint="dark" style={StyleSheet.absoluteFill} pointerEvents="none" />
           <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.buttonGlow, glowStyle]} />
-          <Animated.View style={plusStyle}><Ionicons name="add" size={30} color="#FFFFFF" /></Animated.View>
+          <Animated.View style={plusStyle}><Plus size={28} strokeWidth={2.5} color="#FFFFFF" /></Animated.View>
         </Pressable>
       </View>
     </>
@@ -129,12 +129,12 @@ const styles = StyleSheet.create({
   backdrop: { zIndex: 10, backgroundColor: 'rgba(5, 8, 18, 0.35)' },
   positioner: { position: 'absolute', zIndex: 11, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
   capsule: { flex: 1, height: 62, borderRadius: 31, overflow: 'hidden', backgroundColor: 'rgba(24, 32, 56, 0.88)', borderWidth: 1, borderColor: 'rgba(148, 179, 255, 0.22)' },
-  surface: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(24, 32, 56, 0.68)' },
-  layer: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  surface: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(24, 32, 56, 0.68)' },
+  layer: { ...StyleSheet.absoluteFill, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   activePill: { position: 'absolute', left: '2.5%', width: '22%', height: 44, borderRadius: 22, backgroundColor: '#E4EEFF' },
   slot: { flex: 1, height: '100%', alignItems: 'center', justifyContent: 'center' },
-  actionContent: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
-  actionGlow: { ...StyleSheet.absoluteFillObject, margin: 7, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.22)' },
+  actionContent: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center' },
+  actionGlow: { ...StyleSheet.absoluteFill, margin: 7, borderRadius: 24, backgroundColor: 'rgba(255, 255, 255, 0.22)' },
   actionButton: { width: 62, height: 62, borderRadius: 31, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', backgroundColor: '#11182A', borderWidth: 1, borderColor: 'rgba(148, 179, 255, 0.22)' },
   buttonGlow: { backgroundColor: 'rgba(255, 255, 255, 0.28)' },
 });
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
 function QuickAction({ index, action, progress, onPress }: {
   index: number;
   action: typeof ACTIONS[number];
-  progress: Animated.SharedValue<number>;
+  progress: SharedValue<number>;
   onPress: () => void;
 }) {
   const scale = useSharedValue(1);
@@ -161,7 +161,7 @@ function QuickAction({ index, action, progress, onPress }: {
       onPress={onPress} style={styles.slot}>
       <Animated.View pointerEvents="none" style={[styles.actionContent, animatedStyle]}>
         <View style={styles.actionGlow} />
-        <Ionicons name={action.icon} size={24} color="#FFFFFF" />
+        <action.Icon size={24} strokeWidth={2} color="#FFFFFF" />
       </Animated.View>
     </Pressable>
   );

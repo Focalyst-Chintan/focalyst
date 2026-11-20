@@ -98,8 +98,20 @@ export function stripFactLabels(text: string): string {
   return text.replace(/\s*[\(\[]f\d+(?:\s*,\s*f\d+)*[\)\]]/g, '');
 }
 
+function toIsoString(val: unknown): string {
+  if (!val) return new Date().toISOString();
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val === 'string') return val;
+  try {
+    return new Date(val as any).toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 function toPost(row: Partial<BlogPostRow>): BlogPost {
-  const publishedIso = row.published_at ?? row.created_at ?? new Date().toISOString();
+  const publishedIso = toIsoString(row.published_at ?? row.created_at);
+  const updatedIso = toIsoString(row.updated_at ?? row.published_at ?? row.created_at);
   return {
     slug: row.slug!,
     title: row.title!,
@@ -108,7 +120,7 @@ function toPost(row: Partial<BlogPostRow>): BlogPost {
     tags: Array.isArray(row.tags) ? row.tags : [],
     publishedAt: formatDate(publishedIso),
     publishedIso,
-    updatedIso: row.updated_at ?? publishedIso,
+    updatedIso,
     readingMinutes: row.reading_minutes ?? Math.max(1, Math.ceil((row.word_count ?? 0) / 230)),
     pillar: isPillar(row.pillar) ? row.pillar : null,
     kind: row.kind ?? 'article',

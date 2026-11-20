@@ -13,7 +13,6 @@ import { AdaptiveFrame } from '../../src/layout/adaptive';
 
 function ProfileButton({ isDarkMode }: { isDarkMode: boolean }) {
   const router = useRouter();
-  const pathname = usePathname();
   const iconColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
   return (
     <TouchableOpacity
@@ -67,6 +66,7 @@ function AskAIButton({ isDarkMode, onPress }: { isDarkMode: boolean; onPress: ()
 
 export default function TabLayout() {
   const router = useRouter();
+  const pathname = usePathname();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isAiModalVisible, setIsAiModalVisible] = useState(false);
   const [isVoiceModalVisible, setIsVoiceModalVisible] = useState(false);
