@@ -4,6 +4,7 @@ import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@goog
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates'
 import { rateLimit } from '@/lib/rate-limit'
 import { localDateStr } from '@/lib/utils/date'
+import { getDailyFocusActivity, insertAiChatLogs, incrementUserAiUsage } from '@/lib/server/azure-db'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -174,15 +175,27 @@ If the user asks to plan their day, first ask them for their goals and available
                             response: cachedStatsThisTurn
                         })
                     } else {
-                        // Fetch last 7 days of focus data
+                        // Fetch last 7 days of focus data from Azure DB (with Supabase fallback)
                         const sevenDaysAgo = new Date()
                         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+                        const sevenDaysStr = localDateStr(sevenDaysAgo)
 
-                        const { data: focusData } = await supabase
-                            .from('daily_focus_activity')
-                            .select('date, focus_time_minutes, break_time_minutes')
-                            .eq('user_id', user.id)
-                            .gte('date', localDateStr(sevenDaysAgo))
+                        let focusData: any[] = []
+                        try {
+                            const azureFocus = await getDailyFocusActivity(user.id, sevenDaysStr)
+                            focusData = azureFocus.map((f) => ({
+                                date: f.date,
+                                focus_time_minutes: f.focus_time_minutes,
+                                break_time_minutes: f.break_time_minutes,
+                            }))
+                        } catch {
+                            const { data } = await supabase
+                                .from('daily_focus_activity')
+                                .select('date, focus_time_minutes, break_time_minutes')
+                                .eq('user_id', user.id)
+                                .gte('date', sevenDaysStr)
+                            focusData = data || []
+                        }
 
                         // Fetch active habit streaks
                         const { data: habits } = await supabase
@@ -284,19 +297,41 @@ If the user asks to plan their day, first ask them for their goals and available
 
         const responseText = response.text()
 
-        // 3. Log Conversations to Supabase
-        await supabase.from('ai_chat_logs').insert([
-            {
-                user_id: user.id,
-                role: 'user',
-                content: message,
-            },
-            {
-                user_id: user.id,
-                role: 'assistant',
-                content: responseText,
+        // 3. Log Conversations to Azure PostgreSQL & Supabase
+        try {
+            await insertAiChatLogs([
+                {
+                    user_id: user.id,
+                    role: 'user',
+                    content: message,
+                },
+                {
+                    user_id: user.id,
+                    role: 'assistant',
+                    content: responseText,
+                }
+            ])
+            if (isFree) {
+                await incrementUserAiUsage(user.id)
             }
-        ])
+        } catch (azureErr: any) {
+            console.error('[AI_API] Azure DB log error:', azureErr?.message)
+        }
+
+        try {
+            await supabase.from('ai_chat_logs').insert([
+                {
+                    user_id: user.id,
+                    role: 'user',
+                    content: message,
+                },
+                {
+                    user_id: user.id,
+                    role: 'assistant',
+                    content: responseText,
+                }
+            ])
+        } catch {}
 
         if (isFree) {
             await supabase

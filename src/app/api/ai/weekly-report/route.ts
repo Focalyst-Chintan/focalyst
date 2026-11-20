@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
 import { completeJSON } from '@/lib/ai/providers';
 import { z } from 'zod';
+import { getWeeklyReport, upsertWeeklyReport } from '@/lib/server/azure-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -95,14 +96,29 @@ export async function POST(req: NextRequest) {
     const isPro = profile?.plan && profile.plan !== 'free';
     const userPlan: 'free' | 'pro' = isPro ? 'pro' : 'free';
 
-    // 1. Check if report for this week already exists
-    const { data: existingReport } = await supabase
-      .from('reports')
-      .select('score, focus_time, tasks_completed, habit_consistency, week_summary_text, catalyst_insights, start_date, end_date')
-      .eq('user_id', user.id)
-      .eq('start_date', startDateISO)
-      .eq('end_date', endDateISO)
-      .maybeSingle();
+    // 1. Check if report for this week already exists (Azure DB primary, Supabase fallback)
+    let existingReport: any = null;
+    try {
+      const azReport = await getWeeklyReport(user.id, startDateISO, endDateISO);
+      if (azReport) {
+        existingReport = azReport;
+      }
+    } catch (azErr: any) {
+      console.warn('[ai:weekly-report] Azure DB query failed, falling back to Supabase:', azErr?.message);
+    }
+
+    if (!existingReport) {
+      const { data: sbReport } = await supabase
+        .from('reports')
+        .select('score, focus_time, tasks_completed, habit_consistency, week_summary_text, catalyst_insights, start_date, end_date')
+        .eq('user_id', user.id)
+        .eq('start_date', startDateISO)
+        .eq('end_date', endDateISO)
+        .maybeSingle();
+      if (sbReport) {
+        existingReport = sbReport;
+      }
+    }
 
     if (existingReport) {
       const insights = existingReport.catalyst_insights || {};
@@ -270,7 +286,7 @@ Respond with valid JSON.`;
       };
     }
 
-    // Save to reports table
+    // Save to reports table (Azure PostgreSQL primary & Supabase mirror)
     const reportPayload = {
       user_id: user.id,
       start_date: startDateISO,
@@ -282,6 +298,12 @@ Respond with valid JSON.`;
       week_summary_text: reportData.weekSummaryText,
       catalyst_insights: reportData.catalystInsights,
     };
+
+    try {
+      await upsertWeeklyReport(reportPayload);
+    } catch (azUpsertErr: any) {
+      console.error('[ai:weekly-report]', 'azure-db', 500, azUpsertErr?.message);
+    }
 
     const { error: upsertErr } = await supabase
       .from('reports')

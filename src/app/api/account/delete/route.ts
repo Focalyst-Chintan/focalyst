@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase-server'
 import { createAdminClient } from '@/lib/supabase-admin'
+import { deleteUserDataFromAzure } from '@/lib/server/azure-db'
 
 /**
  * POST /api/account/delete
@@ -71,6 +72,11 @@ export async function POST(req: Request) {
                 console.error(`[ACCOUNT_DELETE] Error deleting from ${table}:`, error?.message)
             }
         }
+
+        // Delete associated records from Azure PostgreSQL
+        await deleteUserDataFromAzure(userId).catch((azErr) => {
+            console.error('[ACCOUNT_DELETE] Error deleting from Azure DB:', azErr?.message || azErr);
+        });
 
         // Delete the users profile row
         const { error: profileError } = await admin

@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase-admin';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
+import { upsertWeeklyReport } from '@/lib/server/azure-db';
 
 export const maxDuration = 300;
 
@@ -345,6 +346,13 @@ Generate a clean JSON matching the requested schema.`;
                     week_summary_text: reportData.weekSummaryText,
                     catalyst_insights: reportData.catalystInsights,
                 };
+
+                // Save to Azure PostgreSQL (primary)
+                try {
+                    await upsertWeeklyReport(reportPayload);
+                } catch (azErr: any) {
+                    console.error(`[CRON_WEEKLY_REPORT] Azure DB upsert error for user ${userId.substring(0, 8)}:`, azErr?.message);
+                }
 
                 const { error: upsertError } = await supabaseAdmin
                     .from('reports')

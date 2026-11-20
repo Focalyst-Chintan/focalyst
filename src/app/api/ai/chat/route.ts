@@ -5,6 +5,7 @@ import { streamChat, type ChatMessageParam } from '@/lib/ai/providers';
 import { buildUserContext } from '@/lib/ai/chatContext';
 import { AI_PERSONA } from '@/lib/ai/persona';
 import { getTodayRangeInTz } from '@/lib/time/tz';
+import { getTodayAiMessageCount, insertAiChatLogs, incrementUserAiUsage } from '@/lib/server/azure-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -97,19 +98,24 @@ export async function POST(req: NextRequest) {
 
     const { startOfDayIso, tz: safeTz } = getTodayRangeInTz(tz);
 
-    // Count today's messages in user's timezone from ai_chat_logs
-    const { count: todayCount, error: countErr } = await supabase
-      .from('ai_chat_logs')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('role', 'user')
-      .gte('created_at', startOfDayIso);
+    // Count today's messages in user's timezone from Azure PostgreSQL (with Supabase fallback)
+    let currentUsage = 0;
+    try {
+      currentUsage = await getTodayAiMessageCount(user.id, startOfDayIso);
+    } catch {
+      const { count: todayCount, error: countErr } = await supabase
+        .from('ai_chat_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('role', 'user')
+        .gte('created_at', startOfDayIso);
 
-    if (countErr) {
-      console.error('[ai:chat]', 'supabase', 500, countErr.message);
+      if (countErr) {
+        console.error('[ai:chat]', 'supabase', 500, countErr.message);
+      }
+      currentUsage = todayCount ?? 0;
     }
 
-    const currentUsage = todayCount ?? 0;
     if (currentUsage >= dailyLimit) {
       return NextResponse.json(
         {
@@ -144,8 +150,8 @@ export async function POST(req: NextRequest) {
       },
       async flush() {
         try {
-          // Log user and assistant messages
-          await supabase.from('ai_chat_logs').insert([
+          // Log user and assistant messages to Azure PostgreSQL
+          await insertAiChatLogs([
             {
               user_id: user.id,
               role: 'user',
@@ -160,16 +166,41 @@ export async function POST(req: NextRequest) {
             },
           ]);
 
-          // Update user's daily message counter
-          await supabase
-            .from('users')
-            .update({
-              ai_message_count: currentUsage + 1,
-              last_message_date: new Date().toISOString(),
-            })
-            .eq('id', user.id);
+          // Update usage counter in Azure PostgreSQL
+          try {
+            await incrementUserAiUsage(user.id);
+          } catch {}
+
+          // Also mirror to Supabase for backward compatibility
+          try {
+            await supabase.from('ai_chat_logs').insert([
+              {
+                user_id: user.id,
+                role: 'user',
+                content: userPrompt,
+                tab_context: 'chat',
+              },
+              {
+                user_id: user.id,
+                role: 'assistant',
+                content: accumulatedReply,
+                tab_context: 'chat',
+              },
+            ]);
+          } catch {}
+
+          // Update user's daily message counter in Supabase
+          try {
+            await supabase
+              .from('users')
+              .update({
+                ai_message_count: currentUsage + 1,
+                last_message_date: new Date().toISOString(),
+              })
+              .eq('id', user.id);
+          } catch {}
         } catch (dbErr: any) {
-          console.error('[ai:chat]', 'supabase', 500, 'Failed to save chat logs: ' + dbErr?.message);
+          console.error('[ai:chat]', 'azure-db', 500, 'Failed to save chat logs: ' + dbErr?.message);
         }
       },
     });
