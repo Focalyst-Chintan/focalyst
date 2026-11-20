@@ -73,19 +73,36 @@ export const round1 = (n: number) => Math.round(n * 10) / 10;
 // custom_days is ignored because web and mobile disagree on its weekday index.
 // ---------------------------------------------------------------------------
 
+import {
+  getHabitsByUser,
+  getHabitLogsByUser,
+  getPomodoroSessionsByUser,
+} from '@/lib/server/azure-db';
+
 export type HabitRow = { id: string; name: string; icon: string | null; frequency: string; created_at: string };
 
 export async function loadActiveHabits(sb: SupabaseClient, userId: string): Promise<HabitRow[]> {
-  return must(
-    await sb
-      .from('habits')
-      .select('id, name, icon, frequency, created_at')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-      .order('position', { ascending: true })
-      .order('created_at', { ascending: true })
-      .limit(100)
-  ) as HabitRow[];
+  try {
+    const habits = await getHabitsByUser(userId, true);
+    return habits.map((h) => ({
+      id: h.id,
+      name: h.name,
+      icon: h.icon,
+      frequency: h.frequency,
+      created_at: h.created_at,
+    }));
+  } catch {
+    return must(
+      await sb
+        .from('habits')
+        .select('id, name, icon, frequency, created_at')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true })
+        .limit(100)
+    ) as HabitRow[];
+  }
 }
 
 /** habit_id → set of YYYY-MM-DD dates logged on or after `since`. */
@@ -95,21 +112,31 @@ export async function loadHabitLogs(
   since: string,
   habitIds?: string[]
 ): Promise<Map<string, Set<string>>> {
-  const rows = await fetchPaged<{ habit_id: string; completed_date: string }>((from, to) => {
-    let q = sb
-      .from('habit_logs')
-      .select('habit_id, completed_date')
-      .eq('user_id', userId)
-      .gte('completed_date', since);
-    if (habitIds) q = q.in('habit_id', habitIds);
-    return q.order('completed_date', { ascending: false }).order('id', { ascending: true }).range(from, to);
-  });
-  const map = new Map<string, Set<string>>();
-  for (const r of rows) {
-    if (!map.has(r.habit_id)) map.set(r.habit_id, new Set());
-    map.get(r.habit_id)!.add(String(r.completed_date).slice(0, 10));
+  try {
+    const rows = await getHabitLogsByUser(userId, since, habitIds);
+    const map = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (!map.has(r.habit_id)) map.set(r.habit_id, new Set());
+      map.get(r.habit_id)!.add(String(r.completed_date).slice(0, 10));
+    }
+    return map;
+  } catch {
+    const rows = await fetchPaged<{ habit_id: string; completed_date: string }>((from, to) => {
+      let q = sb
+        .from('habit_logs')
+        .select('habit_id, completed_date')
+        .eq('user_id', userId)
+        .gte('completed_date', since);
+      if (habitIds) q = q.in('habit_id', habitIds);
+      return q.order('completed_date', { ascending: false }).order('id', { ascending: true }).range(from, to);
+    });
+    const map = new Map<string, Set<string>>();
+    for (const r of rows) {
+      if (!map.has(r.habit_id)) map.set(r.habit_id, new Set());
+      map.get(r.habit_id)!.add(String(r.completed_date).slice(0, 10));
+    }
+    return map;
   }
-  return map;
 }
 
 import { calculateHabitStreak, type HabitSchedule } from '@/lib/habits/streak';
@@ -154,18 +181,29 @@ export async function loadSessions(
   userId: string,
   range: { gte: string; lt: string }
 ): Promise<SessionRow[]> {
-  return fetchPaged<SessionRow>((from, to) =>
-    sb
-      .from('pomodoro_sessions')
-      .select('focus_minutes, started_at, task_id')
-      .eq('user_id', userId)
-      .gt('focus_minutes', 0)
-      .gte('started_at', range.gte)
-      .lt('started_at', range.lt)
-      .order('started_at', { ascending: true })
-      .order('id', { ascending: true })
-      .range(from, to)
-  );
+  try {
+    const rows = await getPomodoroSessionsByUser(userId, { gte: range.gte, lt: range.lt });
+    return rows
+      .filter((r) => r.focus_minutes > 0)
+      .map((r) => ({
+        focus_minutes: r.focus_minutes,
+        started_at: r.started_at,
+        task_id: r.task_id,
+      }));
+  } catch {
+    return fetchPaged<SessionRow>((from, to) =>
+      sb
+        .from('pomodoro_sessions')
+        .select('focus_minutes, started_at, task_id')
+        .eq('user_id', userId)
+        .gt('focus_minutes', 0)
+        .gte('started_at', range.gte)
+        .lt('started_at', range.lt)
+        .order('started_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(from, to)
+    );
+  }
 }
 
 const UNLOCK_REASON_LABELS: Record<string, string> = {

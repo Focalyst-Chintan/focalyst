@@ -4,6 +4,7 @@ import type { McpServer } from '@modelcontextprotocol/server';
 import { McpUserError, must } from '../run';
 import { addDays, daysBetween, localDate, localTime, todayIn, utcRange } from '../time';
 import { READ, dateSchema, defineTool, loadBlockingStats, loadSessions, round1 } from './shared';
+import { getTasksByUser } from '@/lib/server/azure-db';
 
 const MAX_SPAN_DAYS = 92;
 
@@ -63,18 +64,26 @@ export function registerFocusTools(server: McpServer) {
       const topTaskIds = [...byTask.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
       let titles = new Map<string, string>();
       if (topTaskIds.length) {
-        const rows = must(
-          await sb
-            .from('tasks')
-            .select('id, title')
-            .eq('user_id', userId)
-            .in(
-              'id',
-              topTaskIds.map(([id]) => id)
-            )
-            .limit(5)
-        ) as { id: string; title: string }[];
-        titles = new Map(rows.map((r) => [r.id, r.title]));
+        try {
+          const azTasks = await getTasksByUser(userId);
+          const taskMap = new Map(azTasks.map((t) => [t.id, t.title]));
+          for (const [id] of topTaskIds) {
+            if (taskMap.has(id)) titles.set(id, taskMap.get(id)!);
+          }
+        } catch {
+          const rows = must(
+            await sb
+              .from('tasks')
+              .select('id, title')
+              .eq('user_id', userId)
+              .in(
+                'id',
+                topTaskIds.map(([id]) => id)
+              )
+              .limit(5)
+          ) as { id: string; title: string }[];
+          titles = new Map(rows.map((r) => [r.id, r.title]));
+        }
       }
 
       return {

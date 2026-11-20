@@ -5,6 +5,7 @@ import { McpNotFound, must } from '../run';
 import { localDateTime } from '../time';
 import { clip, htmlToText, sanitizeQuery, truncate } from '../text';
 import { READ, defineTool, round1 } from './shared';
+import { getNotesByUser, getNoteById } from '@/lib/server/azure-db';
 
 type NoteRow = {
   id: string;
@@ -41,17 +42,37 @@ export function registerNoteTools(server: McpServer) {
       annotations: READ,
     },
     async (args, { sb, userId, tz }) => {
-      let q = sb
-        .from('notes')
-        .select('id, title, note_type, folder, created_at, updated_at, content, content_text, transcript, duration_seconds')
-        .eq('user_id', userId)
-        .not('is_deleted', 'is', true);
-      if (args.type !== 'all') q = q.eq('note_type', args.type);
-      if (args.folder?.trim()) q = q.eq('folder', args.folder.trim());
-      const term = sanitizeQuery(args.query);
-      if (term) q = q.or(`title.ilike.*${term}*,content.ilike.*${term}*,transcript.ilike.*${term}*`);
+      let rows: NoteRow[] = [];
+      try {
+        const azRows = await getNotesByUser(userId, {
+          search: args.query,
+          limit: args.limit,
+        });
+        rows = azRows.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          note_type: n.type || 'text',
+          folder: null,
+          created_at: n.created_at,
+          updated_at: n.updated_at,
+          content: n.content,
+          content_text: n.content,
+          transcript: null,
+          duration_seconds: null,
+        }));
+      } catch {
+        let q = sb
+          .from('notes')
+          .select('id, title, note_type, folder, created_at, updated_at, content, content_text, transcript, duration_seconds')
+          .eq('user_id', userId)
+          .not('is_deleted', 'is', true);
+        if (args.type !== 'all') q = q.eq('note_type', args.type);
+        if (args.folder?.trim()) q = q.eq('folder', args.folder.trim());
+        const term = sanitizeQuery(args.query);
+        if (term) q = q.or(`title.ilike.*${term}*,content.ilike.*${term}*,transcript.ilike.*${term}*`);
 
-      const rows = (must(await q.order('updated_at', { ascending: false }).limit(args.limit)) ?? []) as NoteRow[];
+        rows = (must(await q.order('updated_at', { ascending: false }).limit(args.limit)) ?? []) as NoteRow[];
+      }
       return {
         notes: rows.map((n) => ({
           id: n.id,
@@ -82,17 +103,39 @@ export function registerNoteTools(server: McpServer) {
       annotations: READ,
     },
     async (args, { sb, userId, tz }) => {
-      const n = must(
-        await sb
-          .from('notes')
-          .select(
-            'id, title, note_type, folder, tags, created_at, updated_at, content, content_text, transcript, duration_seconds'
-          )
-          .eq('id', args.note_id)
-          .eq('user_id', userId)
-          .not('is_deleted', 'is', true)
-          .maybeSingle()
-      ) as NoteRow | null;
+      let n: NoteRow | null = null;
+      try {
+        const azNote = await getNoteById(userId, args.note_id);
+        if (azNote) {
+          n = {
+            id: azNote.id,
+            title: azNote.title,
+            note_type: azNote.type || 'text',
+            folder: null,
+            tags: azNote.tags ?? [],
+            created_at: azNote.created_at,
+            updated_at: azNote.updated_at,
+            content: azNote.content,
+            content_text: azNote.content,
+            transcript: null,
+            duration_seconds: null,
+          };
+        }
+      } catch {}
+
+      if (!n) {
+        n = (must(
+          await sb
+            .from('notes')
+            .select(
+              'id, title, note_type, folder, tags, created_at, updated_at, content, content_text, transcript, duration_seconds'
+            )
+            .eq('id', args.note_id)
+            .eq('user_id', userId)
+            .not('is_deleted', 'is', true)
+            .maybeSingle()
+        ) as NoteRow | null);
+      }
       if (!n) throw new McpNotFound();
 
       const base = {

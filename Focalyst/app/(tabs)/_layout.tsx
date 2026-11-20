@@ -1,10 +1,9 @@
-import { Tabs, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { useColorScheme, useWindowDimensions, View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
+import { Tabs, useRouter, usePathname } from 'expo-router';
+import { useWindowDimensions, View, Text, TouchableOpacity, DeviceEventEmitter } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState, useEffect } from 'react';
 import AskFocalystModal from '../../components/AskFocalystModal';
-import FloatingAddMenu from '../../components/FloatingAddMenu';
+import FloatingGlassTabBar from '../../components/FloatingGlassTabBar';
 import { VoiceNoteRecorderModal } from '../../components/VoiceNoteRecorderModal';
 import { supabase } from '../../src/utils/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +13,7 @@ import { AdaptiveFrame } from '../../src/layout/adaptive';
 
 function ProfileButton({ isDarkMode }: { isDarkMode: boolean }) {
   const router = useRouter();
+  const pathname = usePathname();
   const iconColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
   return (
     <TouchableOpacity
@@ -66,11 +66,9 @@ function AskAIButton({ isDarkMode, onPress }: { isDarkMode: boolean; onPress: ()
 }
 
 export default function TabLayout() {
-  const { t } = useTranslation();
   const router = useRouter();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isAiModalVisible, setIsAiModalVisible] = useState(false);
-  const [isAddMenuVisible, setIsAddMenuVisible] = useState(false);
   const [isVoiceModalVisible, setIsVoiceModalVisible] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const insets = useSafeAreaInsets();
@@ -107,10 +105,6 @@ export default function TabLayout() {
     return () => sub.remove();
   }, []);
 
-  const tabActiveColor = isDarkMode ? '#FF6B00' : '#4a6c8c';
-  const tabInactiveColor = isDarkMode ? '#8E95A9' : '#94a3b8';
-  const tabBgColor = isDarkMode ? '#0B1021' : '#FFFFFF';
-  const tabBorderColor = isDarkMode ? '#151B2E' : '#E2E8F0';
   const headerBgColor = isDarkMode ? '#0B1021' : '#FFFFFF';
   const headerBorderColor = isDarkMode ? '#151B2E' : '#f1f5f9';
   const titleColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
@@ -128,15 +122,7 @@ export default function TabLayout() {
           lazy: false,
           sceneStyle: { backgroundColor: isDarkMode ? '#0B1021' : '#F4F6FA' },
           ...({ sceneContainerStyle: { backgroundColor: isDarkMode ? '#0B1021' : '#F4F6FA' } } as any),
-          tabBarActiveTintColor: tabActiveColor,
-          tabBarInactiveTintColor: tabInactiveColor,
-          tabBarStyle: {
-            backgroundColor: tabBgColor,
-            borderTopColor: tabBorderColor,
-            paddingBottom: Math.max(insets.bottom, 12),
-            paddingTop: 5,
-            height: 60 + Math.max(insets.bottom, 12),
-          },
+          tabBarStyle: { display: 'none' },
           headerStyle: {
             backgroundColor: headerBgColor,
             elevation: 0,
@@ -171,7 +157,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="plan"
           options={{
-            tabBarLabel: t('nav.plan'),
+            tabBarShowLabel: false,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'calendar' : 'calendar-outline'} size={24} color={color} />
             ),
@@ -180,7 +166,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="focus"
           options={{
-            tabBarLabel: t('nav.focus'),
+            tabBarShowLabel: false,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'timer' : 'timer-outline'} size={24} color={color} />
             ),
@@ -189,31 +175,16 @@ export default function TabLayout() {
         <Tabs.Screen
           name="add"
           options={{
-            tabBarLabel: t('nav.add'),
-            tabBarAccessibilityLabel: t('nav.add'),
-            tabBarButton: ({ delayLongPress, ...props }: any) => (
-              <TouchableOpacity
-                {...props}
-                delayLongPress={delayLongPress ?? undefined}
-                accessibilityRole="button"
-                accessibilityLabel="Quick Add Menu"
-              />
-            ),
+            tabBarShowLabel: false,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'add-circle' : 'add-circle-outline'} size={24} color={color} />
             ),
           }}
-          listeners={() => ({
-            tabPress: (e) => {
-              e.preventDefault();
-              setIsAddMenuVisible(true);
-            },
-          })}
         />
         <Tabs.Screen
           name="notes"
           options={{
-            tabBarLabel: t('nav.notes'),
+            tabBarShowLabel: false,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'document-text' : 'document-text-outline'} size={24} color={color} />
             ),
@@ -222,7 +193,7 @@ export default function TabLayout() {
         <Tabs.Screen
           name="insights"
           options={{
-            tabBarLabel: t('nav.insights'),
+            tabBarShowLabel: false,
             tabBarIcon: ({ color, focused }) => (
               <Ionicons name={focused ? 'bar-chart' : 'bar-chart-outline'} size={24} color={color} />
             ),
@@ -250,10 +221,13 @@ export default function TabLayout() {
         isDarkMode={isDarkMode}
       />
 
-      <FloatingAddMenu
-        isVisible={isAddMenuVisible}
-        onClose={() => setIsAddMenuVisible(false)}
-        onOpenVoice={() => setIsVoiceModalVisible(true)}
+      <FloatingGlassTabBar
+        activeRoute={pathname}
+        onNavigate={(route) => router.navigate(`/(tabs)/${route}` as any)}
+        onAddTask={() => router.push({ pathname: '/(tabs)/plan', params: { action: 'addTask', t: Date.now() } } as any)}
+        onStartSession={() => router.push({ pathname: '/(tabs)/focus', params: { action: 'startSession', t: Date.now() } } as any)}
+        onVoice={() => setIsVoiceModalVisible(true)}
+        onChat={() => setIsAiModalVisible(true)}
       />
 
       <VoiceNoteRecorderModal

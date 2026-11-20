@@ -4,7 +4,16 @@ import { GoogleGenerativeAI, SchemaType, FunctionDeclaration, Part } from '@goog
 import { FREE_TIER_LIMITS, dateKeyFromSupabase, localDateKey } from '@/lib/featureGates'
 import { rateLimit } from '@/lib/rate-limit'
 import { localDateStr } from '@/lib/utils/date'
-import { getDailyFocusActivity, insertAiChatLogs, incrementUserAiUsage } from '@/lib/server/azure-db'
+import {
+  getDailyFocusActivity,
+  insertAiChatLogs,
+  incrementUserAiUsage,
+  getHabitsByUser,
+  getTasksByUser,
+  upsertTask,
+  upsertHabit,
+  getUserProfile,
+} from '@/lib/server/azure-db'
 
 // Initialize Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
@@ -197,18 +206,32 @@ If the user asks to plan their day, first ask them for their goals and available
                             focusData = data || []
                         }
 
-                        // Fetch active habit streaks
-                        const { data: habits } = await supabase
-                            .from('habits')
-                            .select('name, current_streak')
-                            .eq('user_id', user.id)
-                            .eq('is_active', true)
+                        // Fetch active habit streaks (Azure DB primary, Supabase fallback)
+                        let habits: any[] = []
+                        try {
+                            const azHabits = await getHabitsByUser(user.id, true)
+                            habits = azHabits.map((h) => ({ name: h.name, current_streak: h.current_streak }))
+                        } catch {
+                            const { data: sbHabits } = await supabase
+                                .from('habits')
+                                .select('name, current_streak')
+                                .eq('user_id', user.id)
+                                .eq('is_active', true)
+                            habits = sbHabits || []
+                        }
 
-                        // Fetch task completion percentage
-                        const { data: tasks } = await supabase
-                            .from('tasks')
-                            .select('is_completed')
-                            .eq('user_id', user.id)
+                        // Fetch task completion percentage (Azure DB primary, Supabase fallback)
+                        let tasks: any[] = []
+                        try {
+                            const azTasks = await getTasksByUser(user.id)
+                            tasks = azTasks.map((t) => ({ is_completed: t.is_completed }))
+                        } catch {
+                            const { data: sbTasks } = await supabase
+                                .from('tasks')
+                                .select('is_completed')
+                                .eq('user_id', user.id)
+                            tasks = sbTasks || []
+                        }
 
                         const totalTasks = tasks?.length || 0
                         const completedTasks = tasks?.filter((t: any) => t.is_completed).length || 0
@@ -233,33 +256,55 @@ If the user asks to plan their day, first ask them for their goals and available
 
                 if (call.name === 'create_todos') {
                     const args = call.args as { tasks: { task_name: string, estimated_minutes?: number }[] }
-                    const tasksToInsert = args.tasks.map((t) => ({
-                        id: crypto.randomUUID(),
-                        user_id: user.id,
-                        title: t.task_name,
-                        due_date: localDateStr(),
-                        priority: 'medium'
-                    }))
+                    let insertSuccess = true
+                    let insertErrMsg: string | undefined
 
-                    const { error: insertError } = await supabase.from('tasks').upsert(tasksToInsert, { onConflict: 'id' })
+                    try {
+                        for (const t of args.tasks) {
+                            await upsertTask(user.id, {
+                                title: t.task_name,
+                                due_date: localDateStr(),
+                                priority: 'medium',
+                            })
+                        }
+                    } catch (err: any) {
+                        // Fallback to Supabase
+                        const tasksToInsert = args.tasks.map((t) => ({
+                            id: crypto.randomUUID(),
+                            user_id: user.id,
+                            title: t.task_name,
+                            due_date: localDateStr(),
+                            priority: 'medium'
+                        }))
+                        const { error: insertError } = await supabase.from('tasks').upsert(tasksToInsert, { onConflict: 'id' })
+                        insertSuccess = !insertError
+                        insertErrMsg = insertError?.message
+                    }
 
                     toolResults.push({
                         name: 'create_todos',
-                        response: { success: !insertError, error: insertError?.message }
+                        response: { success: insertSuccess, error: insertErrMsg }
                     })
-                    if (!insertError) action = 'refresh_plan'
+                    if (insertSuccess) action = 'refresh_plan'
                 }
 
                 if (call.name === 'create_new_habit') {
                     const args = call.args as { habit_name: string }
                     if (isFree) {
-                        const { count } = await supabase
-                            .from('habits')
-                            .select('id', { count: 'exact', head: true })
-                            .eq('user_id', user.id)
-                            .eq('is_active', true)
+                        let activeCount = 0
+                        try {
+                            const azHabits = await getHabitsByUser(user.id, true)
+                            activeCount = azHabits.length
+                        } catch {
+                            const { count } = await supabase
+                                .from('habits')
+                                .select('id', { count: 'exact', head: true })
+                                .eq('user_id', user.id)
+                                .eq('is_active', true)
+                            activeCount = count || 0
+                        }
 
-                        if (count !== null && count >= FREE_TIER_LIMITS.habits) {
+                        if (activeCount >= FREE_TIER_LIMITS.habits) {
                             toolResults.push({
                                 name: 'create_new_habit',
                                 response: { success: false, error: 'Habit limit reached. Upgrade to Pro to add more habits.' }
@@ -268,19 +313,31 @@ If the user asks to plan their day, first ask them for their goals and available
                         }
                     }
 
-                    const { error: habitError } = await supabase.from('habits').insert({
-                        user_id: user.id,
-                        name: args.habit_name,
-                        frequency: 'daily',
-                        is_active: true,
-                        current_streak: 0
-                    })
+                    let habitSuccess = true
+                    let habitErrMsg: string | undefined
+                    try {
+                        await upsertHabit(user.id, {
+                            name: args.habit_name,
+                            frequency: 'daily',
+                            is_active: true,
+                        })
+                    } catch (err: any) {
+                        const { error: habitError } = await supabase.from('habits').insert({
+                            user_id: user.id,
+                            name: args.habit_name,
+                            frequency: 'daily',
+                            is_active: true,
+                            current_streak: 0
+                        })
+                        habitSuccess = !habitError
+                        habitErrMsg = habitError?.message
+                    }
 
                     toolResults.push({
                         name: 'create_new_habit',
-                        response: { success: !habitError, error: habitError?.message }
+                        response: { success: habitSuccess, error: habitErrMsg }
                     })
-                    if (!habitError) action = 'refresh_plan'
+                    if (habitSuccess) action = 'refresh_plan'
                 }
             }
 

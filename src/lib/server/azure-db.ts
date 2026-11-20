@@ -1,4 +1,4 @@
-import { Pool, type PoolConfig } from 'pg';
+import { Pool, type PoolConfig, type PoolClient } from 'pg';
 
 let pool: Pool | null = null;
 
@@ -41,6 +41,29 @@ export function getAzurePool(): Pool | null {
   }
 
   return pool;
+}
+
+export async function withUserDb<T>(
+  userId: string,
+  fn: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const p = getAzurePool();
+  if (!p) throw new Error('AZURE_POSTGRES_URL is not configured');
+  const client = await p.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId]);
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try {
+      await client.query('ROLLBACK');
+    } catch {}
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 // ============================================================================
@@ -1095,14 +1118,990 @@ export async function deleteUserDataFromAzure(userId: string): Promise<void> {
     'daily_focus_activity',
     'onboarding_profiles',
     'voice_notes',
+    'xp_logs',
+    'notes',
+    'countdowns',
+    'reminders',
+    'pomodoro_sessions',
+    'subtasks',
+    'tasks',
+    'habit_logs',
+    'habit_group_members',
+    'habits',
+    'habit_groups',
+    'users',
   ];
 
   for (const table of tables) {
     try {
-      await p.query(`delete from public.${table} where user_id = $1`, [userId]);
+      if (table === 'users') {
+        await p.query(`delete from public.users where id = $1`, [userId]);
+      } else if (table === 'habit_groups') {
+        await p.query(`delete from public.habit_groups where created_by = $1`, [userId]);
+      } else {
+        await p.query(`delete from public.${table} where user_id = $1`, [userId]);
+      }
     } catch (err: any) {
       console.warn(`[azure-db:delete] Failed to delete from ${table}:`, err?.message);
     }
   }
+}
+
+// ============================================================================
+// Core App Tables: Tasks, Habits, Habit Groups, Reminders, Sessions, Countdowns, Notes, Profile, XP
+// ============================================================================
+
+export interface TaskRecord {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  is_completed: boolean;
+  due_date: string | null;
+  due_time: string | null;
+  priority: string;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  status: string | null;
+  position: number;
+  category: string | null;
+  time_estimate_minutes: number | null;
+  actual_duration_minutes: number | null;
+  streak_count: number;
+  scheduled_date: string | null;
+  recurrence_rule: string | null;
+  is_starred: boolean;
+}
+
+export interface HabitRecord {
+  id: string;
+  user_id: string;
+  name: string;
+  frequency: string;
+  custom_days: number[] | null;
+  target_count: number;
+  is_active: boolean;
+  created_at: string;
+  current_streak: number;
+  longest_streak: number;
+  last_completed: string | null;
+  position: number;
+  time_of_day: string | null;
+  icon: string | null;
+  group_id: string | null;
+}
+
+export interface HabitLogRecord {
+  id: string;
+  habit_id: string;
+  user_id: string;
+  completed_date: string;
+  created_at: string;
+}
+
+export interface HabitGroupRecord {
+  id: string;
+  name: string;
+  invite_code: string;
+  created_by: string;
+  max_members: number;
+  created_at: string;
+}
+
+export interface HabitGroupMemberRecord {
+  id: string;
+  group_id: string;
+  user_id: string;
+  joined_at: string;
+  current_streak: number;
+  longest_streak: number;
+  habit_id: string | null;
+}
+
+export interface ReminderRecord {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  scheduled_at: string;
+  repeat_pattern: string | null;
+  is_completed: boolean;
+  created_at: string;
+  updated_at: string;
+  is_starred: boolean;
+}
+
+export interface PomodoroSessionRecord {
+  id: string;
+  user_id: string;
+  focus_minutes: number;
+  break_minutes: number;
+  sets_completed: number;
+  task_id: string | null;
+  was_completed: boolean;
+  started_at: string;
+  completed_at: string;
+  notes: string | null;
+  source: string;
+  duration_minutes: number | null;
+}
+
+export interface CountdownRecord {
+  id: string;
+  user_id: string;
+  event_name: string;
+  target_date: string;
+  icon: string | null;
+  color: string | null;
+  category: string | null;
+  is_active: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
+export interface NoteRecord {
+  id: string;
+  user_id: string;
+  title: string;
+  content: string;
+  tags: string[] | null;
+  is_pinned: boolean;
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  color: string | null;
+  source: string | null;
+  type: string | null;
+  audio_url: string | null;
+}
+
+export interface UserProfileRecord {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+  profile_type: string | null;
+  plan: string;
+  plan_expires_at: string | null;
+  onboarding_done: boolean;
+  created_at: string;
+  updated_at: string;
+  ai_message_count: number;
+  last_message_date: string | null;
+  total_xp: number;
+  current_level: number;
+  current_title: string;
+  expo_push_token: string | null;
+  task_reminders_enabled: boolean;
+  habit_reminders_enabled: boolean;
+  pomodoro_alerts_enabled: boolean;
+  timezone: string | null;
+  ai_voice_count: number;
+  last_voice_date: string | null;
+  billing_provider: string | null;
+  polar_customer_id: string | null;
+  newsletter_batch: number | null;
+  last_newsletter_sent_at: string | null;
+  deleted_at: string | null;
+}
+
+export interface XpLogRecord {
+  id: string;
+  user_id: string;
+  amount: number;
+  source: string;
+  created_at: string;
+  idempotency_key: string | null;
+}
+
+// ----------------------------------------------------------------------------
+// Tasks
+// ----------------------------------------------------------------------------
+
+export async function getTasksByUser(
+  userId: string,
+  options: {
+    isCompleted?: boolean;
+    dueFrom?: string;
+    dueTo?: string;
+    priority?: string;
+    limit?: number;
+  } = {}
+): Promise<TaskRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.tasks where user_id = $1';
+    const params: any[] = [userId];
+    let idx = 2;
+
+    if (options.isCompleted !== undefined) {
+      sql += ` and is_completed = $${idx++}`;
+      params.push(options.isCompleted);
+    }
+    if (options.dueFrom) {
+      sql += ` and due_date >= $${idx++}`;
+      params.push(options.dueFrom);
+    }
+    if (options.dueTo) {
+      sql += ` and due_date <= $${idx++}`;
+      params.push(options.dueTo);
+    }
+    if (options.priority) {
+      sql += ` and priority = $${idx++}`;
+      params.push(options.priority);
+    }
+
+    if (options.isCompleted) {
+      sql += ' order by completed_at desc nulls last';
+    } else {
+      sql += ' order by due_date asc nulls last, created_at desc';
+    }
+
+    if (options.limit) {
+      sql += ` limit $${idx++}`;
+      params.push(options.limit);
+    }
+
+    const res = await client.query<TaskRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function upsertTask(
+  userId: string,
+  task: Partial<TaskRecord> & { title: string }
+): Promise<TaskRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = task.id || crypto.randomUUID();
+    const isCompleted = task.is_completed ?? false;
+    const completedAt = isCompleted ? (task.completed_at || new Date().toISOString()) : null;
+
+    const res = await client.query<TaskRecord>(
+      `insert into public.tasks (
+        id, user_id, title, description, is_completed, due_date, due_time,
+        priority, created_at, updated_at, completed_at, status, position,
+        category, time_estimate_minutes, actual_duration_minutes, streak_count,
+        scheduled_date, recurrence_rule, is_starred
+      ) values (
+        $1, $2, $3, $4, $5, $6, $7,
+        coalesce($8, 'medium'), coalesce($9, now()), now(), $10, coalesce($11, 'todo'), coalesce($12, 0),
+        $13, $14, $15, coalesce($16, 0),
+        $17, $18, coalesce($19, false)
+      )
+      on conflict (id) do update set
+        title = excluded.title,
+        description = excluded.description,
+        is_completed = excluded.is_completed,
+        due_date = excluded.due_date,
+        due_time = excluded.due_time,
+        priority = excluded.priority,
+        updated_at = now(),
+        completed_at = excluded.completed_at,
+        status = excluded.status,
+        position = excluded.position,
+        category = excluded.category,
+        time_estimate_minutes = excluded.time_estimate_minutes,
+        actual_duration_minutes = excluded.actual_duration_minutes,
+        streak_count = excluded.streak_count,
+        scheduled_date = excluded.scheduled_date,
+        recurrence_rule = excluded.recurrence_rule,
+        is_starred = excluded.is_starred
+      returning *`,
+      [
+        id,
+        userId,
+        task.title,
+        task.description ?? null,
+        isCompleted,
+        task.due_date ?? null,
+        task.due_time ?? null,
+        task.priority ?? 'medium',
+        task.created_at ?? null,
+        completedAt,
+        task.status ?? 'todo',
+        task.position ?? 0,
+        task.category ?? null,
+        task.time_estimate_minutes ?? null,
+        task.actual_duration_minutes ?? null,
+        task.streak_count ?? 0,
+        task.scheduled_date ?? null,
+        task.recurrence_rule ?? null,
+        task.is_starred ?? false,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteTask(userId: string, taskId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query(`delete from public.tasks where id = $1 and user_id = $2`, [taskId, userId]);
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+export async function updateTaskCompletion(
+  userId: string,
+  taskId: string,
+  isCompleted: boolean
+): Promise<TaskRecord | null> {
+  return withUserDb(userId, async (client) => {
+    const completedAt = isCompleted ? new Date().toISOString() : null;
+    const status = isCompleted ? 'done' : 'todo';
+    const res = await client.query<TaskRecord>(
+      `update public.tasks
+       set is_completed = $1, completed_at = $2, status = $3, updated_at = now()
+       where id = $4 and user_id = $5
+       returning *`,
+      [isCompleted, completedAt, status, taskId, userId]
+    );
+    return res.rows[0] || null;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Habits & Habit Logs
+// ----------------------------------------------------------------------------
+
+export async function getHabitsByUser(userId: string, activeOnly = false): Promise<HabitRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.habits where user_id = $1';
+    const params: any[] = [userId];
+    if (activeOnly) {
+      sql += ' and is_active = true';
+    }
+    sql += ' order by position asc, created_at asc';
+    const res = await client.query<HabitRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function upsertHabit(
+  userId: string,
+  habit: Partial<HabitRecord> & { name: string }
+): Promise<HabitRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = habit.id || crypto.randomUUID();
+    const res = await client.query<HabitRecord>(
+      `insert into public.habits (
+        id, user_id, name, frequency, custom_days, target_count,
+        is_active, created_at, current_streak, longest_streak,
+        last_completed, position, time_of_day, icon, group_id
+      ) values (
+        $1, $2, $3, coalesce($4, 'daily'), $5, coalesce($6, 1),
+        coalesce($7, true), coalesce($8, now()), coalesce($9, 0), coalesce($10, 0),
+        $11, coalesce($12, 0), $13, $14, $15
+      )
+      on conflict (id) do update set
+        name = excluded.name,
+        frequency = excluded.frequency,
+        custom_days = excluded.custom_days,
+        target_count = excluded.target_count,
+        is_active = excluded.is_active,
+        current_streak = excluded.current_streak,
+        longest_streak = excluded.longest_streak,
+        last_completed = excluded.last_completed,
+        position = excluded.position,
+        time_of_day = excluded.time_of_day,
+        icon = excluded.icon,
+        group_id = excluded.group_id
+      returning *`,
+      [
+        id,
+        userId,
+        habit.name,
+        habit.frequency ?? 'daily',
+        habit.custom_days ?? null,
+        habit.target_count ?? 1,
+        habit.is_active ?? true,
+        habit.created_at ?? null,
+        habit.current_streak ?? 0,
+        habit.longest_streak ?? 0,
+        habit.last_completed ?? null,
+        habit.position ?? 0,
+        habit.time_of_day ?? null,
+        habit.icon ?? null,
+        habit.group_id ?? null,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteHabit(userId: string, habitId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    await client.query('delete from public.habit_logs where habit_id = $1 and user_id = $2', [habitId, userId]);
+    const res = await client.query('delete from public.habits where id = $1 and user_id = $2', [habitId, userId]);
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+export async function logHabit(
+  userId: string,
+  habitId: string,
+  completedDate?: string
+): Promise<HabitLogRecord> {
+  return withUserDb(userId, async (client) => {
+    const date = completedDate || new Date().toISOString().slice(0, 10);
+    const id = crypto.randomUUID();
+    const res = await client.query<HabitLogRecord>(
+      `insert into public.habit_logs (id, habit_id, user_id, completed_date, created_at)
+       values ($1, $2, $3, $4, now())
+       on conflict (id) do update set completed_date = excluded.completed_date
+       returning *`,
+      [id, habitId, userId, date]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteHabitLog(
+  userId: string,
+  habitId: string,
+  completedDate: string
+): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query(
+      `delete from public.habit_logs where habit_id = $1 and user_id = $2 and completed_date = $3`,
+      [habitId, userId, completedDate]
+    );
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+export async function getHabitLogsByUser(
+  userId: string,
+  sinceDate?: string,
+  habitIds?: string[]
+): Promise<HabitLogRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.habit_logs where user_id = $1';
+    const params: any[] = [userId];
+    let idx = 2;
+    if (sinceDate) {
+      sql += ` and completed_date >= $${idx++}`;
+      params.push(sinceDate);
+    }
+    if (habitIds && habitIds.length > 0) {
+      sql += ` and habit_id = any($${idx++})`;
+      params.push(habitIds);
+    }
+    sql += ' order by completed_date desc';
+    const res = await client.query<HabitLogRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Habit Groups
+// ----------------------------------------------------------------------------
+
+export async function getHabitGroupsByUser(userId: string): Promise<any[]> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query(
+      `select g.*, gm.habit_id, gm.joined_at, gm.current_streak as member_streak
+       from public.habit_groups g
+       join public.habit_group_members gm on g.id = gm.group_id
+       where gm.user_id = $1
+       order by g.created_at desc`,
+      [userId]
+    );
+    return res.rows;
+  });
+}
+
+export async function getHabitGroupById(groupId: string): Promise<any | null> {
+  const p = getAzurePool();
+  if (!p) return null;
+  const groupRes = await p.query('select * from public.habit_groups where id = $1 limit 1', [groupId]);
+  if (!groupRes.rows[0]) return null;
+  const membersRes = await p.query(
+    `select gm.*, u.full_name, u.avatar_url, u.email
+     from public.habit_group_members gm
+     left join public.users u on gm.user_id = u.id
+     where gm.group_id = $1
+     order by gm.joined_at asc`,
+    [groupId]
+  );
+  return {
+    ...groupRes.rows[0],
+    members: membersRes.rows,
+  };
+}
+
+export async function createHabitGroup(
+  userId: string,
+  name: string,
+  maxMembers = 5
+): Promise<HabitGroupRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = crypto.randomUUID();
+    const inviteCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const res = await client.query<HabitGroupRecord>(
+      `insert into public.habit_groups (id, name, invite_code, created_by, max_members, created_at)
+       values ($1, $2, $3, $4, $5, now())
+       returning *`,
+      [id, name, inviteCode, userId, maxMembers]
+    );
+    await client.query(
+      `insert into public.habit_group_members (id, group_id, user_id, joined_at)
+       values ($1, $2, $3, now())`,
+      [crypto.randomUUID(), id, userId]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function joinHabitGroup(
+  userId: string,
+  inviteCode: string,
+  habitId?: string
+): Promise<HabitGroupMemberRecord> {
+  return withUserDb(userId, async (client) => {
+    const groupRes = await client.query<HabitGroupRecord>(
+      `select * from public.habit_groups where upper(invite_code) = upper($1) limit 1`,
+      [inviteCode.trim()]
+    );
+    const group = groupRes.rows[0];
+    if (!group) throw new Error('Habit group not found with that invite code');
+
+    const countRes = await client.query('select count(*)::int as count from public.habit_group_members where group_id = $1', [group.id]);
+    if (countRes.rows[0].count >= group.max_members) {
+      throw new Error('Habit group is already full');
+    }
+
+    const memberId = crypto.randomUUID();
+    const res = await client.query<HabitGroupMemberRecord>(
+      `insert into public.habit_group_members (id, group_id, user_id, habit_id, joined_at)
+       values ($1, $2, $3, $4, now())
+       on conflict (group_id, user_id) do update set habit_id = coalesce(excluded.habit_id, habit_group_members.habit_id)
+       returning *`,
+      [memberId, group.id, userId, habitId ?? null]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function leaveHabitGroup(userId: string, groupId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query(
+      `delete from public.habit_group_members where group_id = $1 and user_id = $2`,
+      [groupId, userId]
+    );
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Reminders / Calendar
+// ----------------------------------------------------------------------------
+
+export async function getRemindersByUser(
+  userId: string,
+  options: { isCompleted?: boolean; fromDate?: string; toDate?: string; limit?: number } = {}
+): Promise<ReminderRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.reminders where user_id = $1';
+    const params: any[] = [userId];
+    let idx = 2;
+
+    if (options.isCompleted !== undefined) {
+      sql += ` and is_completed = $${idx++}`;
+      params.push(options.isCompleted);
+    }
+    if (options.fromDate) {
+      sql += ` and scheduled_at >= $${idx++}`;
+      params.push(options.fromDate);
+    }
+    if (options.toDate) {
+      sql += ` and scheduled_at <= $${idx++}`;
+      params.push(options.toDate);
+    }
+
+    sql += ' order by scheduled_at asc';
+    if (options.limit) {
+      sql += ` limit $${idx++}`;
+      params.push(options.limit);
+    }
+
+    const res = await client.query<ReminderRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function upsertReminder(
+  userId: string,
+  reminder: Partial<ReminderRecord> & { title: string }
+): Promise<ReminderRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = reminder.id || crypto.randomUUID();
+    const res = await client.query<ReminderRecord>(
+      `insert into public.reminders (
+        id, user_id, title, description, scheduled_at, repeat_pattern,
+        is_completed, created_at, updated_at, is_starred
+      ) values (
+        $1, $2, $3, $4, coalesce($5, now()), $6,
+        coalesce($7, false), coalesce($8, now()), now(), coalesce($9, false)
+      )
+      on conflict (id) do update set
+        title = excluded.title,
+        description = excluded.description,
+        scheduled_at = excluded.scheduled_at,
+        repeat_pattern = excluded.repeat_pattern,
+        is_completed = excluded.is_completed,
+        updated_at = now(),
+        is_starred = excluded.is_starred
+      returning *`,
+      [
+        id,
+        userId,
+        reminder.title,
+        reminder.description ?? null,
+        reminder.scheduled_at ?? null,
+        reminder.repeat_pattern ?? null,
+        reminder.is_completed ?? false,
+        reminder.created_at ?? null,
+        reminder.is_starred ?? false,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteReminder(userId: string, reminderId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query('delete from public.reminders where id = $1 and user_id = $2', [reminderId, userId]);
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Pomodoro Sessions
+// ----------------------------------------------------------------------------
+
+export async function getPomodoroSessionsByUser(
+  userId: string,
+  options: { gte?: string; lt?: string; limit?: number } = {}
+): Promise<PomodoroSessionRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.pomodoro_sessions where user_id = $1';
+    const params: any[] = [userId];
+    let idx = 2;
+
+    if (options.gte) {
+      sql += ` and started_at >= $${idx++}`;
+      params.push(options.gte);
+    }
+    if (options.lt) {
+      sql += ` and started_at < $${idx++}`;
+      params.push(options.lt);
+    }
+
+    sql += ' order by started_at desc';
+    if (options.limit) {
+      sql += ` limit $${idx++}`;
+      params.push(options.limit);
+    }
+
+    const res = await client.query<PomodoroSessionRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function insertPomodoroSession(
+  userId: string,
+  session: Partial<PomodoroSessionRecord> & { duration_minutes?: number; focus_minutes?: number }
+): Promise<PomodoroSessionRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = session.id || crypto.randomUUID();
+    const focusMins = session.focus_minutes ?? session.duration_minutes ?? 25;
+    const durationMins = session.duration_minutes ?? focusMins;
+    const startedAt = session.started_at || new Date().toISOString();
+    const completedAt = session.completed_at || new Date().toISOString();
+
+    const res = await client.query<PomodoroSessionRecord>(
+      `insert into public.pomodoro_sessions (
+        id, user_id, focus_minutes, break_minutes, sets_completed,
+        task_id, was_completed, started_at, completed_at, notes,
+        source, duration_minutes
+      ) values (
+        $1, $2, $3, coalesce($4, 0), coalesce($5, 1),
+        $6, coalesce($7, true), $8, $9, $10,
+        coalesce($11, 'web'), $12
+      )
+      on conflict (id) do update set
+        focus_minutes = excluded.focus_minutes,
+        break_minutes = excluded.break_minutes,
+        sets_completed = excluded.sets_completed,
+        task_id = excluded.task_id,
+        was_completed = excluded.was_completed,
+        started_at = excluded.started_at,
+        completed_at = excluded.completed_at,
+        notes = excluded.notes,
+        source = excluded.source,
+        duration_minutes = excluded.duration_minutes
+      returning *`,
+      [
+        id,
+        userId,
+        focusMins,
+        session.break_minutes ?? 0,
+        session.sets_completed ?? 1,
+        session.task_id ?? null,
+        session.was_completed ?? true,
+        startedAt,
+        completedAt,
+        session.notes ?? null,
+        session.source ?? 'web',
+        durationMins,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Countdowns
+// ----------------------------------------------------------------------------
+
+export async function getCountdownsByUser(
+  userId: string,
+  activeOnly = false
+): Promise<CountdownRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.countdowns where user_id = $1';
+    const params: any[] = [userId];
+    if (activeOnly) {
+      sql += ' and is_active = true';
+    }
+    sql += ' order by target_date asc';
+    const res = await client.query<CountdownRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function upsertCountdown(
+  userId: string,
+  countdown: Partial<CountdownRecord> & { event_name: string; target_date: string }
+): Promise<CountdownRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = countdown.id || crypto.randomUUID();
+    const res = await client.query<CountdownRecord>(
+      `insert into public.countdowns (
+        id, user_id, event_name, target_date, icon,
+        color, category, is_active, notes, created_at
+      ) values (
+        $1, $2, $3, $4, $5,
+        $6, $7, coalesce($8, true), $9, coalesce($10, now())
+      )
+      on conflict (id) do update set
+        event_name = excluded.event_name,
+        target_date = excluded.target_date,
+        icon = excluded.icon,
+        color = excluded.color,
+        category = excluded.category,
+        is_active = excluded.is_active,
+        notes = excluded.notes
+      returning *`,
+      [
+        id,
+        userId,
+        countdown.event_name,
+        countdown.target_date,
+        countdown.icon ?? null,
+        countdown.color ?? null,
+        countdown.category ?? null,
+        countdown.is_active ?? true,
+        countdown.notes ?? null,
+        countdown.created_at ?? null,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteCountdown(userId: string, countdownId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query('delete from public.countdowns where id = $1 and user_id = $2', [countdownId, userId]);
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// Notes
+// ----------------------------------------------------------------------------
+
+export async function getNotesByUser(
+  userId: string,
+  options: { isPinned?: boolean; isArchived?: boolean; search?: string; limit?: number } = {}
+): Promise<NoteRecord[]> {
+  return withUserDb(userId, async (client) => {
+    let sql = 'select * from public.notes where user_id = $1';
+    const params: any[] = [userId];
+    let idx = 2;
+
+    if (options.isPinned !== undefined) {
+      sql += ` and is_pinned = $${idx++}`;
+      params.push(options.isPinned);
+    }
+    if (options.isArchived !== undefined) {
+      sql += ` and is_archived = $${idx++}`;
+      params.push(options.isArchived);
+    }
+    if (options.search) {
+      sql += ` and (title ilike $${idx} or content ilike $${idx})`;
+      params.push(`%${options.search}%`);
+      idx++;
+    }
+
+    sql += ' order by is_pinned desc, updated_at desc';
+    if (options.limit) {
+      sql += ` limit $${idx++}`;
+      params.push(options.limit);
+    }
+
+    const res = await client.query<NoteRecord>(sql, params);
+    return res.rows;
+  });
+}
+
+export async function getNoteById(userId: string, noteId: string): Promise<NoteRecord | null> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query<NoteRecord>(
+      'select * from public.notes where id = $1 and user_id = $2 limit 1',
+      [noteId, userId]
+    );
+    return res.rows[0] || null;
+  });
+}
+
+export async function upsertNote(
+  userId: string,
+  note: Partial<NoteRecord> & { title: string }
+): Promise<NoteRecord> {
+  return withUserDb(userId, async (client) => {
+    const id = note.id || crypto.randomUUID();
+    const res = await client.query<NoteRecord>(
+      `insert into public.notes (
+        id, user_id, title, content, tags, is_pinned,
+        is_archived, created_at, updated_at, color, source, type, audio_url
+      ) values (
+        $1, $2, $3, coalesce($4, ''), $5, coalesce($6, false),
+        coalesce($7, false), coalesce($8, now()), now(), $9, coalesce($10, 'native_ios'), coalesce($11, 'note'), $12
+      )
+      on conflict (id) do update set
+        title = excluded.title,
+        content = excluded.content,
+        tags = excluded.tags,
+        is_pinned = excluded.is_pinned,
+        is_archived = excluded.is_archived,
+        updated_at = now(),
+        color = excluded.color,
+        source = excluded.source,
+        type = excluded.type,
+        audio_url = excluded.audio_url
+      returning *`,
+      [
+        id,
+        userId,
+        note.title,
+        note.content ?? '',
+        note.tags ?? null,
+        note.is_pinned ?? false,
+        note.is_archived ?? false,
+        note.created_at ?? null,
+        note.color ?? null,
+        note.source ?? 'native_ios',
+        note.type ?? 'note',
+        note.audio_url ?? null,
+      ]
+    );
+    return res.rows[0];
+  });
+}
+
+export async function deleteNote(userId: string, noteId: string): Promise<boolean> {
+  return withUserDb(userId, async (client) => {
+    const res = await client.query('delete from public.notes where id = $1 and user_id = $2', [noteId, userId]);
+    return (res.rowCount ?? 0) > 0;
+  });
+}
+
+// ----------------------------------------------------------------------------
+// User Profile
+// ----------------------------------------------------------------------------
+
+export async function getUserProfile(userId: string): Promise<UserProfileRecord | null> {
+  const p = getAzurePool();
+  if (!p) return null;
+  const res = await p.query<UserProfileRecord>('select * from public.users where id = $1 limit 1', [userId]);
+  return res.rows[0] || null;
+}
+
+export async function updateUserProfile(
+  userId: string,
+  updates: Partial<UserProfileRecord>
+): Promise<UserProfileRecord | null> {
+  return withUserDb(userId, async (client) => {
+    const fields: string[] = [];
+    const values: any[] = [];
+    let idx = 1;
+
+    for (const [key, val] of Object.entries(updates)) {
+      if (key === 'id') continue;
+      fields.push(`${key} = $${idx++}`);
+      values.push(val);
+    }
+
+    if (fields.length === 0) {
+      const existing = await client.query<UserProfileRecord>('select * from public.users where id = $1', [userId]);
+      return existing.rows[0] || null;
+    }
+
+    fields.push(`updated_at = now()`);
+    values.push(userId);
+
+    const sql = `update public.users set ${fields.join(', ')} where id = $${idx} returning *`;
+    const res = await client.query<UserProfileRecord>(sql, values);
+    return res.rows[0] || null;
+  });
+}
+
+export async function awardUserXp(
+  userId: string,
+  amount: number,
+  source: string,
+  idempotencyKey?: string
+): Promise<{ total_xp: number; current_level: number }> {
+  return withUserDb(userId, async (client) => {
+    if (idempotencyKey) {
+      const existing = await client.query('select id from public.xp_logs where idempotency_key = $1 limit 1', [idempotencyKey]);
+      if (existing.rows.length > 0) {
+        const u = await client.query<UserProfileRecord>('select total_xp, current_level from public.users where id = $1', [userId]);
+        return { total_xp: u.rows[0]?.total_xp ?? 0, current_level: u.rows[0]?.current_level ?? 1 };
+      }
+    }
+
+    await client.query(
+      `insert into public.xp_logs (id, user_id, amount, source, created_at, idempotency_key)
+       values ($1, $2, $3, $4, now(), $5)`,
+      [crypto.randomUUID(), userId, amount, source, idempotencyKey ?? null]
+    );
+
+    const updateRes = await client.query<UserProfileRecord>(
+      `update public.users
+       set total_xp = coalesce(total_xp, 0) + $1,
+           current_level = greatest(1, floor((coalesce(total_xp, 0) + $1) / 500) + 1),
+           updated_at = now()
+       where id = $2
+       returning total_xp, current_level`,
+      [amount, userId]
+    );
+
+    return {
+      total_xp: updateRes.rows[0]?.total_xp ?? 0,
+      current_level: updateRes.rows[0]?.current_level ?? 1,
+    };
+  });
 }
 

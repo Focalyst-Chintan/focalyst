@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { McpUserError, must, PHONE_NOTE } from '../run';
 import { hhmm, localDateTime } from '../time';
+import { getTasksByUser } from '@/lib/server/azure-db';
 import { clip } from '../text';
 import { READ, dateSchema, defineTool, writeHints } from './shared';
 
@@ -40,24 +41,36 @@ export function registerTaskTools(server: McpServer, { writes }: { writes: boole
       if (args.due_from && args.due_to && args.due_from > args.due_to) {
         throw new McpUserError('The start date must be on or before the end date.');
       }
-      let q = sb
-        .from('tasks')
-        .select('id, title, description, due_date, due_time, priority, is_completed, completed_at')
-        .eq('user_id', userId);
-      if (args.status === 'open') q = q.eq('is_completed', false);
-      if (args.status === 'completed') q = q.eq('is_completed', true);
-      if (args.due_from) q = q.gte('due_date', args.due_from);
-      if (args.due_to) q = q.lte('due_date', args.due_to);
-      if (args.priority) q = q.eq('priority', args.priority);
+      let rows: TaskRow[] = [];
+      try {
+        const azRows = await getTasksByUser(userId, {
+          isCompleted: args.status === 'completed' ? true : args.status === 'open' ? false : undefined,
+          dueFrom: args.due_from,
+          dueTo: args.due_to,
+          priority: args.priority,
+          limit: args.limit,
+        });
+        rows = azRows as TaskRow[];
+      } catch {
+        let q = sb
+          .from('tasks')
+          .select('id, title, description, due_date, due_time, priority, is_completed, completed_at')
+          .eq('user_id', userId);
+        if (args.status === 'open') q = q.eq('is_completed', false);
+        if (args.status === 'completed') q = q.eq('is_completed', true);
+        if (args.due_from) q = q.gte('due_date', args.due_from);
+        if (args.due_to) q = q.lte('due_date', args.due_to);
+        if (args.priority) q = q.eq('priority', args.priority);
 
-      if (args.status === 'completed') {
-        q = q.order('completed_at', { ascending: false, nullsFirst: false });
-      } else {
-        if (args.status === 'all') q = q.order('is_completed', { ascending: true });
-        q = q.order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
+        if (args.status === 'completed') {
+          q = q.order('completed_at', { ascending: false, nullsFirst: false });
+        } else {
+          if (args.status === 'all') q = q.order('is_completed', { ascending: true });
+          q = q.order('due_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false });
+        }
+
+        rows = (must(await q.limit(args.limit)) ?? []) as TaskRow[];
       }
-
-      const rows = (must(await q.limit(args.limit)) ?? []) as TaskRow[];
       if (args.status !== 'completed') {
         // Same due date: high, then medium, then low (sort is stable)
         rows.sort((a, b) => {

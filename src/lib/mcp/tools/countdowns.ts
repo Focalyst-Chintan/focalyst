@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { must, PHONE_NOTE } from '../run';
 import { daysBetween, todayIn } from '../time';
+import { getCountdownsByUser } from '@/lib/server/azure-db';
 import { READ, dateSchema, defineTool, writeHints } from './shared';
 
 export function registerCountdownTools(server: McpServer, { writes }: { writes: boolean }) {
@@ -18,18 +19,31 @@ export function registerCountdownTools(server: McpServer, { writes }: { writes: 
     },
     async (args, { sb, userId, tz }) => {
       const today = todayIn(tz);
-      let q = sb
-        .from('countdowns')
-        .select('id, event_name, icon, target_date')
-        .eq('user_id', userId)
-        .eq('is_active', true);
-      if (!args.include_past) q = q.gte('target_date', today);
-      const rows = (must(await q.order('target_date', { ascending: true }).limit(50)) ?? []) as {
-        id: string;
-        event_name: string;
-        icon: string | null;
-        target_date: string;
-      }[];
+      let rows: { id: string; event_name: string; icon: string | null; target_date: string }[] = [];
+      try {
+        const azCountdowns = await getCountdownsByUser(userId, true);
+        rows = azCountdowns
+          .filter((c) => args.include_past || c.target_date >= today)
+          .map((c) => ({
+            id: c.id,
+            event_name: c.event_name,
+            icon: c.icon,
+            target_date: c.target_date,
+          }));
+      } catch {
+        let q = sb
+          .from('countdowns')
+          .select('id, event_name, icon, target_date')
+          .eq('user_id', userId)
+          .eq('is_active', true);
+        if (!args.include_past) q = q.gte('target_date', today);
+        rows = (must(await q.order('target_date', { ascending: true }).limit(50)) ?? []) as {
+          id: string;
+          event_name: string;
+          icon: string | null;
+          target_date: string;
+        }[];
+      }
       return {
         countdowns: rows.map((c) => ({
           id: c.id,

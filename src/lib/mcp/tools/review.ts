@@ -13,6 +13,7 @@ import {
   loadSessions,
   mustCount,
 } from './shared';
+import { getTasksByUser, getNotesByUser } from '@/lib/server/azure-db';
 
 export function registerReviewTools(server: McpServer) {
   defineTool(
@@ -33,37 +34,67 @@ export function registerReviewTools(server: McpServer) {
       const lastCounted = weekEnd < today ? weekEnd : today;
       const range = utcRange(weekStart, weekEnd, tz);
 
-      const notDeleted = () =>
-        sb
-          .from('notes')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .not('is_deleted', 'is', true)
-          .gte('created_at', range.gte)
-          .lt('created_at', range.lt);
+      let doneCount = 0;
+      let doneTitles: { title: string }[] = [];
+      let notesCount = 0;
+      let voiceCount = 0;
 
-      const [doneCount, doneTitles, sessions, habits, logs, notesCount, voiceCount, report, blocking] = await Promise.all([
-        sb
-          .from('tasks')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', userId)
-          .eq('is_completed', true)
-          .gte('completed_at', range.gte)
-          .lt('completed_at', range.lt),
-        sb
-          .from('tasks')
-          .select('title')
-          .eq('user_id', userId)
-          .eq('is_completed', true)
-          .gte('completed_at', range.gte)
-          .lt('completed_at', range.lt)
-          .order('completed_at', { ascending: false })
-          .limit(15),
+      try {
+        const [azTasks, azNotes] = await Promise.all([
+          getTasksByUser(userId, { isCompleted: true }),
+          getNotesByUser(userId),
+        ]);
+        const completedThisWeek = azTasks.filter(
+          (t) => t.completed_at && t.completed_at >= range.gte && t.completed_at < range.lt
+        );
+        doneCount = completedThisWeek.length;
+        doneTitles = completedThisWeek.slice(0, 15).map((t) => ({ title: t.title }));
+
+        const createdNotes = azNotes.filter(
+          (n) => n.created_at >= range.gte && n.created_at < range.lt
+        );
+        notesCount = createdNotes.length;
+        voiceCount = createdNotes.filter((n) => n.type === 'voice').length;
+      } catch {
+        const notDeleted = () =>
+          sb
+            .from('notes')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .not('is_deleted', 'is', true)
+            .gte('created_at', range.gte)
+            .lt('created_at', range.lt);
+
+        const [dcRes, dtRes, ncRes, vcRes] = await Promise.all([
+          sb
+            .from('tasks')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId)
+            .eq('is_completed', true)
+            .gte('completed_at', range.gte)
+            .lt('completed_at', range.lt),
+          sb
+            .from('tasks')
+            .select('title')
+            .eq('user_id', userId)
+            .eq('is_completed', true)
+            .gte('completed_at', range.gte)
+            .lt('completed_at', range.lt)
+            .order('completed_at', { ascending: false })
+            .limit(15),
+          notDeleted(),
+          notDeleted().eq('note_type', 'voice'),
+        ]);
+        doneCount = mustCount(dcRes);
+        doneTitles = dtRes.data || [];
+        notesCount = mustCount(ncRes);
+        voiceCount = mustCount(vcRes);
+      }
+
+      const [sessions, habits, logs, report, blocking] = await Promise.all([
         loadSessions(sb, userId, range),
         loadActiveHabits(sb, userId),
         loadHabitLogs(sb, userId, weekStart),
-        notDeleted(),
-        notDeleted().eq('note_type', 'voice'),
         sb
           .from('reports')
           .select('score, week_summary_text')
@@ -90,8 +121,8 @@ export function registerReviewTools(server: McpServer) {
       return {
         week_start: weekStart,
         week_end: weekEnd,
-        tasks_completed: mustCount(doneCount),
-        completed_titles: ((must(doneTitles) ?? []) as { title: string }[]).map((t) => t.title),
+        tasks_completed: doneCount,
+        completed_titles: doneTitles.map((t) => t.title),
         focus: {
           total_minutes: Math.round(total),
           by_day: [...byDay.entries()].map(([date, minutes]) => ({ date, minutes: Math.round(minutes) })),
@@ -109,8 +140,8 @@ export function registerReviewTools(server: McpServer) {
             rate_percent: possible ? Math.min(100, Math.round((done / possible) * 100)) : 0,
           };
         }),
-        notes_created: mustCount(notesCount),
-        voice_notes_created: mustCount(voiceCount),
+        notes_created: notesCount,
+        voice_notes_created: voiceCount,
         ...(saved ? { saved_report: { score: saved.score, summary: saved.week_summary_text } } : {}),
         ...(blocking ? { distraction_blocking: blocking } : {}),
       };

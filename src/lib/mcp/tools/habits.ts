@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { McpServer } from '@modelcontextprotocol/server';
 import { McpNotFound, must, PHONE_NOTE } from '../run';
 import { addDays, todayIn } from '../time';
+import { getHabitsByUser } from '@/lib/server/azure-db';
 import {
   READ,
   bestRun,
@@ -65,14 +66,30 @@ export function registerHabitTools(server: McpServer, { writes }: { writes: bool
       annotations: READ,
     },
     async (args, { sb, userId, tz }) => {
-      const habit = must(
-        await sb
-          .from('habits')
-          .select('id, name, frequency, custom_days')
-          .eq('id', args.habit_id)
-          .eq('user_id', userId)
-          .maybeSingle()
-      ) as { id: string; name: string; frequency?: string | null; custom_days?: number[] | null } | null;
+      let habit: { id: string; name: string; frequency?: string | null; custom_days?: number[] | null } | null = null;
+      try {
+        const azHabits = await getHabitsByUser(userId);
+        const match = azHabits.find((h) => h.id === args.habit_id);
+        if (match) {
+          habit = {
+            id: match.id,
+            name: match.name,
+            frequency: match.frequency,
+            custom_days: match.custom_days,
+          };
+        }
+      } catch {}
+
+      if (!habit) {
+        habit = (must(
+          await sb
+            .from('habits')
+            .select('id, name, frequency, custom_days')
+            .eq('id', args.habit_id)
+            .eq('user_id', userId)
+            .maybeSingle()
+        ) as { id: string; name: string; frequency?: string | null; custom_days?: number[] | null } | null);
+      }
       if (!habit) throw new McpNotFound();
 
       const today = todayIn(tz);

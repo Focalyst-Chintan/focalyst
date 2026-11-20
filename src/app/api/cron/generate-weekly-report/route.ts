@@ -3,7 +3,13 @@ import { createAdminClient } from '@/lib/supabase-admin';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { upsertWeeklyReport } from '@/lib/server/azure-db';
+import {
+  upsertWeeklyReport,
+  getTasksByUser,
+  getHabitsByUser,
+  getHabitLogsByUser,
+  getPomodoroSessionsByUser,
+} from '@/lib/server/azure-db';
 
 export const maxDuration = 300;
 
@@ -98,41 +104,59 @@ export async function GET(req: Request) {
                     continue;
                 }
 
-                // Step 5: Handle New Users & Fetch Data (don't throw error if empty/short)
-                const [tasksRes, habitsRes, logsRes, sessionsRes] = await Promise.all([
-                    supabaseAdmin
-                        .from('tasks')
-                        .select('id, is_completed, status, due_date, completed_at')
-                        .eq('user_id', userId)
-                        .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
-                    supabaseAdmin
-                        .from('habits')
-                        .select('id, current_streak, longest_streak, frequency, custom_days')
-                        .eq('user_id', userId)
-                        .eq('is_active', true),
-                    supabaseAdmin
-                        .from('habit_logs')
-                        .select('id, habit_id, completed_date')
-                        .eq('user_id', userId)
-                        .gte('completed_date', startDateStr)
-                        .lte('completed_date', endDateStr),
-                    supabaseAdmin
-                        .from('pomodoro_sessions')
-                        .select('id, focus_minutes, sets_completed, was_completed')
-                        .eq('user_id', userId)
-                        .gte('completed_at', startDateISO)
-                        .lte('completed_at', endDateISO)
-                ]);
+                // Step 5: Handle New Users & Fetch Data (Azure DB primary, Supabase fallback)
+                let tasks: any[] = [];
+                let habits: any[] = [];
+                let habitLogs: any[] = [];
+                let sessions: any[] = [];
 
-                if (tasksRes.error) console.error(`[CRON_WEEKLY_REPORT] Tasks fetch error for user ${userId.substring(0, 8)}:`, tasksRes.error?.message);
-                if (habitsRes.error) console.error(`[CRON_WEEKLY_REPORT] Habits fetch error for user ${userId.substring(0, 8)}:`, habitsRes.error?.message);
-                if (logsRes.error) console.error(`[CRON_WEEKLY_REPORT] Habit logs fetch error for user ${userId.substring(0, 8)}:`, logsRes.error?.message);
-                if (sessionsRes.error) console.error(`[CRON_WEEKLY_REPORT] Pomodoro sessions fetch error for user ${userId.substring(0, 8)}:`, sessionsRes.error?.message);
+                try {
+                    const [azTasks, azHabits, azLogs, azSessions] = await Promise.all([
+                        getTasksByUser(userId),
+                        getHabitsByUser(userId, true),
+                        getHabitLogsByUser(userId, startDateStr),
+                        getPomodoroSessionsByUser(userId, { gte: startDateISO, lt: endDateISO }),
+                    ]);
+                    tasks = azTasks.filter(
+                        (t) =>
+                            (t.created_at && t.created_at >= startDateISO) ||
+                            (t.completed_at && t.completed_at >= startDateISO) ||
+                            (t.due_date && t.due_date >= startDateStr)
+                    );
+                    habits = azHabits;
+                    habitLogs = azLogs.filter((l) => l.completed_date <= endDateStr);
+                    sessions = azSessions;
+                } catch {
+                    const [tasksRes, habitsRes, logsRes, sessionsRes] = await Promise.all([
+                        supabaseAdmin
+                            .from('tasks')
+                            .select('id, is_completed, status, due_date, completed_at')
+                            .eq('user_id', userId)
+                            .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
+                        supabaseAdmin
+                            .from('habits')
+                            .select('id, current_streak, longest_streak, frequency, custom_days')
+                            .eq('user_id', userId)
+                            .eq('is_active', true),
+                        supabaseAdmin
+                            .from('habit_logs')
+                            .select('id, habit_id, completed_date')
+                            .eq('user_id', userId)
+                            .gte('completed_date', startDateStr)
+                            .lte('completed_date', endDateStr),
+                        supabaseAdmin
+                            .from('pomodoro_sessions')
+                            .select('id, focus_minutes, sets_completed, was_completed')
+                            .eq('user_id', userId)
+                            .gte('completed_at', startDateISO)
+                            .lte('completed_at', endDateISO)
+                    ]);
 
-                const tasks = tasksRes.data || [];
-                const habits = habitsRes.data || [];
-                const habitLogs = logsRes.data || [];
-                const sessions = sessionsRes.data || [];
+                    tasks = tasksRes.data || [];
+                    habits = habitsRes.data || [];
+                    habitLogs = logsRes.data || [];
+                    sessions = sessionsRes.data || [];
+                }
 
                 // Aggregate stats
                 const totalTasks = tasks.length;

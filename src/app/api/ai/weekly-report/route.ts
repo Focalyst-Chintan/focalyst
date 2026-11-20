@@ -3,7 +3,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
 import { completeJSON } from '@/lib/ai/providers';
 import { z } from 'zod';
-import { getWeeklyReport, upsertWeeklyReport } from '@/lib/server/azure-db';
+import {
+  getWeeklyReport,
+  upsertWeeklyReport,
+  getUserProfile,
+  getTasksByUser,
+  getHabitsByUser,
+  getHabitLogsByUser,
+  getPomodoroSessionsByUser,
+  getNotesByUser,
+} from '@/lib/server/azure-db';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -86,14 +95,21 @@ export async function POST(req: NextRequest) {
     const startDateStr = startDateISO.split('T')[0];
     const endDateStr = endDateISO.split('T')[0];
 
-    // Fetch user profile
-    const { data: profile } = await supabase
-      .from('users')
-      .select('plan')
-      .eq('id', user.id)
-      .single();
+    // Fetch user profile (Azure DB primary, Supabase fallback)
+    let profilePlan = 'free';
+    try {
+      const azProfile = await getUserProfile(user.id);
+      if (azProfile) profilePlan = azProfile.plan || 'free';
+    } catch {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('plan')
+        .eq('id', user.id)
+        .single();
+      if (profile) profilePlan = profile.plan || 'free';
+    }
 
-    const isPro = profile?.plan && profile.plan !== 'free';
+    const isPro = profilePlan !== 'free';
     const userPlan: 'free' | 'pro' = isPro ? 'pro' : 'free';
 
     // 1. Check if report for this week already exists (Azure DB primary, Supabase fallback)
@@ -141,43 +157,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. Aggregate user's weekly metrics with user's client (RLS preserved)
-    const [tasksRes, habitsRes, habitLogsRes, sessionsRes, notesCountRes] = await Promise.all([
-      supabase
-        .from('tasks')
-        .select('id, is_completed, status, due_date')
-        .eq('user_id', user.id)
-        .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
-      supabase
-        .from('habits')
-        .select('id, current_streak')
-        .eq('user_id', user.id)
-        .eq('is_active', true),
-      supabase
-        .from('habit_logs')
-        .select('id, habit_id, completed_date')
-        .eq('user_id', user.id)
-        .gte('completed_date', startDateStr)
-        .lte('completed_date', endDateStr),
-      supabase
-        .from('pomodoro_sessions')
-        .select('id, focus_minutes')
-        .eq('user_id', user.id)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO),
-      supabase
-        .from('notes')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO),
-    ]);
+    // 2. Aggregate user's weekly metrics (Azure DB primary, Supabase fallback)
+    let tasks: any[] = [];
+    let habits: any[] = [];
+    let habitLogs: any[] = [];
+    let sessions: any[] = [];
+    let notesCount = 0;
 
-    const tasks = tasksRes.data || [];
-    const habits = habitsRes.data || [];
-    const habitLogs = habitLogsRes.data || [];
-    const sessions = sessionsRes.data || [];
-    const notesCount = notesCountRes.count ?? 0;
+    try {
+      const [azTasks, azHabits, azLogs, azSessions, azNotes] = await Promise.all([
+        getTasksByUser(user.id),
+        getHabitsByUser(user.id, true),
+        getHabitLogsByUser(user.id, startDateStr),
+        getPomodoroSessionsByUser(user.id, { gte: startDateISO, lt: endDateISO }),
+        getNotesByUser(user.id),
+      ]);
+      tasks = azTasks.filter(
+        (t) =>
+          (t.created_at && t.created_at >= startDateISO) ||
+          (t.completed_at && t.completed_at >= startDateISO) ||
+          (t.due_date && t.due_date >= startDateStr)
+      );
+      habits = azHabits;
+      habitLogs = azLogs.filter((l) => l.completed_date <= endDateStr);
+      sessions = azSessions;
+      notesCount = azNotes.filter((n) => n.created_at >= startDateISO && n.created_at <= endDateISO).length;
+    } catch {
+      const [tasksRes, habitsRes, habitLogsRes, sessionsRes, notesCountRes] = await Promise.all([
+        supabase
+          .from('tasks')
+          .select('id, is_completed, status, due_date')
+          .eq('user_id', user.id)
+          .or(`created_at.gte.${startDateISO},completed_at.gte.${startDateISO},due_date.gte.${startDateStr}`),
+        supabase
+          .from('habits')
+          .select('id, current_streak')
+          .eq('user_id', user.id)
+          .eq('is_active', true),
+        supabase
+          .from('habit_logs')
+          .select('id, habit_id, completed_date')
+          .eq('user_id', user.id)
+          .gte('completed_date', startDateStr)
+          .lte('completed_date', endDateStr),
+        supabase
+          .from('pomodoro_sessions')
+          .select('id, focus_minutes')
+          .eq('user_id', user.id)
+          .gte('created_at', startDateISO)
+          .lte('created_at', endDateISO),
+        supabase
+          .from('notes')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+          .gte('created_at', startDateISO)
+          .lte('created_at', endDateISO),
+      ]);
+
+      tasks = tasksRes.data || [];
+      habits = habitsRes.data || [];
+      habitLogs = habitLogsRes.data || [];
+      sessions = sessionsRes.data || [];
+      notesCount = notesCountRes.count ?? 0;
+    }
 
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter((t: any) => t.is_completed || t.status === 'completed').length;
