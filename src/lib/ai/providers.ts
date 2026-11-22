@@ -86,7 +86,6 @@ export async function streamChat(
           messages: fullMessages,
           stream: true,
           max_tokens: 4096,
-          reasoning: { effort: 'low', exclude: true },
           temperature: 0.7,
         }),
         signal: controller.signal,
@@ -340,6 +339,27 @@ export async function streamChat(
 }
 
 /**
+ * Strips markdown code fences and extracts the outermost JSON object substring before parsing.
+ */
+function parseJSONContent<T>(raw: string): T {
+  let cleaned = raw.trim();
+  const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i);
+  if (fenceMatch) {
+    cleaned = fenceMatch[1].trim();
+  } else {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+  }
+
+  const firstBrace = cleaned.indexOf('{');
+  const lastBrace = cleaned.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
+  }
+
+  return JSON.parse(cleaned) as T;
+}
+
+/**
  * Non-streaming completeJSON helper with 45-second timeout and fallback from OpenRouter to Gemini.
  */
 export async function completeJSON<T = any>(
@@ -350,6 +370,7 @@ export async function completeJSON<T = any>(
 ): Promise<{ data: T; provider: 'openrouter' | 'gemini' }> {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
+  const errors: string[] = [];
 
   const messages = [
     {
@@ -383,16 +404,23 @@ export async function completeJSON<T = any>(
         const json = await res.json();
         const content = json.choices?.[0]?.message?.content;
         if (content) {
-          const parsed = JSON.parse(content);
+          const parsed = parseJSONContent<T>(content);
           return { data: parsed, provider: 'openrouter' };
         }
+        errors.push('openrouter: empty message content');
       } else {
         const errText = await res.text().catch(() => '');
-        console.error('[ai:completeJSON]', 'openrouter', res.status, errText.slice(0, 100));
+        const msg = `openrouter HTTP ${res.status}: ${errText.slice(0, 200)}`;
+        console.error('[ai:completeJSON]', msg);
+        errors.push(msg);
       }
     } catch (orErr: any) {
-      console.error('[ai:completeJSON]', 'openrouter', 500, orErr?.message || 'OpenRouter completeJSON error');
+      const msg = `openrouter error: ${orErr?.message || 'OpenRouter completeJSON error'}`;
+      console.error('[ai:completeJSON]', msg);
+      errors.push(msg);
     }
+  } else {
+    errors.push('openrouter: OPENROUTER_API_KEY not set');
   }
 
   // 2. Fallback to Gemini
@@ -417,19 +445,26 @@ export async function completeJSON<T = any>(
         const json = await res.json();
         const content = json.choices?.[0]?.message?.content;
         if (content) {
-          const parsed = JSON.parse(content);
+          const parsed = parseJSONContent<T>(content);
           return { data: parsed, provider: 'gemini' };
         }
+        errors.push('gemini: empty message content');
       } else {
         const errText = await res.text().catch(() => '');
-        console.error('[ai:completeJSON]', 'gemini', res.status, errText.slice(0, 100));
+        const msg = `gemini HTTP ${res.status}: ${errText.slice(0, 200)}`;
+        console.error('[ai:completeJSON]', msg);
+        errors.push(msg);
       }
     } catch (geminiErr: any) {
-      console.error('[ai:completeJSON]', 'gemini', 500, geminiErr?.message || 'Gemini completeJSON error');
+      const msg = `gemini error: ${geminiErr?.message || 'Gemini completeJSON error'}`;
+      console.error('[ai:completeJSON]', msg);
+      errors.push(msg);
     }
+  } else {
+    errors.push('gemini: GEMINI_API_KEY not set');
   }
 
-  throw new Error('Failed to generate structured JSON with all providers');
+  throw new Error(`Failed to generate structured JSON (${errors.join(' | ')})`);
 }
 
 /**

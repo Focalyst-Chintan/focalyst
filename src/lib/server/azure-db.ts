@@ -6,11 +6,20 @@ export function parseAzureConnectionString(connStr: string): PoolConfig {
   // If the password contains unencoded special characters like '@' or '#'
   // (e.g. postgresql://focalystadmin:F0c@lyst#Db2026!x9Z@focalyst-db-prod-02...)
   // standard URL parsing splits at the first '@' causing hostname to become 'lyst'.
-  // We use regex to robustly parse the last '@' as the delimiter before the host.
+  // We use regex to robustly parse the last '@' as the delimiter before the host,
+  // and decode percent-encoding only when valid %XX sequences are present.
   const regex = /^postgres(?:ql)?:\/\/([^:]+):(.*)@([^:/]+)(?::(\d+))?\/([^?]+)(?:\?(.*))?$/;
   const match = connStr.match(regex);
   if (match) {
-    const [, user, password, host, port, database] = match;
+    const [, user, rawPassword, host, port, database] = match;
+    let password = rawPassword;
+    if (/%[0-9A-Fa-f]{2}/.test(rawPassword)) {
+      try {
+        password = decodeURIComponent(rawPassword);
+      } catch {
+        password = rawPassword;
+      }
+    }
     return {
       user,
       password,
@@ -37,6 +46,7 @@ export function getAzurePool(): Pool | null {
         rejectUnauthorized: false,
       },
       max: 10,
+      connectionTimeoutMillis: 5000,
     });
   }
 

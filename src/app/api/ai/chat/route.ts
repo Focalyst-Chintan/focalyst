@@ -148,60 +148,68 @@ export async function POST(req: NextRequest) {
         accumulatedReply += textDecoder.decode(chunk, { stream: true });
         controller.enqueue(chunk);
       },
-      async flush() {
-        try {
-          // Log user and assistant messages to Azure PostgreSQL
-          await insertAiChatLogs([
-            {
-              user_id: user.id,
-              role: 'user',
-              content: userPrompt,
-              tab_context: 'chat',
-            },
-            {
-              user_id: user.id,
-              role: 'assistant',
-              content: accumulatedReply,
-              tab_context: 'chat',
-            },
-          ]);
-
-          // Update usage counter in Azure PostgreSQL
-          try {
-            await incrementUserAiUsage(user.id);
-          } catch {}
-
-          // Also mirror to Supabase for backward compatibility
-          try {
-            await supabase.from('ai_chat_logs').insert([
-              {
-                user_id: user.id,
-                role: 'user',
-                content: userPrompt,
-                tab_context: 'chat',
-              },
-              {
-                user_id: user.id,
-                role: 'assistant',
-                content: accumulatedReply,
-                tab_context: 'chat',
-              },
-            ]);
-          } catch {}
-
-          // Update user's daily message counter in Supabase
-          try {
-            await supabase
-              .from('users')
-              .update({
-                ai_message_count: currentUsage + 1,
-                last_message_date: new Date().toISOString(),
-              })
-              .eq('id', user.id);
-          } catch {}
-        } catch (dbErr: any) {
-          console.error('[ai:chat]', 'azure-db', 500, 'Failed to save chat logs: ' + dbErr?.message);
+      async flush(controller) {
+        console.info(`[ai:chat] streamed chars=${accumulatedReply.length}`);
+        if (!accumulatedReply.trim()) {
+          const fallbackReply = "I couldn't generate a response for that just now. Please try again.";
+          accumulatedReply = fallbackReply;
+          controller.enqueue(new TextEncoder().encode(fallbackReply));
         }
+
+        // Bound persistence so slow DB writes can never stall stream termination
+        await Promise.race([
+          Promise.allSettled([
+            (async () => {
+              try {
+                await insertAiChatLogs([
+                  {
+                    user_id: user.id,
+                    role: 'user',
+                    content: userPrompt,
+                    tab_context: 'chat',
+                  },
+                  {
+                    user_id: user.id,
+                    role: 'assistant',
+                    content: accumulatedReply,
+                    tab_context: 'chat',
+                  },
+                ]);
+                await incrementUserAiUsage(user.id);
+              } catch (dbErr: any) {
+                console.warn('[ai:chat]', 'azure-db', 'Failed to save chat logs:', dbErr?.message);
+              }
+            })(),
+            (async () => {
+              try {
+                await supabase.from('ai_chat_logs').insert([
+                  {
+                    user_id: user.id,
+                    role: 'user',
+                    content: userPrompt,
+                    tab_context: 'chat',
+                  },
+                  {
+                    user_id: user.id,
+                    role: 'assistant',
+                    content: accumulatedReply,
+                    tab_context: 'chat',
+                  },
+                ]);
+              } catch {}
+              try {
+                await supabase
+                  .from('users')
+                  .update({
+                    ai_message_count: currentUsage + 1,
+                    last_message_date: new Date().toISOString(),
+                  })
+                  .eq('id', user.id);
+              } catch {}
+            })(),
+          ]),
+          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+        ]);
       },
     });
 

@@ -24,9 +24,150 @@ const EXT: Record<string, string> = {
 const ALLOWED_TRANSCRIBE_MODEL = 'openai/whisper-large-v3-turbo';
 const ALLOWED_GEMINI_MODEL = 'gemini-2.5-flash';
 
-async function transcribeOpenRouter(file: Blob, ext: string, mime: string): Promise<string> {
+interface NormalizedAudio {
+  buffer: Buffer;
+  mime: string;
+  ext: string;
+  fileName: string;
+}
+
+/**
+ * Parses an Apple Core Audio Format (CAF) buffer with linear PCM (`lpcm`) data
+ * and wraps it in a standard 44-byte RIFF/WAVE header (little-endian).
+ */
+function cafToWav(caf: Buffer): Buffer | null {
+  if (caf.length < 20 || caf.subarray(0, 4).toString('ascii') !== 'caff') return null;
+
+  let sampleRate = 44100;
+  let formatID = '';
+  let formatFlags = 0;
+  let channelsPerFrame = 2;
+  let bitsPerChannel = 16;
+  let pcmData: Buffer | null = null;
+
+  let offset = 8; // skip 'caff' (4) + version (2) + flags (2)
+  while (offset + 12 <= caf.length) {
+    const chunkType = caf.subarray(offset, offset + 4).toString('ascii');
+    const sizeHi = caf.readInt32BE(offset + 4);
+    const sizeLo = caf.readUInt32BE(offset + 8);
+    offset += 12;
+
+    // CAF uses -1 (0xFFFFFFFFFFFFFFFF) in the `data` chunk when size is unknown / extends to EOF
+    const chunkSize =
+      sizeHi === -1 && sizeLo === 0xffffffff
+        ? caf.length - offset
+        : sizeHi * 0x100000000 + sizeLo;
+    if (chunkSize < 0 || offset + chunkSize > caf.length) break;
+
+    if (chunkType === 'desc' && chunkSize >= 32) {
+      sampleRate = Math.round(caf.readDoubleBE(offset)) || 44100;
+      formatID = caf.subarray(offset + 8, offset + 12).toString('ascii');
+      formatFlags = caf.readUInt32BE(offset + 12);
+      channelsPerFrame = caf.readUInt32BE(offset + 24) || 1;
+      bitsPerChannel = caf.readUInt32BE(offset + 28) || 16;
+    } else if (chunkType === 'data' && chunkSize > 4) {
+      // First 4 bytes of CAF `data` chunk are mEditCount
+      pcmData = Buffer.from(caf.subarray(offset + 4, offset + chunkSize));
+    }
+
+    offset += chunkSize;
+  }
+
+  if (formatID !== 'lpcm' || !pcmData || pcmData.length === 0) return null;
+
+  const isFloat = (formatFlags & 1) !== 0;
+  const isLittleEndian = (formatFlags & 2) !== 0;
+
+  if (!isLittleEndian) {
+    if (bitsPerChannel === 16) {
+      pcmData.swap16();
+    } else if (bitsPerChannel === 24) {
+      for (let i = 0; i + 2 < pcmData.length; i += 3) {
+        const tmp = pcmData[i];
+        pcmData[i] = pcmData[i + 2];
+        pcmData[i + 2] = tmp;
+      }
+    } else if (bitsPerChannel === 32) {
+      pcmData.swap32();
+    }
+  }
+
+  const byteRate = sampleRate * channelsPerFrame * (bitsPerChannel / 8);
+  const blockAlign = channelsPerFrame * (bitsPerChannel / 8);
+  const wavHeader = Buffer.alloc(44);
+  wavHeader.write('RIFF', 0, 'ascii');
+  wavHeader.writeUInt32LE(36 + pcmData.length, 4);
+  wavHeader.write('WAVE', 8, 'ascii');
+  wavHeader.write('fmt ', 12, 'ascii');
+  wavHeader.writeUInt32LE(16, 16); // PCM fmt chunk size
+  wavHeader.writeUInt16LE(isFloat ? 3 : 1, 20); // 1 = PCM, 3 = IEEE float
+  wavHeader.writeUInt16LE(channelsPerFrame, 22);
+  wavHeader.writeUInt32LE(sampleRate, 24);
+  wavHeader.writeUInt32LE(byteRate, 28);
+  wavHeader.writeUInt16LE(blockAlign, 32);
+  wavHeader.writeUInt16LE(bitsPerChannel, 34);
+  wavHeader.write('data', 36, 'ascii');
+  wavHeader.writeUInt32LE(pcmData.length, 40);
+
+  return Buffer.concat([wavHeader, pcmData]);
+}
+
+function normalizeAudioContainer(
+  buffer: Buffer,
+  fallbackMime: string,
+  fallbackExt: string
+): NormalizedAudio {
+  if (buffer.length >= 8 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
+    return { buffer, mime: 'audio/mp4', ext: 'm4a', fileName: 'audio.m4a' };
+  }
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'RIFF') {
+    return { buffer, mime: 'audio/wav', ext: 'wav', fileName: 'audio.wav' };
+  }
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'caff') {
+    const wavBuffer = cafToWav(buffer);
+    if (wavBuffer) {
+      console.info(`[ai:transcribe] converted CAF (${buffer.length}B) -> WAV (${wavBuffer.length}B)`);
+      return { buffer: wavBuffer, mime: 'audio/wav', ext: 'wav', fileName: 'audio.wav' };
+    }
+    return { buffer, mime: 'audio/x-caf', ext: 'caf', fileName: 'audio.caf' };
+  }
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'OggS') {
+    return { buffer, mime: 'audio/ogg', ext: 'ogg', fileName: 'audio.ogg' };
+  }
+  if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'fLaC') {
+    return { buffer, mime: 'audio/flac', ext: 'flac', fileName: 'audio.flac' };
+  }
+  if (
+    buffer.length >= 3 &&
+    (buffer.subarray(0, 3).toString('ascii') === 'ID3' ||
+      (buffer[0] === 0xff && (buffer[1] & 0xe0) === 0xe0))
+  ) {
+    return { buffer, mime: 'audio/mpeg', ext: 'mp3', fileName: 'audio.mp3' };
+  }
+  if (
+    buffer.length >= 4 &&
+    buffer[0] === 0x1a &&
+    buffer[1] === 0x45 &&
+    buffer[2] === 0xdf &&
+    buffer[3] === 0xa3
+  ) {
+    return { buffer, mime: 'audio/webm', ext: 'webm', fileName: 'audio.webm' };
+  }
+
+  console.warn(
+    `[ai:transcribe] unknown container hex=${buffer.subarray(0, 16).toString('hex')} len=${buffer.length}`
+  );
+  return {
+    buffer,
+    mime: fallbackMime,
+    ext: fallbackExt,
+    fileName: `audio.${fallbackExt}`,
+  };
+}
+
+async function transcribeOpenRouter(buffer: Buffer, ext: string, mime: string): Promise<string> {
   const out = new FormData();
-  out.append('file', new File([await file.arrayBuffer()], `audio.${ext}`, { type: mime || 'audio/webm' }));
+  out.append('file', new File([new Uint8Array(buffer)], `audio.${ext}`, { type: mime || 'audio/webm' }));
   out.append('model', ALLOWED_TRANSCRIBE_MODEL);
   const r = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
     method: 'POST',
@@ -144,13 +285,17 @@ export async function POST(req: NextRequest) {
 
     let text = '';
     let providerName = '';
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-    const fileName = (file as File).name || `audio.${ext}`;
+    const rawBuffer = Buffer.from(await file.arrayBuffer());
+    const detected = normalizeAudioContainer(rawBuffer, base, ext);
+    const fileBuffer = detected.buffer;
+    const effectiveMime = detected.mime;
+    const effectiveExt = detected.ext;
+    const fileName = detected.fileName;
 
     // 1. Try Azure AI Speech REST API first
     if (azureSpeechKey) {
       try {
-        const azureText = await transcribeWithAzureSpeech(fileBuffer, fileName, base);
+        const azureText = await transcribeWithAzureSpeech(fileBuffer, fileName, effectiveMime);
         if (azureText) {
           text = azureText;
           providerName = 'azure-speech';
@@ -163,7 +308,7 @@ export async function POST(req: NextRequest) {
     // 2. Automatic fallback to Gemini if Azure fails, returns empty, or for formats needing conversion
     if (!text && geminiKey) {
       try {
-        const geminiText = await transcribeWithGemini(fileBuffer, base);
+        const geminiText = await transcribeWithGemini(fileBuffer, effectiveMime);
         if (geminiText) {
           text = geminiText;
           providerName = 'gemini';
@@ -176,7 +321,7 @@ export async function POST(req: NextRequest) {
     // 3. Fallback to OpenRouter if still empty
     if (!text && openRouterKey) {
       try {
-        text = await transcribeOpenRouter(file, ext, base);
+        text = await transcribeOpenRouter(fileBuffer, effectiveExt, effectiveMime);
         if (text) {
           providerName = 'openrouter';
         }
