@@ -232,7 +232,16 @@ function convertPcmToInt16Le(
   return raw;
 }
 
-const UNCOMPRESSED_MP4_CODECS = new Set(['lpcm', 'sowt', 'twos', 'fl32', 'in24', 'in32']);
+const UNCOMPRESSED_MP4_CODECS = new Set([
+  'lpcm',
+  'sowt',
+  'twos',
+  'fl32',
+  'in24',
+  'in32',
+  'ipcm',
+  'fpcm',
+]);
 
 function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Codec?: string } {
   const moovs = findMp4Boxes(buffer, 0, buffer.length, 'moov');
@@ -242,6 +251,7 @@ function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Co
   let mp4Codec: string | undefined;
   let entryStart = -1;
   let entryEnd = -1;
+  let mdhdTimescale = 0;
 
   for (const trak of findMp4Boxes(buffer, moov.dataStart, moov.end, 'trak')) {
     const mdia = findMp4Boxes(buffer, trak.dataStart, trak.end, 'mdia')[0];
@@ -259,6 +269,16 @@ function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Co
       mp4Codec = buffer.subarray(firstEntry + 4, firstEntry + 8).toString('ascii');
       entryStart = firstEntry;
       entryEnd = firstEntry + entrySize;
+
+      const mdhd = findMp4Boxes(buffer, mdia.dataStart, mdia.end, 'mdhd')[0];
+      if (mdhd && mdhd.dataStart + 16 <= mdhd.end) {
+        const mdhdVersion = buffer.readUInt8(mdhd.dataStart);
+        if (mdhdVersion === 1 && mdhd.dataStart + 24 <= mdhd.end) {
+          mdhdTimescale = buffer.readUInt32BE(mdhd.dataStart + 20);
+        } else if (mdhdVersion === 0) {
+          mdhdTimescale = buffer.readUInt32BE(mdhd.dataStart + 12);
+        }
+      }
       break;
     }
   }
@@ -273,16 +293,51 @@ function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Co
   }
 
   const version = entryStart + 18 <= entryEnd ? buffer.readUInt16BE(entryStart + 16) : 0;
-  let sampleRate = 44100;
+  let sampleRate = mdhdTimescale || 44100;
   let channels = 2;
   let bitsPerChannel = 16;
   let flags = 0;
   let isFloat = false;
   let isBigEndian = false;
   let isSigned = true;
+  let pcmCFound = false;
 
-  if (version === 2 && entryStart + 64 <= entryEnd) {
-    sampleRate = Math.round(buffer.readDoubleBE(entryStart + 40)) || 44100;
+  if (mp4Codec === 'ipcm' || mp4Codec === 'fpcm') {
+    if (entryStart + 36 <= entryEnd) {
+      channels = buffer.readUInt16BE(entryStart + 24) || 1;
+      bitsPerChannel = buffer.readUInt16BE(entryStart + 26) || 16;
+      const fixedRate = buffer.readUInt32BE(entryStart + 32) >>> 16;
+      sampleRate = fixedRate > 0 ? fixedRate : mdhdTimescale || 44100;
+    }
+
+    const childStart = entryStart + (version === 1 ? 52 : 36);
+    let pcmCStart = -1;
+    if (childStart < entryEnd) {
+      const pcmCBox = findMp4Boxes(buffer, childStart, entryEnd, 'pcmC')[0];
+      if (pcmCBox) {
+        pcmCStart = pcmCBox.dataStart - 8;
+      } else {
+        const idx = buffer.indexOf(Buffer.from('pcmC'), entryStart + 36);
+        if (idx >= entryStart + 40 && idx + 10 <= entryEnd) {
+          pcmCStart = idx - 4;
+        }
+      }
+    }
+
+    if (pcmCStart >= 0 && pcmCStart + 14 <= entryEnd) {
+      pcmCFound = true;
+      flags = buffer.readUInt8(pcmCStart + 12);
+      const pcmSampleSize = buffer.readUInt8(pcmCStart + 13);
+      if (pcmSampleSize > 0) {
+        bitsPerChannel = pcmSampleSize;
+      }
+    }
+
+    isFloat = mp4Codec === 'fpcm';
+    isBigEndian = pcmCFound ? (flags & 1) === 0 : true;
+    isSigned = bitsPerChannel !== 8;
+  } else if (version === 2 && entryStart + 64 <= entryEnd) {
+    sampleRate = Math.round(buffer.readDoubleBE(entryStart + 40)) || mdhdTimescale || 44100;
     channels = buffer.readUInt32BE(entryStart + 48) || 1;
     bitsPerChannel = buffer.readUInt32BE(entryStart + 56) || 16;
     flags = buffer.readUInt32BE(entryStart + 60);
@@ -292,7 +347,7 @@ function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Co
   } else if (entryStart + 36 <= entryEnd) {
     channels = buffer.readUInt16BE(entryStart + 24) || 1;
     bitsPerChannel = buffer.readUInt16BE(entryStart + 26) || 16;
-    sampleRate = Math.round(buffer.readUInt32BE(entryStart + 32) / 65536) || 44100;
+    sampleRate = Math.round(buffer.readUInt32BE(entryStart + 32) / 65536) || mdhdTimescale || 44100;
     if (mp4Codec === 'fl32') {
       isFloat = true;
       bitsPerChannel = 32;
@@ -312,7 +367,8 @@ function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Co
     sampleRate,
     channels,
     bitsPerChannel,
-    flags,
+    isBigEndian,
+    pcmCFound,
     wavLen: wavBuffer.length,
   });
   return { wavBuffer, mp4Codec };
