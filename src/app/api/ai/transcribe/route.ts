@@ -73,7 +73,18 @@ function cafToWav(caf: Buffer): Buffer | null {
     offset += chunkSize;
   }
 
-  if (formatID !== 'lpcm' || !pcmData || pcmData.length === 0) return null;
+  if (formatID !== 'lpcm' || !pcmData || pcmData.length === 0) {
+    console.warn('[ai:transcribe] cafToWav failed', {
+      len: caf.length,
+      formatID: formatID || '(missing)',
+      formatFlags,
+      sampleRate,
+      channelsPerFrame,
+      bitsPerChannel,
+      pcmLen: pcmData?.length ?? 0,
+    });
+    return null;
+  }
 
   const isFloat = (formatFlags & 1) !== 0;
   const isLittleEndian = (formatFlags & 2) !== 0;
@@ -165,18 +176,23 @@ function normalizeAudioContainer(
   };
 }
 
-async function transcribeOpenRouter(buffer: Buffer, ext: string, mime: string): Promise<string> {
-  const out = new FormData();
-  out.append('file', new File([new Uint8Array(buffer)], `audio.${ext}`, { type: mime || 'audio/webm' }));
-  out.append('model', ALLOWED_TRANSCRIBE_MODEL);
+async function transcribeOpenRouter(buffer: Buffer, ext: string, _mime: string): Promise<string> {
+  const format = ext === 'mp4' ? 'm4a' : ext;
   const r = await fetch('https://openrouter.ai/api/v1/audio/transcriptions', {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      'Content-Type': 'application/json',
       'HTTP-Referer': 'https://focalyst.online',
       'X-Title': 'Focalyst',
     },
-    body: out,
+    body: JSON.stringify({
+      model: ALLOWED_TRANSCRIBE_MODEL,
+      input_audio: {
+        data: buffer.toString('base64'),
+        format,
+      },
+    }),
     signal: AbortSignal.timeout(40000),
   });
   if (!r.ok) throw new Error(`openrouter stt ${r.status} ${(await r.text()).slice(0, 200)}`);
@@ -286,11 +302,23 @@ export async function POST(req: NextRequest) {
     let text = '';
     let providerName = '';
     const rawBuffer = Buffer.from(await file.arrayBuffer());
+    const origName = (file as File).name || '';
     const detected = normalizeAudioContainer(rawBuffer, base, ext);
     const fileBuffer = detected.buffer;
     const effectiveMime = detected.mime;
     const effectiveExt = detected.ext;
     const fileName = detected.fileName;
+
+    console.log('[ai:transcribe] input', {
+      rawLen: rawBuffer.length,
+      origMime: base,
+      origName,
+      detected: detected.ext,
+      effectiveMime,
+      effectiveExt,
+      hasMoov: rawBuffer.includes(Buffer.from('moov')),
+      hex16: rawBuffer.subarray(0, 16).toString('hex'),
+    });
 
     // 1. Try Azure AI Speech REST API first
     if (azureSpeechKey) {
