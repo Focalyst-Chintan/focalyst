@@ -51,9 +51,22 @@ export async function enforceAIRateLimit(actionType: 'chat' | 'voice'): Promise<
     lastVoiceRequestTimestamp = now;
   }
 
-  const { data, error } = await supabase.rpc('check_and_increment_ai_quota', {
-    p_action_type: actionType,
-  });
+  let data: any = null;
+  let error: any = null;
+  try {
+    const rpcRes: any = await Promise.race([
+      supabase.rpc('check_and_increment_ai_quota', {
+        p_action_type: actionType,
+      }),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Rate limit RPC timeout')), 4000)
+      ),
+    ]);
+    data = rpcRes?.data;
+    error = rpcRes?.error;
+  } catch (rpcErr: any) {
+    error = rpcErr;
+  }
 
   if (error) {
     console.warn('[AIRateLimit] RPC warning:', error.message);
@@ -740,6 +753,11 @@ export async function executeChatCompletion({
     })
   );
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, 25000);
+
   try {
     const response = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/chat`, {
       method: 'POST',
@@ -750,6 +768,7 @@ export async function executeChatCompletion({
       body: JSON.stringify({
         messages: outboundMessages,
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -798,13 +817,18 @@ export async function executeChatCompletion({
       // Plain text stream response from /api/ai/chat
     }
 
+    const trimmedContent = content.trim();
+    if (!trimmedContent) {
+      throw new Error('Focalyst AI returned an empty response. Please try again.');
+    }
+
     return {
       data: {
         choices: [
           {
             message: {
               role: 'assistant',
-              content: content.trim(),
+              content: trimmedContent,
             },
           },
         ],
@@ -815,12 +839,18 @@ export async function executeChatCompletion({
     if (err instanceof AIRateLimitError) {
       throw err;
     }
+    if (err?.name === 'AbortError' || controller.signal.aborted) {
+      console.warn('[Focalyst AI] Chat request timed out after 25s');
+      throw new Error('Request timed out or failed to reach Focalyst AI. Please try again.');
+    }
     if (__DEV__) {
       console.warn('[Focalyst AI] Backend chat error:', err);
     }
     throw new Error(
       err?.message || 'Focalyst AI is temporarily unreachable. Please check your internet connection and try again.'
     );
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -866,14 +896,14 @@ export async function sendChatMessageToGroq(
   userMessageText: string,
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
   userId: string,
-  context: AuthorizedUserContext
+  context: AuthorizedUserContext | null
 ): Promise<GroqChatResponse> {
-  const selectedModel = routeModelForQuery(userMessageText, context);
+  const selectedModel = routeModelForQuery(userMessageText, context ?? undefined);
   const mode: 'light' | 'heavy' = selectedModel === AI_MODELS.LIGHTWEIGHT ? 'light' : 'heavy';
-  const systemPrompt = buildSystemPrompt(context);
+  const systemPrompt = context ? buildSystemPrompt(context) : '';
 
   const messages: ChatMessage[] = [
-    { role: 'system', content: systemPrompt },
+    ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
     ...history.slice(-10).map((m) => ({ role: m.role, content: m.content })),
     { role: 'user', content: userMessageText },
   ];
@@ -934,7 +964,9 @@ export async function sendChatMessageToGroq(
         args = {};
       }
 
-      const executionResult = await executeTool(toolName, args, userId, context);
+      const executionResult = context
+        ? await executeTool(toolName, args, userId, context)
+        : { success: false, message: 'User context unavailable for tool execution.' };
       toolsExecuted.push({
         name: toolName,
         args,
@@ -1008,7 +1040,7 @@ export async function sendChatMessageToGroq(
         .replace(/^task\s*:\s*/i, '')
         .trim();
       
-      if (rawTitle.length > 0) {
+      if (rawTitle.length > 0 && context) {
         const fallbackExec = await executeTool('create_task', { title: rawTitle }, userId, context);
         if (fallbackExec.success && fallbackExec.data) {
           toolsExecuted.push({
@@ -1119,26 +1151,6 @@ export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
       ? `file://${audioUri}`
       : audioUri;
 
-  // Validate audio exists and check size cap
-  try {
-    const expoFile = new File(normalizedUri);
-    if (expoFile.exists) {
-      if (expoFile.size < 500) {
-        throw new Error('Recorded audio file is too short or empty.');
-      }
-      if (expoFile.size > 15 * 1024 * 1024) {
-        throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
-      }
-    }
-  } catch (fileCheckErr: any) {
-    if (
-      fileCheckErr instanceof AIRateLimitError ||
-      fileCheckErr?.message?.includes('too short')
-    ) {
-      throw fileCheckErr;
-    }
-  }
-
   const extMatch = audioUri.toLowerCase().match(/\.(m4a|mp4|wav|mp3|webm|ogg|flac|aac)$/);
   const audioFormat = extMatch ? extMatch[1] : 'm4a';
   const mimeMap: Record<string, string> = {
@@ -1152,6 +1164,7 @@ export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
     aac: 'audio/aac',
   };
   const mimeType = mimeMap[audioFormat] || 'audio/mp4';
+  const fileName = `audio.${audioFormat}`;
 
   const formData = new FormData();
   if (Platform.OS === 'web') {
@@ -1160,54 +1173,124 @@ export async function transcribeVoiceAudio(audioUri: string): Promise<string> {
     if (blob.size < 500) {
       throw new Error('Recorded audio file is too short or empty.');
     }
-    formData.append('file', blob, `audio.${audioFormat}`);
+    if (blob.size > 15 * 1024 * 1024) {
+      throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+    }
+    formData.append('file', blob, fileName);
   } else {
-    formData.append('file', {
-      uri: normalizedUri,
-      name: `audio.${audioFormat}`,
-      type: mimeType,
-    } as any);
+    // React Native 0.86 / Expo 57 fetch (convertFormDataAsync) rejects legacy RN
+    // `{ uri, name, type }` objects with "Unsupported FormDataPart implementation".
+    // Read the local file bytes via expo-file-system's File (with fetch->blob fallback)
+    // and append a FormData-compatible part with bytes().
+    let attached = false;
+    try {
+      const expoFile = new File(normalizedUri);
+      if (!expoFile.exists) {
+        throw new Error('Recorded audio file could not be found.');
+      }
+      if (expoFile.size < 500) {
+        throw new Error('Recorded audio file is too short or empty.');
+      }
+      if (expoFile.size > 15 * 1024 * 1024) {
+        throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+      }
+      const audioBytes = await expoFile.bytes();
+      if (!audioBytes || audioBytes.byteLength < 500) {
+        throw new Error('Recorded audio file is too short or empty.');
+      }
+      if (audioBytes.byteLength > 15 * 1024 * 1024) {
+        throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+      }
+      formData.append(
+        'file',
+        {
+          name: fileName,
+          type: mimeType,
+          bytes: async () => audioBytes,
+        } as unknown as Blob,
+        fileName
+      );
+      attached = true;
+    } catch (fileReadErr: any) {
+      if (
+        fileReadErr instanceof AIRateLimitError ||
+        fileReadErr?.message?.includes('too short') ||
+        fileReadErr?.message?.includes('could not be found')
+      ) {
+        throw fileReadErr;
+      }
+      if (__DEV__) {
+        console.warn('[Backend STT] expo-file-system read failed, falling back to fetch(uri).blob():', fileReadErr);
+      }
+    }
+
+    if (!attached) {
+      const fileRes = await fetch(normalizedUri);
+      const blob = await fileRes.blob();
+      if (!blob || blob.size < 500) {
+        throw new Error('Recorded audio file is too short or empty.');
+      }
+      if (blob.size > 15 * 1024 * 1024) {
+        throw new AIRateLimitError('Recording exceeds the 10-minute maximum length.');
+      }
+      formData.append('file', blob, fileName);
+    }
   }
 
+  let response: Response;
   try {
-    const response = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/transcribe`, {
+    response = await fetch(`${FOCALYST_BACKEND_URL}/api/ai/transcribe`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       body: formData,
     });
-
-    if (response.ok) {
-      const data = await response.json();
-      const transcript = sanitizeTranscriptText(
-        data?.text || data?.transcript || data?.choices?.[0]?.message?.content || ''
-      );
-      if (transcript) return transcript;
-    } else {
-      const errData = await response.json().catch(() => null);
-      if (response.status === 401) {
-        throw new AIRateLimitError('Please sign in to use Focalyst AI.', 'UNAUTHENTICATED');
-      }
-      if (response.status === 413) {
-        throw new AIRateLimitError(
-          errData?.error || 'Recording exceeds the 10-minute maximum length.'
-        );
-      }
-      if (__DEV__) {
-        console.warn(`[Backend STT] status ${response.status}:`, errData);
-      }
-    }
-  } catch (err: any) {
-    if (err instanceof AIRateLimitError) {
-      throw err;
-    }
+  } catch (networkErr: any) {
     if (__DEV__) {
-      console.warn('[Backend STT] Error:', err);
+      console.warn('[Backend STT] Upload/Network Error:', networkErr);
     }
+    throw new Error(
+      __DEV__ && networkErr?.message
+        ? `Could not upload recording: ${networkErr.message}`
+        : 'Could not upload your recording. Please check your internet connection and try again.'
+    );
   }
 
-  throw new Error('Could not detect clear speech in the recording. Please speak clearly and try again.');
+  if (response.ok) {
+    const data = await response.json().catch(() => null);
+    const transcript = sanitizeTranscriptText(
+      data?.text || data?.transcript || data?.choices?.[0]?.message?.content || ''
+    );
+    if (transcript) return transcript;
+    throw new Error('Could not detect clear speech in the recording. Please speak clearly and try again.');
+  }
+
+  const errData = await response.json().catch(() => null);
+  if (__DEV__) {
+    console.warn(`[Backend STT] status ${response.status}:`, errData);
+  }
+
+  if (response.status === 401) {
+    throw new AIRateLimitError(
+      errData?.error || 'Please sign in to use Focalyst AI.',
+      'UNAUTHENTICATED'
+    );
+  }
+
+  if (response.status === 413 || errData?.code === 'too_large') {
+    throw new AIRateLimitError(
+      errData?.error || 'Recording exceeds the 10-minute maximum length.'
+    );
+  }
+
+  if (response.status === 422 || errData?.code === 'empty') {
+    throw new Error('Could not detect clear speech in the recording. Please speak clearly and try again.');
+  }
+
+  throw new Error(
+    errData?.error || `Voice transcription failed (HTTP ${response.status}). Please try again.`
+  );
 }
 
 export const transcribeAudioWithOpenRouter = transcribeVoiceAudio;

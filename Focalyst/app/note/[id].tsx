@@ -27,6 +27,7 @@ import { debounce } from 'lodash';
 import NetInfo from '@react-native-community/netinfo';
 import { processTranscriptWithAI } from '../../services/voiceNoteAI';
 import { ContentColumn } from '../../src/layout/adaptive';
+import { escapeHtml, markdownToHtml } from '../../src/utils/markdownToHtml';
 
 function cleanContent(text: string): string {
   if (!text) return '';
@@ -514,23 +515,85 @@ export default function NoteDetailScreen() {
     }
   }
 
+  async function handleRegenerateSummary() {
+    if (!note || isRegenerating) return;
+    const sourceTranscript = (note.transcript || noteContent || '').trim();
+    if (!sourceTranscript) {
+      Alert.alert('No Transcript', 'There is no transcript available to summarize.');
+      return;
+    }
+
+    setIsRegenerating(true);
+    try {
+      const result = await processTranscriptWithAI(sourceTranscript);
+      if (result.summarizationError) {
+        Alert.alert('Regeneration Failed', result.summarizationError);
+        return;
+      }
+
+      const nextTitle = result.title || noteTitle || 'Voice Note';
+      const nextSummary = result.summary || noteContent;
+      const nextTranscript = result.cleanedTranscript || note.transcript || sourceTranscript;
+
+      const { error } = await supabase
+        .from('notes')
+        .update({
+          title: nextTitle,
+          content: nextSummary,
+          transcript: nextTranscript,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', note.id);
+
+      if (error) throw error;
+
+      setNoteTitle(nextTitle);
+      setNoteContent(nextSummary);
+      setNote((prev) =>
+        prev
+          ? { ...prev, title: nextTitle, content: nextSummary, transcript: nextTranscript }
+          : null
+      );
+      DeviceEventEmitter.emit('notes:changed');
+    } catch (err: any) {
+      Alert.alert('Regeneration Failed', err?.message || 'Could not regenerate summary.');
+    } finally {
+      setIsRegenerating(false);
+    }
+  }
+
   async function handleExportPdf() {
     if (!note) return;
     try {
+      const isVoiceNote = note.note_type === 'voice';
+      const summaryHtml = isVoiceNote
+        ? `<div class="label">✨ Summary</div>${markdownToHtml(noteContent)}`
+        : '';
+      const bodyHtml = isVoiceNote
+        ? (note.transcript
+            ? `<div class="label">📝 Transcript</div><p class="transcript">${escapeHtml(note.transcript).replace(/\n/g, '<br/>')}</p>`
+            : '')
+        : `<div>${noteContent}</div>`;
+
       const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"/>
         <style>
           body{font-family:-apple-system,Helvetica,sans-serif;padding:40px;color:#0f172a}
           h1{color:#4a6c8c;font-size:26px;margin-bottom:4px}
+          h2,h3{color:#1e293b;font-size:16px;font-weight:700;margin:18px 0 6px}
           .meta{color:#94a3b8;font-size:12px;margin-bottom:24px}
           .badge{display:inline-block;background:#4a6c8c18;color:#4a6c8c;font-size:11px;padding:2px 8px;border-radius:99px;margin-bottom:16px}
           .label{font-size:11px;font-weight:700;text-transform:uppercase;color:#94a3b8;letter-spacing:1px;margin-top:24px;margin-bottom:8px}
-          p{font-size:15px;line-height:1.7;white-space:pre-wrap}
+          p{font-size:15px;line-height:1.7;margin:0 0 10px}
+          ul{margin:8px 0 12px;padding-left:20px}
+          li{font-size:15px;line-height:1.6;margin-bottom:4px}
+          strong{font-weight:700;color:#0f172a}
+          code{background:#f1f5f9;padding:2px 5px;border-radius:4px;font-size:13px}
         </style></head><body>
-        <div class="badge">${note.note_type === 'voice' ? '🎙 Voice Note' : '📄 Note'}</div>
-        <h1>${noteTitle || 'Untitled'}</h1>
+        <div class="badge">${isVoiceNote ? '🎙 Voice Note' : '📄 Note'}</div>
+        <h1>${escapeHtml(noteTitle || 'Untitled')}</h1>
         <div class="meta">Exported ${new Date().toLocaleDateString()} · Focalyst</div>
-        ${note.note_type === 'voice' ? `<div class="label">✨ AI Summary</div><p>${noteContent}</p>` : ''}
-        ${note.note_type === 'voice' && note.transcript ? `<div class="label">📝 Transcript</div><p>${note.transcript}</p>` : `<p>${noteContent}</p>`}
+        ${summaryHtml}
+        ${bodyHtml}
         </body></html>`;
       const { uri } = await Print.printToFileAsync({ html });
       const canShare = await Sharing.isAvailableAsync();
@@ -702,14 +765,38 @@ export default function NoteDetailScreen() {
               })}
             </View>
 
-            <TouchableOpacity
-              style={styles.inlineCopyBtn}
-              onPress={() => copyText(activeTab === 'summary' ? noteContent : note?.transcript || '')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="copy-outline" size={14} color="#fff" />
-              <Text style={styles.inlineCopyBtnText}>Copy</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              {activeTab === 'summary' && (
+                <TouchableOpacity
+                  style={[
+                    styles.regenerateIconBtn,
+                    isDarkMode
+                      ? { backgroundColor: '#18213D', borderColor: '#222A41' }
+                      : { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0' },
+                    isRegenerating && { opacity: 0.6 },
+                  ]}
+                  onPress={handleRegenerateSummary}
+                  disabled={isRegenerating}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Regenerate summary"
+                >
+                  {isRegenerating ? (
+                    <ActivityIndicator size="small" color={isDarkMode ? '#F2F5FF' : '#0F172A'} />
+                  ) : (
+                    <Ionicons name="sync" size={18} color={isDarkMode ? '#F2F5FF' : '#0F172A'} />
+                  )}
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.inlineCopyBtn}
+                onPress={() => copyText(activeTab === 'summary' ? noteContent : note?.transcript || '')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="copy-outline" size={14} color="#fff" />
+                <Text style={styles.inlineCopyBtnText}>Copy</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Content */}
@@ -1019,6 +1106,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     paddingHorizontal: 20,
     marginTop: 6,
     marginBottom: 16,
@@ -1031,11 +1119,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#16202c',
     padding: 4,
     alignItems: 'center',
-    marginRight: 12,
   },
   tab: {
     flex: 1,
     height: 34,
+    paddingHorizontal: 16,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1052,11 +1140,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
   },
+  regenerateIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   inlineCopyBtn: {
     height: 42,
     paddingHorizontal: 18,
     borderRadius: 999,
-    backgroundColor: '#ed6c4c',
+    backgroundColor: '#1951FC',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

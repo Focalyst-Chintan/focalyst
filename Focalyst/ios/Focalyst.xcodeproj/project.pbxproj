@@ -7,54 +7,74 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		05D887D98A9AB2AA4514AF3A /* FocalystDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 50702586D2E06DBED87476F4 /* FocalystDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
+		0A3F53C07103C021FB1ECE9E /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
 		0CAF609BB4A749CD8B6C205E /* PomodoroWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6C12577339B45FFB506BB08 /* PomodoroWidget.swift */; };
 		125D8CC8C3BB45B3B9568EDA /* CountdownWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0EED3A2929948428AC4E14E /* CountdownWidget.swift */; };
 		13AFDF4080428507034473F4 /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DB5BF7BDED841A54635A56A /* ShieldConfigurationExtension.swift */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		143EF4A2C9804E3FB3C4AC31 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
+		1F186A891F00245A237A1752 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
+		2107EA963A76335A11447723 /* FocalystShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 82FB6360694EC27246039608 /* FocalystShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		220076B40D5F47AD940DCDA0 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
+		2C401DA3842DECA711C3ADE5 /* FocalystDeviceActivityMonitor.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = ADAB429F739B73554315500E /* FocalystDeviceActivityMonitor.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		469376BB6D4FCF65C338C898 /* FocalystShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CB4A03BE4AC0D73AFEF071B4 /* FocalystShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
+		4037D5661AC8D7E28F957868 /* ShieldActionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AA61265255CA01B35C60013 /* ShieldActionExtension.swift */; };
 		4917ADF277EFFA1FCEEF64E7 /* libPods-ExpoWidgetsTarget.a in Frameworks */ = {isa = PBXBuildFile; fileRef = C0744005CB25B171A140022F /* libPods-ExpoWidgetsTarget.a */; };
 		4AE3C9A7FCD60DB7F6619FF7 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A081821C2A7BB1F0053A085 /* ExpoModulesProvider.swift */; };
+		4D3D236D9B69247E9410A52E /* DeviceActivityMonitorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3242729CAFB3BFE4A94EB212 /* DeviceActivityMonitorExtension.swift */; };
 		54F5AC971E320789F6B2A139 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 7724341967E55E39C0362AF5 /* PrivacyInfo.xcprivacy */; };
 		57448E148A714AAEB06D0C2C /* HeatmapWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08980F61CF3540D4BA727FED /* HeatmapWidget.swift */; };
 		5FA98713E826D62C24B8D43D /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
+		641F2B14107AD00F88003045 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
 		69C768A107D50D0076717DE6 /* libPods-Focalyst.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AF07F29B46735388D13A3BF3 /* libPods-Focalyst.a */; };
 		703189CEB8D14CBD853CE723 /* ExpoWidgetsTarget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BA0CE8D3F2E1402D8E7A09C7 /* ExpoWidgetsTarget.appex */; };
+		71BDB687655E6CDFE1542854 /* FocalystShieldConfiguration.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 25D02C43C1047E6CE4EB5417 /* FocalystShieldConfiguration.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		82358F6081E9A2830CF96D8C /* ShieldActionExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E02B5EB159A5522E33C7366 /* ShieldActionExtension.swift */; };
 		84590E9553DD422F8850BBA5 /* TodoWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0516A2174FD54938B81B4488 /* TodoWidget.swift */; };
+		86142576000AC8D3A0BA4D27 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
+		86C3EBE43E8B6F09012F32BE /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
 		8ACBB639D144E0699BC1DC77 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
+		8DC06CB17ACA16B9875BF9B7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
 		8E268F9B989F22AEBCC5BCCB /* DeviceActivityMonitorExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1CFD0CE03574884E5C600B3 /* DeviceActivityMonitorExtension.swift */; };
+		962E8F28661DE2E1B6A58452 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
+		99A75193CBE7DC177E17EE1F /* ShieldConfigurationExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316277599F0859B122E89487 /* ShieldConfigurationExtension.swift */; };
 		9B49A2A5D9B3D93A587EE7D1 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
 		9E092EF1F8B2B32E1F0CEB35 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
+		A1B2C3D4E5F6478899AABB01 /* VoiceNoteWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6478899AABB02 /* VoiceNoteWidget.swift */; };
 		A7B6C2FBD12F30A627A33723 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
 		B8AFD6D0BD814FDB815E7249 /* StreakWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B341F1DFE5E246B1B5D16AFF /* StreakWidget.swift */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D42805CD8CFA443E05FBAB22 /* SharedStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */; };
 		D8A8F07F0CC14941813F6803 /* CalendarWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7425947E95E64087A8357669 /* CalendarWidget.swift */; };
-		DD7594CB55038606009E3BEB /* FocalystShieldAction.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D889C5FFB52E78DD4DED1158 /* FocalystShieldAction.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, CodeSignOnCopy, ); }; };
 		E5BCC6D124C3DDA2A5684231 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
 		E6E0CC665ABA511B6F74C055 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB6BC75FC4AA744E83D6D2D /* ExpoModulesProvider.swift */; };
+		F072032CF7BEC5260A683C0B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E43752C924A7B95771CFCB34 /* Foundation.framework */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		FD8622BDEA15A2389FE77DE4 /* ShieldEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6AEC060166091822731A1F /* ShieldEngine.swift */; };
 		FFDA429ACF88496AA2A3E969 /* index.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A6C9811BDEF43CD82DC85C7 /* index.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
-		2904734792D0DB894123B968 /* PBXContainerItemProxy */ = {
+		038B2D52516F761C4C7862EB /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = B91FF4429D63172483707A22;
-			remoteInfo = FocalystShieldAction;
+			remoteGlobalIDString = 0AD8BF6320F0BF8D3E633DC3;
+			remoteInfo = FocalystShieldConfiguration;
 		};
-		B477D64966D86AE0BD87E3B0 /* PBXContainerItemProxy */ = {
+		32A052D0799B9682A8B901C4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = CB52367C3173A32BFBA47109;
+			remoteGlobalIDString = 49AD66740F7F45B09CF0AA21;
 			remoteInfo = FocalystDeviceActivityMonitor;
+		};
+		C55E930BC05A0C4ECA3692B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 006A4EC0C73C113AF38C9CB8;
+			remoteInfo = FocalystShieldAction;
 		};
 		D6935F9BE3E54C33B97E7741 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -62,13 +82,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 308A6603BE9E46B1B54B443E;
 			remoteInfo = ExpoWidgetsTarget;
-		};
-		DFB78E79AB19D0B17C9102DF /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 9B89B0FEDD2CC255F36B0E7F;
-			remoteInfo = FocalystShieldConfiguration;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -80,9 +93,9 @@
 			dstSubfolderSpec = 13;
 			files = (
 				703189CEB8D14CBD853CE723 /* ExpoWidgetsTarget.appex in Embed Foundation Extensions */,
-				469376BB6D4FCF65C338C898 /* FocalystShieldConfiguration.appex in Embed Foundation Extensions */,
-				DD7594CB55038606009E3BEB /* FocalystShieldAction.appex in Embed Foundation Extensions */,
-				05D887D98A9AB2AA4514AF3A /* FocalystDeviceActivityMonitor.appex in Embed Foundation Extensions */,
+				71BDB687655E6CDFE1542854 /* FocalystShieldConfiguration.appex in Embed Foundation Extensions */,
+				2107EA963A76335A11447723 /* FocalystShieldAction.appex in Embed Foundation Extensions */,
+				2C401DA3842DECA711C3ADE5 /* FocalystDeviceActivityMonitor.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -92,16 +105,18 @@
 /* Begin PBXFileReference section */
 		0516A2174FD54938B81B4488 /* TodoWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = TodoWidget.swift; path = TodoWidget.swift; sourceTree = "<group>"; };
 		08980F61CF3540D4BA727FED /* HeatmapWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = HeatmapWidget.swift; path = HeatmapWidget.swift; sourceTree = "<group>"; };
-		130BFE556AB7C13CCB5CE219 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* Focalyst.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Focalyst.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Focalyst/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Focalyst/Info.plist; sourceTree = "<group>"; };
 		1A6C9811BDEF43CD82DC85C7 /* index.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = index.swift; path = index.swift; sourceTree = "<group>"; };
 		1EB6BC75FC4AA744E83D6D2D /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Focalyst/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		25D02C43C1047E6CE4EB5417 /* FocalystShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		2C4FE4AD6C205FF95860E7CD /* Pods-ExpoWidgetsTarget.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExpoWidgetsTarget.release.xcconfig"; path = "Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget.release.xcconfig"; sourceTree = "<group>"; };
 		2DB5BF7BDED841A54635A56A /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
-		50702586D2E06DBED87476F4 /* FocalystDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		541F91AA004C01D152A28F84 /* FocalystShieldAction.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystShieldAction.entitlements; sourceTree = "<group>"; };
+		316277599F0859B122E89487 /* ShieldConfigurationExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldConfigurationExtension.swift; sourceTree = "<group>"; };
+		3242729CAFB3BFE4A94EB212 /* DeviceActivityMonitorExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceActivityMonitorExtension.swift; sourceTree = "<group>"; };
+		40620389EAE61ADE6BE9F160 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4F701CDC534F26190BE8C6F2 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		561895974A4D7EE35CBBBB0D /* Pods-Focalyst.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Focalyst.debug.xcconfig"; path = "Target Support Files/Pods-Focalyst/Pods-Focalyst.debug.xcconfig"; sourceTree = "<group>"; };
 		5E02B5EB159A5522E33C7366 /* ShieldActionExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldActionExtension.swift; sourceTree = "<group>"; };
 		5EF76B8BDF82B198722EFB75 /* SharedStorage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SharedStorage.swift; sourceTree = "<group>"; };
@@ -109,40 +124,34 @@
 		6A081821C2A7BB1F0053A085 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-ExpoWidgetsTarget/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		7425947E95E64087A8357669 /* CalendarWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = CalendarWidget.swift; path = CalendarWidget.swift; sourceTree = "<group>"; };
 		7724341967E55E39C0362AF5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = Focalyst/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		7AA61265255CA01B35C60013 /* ShieldActionExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldActionExtension.swift; sourceTree = "<group>"; };
 		7B6AEC060166091822731A1F /* ShieldEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ShieldEngine.swift; sourceTree = "<group>"; };
+		82FB6360694EC27246039608 /* FocalystShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		9F042028348FCDC02C17D8D9 /* FocalystShieldConfiguration.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystShieldConfiguration.entitlements; sourceTree = "<group>"; };
+		A1B2C3D4E5F6478899AABB02 /* VoiceNoteWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = VoiceNoteWidget.swift; path = VoiceNoteWidget.swift; sourceTree = "<group>"; };
+		A59D579A5637E8CE9815EB4B /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = Focalyst/SplashScreen.storyboard; sourceTree = "<group>"; };
+		ADAB429F739B73554315500E /* FocalystDeviceActivityMonitor.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystDeviceActivityMonitor.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AF07F29B46735388D13A3BF3 /* libPods-Focalyst.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Focalyst.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		B341F1DFE5E246B1B5D16AFF /* StreakWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = StreakWidget.swift; path = StreakWidget.swift; sourceTree = "<group>"; };
 		BA0CE8D3F2E1402D8E7A09C7 /* ExpoWidgetsTarget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = undefined; name = ExpoWidgetsTarget.appex; path = ExpoWidgetsTarget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		C0744005CB25B171A140022F /* libPods-ExpoWidgetsTarget.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-ExpoWidgetsTarget.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		C34F5A0C03D8A333CCED6762 /* FocalystShieldConfiguration.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystShieldConfiguration.entitlements; sourceTree = "<group>"; };
-		CB4A03BE4AC0D73AFEF071B4 /* FocalystShieldConfiguration.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystShieldConfiguration.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-		CDA33C3AADBAC276FBD33F4D /* FocalystDeviceActivityMonitor.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystDeviceActivityMonitor.entitlements; sourceTree = "<group>"; };
+		C0B5651EAD512248C05FC003 /* FocalystDeviceActivityMonitor.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystDeviceActivityMonitor.entitlements; sourceTree = "<group>"; };
 		D21DC52B16B48811CD0B1EA3 /* Pods-ExpoWidgetsTarget.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-ExpoWidgetsTarget.debug.xcconfig"; path = "Target Support Files/Pods-ExpoWidgetsTarget/Pods-ExpoWidgetsTarget.debug.xcconfig"; sourceTree = "<group>"; };
-		D3E8C0653AF2FA5C71FC6725 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D72CAEAA8B64A957B4ADE0D8 /* Pods-Focalyst.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Focalyst.release.xcconfig"; path = "Target Support Files/Pods-Focalyst/Pods-Focalyst.release.xcconfig"; sourceTree = "<group>"; };
-		D889C5FFB52E78DD4DED1158 /* FocalystShieldAction.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FocalystShieldAction.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E1CFD0CE03574884E5C600B3 /* DeviceActivityMonitorExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DeviceActivityMonitorExtension.swift; sourceTree = "<group>"; };
 		E43752C924A7B95771CFCB34 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
+		EFD94150063F136E51EF4EC8 /* FocalystShieldAction.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = FocalystShieldAction.entitlements; sourceTree = "<group>"; };
 		F0EED3A2929948428AC4E14E /* CountdownWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = CountdownWidget.swift; path = CountdownWidget.swift; sourceTree = "<group>"; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Focalyst/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* Focalyst-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "Focalyst-Bridging-Header.h"; path = "Focalyst/Focalyst-Bridging-Header.h"; sourceTree = "<group>"; };
 		F3DCE917EEE0460785AEB1D4 /* ExpoWidgetsTarget.entitlements */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = undefined; includeInIndex = 0; lastKnownFileType = unknown; name = ExpoWidgetsTarget.entitlements; path = ExpoWidgetsTarget.entitlements; sourceTree = "<group>"; };
 		F6C12577339B45FFB506BB08 /* PomodoroWidget.swift */ = {isa = PBXFileReference; explicitFileType = undefined; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = PomodoroWidget.swift; path = PomodoroWidget.swift; sourceTree = "<group>"; };
-		FB74B239266E40E3394C9CF0 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		11C04AC1C3C260CD9E26AF95 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				9E092EF1F8B2B32E1F0CEB35 /* Foundation.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		13B07F8C1A680F5B00A75B9A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -151,19 +160,19 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		5532DFF99CDD7ED6D3D4A498 /* Frameworks */ = {
+		6E9D983D1D59186204C2CF87 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E5BCC6D124C3DDA2A5684231 /* Foundation.framework in Frameworks */,
+				8DC06CB17ACA16B9875BF9B7 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		78310608F75F4F1B20402EC7 /* Frameworks */ = {
+		9B8D5DD84765DCE7BB76F044 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8ACBB639D144E0699BC1DC77 /* Foundation.framework in Frameworks */,
+				F072032CF7BEC5260A683C0B /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -172,6 +181,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				4917ADF277EFFA1FCEEF64E7 /* libPods-ExpoWidgetsTarget.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BF464B8EEFF128AB230FE21A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				86C3EBE43E8B6F09012F32BE /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -213,6 +230,17 @@
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
+		67DDCA28CB337B34578B3A18 /* FocalystDeviceActivityMonitor */ = {
+			isa = PBXGroup;
+			children = (
+				3242729CAFB3BFE4A94EB212 /* DeviceActivityMonitorExtension.swift */,
+				4F701CDC534F26190BE8C6F2 /* Info.plist */,
+				C0B5651EAD512248C05FC003 /* FocalystDeviceActivityMonitor.entitlements */,
+			);
+			name = FocalystDeviceActivityMonitor;
+			path = ../targets/FocalystDeviceActivityMonitor;
+			sourceTree = "<group>";
+		};
 		7AD2E19A5427823E5BCF3B72 /* Focalyst */ = {
 			isa = PBXGroup;
 			children = (
@@ -239,9 +267,9 @@
 				EC662EEBD360D93EDC22C11A /* Pods */,
 				9F9BA66946D1662360CAC7AC /* ExpoModulesProviders */,
 				2644C12602431874D5D3CE7E /* FocalystShared */,
-				FD2A91C15C74C9E5EBFB8DBD /* FocalystShieldConfiguration */,
-				9E06055DBBAE79BEEE74DA77 /* FocalystShieldAction */,
-				F7897206DE4F20CF4AEFFE35 /* FocalystDeviceActivityMonitor */,
+				BB01D279CF2FF7270520CCC5 /* FocalystShieldConfiguration */,
+				B4BA7FAA2774AF62AF77BE07 /* FocalystShieldAction */,
+				67DDCA28CB337B34578B3A18 /* FocalystDeviceActivityMonitor */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -253,9 +281,9 @@
 			children = (
 				13B07F961A680F5B00A75B9A /* Focalyst.app */,
 				BA0CE8D3F2E1402D8E7A09C7 /* ExpoWidgetsTarget.appex */,
-				CB4A03BE4AC0D73AFEF071B4 /* FocalystShieldConfiguration.appex */,
-				D889C5FFB52E78DD4DED1158 /* FocalystShieldAction.appex */,
-				50702586D2E06DBED87476F4 /* FocalystDeviceActivityMonitor.appex */,
+				25D02C43C1047E6CE4EB5417 /* FocalystShieldConfiguration.appex */,
+				82FB6360694EC27246039608 /* FocalystShieldAction.appex */,
+				ADAB429F739B73554315500E /* FocalystDeviceActivityMonitor.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -270,22 +298,12 @@
 				08980F61CF3540D4BA727FED /* HeatmapWidget.swift */,
 				0516A2174FD54938B81B4488 /* TodoWidget.swift */,
 				F0EED3A2929948428AC4E14E /* CountdownWidget.swift */,
+				A1B2C3D4E5F6478899AABB02 /* VoiceNoteWidget.swift */,
 				F6C12577339B45FFB506BB08 /* PomodoroWidget.swift */,
 				7425947E95E64087A8357669 /* CalendarWidget.swift */,
 			);
 			name = ExpoWidgetsTarget;
 			path = ExpoWidgetsTarget;
-			sourceTree = "<group>";
-		};
-		9E06055DBBAE79BEEE74DA77 /* FocalystShieldAction */ = {
-			isa = PBXGroup;
-			children = (
-				5E02B5EB159A5522E33C7366 /* ShieldActionExtension.swift */,
-				D3E8C0653AF2FA5C71FC6725 /* Info.plist */,
-				541F91AA004C01D152A28F84 /* FocalystShieldAction.entitlements */,
-			);
-			name = FocalystShieldAction;
-			path = ../targets/FocalystShieldAction;
 			sourceTree = "<group>";
 		};
 		9F9BA66946D1662360CAC7AC /* ExpoModulesProviders */ = {
@@ -295,6 +313,28 @@
 				7AD2E19A5427823E5BCF3B72 /* Focalyst */,
 			);
 			name = ExpoModulesProviders;
+			sourceTree = "<group>";
+		};
+		B4BA7FAA2774AF62AF77BE07 /* FocalystShieldAction */ = {
+			isa = PBXGroup;
+			children = (
+				7AA61265255CA01B35C60013 /* ShieldActionExtension.swift */,
+				A59D579A5637E8CE9815EB4B /* Info.plist */,
+				EFD94150063F136E51EF4EC8 /* FocalystShieldAction.entitlements */,
+			);
+			name = FocalystShieldAction;
+			path = ../targets/FocalystShieldAction;
+			sourceTree = "<group>";
+		};
+		BB01D279CF2FF7270520CCC5 /* FocalystShieldConfiguration */ = {
+			isa = PBXGroup;
+			children = (
+				316277599F0859B122E89487 /* ShieldConfigurationExtension.swift */,
+				40620389EAE61ADE6BE9F160 /* Info.plist */,
+				9F042028348FCDC02C17D8D9 /* FocalystShieldConfiguration.entitlements */,
+			);
+			name = FocalystShieldConfiguration;
+			path = ../targets/FocalystShieldConfiguration;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -334,31 +374,43 @@
 			path = Pods;
 			sourceTree = "<group>";
 		};
-		F7897206DE4F20CF4AEFFE35 /* FocalystDeviceActivityMonitor */ = {
-			isa = PBXGroup;
-			children = (
-				E1CFD0CE03574884E5C600B3 /* DeviceActivityMonitorExtension.swift */,
-				130BFE556AB7C13CCB5CE219 /* Info.plist */,
-				CDA33C3AADBAC276FBD33F4D /* FocalystDeviceActivityMonitor.entitlements */,
-			);
-			name = FocalystDeviceActivityMonitor;
-			path = ../targets/FocalystDeviceActivityMonitor;
-			sourceTree = "<group>";
-		};
-		FD2A91C15C74C9E5EBFB8DBD /* FocalystShieldConfiguration */ = {
-			isa = PBXGroup;
-			children = (
-				2DB5BF7BDED841A54635A56A /* ShieldConfigurationExtension.swift */,
-				FB74B239266E40E3394C9CF0 /* Info.plist */,
-				C34F5A0C03D8A333CCED6762 /* FocalystShieldConfiguration.entitlements */,
-			);
-			name = FocalystShieldConfiguration;
-			path = ../targets/FocalystShieldConfiguration;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		006A4EC0C73C113AF38C9CB8 /* FocalystShieldAction */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 311DFE5A360436FAF7D9F373 /* Build configuration list for PBXNativeTarget "FocalystShieldAction" */;
+			buildPhases = (
+				E1BA23D9E79A6AF5FF19A103 /* Sources */,
+				9B8D5DD84765DCE7BB76F044 /* Frameworks */,
+				BC9D8DFEC94847A661F0F7CA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FocalystShieldAction;
+			productName = FocalystShieldAction;
+			productReference = 82FB6360694EC27246039608 /* FocalystShieldAction.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		0AD8BF6320F0BF8D3E633DC3 /* FocalystShieldConfiguration */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E53B76C8C824A7344E2FD8D0 /* Build configuration list for PBXNativeTarget "FocalystShieldConfiguration" */;
+			buildPhases = (
+				9C248A96EC20020D9EDBEF07 /* Sources */,
+				6E9D983D1D59186204C2CF87 /* Frameworks */,
+				9FDA2043BDFA841F42BEAB91 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = FocalystShieldConfiguration;
+			productName = FocalystShieldConfiguration;
+			productReference = 25D02C43C1047E6CE4EB5417 /* FocalystShieldConfiguration.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		13B07F861A680F5B00A75B9A /* Focalyst */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Focalyst" */;
@@ -378,9 +430,9 @@
 			);
 			dependencies = (
 				C5DA28EB1BDD414A977445EE /* PBXTargetDependency */,
-				068040D38F4DF82726BA84EE /* PBXTargetDependency */,
-				089CE93D0687FAC311245523 /* PBXTargetDependency */,
-				719DE0E0A943B5E2087A2C48 /* PBXTargetDependency */,
+				8CB9491786118D3D5DDC0E04 /* PBXTargetDependency */,
+				7552EED2E569882CB3BB0827 /* PBXTargetDependency */,
+				51600F84963C3E9A9B8D2157 /* PBXTargetDependency */,
 			);
 			name = Focalyst;
 			productName = Focalyst;
@@ -406,47 +458,13 @@
 			productReference = BA0CE8D3F2E1402D8E7A09C7 /* ExpoWidgetsTarget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
-		9B89B0FEDD2CC255F36B0E7F /* FocalystShieldConfiguration */ = {
+		49AD66740F7F45B09CF0AA21 /* FocalystDeviceActivityMonitor */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 528D43B9E01FB4855C457944 /* Build configuration list for PBXNativeTarget "FocalystShieldConfiguration" */;
+			buildConfigurationList = F527287C3F7073DF266D152E /* Build configuration list for PBXNativeTarget "FocalystDeviceActivityMonitor" */;
 			buildPhases = (
-				FC2FDA181A9D9633095927C0 /* Sources */,
-				5532DFF99CDD7ED6D3D4A498 /* Frameworks */,
-				C9861EF89D641B8C355F1A44 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = FocalystShieldConfiguration;
-			productName = FocalystShieldConfiguration;
-			productReference = CB4A03BE4AC0D73AFEF071B4 /* FocalystShieldConfiguration.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		B91FF4429D63172483707A22 /* FocalystShieldAction */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 71015CF517CC905BECB925D0 /* Build configuration list for PBXNativeTarget "FocalystShieldAction" */;
-			buildPhases = (
-				981451EB3332AA87FF4978BE /* Sources */,
-				78310608F75F4F1B20402EC7 /* Frameworks */,
-				674B979279A3E945133556DC /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = FocalystShieldAction;
-			productName = FocalystShieldAction;
-			productReference = D889C5FFB52E78DD4DED1158 /* FocalystShieldAction.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
-		CB52367C3173A32BFBA47109 /* FocalystDeviceActivityMonitor */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 6A17EB3D60A6E016BDBEAAB3 /* Build configuration list for PBXNativeTarget "FocalystDeviceActivityMonitor" */;
-			buildPhases = (
-				9D0A9666C06D38FEC6DD9D9B /* Sources */,
-				11C04AC1C3C260CD9E26AF95 /* Frameworks */,
-				00D513E9852805219E0F657C /* Resources */,
+				A45EC00A3F9916A490AE16AC /* Sources */,
+				BF464B8EEFF128AB230FE21A /* Frameworks */,
+				AC305CFEEE5C6F21AEC892F5 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -454,7 +472,7 @@
 			);
 			name = FocalystDeviceActivityMonitor;
 			productName = FocalystDeviceActivityMonitor;
-			productReference = 50702586D2E06DBED87476F4 /* FocalystDeviceActivityMonitor.appex */;
+			productReference = ADAB429F739B73554315500E /* FocalystDeviceActivityMonitor.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -504,21 +522,14 @@
 			targets = (
 				13B07F861A680F5B00A75B9A /* Focalyst */,
 				308A6603BE9E46B1B54B443E /* ExpoWidgetsTarget */,
-				9B89B0FEDD2CC255F36B0E7F /* FocalystShieldConfiguration */,
-				B91FF4429D63172483707A22 /* FocalystShieldAction */,
-				CB52367C3173A32BFBA47109 /* FocalystDeviceActivityMonitor */,
+				0AD8BF6320F0BF8D3E633DC3 /* FocalystShieldConfiguration */,
+				006A4EC0C73C113AF38C9CB8 /* FocalystShieldAction */,
+				49AD66740F7F45B09CF0AA21 /* FocalystDeviceActivityMonitor */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		00D513E9852805219E0F657C /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		13B07F8E1A680F5B00A75B9A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -530,14 +541,21 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		674B979279A3E945133556DC /* Resources */ = {
+		9FDA2043BDFA841F42BEAB91 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		C9861EF89D641B8C355F1A44 /* Resources */ = {
+		AC305CFEEE5C6F21AEC892F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BC9D8DFEC94847A661F0F7CA /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -646,6 +664,7 @@
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoDevice/ExpoDevice_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
+				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoNotifications/ExpoNotifications_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoWidgets/ExpoWidgets.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/RNCAsyncStorage/RNCAsyncStorage_resources.bundle",
@@ -665,6 +684,7 @@
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoConstants_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoDevice_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoFileSystem_privacy.bundle",
+				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoMediaLibrary_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoNotifications_privacy.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/ExpoWidgets.bundle",
 				"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/RNCAsyncStorage_resources.bundle",
@@ -729,6 +749,7 @@
 				"${PODS_ROOT}/Target Support Files/Pods-Focalyst/Pods-Focalyst-frameworks.sh",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem.framework/ExpoFileSystem",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoFont/ExpoFont.framework/ExpoFont",
+				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoMediaLibrary/ExpoMediaLibrary.framework/ExpoMediaLibrary",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesCore/ExpoModulesCore.framework/ExpoModulesCore",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesWorklets/ExpoModulesWorklets.framework/ExpoModulesWorklets",
@@ -742,6 +763,7 @@
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFileSystem.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoFont.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoMediaLibrary.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesCore.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesJSI.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/ExpoModulesWorklets.framework",
@@ -790,6 +812,7 @@
 				57448E148A714AAEB06D0C2C /* HeatmapWidget.swift in Sources */,
 				84590E9553DD422F8850BBA5 /* TodoWidget.swift in Sources */,
 				125D8CC8C3BB45B3B9568EDA /* CountdownWidget.swift in Sources */,
+				A1B2C3D4E5F6478899AABB01 /* VoiceNoteWidget.swift in Sources */,
 				0CAF609BB4A749CD8B6C205E /* PomodoroWidget.swift in Sources */,
 				D8A8F07F0CC14941813F6803 /* CalendarWidget.swift in Sources */,
 				4AE3C9A7FCD60DB7F6619FF7 /* ExpoModulesProvider.swift in Sources */,
@@ -805,56 +828,56 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		981451EB3332AA87FF4978BE /* Sources */ = {
+		9C248A96EC20020D9EDBEF07 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				82358F6081E9A2830CF96D8C /* ShieldActionExtension.swift in Sources */,
-				5FA98713E826D62C24B8D43D /* SharedStorage.swift in Sources */,
-				220076B40D5F47AD940DCDA0 /* ShieldEngine.swift in Sources */,
+				99A75193CBE7DC177E17EE1F /* ShieldConfigurationExtension.swift in Sources */,
+				0A3F53C07103C021FB1ECE9E /* SharedStorage.swift in Sources */,
+				143EF4A2C9804E3FB3C4AC31 /* ShieldEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		9D0A9666C06D38FEC6DD9D9B /* Sources */ = {
+		A45EC00A3F9916A490AE16AC /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				8E268F9B989F22AEBCC5BCCB /* DeviceActivityMonitorExtension.swift in Sources */,
-				9B49A2A5D9B3D93A587EE7D1 /* SharedStorage.swift in Sources */,
-				FD8622BDEA15A2389FE77DE4 /* ShieldEngine.swift in Sources */,
+				4D3D236D9B69247E9410A52E /* DeviceActivityMonitorExtension.swift in Sources */,
+				962E8F28661DE2E1B6A58452 /* SharedStorage.swift in Sources */,
+				86142576000AC8D3A0BA4D27 /* ShieldEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		FC2FDA181A9D9633095927C0 /* Sources */ = {
+		E1BA23D9E79A6AF5FF19A103 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				13AFDF4080428507034473F4 /* ShieldConfigurationExtension.swift in Sources */,
-				D42805CD8CFA443E05FBAB22 /* SharedStorage.swift in Sources */,
-				A7B6C2FBD12F30A627A33723 /* ShieldEngine.swift in Sources */,
+				4037D5661AC8D7E28F957868 /* ShieldActionExtension.swift in Sources */,
+				1F186A891F00245A237A1752 /* SharedStorage.swift in Sources */,
+				641F2B14107AD00F88003045 /* ShieldEngine.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		068040D38F4DF82726BA84EE /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = FocalystShieldConfiguration;
-			target = 9B89B0FEDD2CC255F36B0E7F /* FocalystShieldConfiguration */;
-			targetProxy = DFB78E79AB19D0B17C9102DF /* PBXContainerItemProxy */;
-		};
-		089CE93D0687FAC311245523 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			name = FocalystShieldAction;
-			target = B91FF4429D63172483707A22 /* FocalystShieldAction */;
-			targetProxy = 2904734792D0DB894123B968 /* PBXContainerItemProxy */;
-		};
-		719DE0E0A943B5E2087A2C48 /* PBXTargetDependency */ = {
+		51600F84963C3E9A9B8D2157 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			name = FocalystDeviceActivityMonitor;
-			target = CB52367C3173A32BFBA47109 /* FocalystDeviceActivityMonitor */;
-			targetProxy = B477D64966D86AE0BD87E3B0 /* PBXContainerItemProxy */;
+			target = 49AD66740F7F45B09CF0AA21 /* FocalystDeviceActivityMonitor */;
+			targetProxy = 32A052D0799B9682A8B901C4 /* PBXContainerItemProxy */;
+		};
+		7552EED2E569882CB3BB0827 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FocalystShieldAction;
+			target = 006A4EC0C73C113AF38C9CB8 /* FocalystShieldAction */;
+			targetProxy = C55E930BC05A0C4ECA3692B1 /* PBXContainerItemProxy */;
+		};
+		8CB9491786118D3D5DDC0E04 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = FocalystShieldConfiguration;
+			target = 0AD8BF6320F0BF8D3E633DC3 /* FocalystShieldConfiguration */;
+			targetProxy = 038B2D52516F761C4C7862EB /* PBXContainerItemProxy */;
 		};
 		C5DA28EB1BDD414A977445EE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -864,6 +887,38 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		0993719A0CFC5DA2B639F550 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystShieldConfiguration/FocalystShieldConfiguration.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystShieldConfiguration/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ShieldConfiguration;
+				PRODUCT_MODULE_NAME = FocalystShieldConfiguration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 561895974A4D7EE35CBBBB0D /* Pods-Focalyst.debug.xcconfig */;
@@ -873,7 +928,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focalyst/Focalyst.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 62;
 				DEVELOPMENT_TEAM = 9S6XJABC22;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -887,7 +942,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 1.1.6;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -913,7 +968,7 @@
 				CODE_SIGN_ENTITLEMENTS = Focalyst/Focalyst.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 62;
 				DEVELOPMENT_TEAM = 9S6XJABC22;
 				INFOPLIST_FILE = Focalyst/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
@@ -922,7 +977,7 @@
 					"@executable_path/Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 13.4;
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 1.1.6;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-ObjC",
@@ -935,6 +990,69 @@
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		16C8921896320E0B360B152E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystDeviceActivityMonitor/FocalystDeviceActivityMonitor.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystDeviceActivityMonitor/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.DeviceActivityMonitor;
+				PRODUCT_MODULE_NAME = FocalystDeviceActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		2C51153396A452179050536E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystShieldAction/FocalystShieldAction.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystShieldAction/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ShieldAction;
+				PRODUCT_MODULE_NAME = FocalystShieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -1005,6 +1123,38 @@
 			};
 			name = Debug;
 		};
+		5C832FA0F6DC89FB2583EA5E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystDeviceActivityMonitor/FocalystDeviceActivityMonitor.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystDeviceActivityMonitor/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.DeviceActivityMonitor;
+				PRODUCT_MODULE_NAME = FocalystDeviceActivityMonitor;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		7A1A0D9316514C8FB514BA57 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = D21DC52B16B48811CD0B1EA3 /* Pods-ExpoWidgetsTarget.debug.xcconfig */;
@@ -1013,14 +1163,14 @@
 				CODE_SIGN_ENTITLEMENTS = ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 62;
 				DEVELOPMENT_TEAM = 9S6XJABC22;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ExpoWidgetsTarget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ExpoWidgetsTarget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 1.1.6;
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ExpoWidgetsTarget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1233,6 +1383,37 @@
 			};
 			name = Release;
 		};
+		B04764F4758339BF552D21DA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystShieldConfiguration/FocalystShieldConfiguration.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystShieldConfiguration/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ShieldConfiguration;
+				PRODUCT_MODULE_NAME = FocalystShieldConfiguration;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 		BBB7DC01DBB3C6D2F4D3DDEE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1274,14 +1455,14 @@
 				CODE_SIGN_ENTITLEMENTS = ExpoWidgetsTarget/ExpoWidgetsTarget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 60;
+				CURRENT_PROJECT_VERSION = 62;
 				DEVELOPMENT_TEAM = 9S6XJABC22;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = ExpoWidgetsTarget/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = ExpoWidgetsTarget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
-				MARKETING_VERSION = 1.1.5;
+				MARKETING_VERSION = 1.1.6;
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ExpoWidgetsTarget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -1325,6 +1506,37 @@
 			};
 			name = Release;
 		};
+		F6BED756A66D71983C49A77E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/../targets/FocalystShieldAction/FocalystShieldAction.entitlements";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 62;
+				DEFINES_MODULE = YES;
+				DEVELOPMENT_TEAM = 9S6XJABC22;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = "$(SRCROOT)/../targets/FocalystShieldAction/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.1.6;
+				PRODUCT_BUNDLE_IDENTIFIER = online.focalyst.ShieldAction;
+				PRODUCT_MODULE_NAME = FocalystShieldAction;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -1337,11 +1549,11 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		528D43B9E01FB4855C457944 /* Build configuration list for PBXNativeTarget "FocalystShieldConfiguration" */ = {
+		311DFE5A360436FAF7D9F373 /* Build configuration list for PBXNativeTarget "FocalystShieldAction" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				46CF69F9E494284D30DB38D2 /* Release */,
-				BBB7DC01DBB3C6D2F4D3DDEE /* Debug */,
+				2C51153396A452179050536E /* Release */,
+				F6BED756A66D71983C49A77E /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1355,29 +1567,29 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		6A17EB3D60A6E016BDBEAAB3 /* Build configuration list for PBXNativeTarget "FocalystDeviceActivityMonitor" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				A29C6A52A595BDDE50340A06 /* Release */,
-				9384A2CF04179B7BAC642CBC /* Debug */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		71015CF517CC905BECB925D0 /* Build configuration list for PBXNativeTarget "FocalystShieldAction" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				DED5E8A3DFE949AE9CCC7557 /* Release */,
-				55B10E93FC0C408F65187AB6 /* Debug */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "Focalyst" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,
 				83CBBA211A601CBA00E9B192 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		E53B76C8C824A7344E2FD8D0 /* Build configuration list for PBXNativeTarget "FocalystShieldConfiguration" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0993719A0CFC5DA2B639F550 /* Release */,
+				B04764F4758339BF552D21DA /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		F527287C3F7073DF266D152E /* Build configuration list for PBXNativeTarget "FocalystDeviceActivityMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5C832FA0F6DC89FB2583EA5E /* Release */,
+				16C8921896320E0B360B152E /* Debug */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

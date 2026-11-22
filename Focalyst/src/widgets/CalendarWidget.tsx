@@ -18,10 +18,7 @@ const CalendarWidget = (rawProps: CalendarWidgetProps, env?: WidgetEnv) => {
   const props = {
     weekdayLabel: 'SUNDAY',
     dayNumber: '1',
-    events: [
-      { id: 'sample-1', title: 'Work meeting', timeLabel: '09:00 - 10:45', accentColor: '#3B82F6' },
-      { id: 'sample-2', title: 'Review', timeLabel: '7:00 PM - 8:50 PM', accentColor: '#EF4444' },
-    ] as CalendarEventItem[],
+    events: [] as CalendarEventItem[],
     upcomingEvents: [] as CalendarEventItem[],
     ...(rawProps as Partial<CalendarWidgetProps>),
   };

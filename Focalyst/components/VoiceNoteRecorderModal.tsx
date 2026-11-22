@@ -1,668 +1,579 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useRef } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
+  Animated,
   StyleSheet,
   Modal,
   useColorScheme,
   ActivityIndicator,
-  Alert,
   ScrollView,
-  SafeAreaView,
-  Platform,
+  Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as FileSystem from 'expo-file-system/legacy';
-import { useAudioRecorder, AudioModule, RecordingPresets, setAudioModeAsync } from 'expo-audio';
-import { transcribeAudioUri, processTranscriptWithAI } from '../services/voiceNoteAI';
+import Svg, {
+  Defs,
+  RadialGradient,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+  Path,
+} from 'react-native-svg';
 import { useColumnStyle } from '../src/layout/adaptive';
-import { mutateWithOfflineQueue } from '../src/services/outageResilienceService';
+import { useVoiceNoteRecorder } from '../src/services/VoiceNoteContext';
+
+const UPCOMING_DOT_COUNT = 17;
+
+interface TactileKeyProps {
+  onPress: () => void;
+  disabled?: boolean;
+  isDark: boolean;
+  variant?: 'neutral' | 'crimson';
+  children: React.ReactNode;
+}
+
+const TactileKey: React.FC<TactileKeyProps> = ({
+  onPress,
+  disabled = false,
+  isDark,
+  variant = 'neutral',
+  children,
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.96,
+      useNativeDriver: true,
+      speed: 50,
+      bounciness: 0,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      speed: 40,
+      bounciness: 4,
+    }).start();
+  };
+
+  const isCrimson = variant === 'crimson';
+
+  return (
+    <Animated.View style={[styles.tactileKeyOuter, { transform: [{ scale: scaleAnim }] }]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled}
+        style={[
+          styles.tactileKeyBase,
+          isCrimson
+            ? styles.tactileKeyCrimsonBorder
+            : {
+                borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+                backgroundColor: isDark ? '#181D2A' : '#FFFFFF',
+                ...(isDark
+                  ? {}
+                  : {
+                      shadowColor: '#0F172A',
+                      shadowOffset: { width: 0, height: 3 },
+                      shadowOpacity: 0.06,
+                      shadowRadius: 8,
+                      elevation: 2,
+                    }),
+              },
+        ]}
+      >
+        {isCrimson ? (
+          <LinearGradient
+            colors={['#EF4444', '#B91C1C']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ) : isDark ? (
+          <LinearGradient
+            colors={['#23293A', '#141824']}
+            start={{ x: 0.5, y: 0 }}
+            end={{ x: 0.5, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+        ) : null}
+
+        {/* Subtle inner top rim highlight */}
+        <View
+          pointerEvents="none"
+          style={[
+            styles.tactileKeyTopRim,
+            {
+              backgroundColor: isCrimson
+                ? 'rgba(252, 165, 165, 0.4)'
+                : isDark
+                ? 'rgba(255, 255, 255, 0.1)'
+                : 'rgba(255, 255, 255, 0.9)',
+            },
+          ]}
+        />
+        {children}
+      </Pressable>
+    </Animated.View>
+  );
+};
 
 interface VoiceNoteRecorderModalProps {
-  visible: boolean;
-  onClose: () => void;
-  onSaveSuccess: (savedNote: any) => void;
-  userId?: string;
-  supabase: any;
   isDarkMode?: boolean;
 }
 
-export const VoiceNoteRecorderModal: React.FC<VoiceNoteRecorderModalProps> = (props) => {
-  if (!props.visible) return null;
-  return <VoiceNoteRecorderModalContent {...props} />;
-};
+export const VoiceNoteRecorderModal: React.FC<VoiceNoteRecorderModalProps> = ({ isDarkMode: propDarkMode }) => {
+  const {
+    visible,
+    isRecording,
+    isPaused,
+    isProcessing,
+    permissionDenied,
+    seconds,
+    liveTranscript,
+    statusMessage,
+    waveformSamples,
+    retryPermissionsAndStart,
+    openSettings,
+    togglePause,
+    discardRecording,
+    stopAndSaveRecording,
+  } = useVoiceNoteRecorder();
 
-const VoiceNoteRecorderModalContent: React.FC<VoiceNoteRecorderModalProps> = ({
-  visible,
-  onClose,
-  onSaveSuccess,
-  userId,
-  supabase,
-  isDarkMode: propDarkMode,
-}) => {
   const colorScheme = useColorScheme();
   const isDark = propDarkMode !== undefined ? propDarkMode : colorScheme !== 'light';
   const column = useColumnStyle();
-
-  const audioRecorder = useAudioRecorder({
-    ...(RecordingPresets?.HIGH_QUALITY || {
-      extension: '.m4a',
-      sampleRate: 44100,
-      numberOfChannels: 2,
-      bitRate: 128000,
-    }),
-    isMeteringEnabled: true,
+  const insets = useSafeAreaInsets();
+  const screenHeight = Dimensions.get('window').height;
+  const heroHeight = Math.round(screenHeight * 0.45);
+  const [heroSize, setHeroSize] = React.useState({
+    width: Dimensions.get('window').width,
+    height: heroHeight,
   });
-
-  const [isRecording, setIsRecording] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
-  const [seconds, setSeconds] = useState(0);
-  const [liveTranscript, setLiveTranscript] = useState('');
-  const [statusMessage, setStatusMessage] = useState(
-    'Listening... Speak clearly into your microphone.'
-  );
-  const BASE_BAR_HEIGHTS = [
-    16, 22, 18, 28, 36, 24, 42, 54, 38, 48, 62, 70, 58, 44, 52, 36, 40, 26, 32, 20, 24, 16,
-  ];
-
-  const [barHeights, setBarHeights] = useState<number[]>(BASE_BAR_HEIGHTS);
-  const isStoppingRef = useRef(false);
-  const isSnapshottingRef = useRef(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
-  useEffect(() => {
-    if (visible) {
-      startSession();
-    } else {
-      cleanupSession();
-    }
-    return () => {
-      cleanupSession();
-    };
-  }, [visible]);
+  if (!visible) return null;
 
-  // 1-second timer
-  useEffect(() => {
-    let timer: any = null;
-    if (visible && isRecording && !isPaused && !isProcessing) {
-      timer = setInterval(() => {
-        setSeconds((prev) => {
-          const next = prev + 1;
-          if (next >= 600 && isRecording && !isProcessing) {
-            handleStopAndSave();
-          }
-          return next;
-        });
-      }, 1000);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [visible, isRecording, isPaused, isProcessing]);
-
-  // Live status message while recording (avoids reading unfinalized .m4a files)
-  useEffect(() => {
-    if (visible && isRecording && !isPaused && !isProcessing) {
-      setStatusMessage('Listening... Speak freely. Your complete transcript will appear when you tap Stop.');
-    }
-  }, [visible, isRecording, isPaused, isProcessing]);
-
-  // Live organic random noise + inertia waveform jitter engine
-  useEffect(() => {
-    let interval: any = null;
-    if (visible && isRecording && !isPaused && !isProcessing) {
-      interval = setInterval(() => {
-        setBarHeights((prev) => {
-          const totalBars = BASE_BAR_HEIGHTS.length;
-          const centerIndex = Math.floor(totalBars / 2);
-          return prev.map((currH, i) => {
-            const baseHeight = BASE_BAR_HEIGHTS[i];
-            const randomBurst = Math.random() * 0.75 + 0.25; // chaotic human speech variation
-            const centerFactor = 1 - Math.abs(i - centerIndex) / (totalBars * 0.7); // taller in center
-            const targetHeight = Math.max(12, baseHeight * randomBurst * Math.max(0.3, centerFactor));
-
-            // Smooth interpolation (lerp) so bars glide organically instead of snapping:
-            return currH * 0.4 + targetHeight * 0.6;
-          });
-        });
-      }, 90);
-    } else {
-      setBarHeights(BASE_BAR_HEIGHTS);
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [visible, isRecording, isPaused, isProcessing]);
-
-  const startSession = async () => {
-    try {
-      setSeconds(0);
-      setLiveTranscript('');
-      isStoppingRef.current = false;
-      isSnapshottingRef.current = false;
-      setIsPaused(false);
-      setIsProcessing(false);
-      setStatusMessage('Listening... Speak clearly into your microphone.');
-
-      const status = await AudioModule.requestRecordingPermissionsAsync();
-      if (!status.granted) {
-        Alert.alert(
-          'Microphone Permission Required',
-          'Please enable microphone access in Settings to record voice notes.'
-        );
-        onClose();
-        return;
-      }
-
-      try {
-        await setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-        });
-      } catch (modeErr) {
-        console.warn('setAudioModeAsync error:', modeErr);
-      }
-
-      await audioRecorder.prepareToRecordAsync();
-      audioRecorder.record();
-      setIsRecording(true);
-    } catch (err: any) {
-      console.error('Failed to start recording:', err);
-      Alert.alert('Recording Error', err?.message || 'Could not start audio recording.');
-      onClose();
-    }
+  const handleDiscard = () => {
+    void discardRecording();
   };
 
-  /**
-   * Copies the currently recording file to a temp path without stopping the microphone,
-   * allowing Whisper to transcribe progressive audio if the OS flushes audio frames.
-   */
-  const pollLiveSnapshot = async () => {
-    if (isSnapshottingRef.current || isStoppingRef.current || isPaused || isProcessing) return;
-    const currentUri = audioRecorder.uri;
-    if (!currentUri) return;
-
-    isSnapshottingRef.current = true;
-    const tempUri = `${FileSystem.cacheDirectory}live_snapshot_${Date.now()}.m4a`;
-
-    try {
-      const normalizedSource = currentUri.startsWith('file://')
-        ? currentUri
-        : `file://${currentUri}`;
-      const info = await FileSystem.getInfoAsync(normalizedSource);
-
-      if (info.exists && info.size && info.size > 8192) {
-        await FileSystem.copyAsync({ from: normalizedSource, to: tempUri });
-        setIsLiveSyncing(true);
-        const partialText = await transcribeAudioUri(tempUri);
-        if (partialText && !isStoppingRef.current) {
-          setLiveTranscript(partialText);
-          setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 80);
-        }
-      }
-    } catch {
-      // Ignore partial m4a container read warnings while recording is still open
-    } finally {
-      setIsLiveSyncing(false);
-      isSnapshottingRef.current = false;
-      FileSystem.deleteAsync(tempUri, { idempotent: true }).catch(() => {});
-    }
+  const handleTogglePause = () => {
+    void togglePause();
   };
 
-  const cleanupSession = async () => {
-    isStoppingRef.current = true;
-    try {
-      if (audioRecorder.isRecording) {
-        await audioRecorder.stop();
-      }
-    } catch {}
-    try {
-      await setAudioModeAsync({ allowsRecording: false });
-    } catch {}
-    setIsRecording(false);
-    setIsPaused(false);
-    setSeconds(0);
-    setBarHeights(BASE_BAR_HEIGHTS);
-  };
-
-  const handleTogglePause = async () => {
-    try {
-      if (isPaused) {
-        audioRecorder.record();
-        setIsPaused(false);
-      } else {
-        audioRecorder.pause();
-        setIsPaused(true);
-      }
-    } catch (e) {
-      console.warn('Pause/Resume error:', e);
-    }
-  };
-
-  const handleDiscard = async () => {
-    await cleanupSession();
-    onClose();
-  };
-
-  const handleStopAndSave = async () => {
-    try {
-      isStoppingRef.current = true;
-      setIsProcessing(true);
-      setIsRecording(false);
-      setStatusMessage('Transcribing your recording with Whisper...');
-
-      await audioRecorder.stop();
-      // Give iOS AVAudioRecorder 300ms to finalize the m4a trailer on disk
-      await new Promise((r) => setTimeout(r, 300));
-
-      try {
-        await setAudioModeAsync({ allowsRecording: false });
-      } catch {}
-
-      const finalUri = audioRecorder.uri;
-      if (!finalUri) {
-        throw new Error('No audio recording URI was generated.');
-      }
-
-      const fullRawTranscript = await transcribeAudioUri(finalUri);
-
-      if (!fullRawTranscript || !fullRawTranscript.trim()) {
-        Alert.alert(
-          'No Speech Detected',
-          'The microphone recorded silence. If you are using the iOS Simulator on a Mac, please check Simulator > I/O > Audio Input and ensure your Mac microphone is selected.'
-        );
-        setIsProcessing(false);
-        onClose();
-        return;
-      }
-
-      setLiveTranscript(fullRawTranscript);
-      setStatusMessage('Generating structured summary...');
-
-      let processed = {
-        title: 'Voice Note',
-        cleanedTranscript: fullRawTranscript,
-        summary: fullRawTranscript,
-      };
-
-      try {
-        processed = await processTranscriptWithAI(fullRawTranscript);
-      } catch (aiErr) {
-        console.warn('[VoiceNoteModal] AI summarization failed, saving raw transcript directly:', aiErr);
-      }
-
-      // Resolve user_id
-      let finalUserId = userId;
-      if (!finalUserId) {
-        const { data: userData } = await supabase.auth.getUser();
-        finalUserId = userData?.user?.id || '';
-      }
-
-      const notePayload = {
-        user_id: finalUserId,
-        title: processed.title || 'Voice Note',
-        content: processed.summary || processed.cleanedTranscript,
-        transcript: processed.cleanedTranscript || fullRawTranscript,
-        note_type: 'voice',
-        is_favourite: false,
-        duration_seconds: seconds,
-        updated_at: new Date().toISOString(),
-      };
-
-      let savedNote: any = null;
-      try {
-        const { data, error } = await supabase
-          .from('notes')
-          .insert([notePayload])
-          .select()
-          .single();
-
-        if (error) throw error;
-        savedNote = data;
-      } catch (insertErr: any) {
-        if (
-          insertErr?.status >= 500 ||
-          insertErr?.message?.includes('FetchError') ||
-          insertErr?.message?.includes('Network') ||
-          insertErr?.message?.includes('timeout') ||
-          insertErr?.message?.includes('Failed to fetch')
-        ) {
-          const offlineNote = {
-            ...notePayload,
-            id: `offline_${Date.now()}`,
-            created_at: new Date().toISOString(),
-          };
-          await mutateWithOfflineQueue(
-            { table: 'notes', action: 'insert', payload: notePayload },
-            'notes',
-            (existing) => [offlineNote, ...(Array.isArray(existing) ? existing : [])]
-          );
-          savedNote = offlineNote;
-        } else {
-          throw insertErr;
-        }
-      }
-
-      setIsProcessing(false);
-      onSaveSuccess(savedNote);
-    } catch (err: any) {
-      console.warn('Voice Note Save Warning:', err?.message);
-      setIsProcessing(false);
-      const friendlyMsg =
-        err?.message && !err.message.includes('{') && !err.message.includes('API') && !err.message.includes('413')
-          ? err.message
-          : 'Could not process voice note. Please try recording again.';
-      Alert.alert('Voice Note Error', friendlyMsg);
-    }
+  const handleStopAndSave = () => {
+    void stopAndSaveRecording();
   };
 
   const formatTime = (totalSecs: number) => {
     const mins = Math.floor(totalSecs / 60).toString().padStart(2, '0');
     const secs = (totalSecs % 60).toString().padStart(2, '0');
-    return `${mins} : ${secs}`;
+    return `${mins}:${secs}`;
   };
+
+  const heroW = Math.max(heroSize.width, 1);
+  const heroH = Math.max(heroSize.height, 64);
 
   return (
     <Modal animationType="slide" presentationStyle="fullScreen" visible={visible}>
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: isDark ? '#121c2a' : '#f8fafc' }]}>
+      <View
+        style={[
+          styles.screenCanvas,
+          { backgroundColor: isDark ? '#06080F' : '#F3F6FB' },
+        ]}
+      >
         <View style={[styles.container, column]}>
-          {/* TOP RECORDING CARD: Static Elegant iOS Widget Gradient */}
+          {/* TOP HERO RECORDER PANEL: Full-Bleed Behind Status Bar */}
           <View
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              if (
+                Math.abs(width - heroSize.width) > 1 ||
+                Math.abs(height - heroSize.height) > 1
+              ) {
+                setHeroSize({ width, height });
+              }
+            }}
             style={[
               styles.topCard,
               {
-                backgroundColor: '#0A0909',
-                borderColor: 'rgba(59, 130, 246, 0.2)',
+                minHeight: heroHeight,
+                marginTop: isDark ? 0 : insets.top + 8,
+                paddingTop: isDark ? insets.top + 10 : 16,
+                paddingBottom: 28,
+                paddingHorizontal: 16,
+                backgroundColor: isDark ? '#06080F' : '#050814',
+                borderTopLeftRadius: isDark ? 0 : 24,
+                borderTopRightRadius: isDark ? 0 : 24,
               },
             ]}
           >
-            {/* Static Background & Bottom Blue Glow (LinearGradient) */}
-            <LinearGradient
-              colors={['#0A0909', '#0A0909', '#0F172A', '#1E3A8A', '#3B82F6', '#60A5FA']}
-              locations={[0, 0.35, 0.55, 0.75, 0.92, 1.0]}
-              start={{ x: 0.5, y: 0 }}
-              end={{ x: 0.5, y: 1 }}
+            {/* Seamless Obsidian-to-Cobalt Backlit Radial Glow + Bottom Specular Rim */}
+            <Svg
+              width={heroW}
+              height={heroH}
+              viewBox={`0 0 ${heroW} ${heroH}`}
               style={StyleSheet.absoluteFill}
               pointerEvents="none"
-            />
+            >
+              <Defs>
+                <RadialGradient
+                  id="voiceHeroGlow"
+                  cx="50%"
+                  cy="105%"
+                  rx="78%"
+                  ry="68%"
+                >
+                  <Stop offset="0%" stopColor="#60A5FA" stopOpacity={0.82} />
+                  <Stop offset="28%" stopColor="#1951FC" stopOpacity={0.62} />
+                  <Stop offset="58%" stopColor="#0B2CB1" stopOpacity={0.28} />
+                  <Stop
+                    offset="100%"
+                    stopColor={isDark ? '#06080F' : '#050814'}
+                    stopOpacity={0}
+                  />
+                </RadialGradient>
+                <SvgLinearGradient id="voiceBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop offset="0%" stopColor="#60A5FA" stopOpacity={0} />
+                  <Stop offset="22%" stopColor="#93C5FD" stopOpacity={0.55} />
+                  <Stop offset="50%" stopColor="#CBE9FD" stopOpacity={0.95} />
+                  <Stop offset="78%" stopColor="#93C5FD" stopOpacity={0.55} />
+                  <Stop offset="100%" stopColor="#60A5FA" stopOpacity={0} />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect x={0} y={0} width={heroW} height={heroH} fill="url(#voiceHeroGlow)" />
+              <Path
+                d={`M 0 ${heroH - 24} A 24 24 0 0 0 24 ${heroH - 1} L ${heroW - 24} ${
+                  heroH - 1
+                } A 24 24 0 0 0 ${heroW} ${heroH - 24}`}
+                stroke="url(#voiceBottomRim)"
+                strokeWidth={1.75}
+                fill="none"
+              />
+            </Svg>
 
+            {/* Top Bar Row */}
             <View style={[styles.topBarRow, { zIndex: 2 }]}>
               <TouchableOpacity
-                disabled={isProcessing}
                 onPress={handleDiscard}
-                style={[
-                  styles.backCircle,
-                  {
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    borderColor: 'rgba(255,255,255,0.15)',
-                  },
-                ]}
+                style={styles.backCircle}
                 activeOpacity={0.7}
               >
-                <Ionicons name="arrow-back" size={20} color="#ffffff" />
+                <Ionicons name="arrow-back" size={20} color="#FFFFFF" />
               </TouchableOpacity>
 
-              <View
-                style={[
-                  styles.recordingBadge,
-                  {
-                    backgroundColor: 'rgba(255,255,255,0.08)',
-                    borderColor: 'rgba(255,255,255,0.15)',
-                  },
-                ]}
-              >
-                <View style={[styles.redDot, { opacity: isPaused ? 0.4 : 1 }]} />
-                <Text style={[styles.recordingBadgeText, { color: '#ffffff' }]}>
-                  {isProcessing ? 'PROCESSING AI' : isPaused ? 'PAUSED' : 'NOW RECORDING'}
+              <View style={styles.recordingBadge}>
+                <View
+                  style={[
+                    styles.redDot,
+                    { opacity: !isRecording || isPaused ? 0.4 : 1 },
+                  ]}
+                />
+                <Text style={styles.recordingBadgeText}>
+                  {isProcessing
+                    ? 'PROCESSING'
+                    : isPaused
+                    ? 'PAUSED'
+                    : isRecording
+                    ? 'NOW RECORDING'
+                    : 'RECORDING STOPPED'}
                 </Text>
               </View>
 
-              <View style={{ width: 38 }} />
+              <View style={styles.topBarSpacer} />
             </View>
 
-            <Text style={[styles.sessionTitle, { color: '#ffffff', zIndex: 2 }]}>
-              Voice Note Session
-            </Text>
-            <Text style={[styles.sessionSubtitle, { color: 'rgba(255, 255, 255, 0.7)', zIndex: 2 }]}>
-              High Accuracy • 44.1 kHz
-            </Text>
+            {/* Title, Subtitle & Hero Timer */}
+            <View style={[styles.heroCenterBlock, { zIndex: 2 }]}>
+              <Text style={styles.sessionTitle}>Voice Note Session</Text>
+              <Text style={styles.sessionSubtitle}>High Accuracy • 44.1 kHz</Text>
+              <Text style={styles.timerText}>{formatTime(seconds)}</Text>
+            </View>
 
-            <Text style={[styles.timerText, { color: '#ffffff', zIndex: 2 }]}>
-              {formatTime(seconds)}
-            </Text>
-
+            {/* Studio Scrolling Voice Waveform */}
             <View style={[styles.waveformContainer, { zIndex: 2 }]}>
-              {barHeights.map((currentHeight, i) => {
-                const totalBars = barHeights.length;
-                const centerIndex = Math.floor(totalBars / 2);
-                const isCenter = i === centerIndex;
-                const distFromCenter = Math.abs(i - centerIndex);
-                const isActive = isRecording && !isPaused && !isProcessing;
+              {/* Left Half: High-Density Live Scrolling Amplitude Bars */}
+              <View style={styles.waveformLeftTrack}>
+                {waveformSamples.map((sample, i) => {
+                  const barHeight = Math.max(4, Math.min(52, 4 + sample * 48));
+                  const barOpacity = i < 5 ? 0.2 + (i / 5) * 0.7 : 0.92;
+                  return (
+                    <View
+                      key={i}
+                      style={[
+                        styles.waveformBar,
+                        {
+                          height: barHeight,
+                          opacity: barOpacity,
+                        },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
 
-                let barColor: string;
-                if (isCenter) {
-                  barColor = '#FF3B30';
-                } else if (isActive) {
-                  if (currentHeight > 36) {
-                    barColor = '#60A5FA';
-                  } else if (currentHeight > 22) {
-                    barColor = '#3B82F6';
-                  } else {
-                    barColor = 'rgba(96, 165, 250, 0.35)';
-                  }
-                } else {
-                  const isOuter = distFromCenter > 6;
-                  barColor = isOuter ? 'rgba(96, 165, 250, 0.35)' : '#60A5FA';
-                }
+              {/* Center Playhead Needle */}
+              <View style={styles.playheadNeedleWrapper}>
+                <View style={styles.playheadPinhead} />
+                <View style={styles.playheadLine} />
+              </View>
 
-                return (
-                  <View
-                    key={i}
-                    style={[
-                      styles.waveformBar,
-                      {
-                        height: isCenter ? Math.max(currentHeight, 46) : currentHeight,
-                        width: isCenter ? 6 : 4,
-                        backgroundColor: barColor,
-                      },
-                      isCenter && {
-                        shadowColor: '#FF3B30',
-                        shadowOffset: { width: 0, height: 0 },
-                        shadowOpacity: 0.8,
-                        shadowRadius: 6,
-                        elevation: 4,
-                      },
-                    ]}
-                  />
-                );
-              })}
+              {/* Right Half: Minimal Upcoming Track Dots */}
+              <View style={styles.waveformRightTrack}>
+                {Array.from({ length: UPCOMING_DOT_COUNT }).map((_, i) => (
+                  <View key={i} style={styles.upcomingDot} />
+                ))}
+              </View>
             </View>
           </View>
 
-          {/* MIDDLE TRANSCRIPT LIVE CARD */}
+          {/* MIDDLE TRANSCRIPT CARD (flex: 1 — Fills All Remaining Space) */}
           <View
             style={[
               styles.transcriptCard,
               {
-                backgroundColor: isDark ? '#16202c' : '#ffffff',
-                borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0',
+                backgroundColor: isDark ? '#0E131F' : '#FFFFFF',
+                borderColor: isDark ? 'rgba(255, 255, 255, 0.08)' : '#E2E8F0',
               },
+              !isDark && styles.transcriptCardLightShadow,
             ]}
           >
             <View style={styles.transcriptHeader}>
               <View style={styles.transcriptTitleRow}>
-                <Text style={[styles.transcriptTitle, { color: isDark ? '#ffffff' : '#0f172a' }]}>
+                <Text
+                  style={[
+                    styles.transcriptTitle,
+                    { color: isDark ? '#FFFFFF' : '#0F172A' },
+                  ]}
+                >
                   Transcript
                 </Text>
                 <View
                   style={[
                     styles.liveBadge,
                     {
-                      backgroundColor: isDark ? 'rgba(74,108,140,0.3)' : 'rgba(49,84,114,0.12)',
-                      borderColor: isDark ? 'rgba(74,108,140,0.5)' : 'rgba(49,84,114,0.3)',
+                      backgroundColor: isDark
+                        ? 'rgba(59, 130, 246, 0.16)'
+                        : 'rgba(37, 99, 235, 0.1)',
+                      borderColor: isDark
+                        ? 'rgba(96, 165, 250, 0.35)'
+                        : 'rgba(37, 99, 235, 0.25)',
                     },
                   ]}
                 >
                   <View
                     style={[
                       styles.liveDot,
-                      { backgroundColor: isDark ? '#a7caee' : '#315472' },
+                      { backgroundColor: isDark ? '#60A5FA' : '#2563EB' },
                     ]}
                   />
                   <Text
                     style={[
                       styles.liveBadgeText,
-                      { color: isDark ? '#a7caee' : '#315472' },
+                      { color: isDark ? '#93C5FD' : '#1D4ED8' },
                     ]}
                   >
                     LIVE
                   </Text>
                 </View>
               </View>
-              {(isProcessing || isLiveSyncing) && (
-                <ActivityIndicator size="small" color={isDark ? '#a7caee' : '#315472'} />
+              {isProcessing && (
+                <ActivityIndicator
+                  size="small"
+                  color={isDark ? '#60A5FA' : '#2563EB'}
+                />
               )}
             </View>
 
-            <ScrollView ref={scrollViewRef} showsVerticalScrollIndicator={false} style={styles.transcriptScroll}>
-              {liveTranscript ? (
-                <Text style={[styles.transcriptBody, { color: isDark ? '#f1f5f9' : '#1e293b' }]}>
+            <ScrollView
+              ref={scrollViewRef}
+              showsVerticalScrollIndicator={false}
+              style={styles.transcriptScroll}
+              contentContainerStyle={styles.transcriptScrollContent}
+            >
+              {permissionDenied ? (
+                <View style={styles.permissionDeniedWrap}>
+                  <Text
+                    style={[
+                      styles.permissionDeniedTitle,
+                      { color: isDark ? '#FFFFFF' : '#0F172A' },
+                    ]}
+                  >
+                    Microphone Permission Required
+                  </Text>
+                  <Text
+                    style={[
+                      styles.transcriptPlaceholder,
+                      { color: isDark ? '#94A3B8' : '#64748B', fontStyle: 'normal', marginBottom: 14 },
+                    ]}
+                  >
+                    Enable microphone access in iOS Settings to record voice notes.
+                  </Text>
+                  <View style={styles.permissionButtonsRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={openSettings}
+                      style={styles.openSettingsBtn}
+                    >
+                      <Ionicons name="settings-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.openSettingsBtnText}>Open Settings</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={retryPermissionsAndStart}
+                      style={[
+                        styles.retryPermBtn,
+                        { borderColor: isDark ? 'rgba(255,255,255,0.16)' : '#CBD5E1' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.retryPermBtnText,
+                          { color: isDark ? '#E2E8F0' : '#0F172A' },
+                        ]}
+                      >
+                        Try Again
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : liveTranscript ? (
+                <Text
+                  style={[
+                    styles.transcriptBody,
+                    { color: isDark ? '#CBD5E1' : '#475569' },
+                  ]}
+                >
                   "{liveTranscript}"
                 </Text>
               ) : (
-                <Text style={[styles.transcriptPlaceholder, { color: isDark ? '#94a3b8' : '#64748b' }]}>
+                <Text
+                  style={[
+                    styles.transcriptPlaceholder,
+                    { color: isDark ? '#94A3B8' : '#64748B' },
+                  ]}
+                >
                   {statusMessage}
                 </Text>
               )}
             </ScrollView>
           </View>
 
-          {/* BOTTOM 3-BUTTON DOCK */}
-          <View style={styles.bottomDock}>
-            <TouchableOpacity
-              disabled={isProcessing}
-              onPress={handleDiscard}
-              style={[
-                styles.sideButton,
-                {
-                  backgroundColor: isDark ? '#1c2633' : '#ffffff',
-                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
-                },
-              ]}
-              activeOpacity={0.8}
-            >
-              <View
+          {/* BOTTOM TACTILE 3-KEY CONTROL DECK */}
+          <View
+            style={[
+              styles.bottomDock,
+              { paddingBottom: Math.max(insets.bottom, 16) },
+            ]}
+          >
+            {/* Left Key: Discard */}
+            <TactileKey onPress={handleDiscard} isDark={isDark} variant="neutral">
+              <Ionicons
+                name="trash-outline"
+                size={21}
+                color={isDark ? '#94A3B8' : '#475569'}
+              />
+              <Text
                 style={[
-                  styles.iconCircle,
-                  {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
-                  },
+                  styles.dockLabel,
+                  { color: isDark ? '#CBD5E1' : '#475569' },
                 ]}
               >
-                <Ionicons name="trash-outline" size={20} color={isDark ? '#94a3b8' : '#475569'} />
-              </View>
-              <Text style={[styles.dockLabel, { color: isDark ? '#94a3b8' : '#475569' }]}>
                 Discard
               </Text>
-            </TouchableOpacity>
+            </TactileKey>
 
-            <TouchableOpacity
+            {/* Middle Key: Pause / Resume */}
+            <TactileKey
+              onPress={handleTogglePause}
               disabled={isProcessing}
-              onPress={handleStopAndSave}
-              style={[
-                styles.centerStopCard,
-                {
-                  backgroundColor: isDark ? '#1c2633' : '#ffffff',
-                  borderColor: isDark ? 'rgba(255,255,255,0.15)' : '#e2e8f0',
-                },
-              ]}
-              activeOpacity={0.8}
+              isDark={isDark}
+              variant="neutral"
             >
-              <View style={styles.redStopCircle}>
+              <Ionicons
+                name={isPaused ? 'play' : 'pause'}
+                size={21}
+                color={isDark ? '#93C5FD' : '#1D4ED8'}
+              />
+              <Text
+                style={[
+                  styles.dockLabel,
+                  { color: isDark ? '#E2E8F0' : '#0F172A' },
+                ]}
+              >
+                {isPaused ? 'Resume' : 'Pause'}
+              </Text>
+            </TactileKey>
+
+            {/* Right Key: Primary Stop / Save Action */}
+            <TactileKey
+              onPress={handleStopAndSave}
+              disabled={isProcessing}
+              isDark={isDark}
+              variant="crimson"
+            >
+              <View style={styles.stopEmblemGlow}>
                 {isProcessing ? (
-                  <ActivityIndicator color="#ffffff" />
+                  <ActivityIndicator color="#FFFFFF" size="small" />
                 ) : (
                   <View style={styles.whiteStopSquare} />
                 )}
               </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              disabled={isProcessing}
-              onPress={handleTogglePause}
-              style={[
-                styles.sideButton,
-                {
-                  backgroundColor: isDark ? '#1c2633' : '#ffffff',
-                  borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0',
-                },
-              ]}
-              activeOpacity={0.8}
-            >
-              <View
-                style={[
-                  styles.iconCircle,
-                  {
-                    backgroundColor: isDark ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={isPaused ? 'play' : 'pause'}
-                  size={20}
-                  color={isDark ? '#a7caee' : '#315472'}
-                />
-              </View>
-              <Text style={[styles.dockLabel, { color: isDark ? '#a7caee' : '#315472' }]}>
-                {isPaused ? 'Resume' : 'Pause'}
-              </Text>
-            </TouchableOpacity>
+            </TactileKey>
           </View>
         </View>
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
+  screenCanvas: {
     flex: 1,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'android' ? 24 : 8,
-    paddingBottom: 12,
-    justifyContent: 'space-between',
+    width: '100%',
   },
   topCard: {
-    borderRadius: 32,
-    borderWidth: 1,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    alignItems: 'center',
+    marginHorizontal: 14,
+    borderWidth: 0,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#0A0909',
-    borderColor: 'rgba(59, 130, 246, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   topBarRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
   },
   backCircle: {
     width: 38,
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  topBarSpacer: {
+    width: 38,
   },
   recordingBadge: {
     flexDirection: 'row',
@@ -671,61 +582,132 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 999,
     borderWidth: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: 'rgba(255, 255, 255, 0.16)',
     gap: 7,
   },
   redDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ba1a1a',
+    backgroundColor: '#EF4444',
   },
   recordingBadgeText: {
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 0.8,
+    color: '#FFFFFF',
+  },
+  heroCenterBlock: {
+    alignItems: 'center',
+    marginTop: 8,
   },
   sessionTitle: {
-    fontSize: 22,
+    fontSize: 25,
     fontWeight: '700',
     letterSpacing: -0.3,
+    color: '#FFFFFF',
   },
   sessionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    marginTop: 2,
+    color: 'rgba(203, 233, 253, 0.72)',
+    marginTop: 4,
     marginBottom: 10,
   },
   timerText: {
-    fontSize: 44,
+    fontSize: 50,
     fontWeight: '700',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
-    marginVertical: 4,
+    letterSpacing: 1,
+    color: '#FFFFFF',
   },
   waveformContainer: {
-    height: 86,
+    width: '100%',
+    height: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 5,
     marginTop: 8,
   },
+  waveformLeftTrack: {
+    flex: 1,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+    paddingRight: 3,
+  },
   waveformBar: {
-    borderRadius: 4,
+    width: 2,
+    marginHorizontal: 1.5,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+  },
+  playheadNeedleWrapper: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    height: 60,
+  },
+  playheadPinhead: {
+    width: 5.5,
+    height: 5.5,
+    borderRadius: 2.75,
+    backgroundColor: '#FFFFFF',
+    marginBottom: -1,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  playheadLine: {
+    width: 1.5,
+    height: 55,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 1,
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.65,
+    shadowRadius: 4,
+  },
+  waveformRightTrack: {
+    flex: 1,
+    height: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    overflow: 'hidden',
+    paddingLeft: 6,
+    gap: 6,
+  },
+  upcomingDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(255, 255, 255, 0.42)',
   },
   transcriptCard: {
     flex: 1,
     borderRadius: 24,
     borderWidth: 1,
     padding: 18,
-    marginVertical: 14,
-    maxHeight: 210,
+    marginTop: 14,
+    marginHorizontal: 14,
+    marginBottom: 14,
+  },
+  transcriptCardLightShadow: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   transcriptHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   transcriptTitleRow: {
     flexDirection: 'row',
@@ -758,66 +740,112 @@ const styles = StyleSheet.create({
   transcriptScroll: {
     flex: 1,
   },
+  transcriptScrollContent: {
+    paddingBottom: 6,
+  },
   transcriptBody: {
     fontSize: 15,
-    lineHeight: 22,
+    lineHeight: 23,
     fontWeight: '500',
   },
   transcriptPlaceholder: {
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 22,
     fontStyle: 'italic',
   },
   bottomDock: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 10,
     width: '100%',
-    paddingTop: 4,
+    paddingHorizontal: 14,
   },
-  sideButton: {
+  tactileKeyOuter: {
     flex: 1,
-    height: 78,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
+    height: 82,
   },
-  centerStopCard: {
+  tactileKeyBase: {
     flex: 1,
-    height: 78,
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
   },
-  redStopCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#ba1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#ba1a1a',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
+  tactileKeyCrimsonBorder: {
+    borderColor: 'rgba(252, 165, 165, 0.4)',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
     shadowRadius: 12,
+    elevation: 5,
+  },
+  tactileKeyTopRim: {
+    position: 'absolute',
+    top: 0,
+    left: 12,
+    right: 12,
+    height: 1,
+    borderRadius: 1,
+  },
+  stopEmblemGlow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   whiteStopSquare: {
-    width: 15,
-    height: 15,
-    borderRadius: 3,
-    backgroundColor: '#ffffff',
-  },
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 16,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 6,
   },
   dockLabel: {
     fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  permissionDeniedWrap: {
+    paddingVertical: 6,
+  },
+  permissionDeniedTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  permissionButtonsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  openSettingsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#1951FC',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  openSettingsBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  retryPermBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  retryPermBtnText: {
+    fontSize: 13,
     fontWeight: '600',
   },
 });

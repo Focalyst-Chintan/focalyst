@@ -26,9 +26,9 @@ import ChatMicButton from './ChatMicButton';
 import ChatBottomGlow from './ChatBottomGlow';
 import { fetchAuthorizedUserContext } from '../src/services/focalystContextService';
 import { sendChatMessageToGroq as sendChatMessageToOpenRouter } from '../src/services/openRouterService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUser } from '../src/utils/UserContext';
 import { isProPlan } from '../src/utils/plan';
-import { useSheetFrame } from '../src/layout/adaptive';
 
 // ─── Official Markdown Display Style Definitions ──────────────────────────────
 const markdownStyles = {
@@ -50,8 +50,8 @@ const markdownStyles = {
 };
 
 // ─── Theme Colors ────────────────────────────────────────────────────────────
-const BRAND = '#4a6c8c';       // Premium Slate Blue
-const ACCENT = '#ff6b2b';      // Catalyst orange
+const BRAND = '#1951fc';       // Electric Cobalt
+const ACCENT = '#3781fc';      // Bright Azure
 const BG = '#ffffff';
 const CARD_BG = '#f8fafc';     // Soft gray
 const BORDER = '#f1f5f9';
@@ -74,9 +74,15 @@ interface Message {
 
 export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDarkModeProp }: AskFocalystModalProps) {
   const router = useRouter();
-  const sheetFrame = useSheetFrame();
-  const { user } = useUser();
+  const insets = useSafeAreaInsets();
+  const { user, profile } = useUser();
   const activeUserId = user?.id || '';
+  const rawName =
+    profile?.full_name ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    '';
+  const firstName = rawName.trim().split(/\s+/)[0] || 'there';
   const scrollViewRef = useRef<ScrollView>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -236,10 +242,19 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
         throw new Error('Please log in to chat with Focalyst AI.');
       }
 
-      // Fetch real-time authorized user context
-      const context = await fetchAuthorizedUserContext(session.user.id);
+      // Fetch real-time authorized user context with a hard 3s cap so slow client DB queries
+      // never stall chat (the /api/ai/chat backend also builds full authorized context server-side)
+      let context: any = null;
+      try {
+        context = await Promise.race([
+          fetchAuthorizedUserContext(session.user.id),
+          new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]);
+      } catch (ctxErr) {
+        console.warn('[AskFocalyst] Client context prefetch skipped:', ctxErr);
+      }
 
-      // Route and send to OpenRouter (Llama 3.1 8B / Llama 3.3 70B) with tool execution & Gemini 3.8 Flash failover
+      // Route and send to Focalyst AI backend (/api/ai/chat) with 25s AbortController timeout
       const groqResponse = await sendChatMessageToOpenRouter(
         userMsgText,
         messages.map((m) => ({ role: m.role, content: m.content })),
@@ -260,38 +275,52 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
       DeviceEventEmitter.emit('refreshHabits');
       DeviceEventEmitter.emit('refreshCountdowns');
 
-      // Update user message counters
+      // Update user message counters & chat logs asynchronously (non-blocking)
       const nextCount = messageCount + 1;
       setMessageCount(nextCount);
-      await supabase
-        .from('users')
-        .update({
-          ai_message_count: nextCount,
-          last_message_date: new Date().toISOString(),
-        })
-        .eq('id', session.user.id);
-
-      // Record chat logs safely
-      try {
-        await supabase.from('ai_chat_logs').insert([
-          { user_id: session.user.id, role: 'user', content: userMsgText, tab_context: 'chat' },
-          { user_id: session.user.id, role: 'assistant', content: groqResponse.content, tab_context: 'chat' },
-        ]);
-      } catch (logErr) {
-        // Non-blocking log persistence
-      }
+      void (async () => {
+        try {
+          await supabase
+            .from('users')
+            .update({
+              ai_message_count: nextCount,
+              last_message_date: new Date().toISOString(),
+            })
+            .eq('id', session.user.id);
+        } catch {}
+        try {
+          await supabase.from('ai_chat_logs').insert([
+            { user_id: session.user.id, role: 'user', content: userMsgText, tab_context: 'chat' },
+            { user_id: session.user.id, role: 'assistant', content: groqResponse.content, tab_context: 'chat' },
+          ]);
+        } catch {}
+      })();
     } catch (error: any) {
-      console.error('Chat error:', error);
+      console.error('Chat error:', error?.status || '', error?.message || error);
       const errMsg: string = typeof error?.message === 'string' ? error.message : '';
-      
+      const lowerErr = errMsg.toLowerCase();
+
+      const isTimeout =
+        error?.name === 'AbortError' ||
+        lowerErr.includes('timed out') ||
+        lowerErr.includes('timeout') ||
+        lowerErr.includes('aborted');
       const isOverloaded =
         errMsg.includes('503') ||
         errMsg.includes('500') ||
-        errMsg.toLowerCase().includes('service unavailable') ||
-        errMsg.toLowerCase().includes('overloaded') ||
-        errMsg.toLowerCase().includes('high demand');
+        lowerErr.includes('service unavailable') ||
+        lowerErr.includes('overloaded') ||
+        lowerErr.includes('high demand');
+      const isRateOrAuth =
+        error?.name === 'AIRateLimitError' ||
+        lowerErr.includes('sign in') ||
+        lowerErr.includes('daily ai limit');
 
-      const friendlyText = isOverloaded
+      const friendlyText = isRateOrAuth
+        ? errMsg
+        : isTimeout
+        ? 'Request timed out or failed to reach Focalyst AI. Please try again.'
+        : isOverloaded
         ? 'Focalyst AI is currently experiencing high demand. Please try again in a moment.'
         : 'Unable to reach Focalyst AI right now. Please check your connection and try again.';
 
@@ -356,19 +385,18 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent={false}
       visible={isVisible}
       onRequestClose={onClose}
     >
       <KeyboardAvoidingView
-        style={[styles.modalContainer, { backgroundColor: theme.backdropBg }]}
+        style={[styles.modalContainer, { backgroundColor: theme.bg }]}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <View style={[styles.contentContainer, sheetFrame, { backgroundColor: theme.bg }]}>
+        <View style={[styles.contentContainer, { backgroundColor: theme.bg }]}>
           <ChatBottomGlow isDark={isDarkMode} />
           {/* Header */}
-          <View style={[styles.header, { borderBottomColor: theme.border }]}>
-            <View style={[styles.dragHandle, { backgroundColor: theme.dragHandle }]} />
+          <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
             <View style={styles.headerTextRow}>
               <View>
                 <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Ask Focalyst AI</Text>
@@ -391,8 +419,13 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
             showsVerticalScrollIndicator={false}
           >
             {messages.length === 0 ? (
-              // Suggestion Chips (Vertically Stacked cards)
+              // Empty State: Greeting + Suggestion Chips
               <View style={styles.suggestionsContainer}>
+                <View style={styles.greetingContainer}>
+                  <Text style={[styles.greetingText, { color: isDarkMode ? '#FFFFFF' : '#0F172A' }]}>
+                    {`Hello ${firstName}\nHow can I help you today?`}
+                  </Text>
+                </View>
                 <View style={styles.suggestionSpace} />
                 {suggestionChips.map((chip, index) => (
                   <TouchableOpacity
@@ -499,7 +532,7 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
           </ScrollView>
 
           {/* Footer Input */}
-          <View style={[styles.footer, { backgroundColor: 'transparent' }]}>
+          <View style={[styles.footer, { backgroundColor: 'transparent', paddingBottom: Math.max(insets.bottom, 16) }]}>
             {plan === 'free' && messageCount >= 5 && (
               <TouchableOpacity
                 style={styles.bannerContainer}
@@ -511,20 +544,29 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
               </TouchableOpacity>
             )}
           <View style={[styles.inputRow, { backgroundColor: theme.inputBg, borderColor: theme.inputBorder, paddingLeft: 12 }]}>
-              <TextInput
-                style={[styles.input, { color: theme.textPrimary }]}
-                placeholder={
-                  micState.isRecording
-                    ? 'Listening... tap mic when done'
-                    : micState.isTranscribing
-                    ? 'Transcribing...'
-                    : 'Ask anything...'
-                }
-                placeholderTextColor={micState.isRecording ? '#ef4444' : theme.textSecondary}
-                value={inputText}
-                onChangeText={setInputText}
-                onSubmitEditing={() => handleSendMessage(inputText)}
-              />
+              {micState.isRecording || micState.isTranscribing ? (
+                <View style={styles.inputStatusWrapper}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.inputStatusText,
+                      { color: micState.isRecording ? '#ef4444' : theme.textSecondary },
+                    ]}
+                  >
+                    {micState.isRecording ? 'Listening... tap mic when done' : 'Transcribing...'}
+                  </Text>
+                </View>
+              ) : (
+                <TextInput
+                  style={[styles.input, { color: theme.textPrimary }]}
+                  placeholder="Ask anything..."
+                  placeholderTextColor={theme.textSecondary}
+                  value={inputText}
+                  onChangeText={setInputText}
+                  onSubmitEditing={() => handleSendMessage(inputText)}
+                  returnKeyType="send"
+                />
+              )}
 
               {/* Microphone voice note button */}
               <ChatMicButton
@@ -569,30 +611,36 @@ export default function AskFocalystModal({ isVisible, onClose, isDarkMode: isDar
 const styles = StyleSheet.create({
   modalContainer: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)', // Premium dim backdrop
-    justifyContent: 'flex-end',
+    width: '100%',
+    height: '100%',
+    backgroundColor: BG,
   },
   contentContainer: {
-    height: '92%',
+    flex: 1,
+    width: '100%',
+    height: '100%',
     backgroundColor: BG,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderRadius: 0,
+    marginTop: 0,
+    paddingTop: 0,
     overflow: 'hidden',
   },
   header: {
     paddingHorizontal: 24,
     paddingTop: 12,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomWidth: 0,
   },
-  dragHandle: {
-    width: 36,
-    height: 4,
-    backgroundColor: '#cbd5e1',
-    borderRadius: 99,
-    alignSelf: 'center',
-    marginBottom: 16,
+  greetingContainer: {
+    paddingHorizontal: 4,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  greetingText: {
+    fontSize: 32,
+    fontWeight: '700',
+    lineHeight: 40,
+    letterSpacing: -0.6,
   },
   headerTextRow: {
     flexDirection: 'row',
@@ -722,6 +770,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderRadius: 99,
     paddingHorizontal: 8,
+    minHeight: 50,
     height: 52,
     borderWidth: 1,
     borderColor: '#f1f5f9',
@@ -734,7 +783,24 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     color: TEXT_PRIMARY,
     paddingHorizontal: 8,
-    height: '100%',
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingVertical: 0,
+    marginVertical: 0,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
+  },
+  inputStatusWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+  },
+  inputStatusText: {
+    fontSize: 14.5,
+    lineHeight: 20,
+    paddingVertical: 0,
+    marginTop: 0,
+    includeFontPadding: false,
   },
   sendButton: {
     width: 36,
@@ -793,14 +859,14 @@ const styles = StyleSheet.create({
 
   // Paywall UI bubble
   paywallBubble: {
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#eff6ff',
     borderWidth: 1.5,
-    borderColor: '#ffedd5',
+    borderColor: '#dbeafe',
     borderRadius: 24,
     padding: 24,
     alignItems: 'center',
     marginVertical: 12,
-    shadowColor: '#ff6b2b',
+    shadowColor: '#000000',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -809,7 +875,7 @@ const styles = StyleSheet.create({
   paywallIconBg: {
     width: 56,
     height: 56,
-    backgroundColor: '#ffedd5',
+    backgroundColor: '#dbeafe',
     borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
@@ -838,11 +904,11 @@ const styles = StyleSheet.create({
     height: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: ACCENT,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   upgradeBtnText: {
     color: '#ffffff',
@@ -851,16 +917,16 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   bannerContainer: {
-    backgroundColor: '#ff6b2b',
+    backgroundColor: '#1951fc',
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
     marginBottom: 12,
-    shadowColor: '#ff6b2b',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.12,
     shadowRadius: 4,
     elevation: 2,
   },

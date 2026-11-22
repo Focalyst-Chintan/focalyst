@@ -411,25 +411,12 @@ export const WidgetThemePicker: React.FC = () => {
             </Text>
           </View>
           <View style={{ flex: 1, marginTop: 8, gap: 8 }}>
-            {[0, 1, 2].map((slotIdx) => {
-              const smallTasks = pendingTasks.slice(0, 3);
-              const task = smallTasks[slotIdx];
-              if (task) {
-                return (
+            {pendingTasks.length > 0 ? pendingTasks.slice(0, 3).map((task) => (
                   <TouchableOpacity
                     key={task.id}
                     onPress={() => toggleTask(task.id)}
                     activeOpacity={0.75}
-                    style={[
-                      styles.checklistPillRow,
-                      {
-                        flex: 1,
-                        minHeight: 30,
-                        backgroundColor: bandBg,
-                        paddingHorizontal: 9,
-                        borderRadius: 8,
-                      },
-                    ]}
+                    style={[styles.checklistPillRow, { height: 30, backgroundColor: bandBg, paddingHorizontal: 9, borderRadius: 8 }]}
                   >
                     <View
                       style={{
@@ -448,30 +435,11 @@ export const WidgetThemePicker: React.FC = () => {
                       {task.title}
                     </Text>
                   </TouchableOpacity>
-                );
-              }
-              return (
-                <View
-                  key={`ghost-${slotIdx}`}
-                  style={[
-                    styles.checklistPillRow,
-                    {
-                      flex: 1,
-                      minHeight: 30,
-                      paddingHorizontal: 9,
-                      borderRadius: 8,
-                      backgroundColor: isLight ? 'rgba(9,10,15,0.03)' : 'rgba(255,255,255,0.025)',
-                      borderWidth: 1,
-                      borderColor: isLight ? 'rgba(9,10,15,0.08)' : 'rgba(255,255,255,0.08)',
-                    },
-                  ]}
-                >
-                  <Text style={{ color: mutedText, fontSize: 11, fontWeight: '500' }} numberOfLines={1}>
-                    {slotIdx === smallTasks.length ? 'No more tasks' : ' '}
-                  </Text>
-                </View>
-              );
-            })}
+              )) : (
+                <Text style={{ color: mutedText, fontSize: 11, fontWeight: '500', paddingHorizontal: 9, paddingTop: 4 }} numberOfLines={1}>
+                  No more tasks
+                </Text>
+              )}
           </View>
         </View>
 
@@ -604,6 +572,23 @@ export const WidgetThemePicker: React.FC = () => {
               </View>
             );
           })()}
+
+        {/* 7. Voice Note quick-record widget */}
+        <View style={[styles.widgetBox, cellStyle, { backgroundColor: cardBg, justifyContent: 'space-between' }]}>
+          <View style={[styles.widgetBand, { backgroundColor: bandBg }]}>
+            <Text numberOfLines={1} style={[styles.bandText, { color: primaryText }]}>Voice Note</Text>
+            <View style={{ width: 6 }} />
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingLeft: 2, paddingBottom: 2, gap: 8 }}>
+            <View style={{ width: 34, height: 34, borderWidth: 3, borderColor: '#EF4444', borderRadius: 17, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 16, height: 16, backgroundColor: '#EF4444', borderRadius: 8 }} />
+            </View>
+            <View style={{ flexDirection: 'column', gap: 1, flexShrink: 1 }}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: primaryText, fontSize: 14, fontWeight: '600', lineHeight: 16 }}>Start</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85} style={{ color: primaryText, fontSize: 14, fontWeight: '600', lineHeight: 16 }}>recording</Text>
+            </View>
+          </View>
+        </View>
         </View>
       </View>
     );

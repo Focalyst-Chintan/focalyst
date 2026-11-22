@@ -9,9 +9,17 @@ import {
   Share,
   Alert,
   DeviceEventEmitter,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  RadialGradient,
+  Stop,
+  Rect,
+} from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import ViewShot from 'react-native-view-shot';
 import { shareAsync, isAvailableAsync } from 'expo-sharing';
@@ -23,6 +31,7 @@ import {
 } from '../../src/services/habitGroupService';
 import { FormGroupModal, EnterGroupModal } from '../plan/HabitGroupModals';
 import { useColumnStyle } from '../../src/layout/adaptive';
+import { TactilePressable } from '../ui/TactilePressable';
 
 interface HabitGroupLeaderboardSectionProps {
   isDark: boolean;
@@ -50,6 +59,18 @@ export default function HabitGroupLeaderboardSection({
   const [leaving, setLeaving] = useState(false);
   const [sharingImage, setSharingImage] = useState(false);
   const [isCapturingShareImage, setIsCapturingShareImage] = useState(false);
+  const [cardSize, setCardSize] = useState({ width: 350, height: 150 });
+
+  const handleCardLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (
+      width > 0 &&
+      height > 0 &&
+      (Math.abs(width - cardSize.width) > 1 || Math.abs(height - cardSize.height) > 1)
+    ) {
+      setCardSize({ width, height });
+    }
+  };
 
   // Silently refresh leaderboard data without blanking the screen into a skeleton
   const refreshLeaderboardSilently = useCallback(async () => {
@@ -190,17 +211,19 @@ export default function HabitGroupLeaderboardSection({
     myMember?.habit_name || selectedHabit?.name || 'Active Habit';
 
   // Theme tokens
-  const cardBg = isDark ? '#151B2E' : '#FFFFFF';
-  const cardBorder = isDark ? '#222A41' : '#E2E8F0';
-  const textPrimary = isDark ? '#FFFFFF' : '#0F172A';
-  const textSecondary = isDark ? '#8E95A9' : '#64748B';
-  const royalBlue = isDark ? '#2B6BFF' : '#2563EB';
+  const cardBg = isDark ? '#060B19' : '#1D4ED8';
+  const cardBorder = isDark
+    ? 'rgba(59, 130, 246, 0.35)'
+    : 'rgba(191, 219, 254, 0.50)';
+  const textPrimary = '#FFFFFF';
+  const textSecondary = isDark ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.86)';
+  const royalBlue = isDark ? '#60A5FA' : '#FFFFFF';
 
   return (
     <>
       {/* ─── Compact Preview Card on Insights Tab ─── */}
-      <TouchableOpacity
-        activeOpacity={0.88}
+      <TactilePressable
+        onLayout={handleCardLayout}
         onPress={() => setModalVisible(true)}
         style={[
           styles.previewCard,
@@ -210,13 +233,97 @@ export default function HabitGroupLeaderboardSection({
           },
         ]}
       >
+        {/* Base obsidian-navy (Dark) / rich sapphire-cobalt jewel-tone (Light) surface */}
+        <LinearGradient
+          colors={
+            isDark
+              ? ['#060B19', '#081024', '#0A1738']
+              : ['#1E3A8A', '#1D4ED8', '#2563EB', '#3B82F6']
+          }
+          start={{ x: 0.2, y: 0 }}
+          end={{ x: 0.8, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* Full-bleed bottom-center electric-cobalt radial glow + specular rim highlight */}
+        <Svg
+          width={cardSize.width}
+          height={cardSize.height}
+          viewBox={`0 0 ${cardSize.width} ${cardSize.height}`}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        >
+          <Defs>
+            {isDark ? (
+              <RadialGradient id="leaderboardCobaltGlow" cx="50%" cy="102%" rx="72%" ry="55%">
+                <Stop offset="0%" stopColor="#3B82F6" stopOpacity="0.58" />
+                <Stop offset="35%" stopColor="#2563EB" stopOpacity="0.35" />
+                <Stop offset="68%" stopColor="#1D4ED8" stopOpacity="0.14" />
+                <Stop offset="100%" stopColor="#060B19" stopOpacity="0" />
+              </RadialGradient>
+            ) : (
+              <RadialGradient id="leaderboardCobaltGlow" cx="50%" cy="102%" rx="72%" ry="55%">
+                <Stop offset="0%" stopColor="#BFDBFE" stopOpacity="0.54" />
+                <Stop offset="38%" stopColor="#93C5FD" stopOpacity="0.32" />
+                <Stop offset="72%" stopColor="#3B82F6" stopOpacity="0" />
+              </RadialGradient>
+            )}
+
+            <SvgLinearGradient id="leaderboardBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+              <Stop
+                offset="0%"
+                stopColor={isDark ? '#1D4ED8' : '#93C5FD'}
+                stopOpacity={0}
+              />
+              <Stop
+                offset="25%"
+                stopColor={isDark ? '#3B82F6' : '#BFDBFE'}
+                stopOpacity={isDark ? 0.48 : 0.55}
+              />
+              <Stop
+                offset="50%"
+                stopColor={isDark ? '#93C5FD' : '#EFF6FF'}
+                stopOpacity={isDark ? 0.9 : 0.92}
+              />
+              <Stop
+                offset="75%"
+                stopColor={isDark ? '#3B82F6' : '#BFDBFE'}
+                stopOpacity={isDark ? 0.48 : 0.55}
+              />
+              <Stop
+                offset="100%"
+                stopColor={isDark ? '#1D4ED8' : '#93C5FD'}
+                stopOpacity={0}
+              />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect
+            x={0}
+            y={0}
+            width={cardSize.width}
+            height={cardSize.height}
+            fill="url(#leaderboardCobaltGlow)"
+          />
+          <Rect
+            x={0}
+            y={cardSize.height - 3}
+            width={cardSize.width}
+            height={3}
+            fill="url(#leaderboardBottomRim)"
+          />
+        </Svg>
+
         {/* Header Row: Title never truncates */}
         <View style={styles.cardHeader}>
           <View style={styles.headerTitleRow}>
             <View
               style={[
                 styles.iconBadge,
-                { backgroundColor: isDark ? 'rgba(43, 107, 255, 0.15)' : '#EFF6FF' },
+                {
+                  backgroundColor: isDark
+                    ? 'rgba(96, 165, 250, 0.18)'
+                    : 'rgba(255, 255, 255, 0.18)',
+                },
               ]}
             >
               <Ionicons name="trophy" size={17} color={royalBlue} />
@@ -234,7 +341,11 @@ export default function HabitGroupLeaderboardSection({
               <View
                 style={[
                   styles.memberCountPill,
-                  { backgroundColor: isDark ? '#1E293B' : '#EFF6FF' },
+                  {
+                    backgroundColor: isDark
+                      ? 'rgba(96, 165, 250, 0.16)'
+                      : 'rgba(255, 255, 255, 0.18)',
+                  },
                 ]}
               >
                 <Ionicons name="people" size={12} color={royalBlue} />
@@ -251,84 +362,39 @@ export default function HabitGroupLeaderboardSection({
         </View>
 
         {groupData.in_group ? (
-          <>
-            {/* User's Position Highlight */}
+          /* Streamlined User Position Highlight (transparent so perimeter glow shines through) */
+          <View style={styles.myPositionBanner}>
             <View
               style={[
-                styles.myPositionBanner,
-                {
-                  backgroundColor: isDark ? '#0B1021' : '#F8FAFC',
-                  borderColor: isDark ? '#1F293D' : '#E2E8F0',
+                styles.myRankCircle,
+                !isDark && {
+                  backgroundColor: '#FFFFFF',
+                  borderColor: 'rgba(255, 255, 255, 0.7)',
                 },
               ]}
             >
-              <View style={styles.myRankCircle}>
-                <Text style={styles.myRankText}>#{myRank}</Text>
-              </View>
-
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={[styles.myLabelName, { color: textPrimary }]}>
-                    Your Position: Rank #{myRank} of {memberCount}
-                  </Text>
-                  <View style={styles.youBadge}>
-                    <Text style={styles.youBadgeText}>YOU</Text>
-                  </View>
-                </View>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.myHabitName, { color: textSecondary, marginTop: 3 }]}
-                >
-                  {currentHabitName} • 🔥 {currentStreak}d streak • {currentTotalDays} total days
-                </Text>
-              </View>
-
-              <Ionicons name="chevron-forward" size={18} color={royalBlue} />
+              <Text
+                style={[
+                  styles.myRankText,
+                  !isDark && { color: '#1D4ED8' },
+                ]}
+              >
+                #{myRank}
+              </Text>
             </View>
 
-            {/* Top Members Mini-Strip (Names only, no avatars) */}
-            {sortedMembers.length > 1 && (
-              <View style={styles.miniStripContainer}>
-                {sortedMembers.slice(0, 3).map((m, idx) => (
-                  <View
-                    key={`mini-${m.user_id || idx}`}
-                    style={[
-                      styles.miniMemberChip,
-                      {
-                        backgroundColor: m.is_me
-                          ? isDark
-                            ? 'rgba(43, 107, 255, 0.18)'
-                            : '#EFF6FF'
-                          : isDark
-                          ? '#0E1424'
-                          : '#F1F5F9',
-                        borderColor: m.is_me ? royalBlue : 'transparent',
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.miniMemberRank,
-                        { color: idx === 0 ? '#F59E0B' : textSecondary },
-                      ]}
-                    >
-                      #{idx + 1}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      style={[
-                        styles.miniMemberName,
-                        { color: m.is_me ? royalBlue : textPrimary },
-                      ]}
-                    >
-                      {m.is_me ? 'You' : m.display_name}
-                    </Text>
-                    <Text style={styles.miniMemberStreak}>🔥{m.streak}d</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-          </>
+            <View style={{ flex: 1, marginLeft: 14 }}>
+              <Text style={[styles.myLabelName, { color: textPrimary }]}>
+                Your Position: Rank #{myRank} of {memberCount}
+              </Text>
+              <Text
+                numberOfLines={1}
+                style={[styles.myHabitName, { color: textSecondary, marginTop: 4 }]}
+              >
+                {currentHabitName} • 🔥 {currentStreak}d streak • {currentTotalDays} total days
+              </Text>
+            </View>
+          </View>
         ) : (
           /* Empty / Not In Group State with Real Habit Stats Fallback */
           <View style={styles.emptyGroupContent}>
@@ -340,13 +406,25 @@ export default function HabitGroupLeaderboardSection({
               style={[
                 styles.emptyPreviewRow,
                 {
-                  backgroundColor: isDark ? '#0B1021' : '#F8FAFC',
-                  borderColor: isDark ? '#222A41' : '#CBD5E1',
+                  backgroundColor: isDark ? '#0B1021' : 'rgba(255, 255, 255, 0.16)',
+                  borderColor: isDark ? '#222A41' : 'rgba(255, 255, 255, 0.28)',
                 },
               ]}
             >
-              <View style={styles.emptyRankPill}>
-                <Text style={styles.emptyRankText}>#1</Text>
+              <View
+                style={[
+                  styles.emptyRankPill,
+                  !isDark && { backgroundColor: '#FFFFFF' },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.emptyRankText,
+                    !isDark && { color: '#1D4ED8' },
+                  ]}
+                >
+                  #1
+                </Text>
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.emptyPreviewText, { color: textPrimary }]}>
@@ -362,7 +440,7 @@ export default function HabitGroupLeaderboardSection({
             </View>
           </View>
         )}
-      </TouchableOpacity>
+      </TactilePressable>
 
       {/* ─── Full-Screen Expanded Leaderboard Modal ─── */}
       <Modal
@@ -1088,15 +1166,17 @@ export default function HabitGroupLeaderboardSection({
 
 const styles = StyleSheet.create({
   previewCard: {
-    borderRadius: 20,
-    borderWidth: 1.5,
+    borderRadius: 22,
+    borderWidth: 1,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#2B6BFF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#0A1530',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1151,25 +1231,28 @@ const styles = StyleSheet.create({
   myPositionBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 4,
   },
   myRankCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#2B6BFF',
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#2563EB',
+    borderWidth: 1,
+    borderColor: 'rgba(147, 197, 253, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   myRankText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
+    fontSize: 23,
+    fontWeight: '800',
   },
   myLabelName: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
   },
   youBadge: {
@@ -1185,9 +1268,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   myHabitName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '500',
-    marginTop: 2,
   },
   miniStripContainer: {
     flexDirection: 'row',

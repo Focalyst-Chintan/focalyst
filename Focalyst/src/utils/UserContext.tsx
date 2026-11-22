@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { AppState, AppStateStatus, DeviceEventEmitter } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabase';
+import { supabase, getCoalescedSession } from './supabase';
 import { queryCache } from './queryCache';
 import { isProPlan } from './plan';
 import { BLOCKING_HISTORY_UPDATED } from '../services/blockingTelemetrySync';
+import { clearWidgetsOnSignOut } from '../services/widgetSync';
 
 export interface UserProfile {
   id: string;
@@ -67,6 +68,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [profile]);
 
   const isFetchingProfileRef = React.useRef<string | null>(null);
+  const lastFetchedProfileRef = React.useRef<{ userId: string; profile: UserProfile; lastFetchedAt: number } | null>(null);
 
   // Helper to persist boot snapshot
   const persistBootSnapshot = React.useCallback(async (u: any, p: UserProfile | null) => {
@@ -89,6 +91,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   /** Boot snapshot, query cache and every per-user AsyncStorage key, so the next account starts clean. */
   const clearUserLocalData = React.useCallback(async () => {
+    lastFetchedProfileRef.current = null;
     await clearBootSnapshot();
     queryCache.clearAll();
     try {
@@ -102,8 +105,20 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     DeviceEventEmitter.emit(BLOCKING_HISTORY_UPDATED);
   }, [clearBootSnapshot]);
 
-  const fetchUserProfile = React.useCallback(async (userId: string, currentUser?: any): Promise<UserProfile | null> => {
-    if (!userId || isFetchingProfileRef.current === userId) return null;
+  const fetchUserProfile = React.useCallback(async (userId: string, currentUser?: any, forceRefresh = false): Promise<UserProfile | null> => {
+    if (!userId) return null;
+    const now = Date.now();
+    if (
+      !forceRefresh &&
+      profileRef.current !== null &&
+      lastFetchedProfileRef.current &&
+      lastFetchedProfileRef.current.userId === userId &&
+      lastFetchedProfileRef.current.profile &&
+      (now - lastFetchedProfileRef.current.lastFetchedAt < 5 * 60 * 1000)
+    ) {
+      return lastFetchedProfileRef.current.profile;
+    }
+    if (isFetchingProfileRef.current === userId) return null;
     isFetchingProfileRef.current = userId;
 
     const controller = new AbortController();
@@ -136,6 +151,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           current_level: data.current_level || 1,
           current_title: data.current_title || 'Ignition',
         };
+        lastFetchedProfileRef.current = { userId, profile: uProfile, lastFetchedAt: Date.now() };
         setProfile(uProfile);
         // Silently update boot snapshot
         const activeUser = currentUser || userRef.current;
@@ -155,10 +171,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = React.useCallback(async (): Promise<UserProfile | null> => {
     try {
-      const { data } = await supabase.auth.getSession();
+      const { data } = await getCoalescedSession();
       const sessionUser = data?.session?.user;
       if (sessionUser) {
-        return await fetchUserProfile(sessionUser.id, sessionUser);
+        return await fetchUserProfile(sessionUser.id, sessionUser, true);
       }
     } catch (e) {
       console.warn('[UserContext] refreshProfile error:', e);
@@ -214,33 +230,30 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
         // Validate token against Supabase auth server when a session exists
         let verifiedUser = currentSession?.user ?? null;
-        let authInvalid = Boolean(
-          sessionError &&
-            (sessionError.message?.includes('Refresh Token') ||
-              sessionError.message?.includes('Invalid Refresh Token'))
-        );
+        let authInvalid = false;
 
         if (verifiedUser && !authInvalid) {
           try {
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-            if (userError || !userData?.user) {
-              console.warn('[UserContext] Session validation failed via getUser():', userError?.message);
-              authInvalid = true;
-              verifiedUser = null;
-            } else {
-              verifiedUser = userData.user;
-            }
+            const { data: userData, error: userError } = await Promise.race([
+              supabase.auth.getUser(),
+              new Promise<{ data: { user: null }; error: any }>((resolve) =>
+                setTimeout(() => resolve({ data: { user: null }, error: null }), 3000)
+              ),
+            ]);
+            if (!userError && userData?.user) verifiedUser = userData.user;
           } catch (getUserErr) {
             console.warn('[UserContext] getUser() check warning:', getUserErr);
           }
         }
 
         // If session is missing, expired, or invalid, clear stale boot snapshot & sign out
-        if (authInvalid || !verifiedUser) {
-          if (hasCachedSession || authInvalid) {
+        if (!verifiedUser) {
+          // Do not clobber a user that just signed in via onAuthStateChange while initAuth was in flight.
+          if (userRef.current) return;
+          if (!currentSession && !sessionError && hasCachedSession) {
             await clearUserLocalData();
-            await supabase.auth.signOut().catch(() => {});
           }
+          if (currentSession || sessionError) return;
           userRef.current = null;
           profileRef.current = null;
           setUser(null);
@@ -249,6 +262,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        userRef.current = verifiedUser;
         setUser(verifiedUser);
         setLoading(false);
         clearTimeout(safetyTimer);
@@ -264,20 +278,10 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
 
     initAuth();
 
-    // Set up AppState listener to check session when active
-    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'active') {
-        try {
-          const { data } = await supabase.auth.getSession();
-          if (data?.session?.user) {
-            setUser(data.session.user);
-            void fetchUserProfile(data.session.user.id, data.session.user);
-          }
-        } catch (err) {
-          console.warn('Error checking session on AppState transition:', err);
-        } finally {
-          if (isMounted) setLoading(false);
-        }
+    // onAuthStateChange handles session updates and token refreshes automatically on resume.
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === 'active' && isMounted) {
+        setLoading(false);
       }
     };
 
@@ -290,6 +294,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
 
       if (event === 'SIGNED_OUT') {
+        await clearWidgetsOnSignOut();
         // Explicit sign out: wipe boot snapshot, cache, per-user storage and state
         await clearUserLocalData();
         userRef.current = null;

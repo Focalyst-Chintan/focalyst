@@ -30,13 +30,7 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
   };
 
   const p = getPalette();
-  const habitList = Array.isArray(props.habits) && props.habits.length > 0
-    ? props.habits
-    : [
-        { id: 'sample-1', habitName: 'Drink water', streakDays: 6, totalDays: 6, completedToday: false, gridLevels: [] },
-        { id: 'sample-2', habitName: 'Yoga', streakDays: 32, totalDays: 32, completedToday: true, gridLevels: [] },
-        { id: 'sample-3', habitName: 'Skincare', streakDays: 1, totalDays: 1, completedToday: false, gridLevels: [] },
-      ];
+  const habitList = Array.isArray(props.habits) ? props.habits : [];
   const completedCount = habitList.filter((h) => Boolean(h.completedToday)).length;
 
   return (
@@ -51,6 +45,7 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
       </Row>
 
       <Column modifiers={[paddingAll(4)]}>
+        {habitList.length === 0 ? <Text color={p.muted} style={{ fontSize: 11 }}>No habits yet</Text> : null}
         {habitList.slice(0, 3).map((h) => {
           const isDone = Boolean(h.completedToday);
           const streak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
@@ -76,9 +71,9 @@ const StreakWidget = (props: StreakWidgetProps, env?: WidgetEnv) => {
 export default safeCreateWidget<StreakWidgetProps>('StreakWidget', StreakWidget, {
   preset: 'ember',
   systemScheme: 'dark',
-  habitName: 'Yoga',
-  streakDays: 26,
-  totalDays: 48,
+  habitName: '',
+  streakDays: 0,
+  totalDays: 0,
   goalDays: 30,
   habits: [],
   toggledHabitMap: {},

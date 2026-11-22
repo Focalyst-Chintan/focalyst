@@ -91,7 +91,7 @@ type ButtonProps = {
 
 export function PrimaryButton({ label, onPress, onDisabledPress, disabled, loading, icon, style }: ButtonProps) {
   const { c } = useBlockingTheme();
-  const fg = disabled ? c.textSecondary : c.onAccent;
+  const fg = disabled ? c.textSecondary : '#FFFFFF';
   return (
     <PressScale
       onPress={() => {
@@ -106,7 +106,7 @@ export function PrimaryButton({ label, onPress, onDisabledPress, disabled, loadi
         styles.button,
         disabled
           ? { backgroundColor: c.surface2, borderWidth: 1, borderColor: c.border }
-          : { backgroundColor: c.accentFill },
+          : { backgroundColor: '#1951fc' },
         style,
       ]}
     >
@@ -208,8 +208,8 @@ export function CircleIconButton({
 
 const styles = StyleSheet.create({
   button: {
-    height: 52,
-    borderRadius: 16,
+    minHeight: 48,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 20,

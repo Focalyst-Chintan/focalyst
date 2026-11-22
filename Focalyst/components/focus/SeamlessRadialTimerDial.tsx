@@ -44,65 +44,67 @@ function createPieWedgePath(
 export const SeamlessRadialTimerDial: React.FC<SeamlessRadialTimerDialProps> = ({
   progress,
   size,
-  isDark = false,
+  isDark = true,
   children,
 }) => {
-  const safeProgress = Math.max(0.01, Math.min(1, Number.isFinite(progress) ? progress : 0));
+  const safeProgress = Math.max(0, Math.min(1, Number.isFinite(progress) ? progress : 0));
   const half = size / 2;
   const sweepAngle = safeProgress * 360;
-  const primaryBlue = isDark ? '#3B82F6' : '#2B6BFF';
-  const midBlue = isDark ? '#2563EB' : '#60A5FA';
-  const outerBlue = isDark ? '#1D4ED8' : '#93C5FD';
 
   return (
-    <View style={[styles.dialWrapper, { width: size, height: size }]}>
-      <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={StyleSheet.absoluteFill}>
-        <Defs>
-          {/* Ambient background glow so even the un-swept area has a whisper-soft halo */}
-          <RadialGradient
-            id="ambientHalo"
-            cx={String(half)}
-            cy={String(half)}
-            rx={String(half)}
-            ry={String(half)}
-            fx={String(half)}
-            fy={String(half)}
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor={primaryBlue} stopOpacity={isDark ? '0.08' : '0.06'} />
-            <Stop offset="70%" stopColor={midBlue} stopOpacity={isDark ? '0.03' : '0.02'} />
-            <Stop offset="100%" stopColor={outerBlue} stopOpacity="0" />
-          </RadialGradient>
+    <View style={[styles.dialWrapper, { width: size, height: size }]} pointerEvents="none">
+      {safeProgress > 0.001 && (
+        <Svg
+          width={size}
+          height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        >
+          <Defs>
+            {/* Radially Feathered Elapsed Sweep Wedge (fades to 0 opacity before outer edge) */}
+            {isDark ? (
+              <RadialGradient
+                id="focalystBlueWedge"
+                cx={String(half)}
+                cy={String(half)}
+                rx={String(half)}
+                ry={String(half)}
+                fx={String(half)}
+                fy={String(half)}
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0%" stopColor="#1951fc" stopOpacity="0.55" />
+                <Stop offset="55%" stopColor="#0b2cb1" stopOpacity="0.35" />
+                <Stop offset="85%" stopColor="#03195b" stopOpacity="0.10" />
+                <Stop offset="100%" stopColor="#03195b" stopOpacity="0" />
+              </RadialGradient>
+            ) : (
+              <RadialGradient
+                id="focalystBlueWedge"
+                cx={String(half)}
+                cy={String(half)}
+                rx={String(half)}
+                ry={String(half)}
+                fx={String(half)}
+                fy={String(half)}
+                gradientUnits="userSpaceOnUse"
+              >
+                <Stop offset="0%" stopColor="#3781fc" stopOpacity="0.35" />
+                <Stop offset="60%" stopColor="#3781fc" stopOpacity="0.15" />
+                <Stop offset="100%" stopColor="#3781fc" stopOpacity="0" />
+              </RadialGradient>
+            )}
+          </Defs>
 
-          {/* Main Feathered Blue Radial Gradient Wedge (matches Timer design.jpeg) */}
-          <RadialGradient
-            id="focalystBlueWedge"
-            cx={String(half)}
-            cy={String(half)}
-            rx={String(half)}
-            ry={String(half)}
-            fx={String(half)}
-            fy={String(half)}
-            gradientUnits="userSpaceOnUse"
-          >
-            <Stop offset="0%" stopColor={primaryBlue} stopOpacity={isDark ? '0.62' : '0.52'} />
-            <Stop offset="38%" stopColor={primaryBlue} stopOpacity={isDark ? '0.42' : '0.36'} />
-            <Stop offset="72%" stopColor={midBlue} stopOpacity={isDark ? '0.16' : '0.14'} />
-            <Stop offset="92%" stopColor={outerBlue} stopOpacity="0.03" />
-            <Stop offset="100%" stopColor={outerBlue} stopOpacity="0" />
-          </RadialGradient>
-        </Defs>
-
-        {/* Subtle full-circle ambient center glow */}
-        <Circle cx={half} cy={half} r={half} fill="url(#ambientHalo)" />
-
-        {/* Dynamic Clockwise Pie Wedge with 0% opacity feathered outer edge */}
-        {safeProgress >= 0.999 ? (
-          <Circle cx={half} cy={half} r={half} fill="url(#focalystBlueWedge)" />
-        ) : (
-          <Path d={createPieWedgePath(half, half, half, 0, sweepAngle)} fill="url(#focalystBlueWedge)" />
-        )}
-      </Svg>
+          {/* Dynamic Clockwise Pie Wedge with 0% opacity feathered outer edge */}
+          {safeProgress >= 0.999 ? (
+            <Circle cx={half} cy={half} r={half} fill="url(#focalystBlueWedge)" />
+          ) : (
+            <Path d={createPieWedgePath(half, half, half, 0, sweepAngle)} fill="url(#focalystBlueWedge)" />
+          )}
+        </Svg>
+      )}
 
       {/* Centered Countdown Text Overlay */}
       <View style={styles.centerContent} pointerEvents="none">

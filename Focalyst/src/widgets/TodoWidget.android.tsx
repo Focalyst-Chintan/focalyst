@@ -1,7 +1,6 @@
 import { Button, HStack, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
   background,
-  border,
   buttonStyle,
   cornerRadius,
   font,
@@ -95,30 +94,6 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
     );
   };
 
-  const renderGhostSlot = (slotIdx: number, showLabel: boolean) => (
-    <HStack
-      key={`ghost-${slotIdx}`}
-      alignment="center"
-      modifiers={[
-        padding({ horizontal: 9, vertical: 5 }),
-        background('rgba(255, 255, 255, 0.025)'),
-        cornerRadius(8),
-        border({ content: 'rgba(255, 255, 255, 0.08)', width: 1 }),
-        frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
-      ]}
-    >
-      <Text
-        modifiers={[
-          font({ size: 11, weight: 'medium' }),
-          foregroundStyle(p.muted),
-          lineLimit(1),
-        ]}
-      >
-        {showLabel ? 'No more tasks' : ' '}
-      </Text>
-      <Spacer minLength={0} />
-    </HStack>
-  );
 
   return (
     <VStack
@@ -159,22 +134,14 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
             spacing={8}
             modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
           >
-            {[0, 1, 2].map((slotIdx) => {
-              const task = leftTasks[slotIdx];
-              if (task) return renderTaskPill(task);
-              return renderGhostSlot(slotIdx, slotIdx === leftTasks.length);
-            })}
+            {leftTasks.map(renderTaskPill)}
           </VStack>
           <VStack
             alignment="leading"
             spacing={8}
             modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
           >
-            {[0, 1, 2].map((slotIdx) => {
-              const task = rightTasks[slotIdx];
-              if (task) return renderTaskPill(task);
-              return renderGhostSlot(10 + slotIdx, false);
-            })}
+            {rightTasks.map(renderTaskPill)}
           </VStack>
         </HStack>
       ) : (
@@ -183,11 +150,9 @@ const TodoWidget = (props: TodoWidgetProps, env?: WidgetEnv) => {
           spacing={8}
           modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
         >
-          {[0, 1, 2].map((slotIdx) => {
-            const task = smallTasks[slotIdx];
-            if (task) return renderTaskPill(task);
-            return renderGhostSlot(slotIdx, slotIdx === smallTasks.length);
-          })}
+          {smallTasks.map(renderTaskPill)}
+          {smallTasks.length === 0 && <Text modifiers={[font({ size: 12 }), foregroundStyle(p.muted), frame({ maxWidth: fill, maxHeight: fill, alignment: 'center' })]}>No more tasks</Text>}
+          <Spacer minLength={0} />
         </VStack>
       )}
     </VStack>

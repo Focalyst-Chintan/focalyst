@@ -91,8 +91,8 @@ export default function ChatMicButton({
         }
 
         await recorder.stop();
-        // Wait 100ms to ensure the audio file is fully written and finalized on disk
-        await new Promise((r) => setTimeout(r, 100));
+        // Allow iOS AVAudioRecorder to finalize the .m4a trailer on disk.
+        await new Promise((r) => setTimeout(r, 300));
         await setAudioModeAsync({ allowsRecording: false });
 
         let uri = recorder.uri || (recorder.getStatus ? recorder.getStatus()?.url : undefined);
@@ -113,12 +113,17 @@ export default function ChatMicButton({
         }
       } catch (err: any) {
         console.warn('Voice transcription error:', err);
+        await cleanupRecording();
+        try {
+          await setAudioModeAsync({ allowsRecording: false });
+        } catch {}
         const friendlyMsg =
           err?.message && !err.message.includes('{') && !err.message.includes('API') && !err.message.includes('413')
             ? err.message
             : 'Could not transcribe voice audio. Please try speaking again.';
         Alert.alert('Dictation Error', friendlyMsg);
       } finally {
+        setIsRecording(false);
         setIsTranscribing(false);
         onRecordingStateChange?.({ isRecording: false, isTranscribing: false });
       }
@@ -141,15 +146,33 @@ export default function ChatMicButton({
           playsInSilentMode: true,
         });
 
-        const recorderOptions = RecordingPresets?.HIGH_QUALITY || {
+        const basePreset = RecordingPresets?.HIGH_QUALITY || {
           extension: '.m4a',
           sampleRate: 44100,
           numberOfChannels: 2,
           bitRate: 128000,
+          ios: {
+            outputFormat: 'aac ',
+            audioQuality: 0x7f,
+            linearPCMBitDepth: 16,
+            linearPCMIsBigEndian: false,
+            linearPCMIsFloat: false,
+          },
+        };
+
+        // Flatten `ios` options onto the top level (matching expo-audio's createRecordingOptions)
+        // so AudioRecorder receives outputFormat: 'aac ' and records a valid MPEG-4 AAC .m4a file.
+        const recorderOptions = {
+          extension: basePreset.extension,
+          sampleRate: basePreset.sampleRate,
+          numberOfChannels: basePreset.numberOfChannels,
+          bitRate: basePreset.bitRate,
+          isMeteringEnabled: false,
+          ...(basePreset.ios || {}),
         };
 
         const recorder = new AudioModule.AudioRecorder(recorderOptions);
-        await recorder.prepareToRecordAsync();
+        await recorder.prepareToRecordAsync(basePreset);
         recorder.record();
 
         recorderRef.current = recorder;

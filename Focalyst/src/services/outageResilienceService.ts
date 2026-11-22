@@ -1,14 +1,15 @@
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
+import { coalescedRefreshSession } from '../utils/supabase';
 
 const CACHE_PREFIX = '@focalyst_cache_';
 const QUEUE_STORAGE_KEY = '@focalyst_offline_queue_v1';
 const REMOTE_STATUS_CACHE_KEY = '@focalyst_remote_status_v1';
 
-export const CHECK_INTERVAL_SEC = 30;
-// While failures are adding up but no warning is shown yet, check sooner.
-const SUSPECT_INTERVAL_SEC = 15;
+export const CHECK_INTERVAL_SEC = 60;
+// While failures are adding up or during outage, back off exponentially up to 5 minutes.
+const MAX_BACKOFF_INTERVAL_SEC = 300;
 const CHECK_TIMEOUT_MS = 10000;
 // The server warning needs this many network/5xx failures in a row, spread over at least
 // MIN_FAILURE_WINDOW_MS, while the device is online. One slow or failed request is not an outage.
@@ -49,7 +50,7 @@ const DEFAULT_REMOTE_CONFIG: RemoteOutageConfig = {
   shortBannerText: "Can't reach Focalyst right now",
   explainer:
     "We can't reach Focalyst's servers right now. You can keep using the app; anything you add is saved on this iPhone and will sync automatically when the connection is back.",
-  eta: 'Checking connection automatically every 30 seconds',
+  eta: 'Checking connection automatically every 60 seconds',
 };
 
 type Listener = (state: OutageState) => void;
@@ -108,7 +109,7 @@ function logCheckFailure(source: string, error: CheckError) {
 
 async function refreshSessionQuietly() {
   try {
-    await supabaseClientRef?.auth?.refreshSession();
+    await coalescedRefreshSession();
   } catch {}
 }
 
@@ -158,13 +159,24 @@ export function getOutageState(): OutageState {
   return { ...currentState };
 }
 
+let lastResumeHealthCheck = 0;
+let isResumeHealthCheckInFlight = false;
+
 export async function initOutageResilience(supabaseClient: any) {
   supabaseClientRef = supabaseClient;
 
   if (!appStateSubscription) {
     appStateSubscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        void checkBackendHealthAndSync();
+        const now = Date.now();
+        if (isResumeHealthCheckInFlight || now - lastResumeHealthCheck < 15000) {
+          return;
+        }
+        isResumeHealthCheckInFlight = true;
+        lastResumeHealthCheck = now;
+        checkBackendHealthAndSync().finally(() => {
+          isResumeHealthCheckInFlight = false;
+        });
       }
     });
   }
@@ -209,6 +221,8 @@ function startCountdownLoop() {
   if (countdownTimer) clearInterval(countdownTimer);
 
   countdownTimer = setInterval(() => {
+    if (AppState.currentState !== 'active') return;
+
     if (!currentState.isOutage && currentState.pendingSyncCount === 0 && consecutiveFailures === 0) {
       currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
       return;
@@ -318,6 +332,10 @@ function pingWithTimeout(): Promise<{ error: CheckError }> {
 }
 
 export async function checkBackendHealthAndSync(): Promise<boolean> {
+  if (AppState.currentState !== 'active') {
+    return false;
+  }
+
   currentState.isCheckingNow = true;
   notifyListeners();
 
@@ -327,6 +345,13 @@ export async function checkBackendHealthAndSync(): Promise<boolean> {
     currentState.isCheckingNow = false;
     notifyListeners();
     return false;
+  }
+
+  if (currentState.pendingSyncCount === 0) {
+    currentState.isCheckingNow = false;
+    currentState.secondsUntilNextCheck = CHECK_INTERVAL_SEC;
+    notifyListeners();
+    return true;
   }
 
   try {
@@ -356,7 +381,10 @@ export async function checkBackendHealthAndSync(): Promise<boolean> {
   } catch (error: any) {
     recordSupabaseFailure('ping_health', error);
     currentState.isCheckingNow = false;
-    currentState.secondsUntilNextCheck = currentState.isOutage ? CHECK_INTERVAL_SEC : SUSPECT_INTERVAL_SEC;
+    currentState.secondsUntilNextCheck = Math.min(
+      MAX_BACKOFF_INTERVAL_SEC,
+      CHECK_INTERVAL_SEC * Math.pow(2, Math.max(0, consecutiveFailures - 1))
+    );
     notifyListeners();
     return false;
   }

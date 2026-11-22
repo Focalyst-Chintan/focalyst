@@ -106,12 +106,17 @@ export default function ChatMicButton({
         }
       } catch (err: any) {
         console.warn('Voice transcription error:', err);
+        await cleanupRecording();
+        try {
+          await setAudioModeAsync({ allowsRecording: false });
+        } catch {}
         const friendlyMsg =
           err?.message && !err.message.includes('{') && !err.message.includes('API') && !err.message.includes('413')
             ? err.message
             : 'Could not transcribe voice audio. Please try speaking again.';
         Alert.alert('Dictation Error', friendlyMsg);
       } finally {
+        setIsRecording(false);
         setIsTranscribing(false);
         onRecordingStateChange?.({ isRecording: false, isTranscribing: false });
       }

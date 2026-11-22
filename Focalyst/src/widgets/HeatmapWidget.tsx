@@ -7,15 +7,9 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
   'widget';
   // Gallery and placeholder entries arrive without props: show a realistic sample instead.
   const props = {
-    habitName: 'Yoga',
-    totalDays: 26,
-    gridLevels: [
-      0, 0, 1, 2, 3, 4, 2,
-      1, 0, 2, 3, 4, 3, 1,
-      2, 3, 4, 2, 4, 3, 2,
-      0, 1, 2, 3, 4, 4, 3,
-      2, 3, 4, 0, 0, 0, 0,
-    ],
+    habitName: '',
+    totalDays: 0,
+    gridLevels: Array(35).fill(0),
     ...(rawProps as Partial<HeatmapWidgetProps>),
   };
   const preset = props.preset ?? 'cobalt';
@@ -57,18 +51,30 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
+  const getLocalTodayStr = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  const todayStr = getLocalTodayStr();
+  const isStaleDay = Boolean(rawProps.snapshotDate && rawProps.snapshotDate !== todayStr);
+
   const fallbackHabit = Array.isArray(props.habits) && props.habits.length > 0 ? props.habits[0] : null;
   const activeHabitId = props.habitId || fallbackHabit?.id || 'default';
-  const displayHabitName = props.habitName || fallbackHabit?.habitName || 'Yoga';
+  const displayHabitName = props.habitName || fallbackHabit?.habitName || '';
   const displayTotalDays = props.totalDays ?? fallbackHabit?.totalDays ?? 0;
-  const displayCompletedToday = Boolean(props.completedToday ?? fallbackHabit?.completedToday);
+  const displayCompletedToday = isStaleDay
+    ? false
+    : Boolean(props.completedToday ?? fallbackHabit?.completedToday);
   const displayGridLevels =
     Array.isArray(props.gridLevels) && props.gridLevels.length > 0
       ? props.gridLevels
       : fallbackHabit?.gridLevels || [];
 
   const getTodayCellIdx = () => {
-    if (typeof props.todayCellIndex === 'number' && props.todayCellIndex >= 0 && props.todayCellIndex < 35) {
+    if (!isStaleDay && typeof props.todayCellIndex === 'number' && props.todayCellIndex >= 0 && props.todayCellIndex < 35) {
       return props.todayCellIndex;
     }
     const now = new Date();
@@ -93,7 +99,11 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
         target={`heatmap-toggle-${activeHabitId}`}
         modifiers={[buttonStyle('plain')]}
         onPress={() => {
-          const prevDone = Boolean(rawProps.completedToday ?? displayCompletedToday);
+          const tapTodayStr = getLocalTodayStr();
+          const tapIsStale = Boolean(rawProps.snapshotDate && rawProps.snapshotDate !== tapTodayStr);
+          const prevDone = tapIsStale
+            ? false
+            : Boolean(rawProps.completedToday ?? displayCompletedToday);
           const nextDone = !prevDone;
           const curTotal = Math.max(0, Math.floor(Number(rawProps.totalDays ?? displayTotalDays) || 0));
           const nextTotal = nextDone ? curTotal + 1 : Math.max(0, curTotal - 1);
@@ -107,12 +117,15 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
             curGrid[todayIdx] = nextDone ? 4 : 1;
           }
           const prevMap =
-            rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
+            !tapIsStale && rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
               ? rawProps.toggledHabitMap
               : {};
+          const nowMs = Date.now();
           const nextHabits = Array.isArray(rawProps.habits)
             ? rawProps.habits.map((h) => {
-                if (h.id !== activeHabitId) return h;
+                if (h.id !== activeHabitId) {
+                  return tapIsStale ? { ...h, completedToday: false } : h;
+                }
                 const curStreak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
                 const nextStreak = nextDone ? curStreak + 1 : Math.max(0, curStreak - 1);
                 return {
@@ -127,14 +140,18 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 
           return {
             ...rawProps,
+            snapshotDate: tapTodayStr,
             habitId: activeHabitId,
             completedToday: nextDone,
             totalDays: nextTotal,
             gridLevels: curGrid,
             habits: nextHabits,
             lastToggledHabitId: activeHabitId,
-            toggledHabitMap: { ...prevMap, [activeHabitId]: nextDone },
-            updatedAtMs: Date.now(),
+            toggledHabitMap: {
+              ...prevMap,
+              [activeHabitId]: { completed: nextDone, date: tapTodayStr, updatedAtMs: nowMs },
+            },
+            updatedAtMs: nowMs,
           };
         }}
       >
@@ -191,15 +208,9 @@ const HeatmapWidget = (rawProps: HeatmapWidgetProps, env?: WidgetEnv) => {
 export default safeCreateWidget<HeatmapWidgetProps>('HeatmapWidget', HeatmapWidget, {
   preset: 'cobalt',
   systemScheme: 'dark',
-  habitName: 'Yoga',
-  totalDays: 26,
-  gridLevels: [
-    0, 0, 1, 2, 3, 4, 2,
-    1, 0, 2, 3, 4, 3, 1,
-    2, 3, 4, 2, 4, 3, 2,
-    0, 1, 2, 3, 4, 4, 3,
-    2, 3, 4, 0, 0, 0, 0,
-  ],
+  habitName: '',
+  totalDays: 0,
+  gridLevels: Array(35).fill(0),
   habits: [],
   activeHabitIndex: 0,
 });

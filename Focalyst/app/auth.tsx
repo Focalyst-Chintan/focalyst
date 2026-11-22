@@ -20,12 +20,90 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Crypto from 'expo-crypto';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
+import Constants from 'expo-constants';
 
 // Required for web browser behavior in auth session
 WebBrowser.maybeCompleteAuthSession();
 
 // The `focalyst` scheme is registered in CFBundleURLTypes and the Android intent filter.
 const GOOGLE_REDIRECT_TO = 'focalyst://auth/callback';
+
+const SERVER_BUSY_MESSAGE =
+  "Focalyst's login server is temporarily busy. Please wait a moment and try again.";
+
+const BUSY_STATUS_CODES = new Set([502, 503, 504, 522]);
+
+function isTransientServerOrNetworkMessage(text: string): boolean {
+  return /\b(502|503|504|522)\b|timeout|timed out|network request failed|failed to fetch|fetch failed|abort|econnreset|enotfound|unknownhostexception/i.test(
+    text,
+  );
+}
+
+/**
+ * Maps raw Supabase / fetch auth errors (including serialized Response JSON or HTML
+ * from 522/502/503/504 gateway timeouts) into clean user-facing messages.
+ */
+function formatAuthError(err: unknown, fallback: string): string {
+  if (!err) return fallback;
+
+  const errObj = typeof err === 'object' ? (err as Record<string, any>) : null;
+  const status =
+    typeof errObj?.status === 'number'
+      ? errObj.status
+      : typeof errObj?.originalError?.status === 'number'
+        ? errObj.originalError.status
+        : undefined;
+  if (status !== undefined && (BUSY_STATUS_CODES.has(status) || status >= 500)) {
+    return SERVER_BUSY_MESSAGE;
+  }
+
+  if (errObj?.name === 'AuthRetryableFetchError' || errObj?.name === 'AbortError') {
+    return SERVER_BUSY_MESSAGE;
+  }
+
+  const rawMessage =
+    typeof err === 'string'
+      ? err.trim()
+      : typeof errObj?.message === 'string'
+        ? errObj.message.trim()
+        : '';
+
+  if (!rawMessage) {
+    return fallback;
+  }
+
+  if (rawMessage.startsWith('{') || rawMessage.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(rawMessage);
+      const parsedStatus = typeof parsed?.status === 'number' ? parsed.status : undefined;
+      if (parsedStatus !== undefined && (BUSY_STATUS_CODES.has(parsedStatus) || parsedStatus >= 500)) {
+        return SERVER_BUSY_MESSAGE;
+      }
+      const nested =
+        (typeof parsed?.error_description === 'string' && parsed.error_description.trim()) ||
+        (typeof parsed?.msg === 'string' && parsed.msg.trim()) ||
+        (typeof parsed?.message === 'string' && parsed.message.trim()) ||
+        '';
+      if (nested && !nested.startsWith('{') && !nested.startsWith('[')) {
+        return isTransientServerOrNetworkMessage(nested) ? SERVER_BUSY_MESSAGE : nested;
+      }
+      return isTransientServerOrNetworkMessage(rawMessage) ? SERVER_BUSY_MESSAGE : fallback;
+    } catch {
+      return isTransientServerOrNetworkMessage(rawMessage) ? SERVER_BUSY_MESSAGE : fallback;
+    }
+  }
+
+  if (isTransientServerOrNetworkMessage(rawMessage)) {
+    return SERVER_BUSY_MESSAGE;
+  }
+
+  // Never show raw HTML error pages from upstream proxies.
+  if (/<!doctype|<html/i.test(rawMessage)) {
+    return SERVER_BUSY_MESSAGE;
+  }
+
+  return rawMessage;
+}
 
 // Fills users.full_name only when it is empty, never with an email. An existing name always wins.
 async function fillMissingName(userId: string, candidate: string | null | undefined) {
@@ -73,10 +151,8 @@ export default function AuthScreen() {
     setIsGoogleLoading(true);
     setMessage('');
     try {
-      // Must match an entry on the Supabase Redirect URLs allow list exactly. Linking.createURL
-      // builds it from the app.json scheme (online.focalyst://, exp+…:// in dev), which is not
-      // on that list, so Supabase fell back to the Site URL (focalyst.online).
-      const redirectTo = GOOGLE_REDIRECT_TO;
+      const isExpoGo = Constants.appOwnership === 'expo';
+      const redirectTo = isExpoGo ? Linking.createURL('auth/callback') : GOOGLE_REDIRECT_TO;
       if (__DEV__) console.log('[auth] google redirectTo:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
@@ -98,7 +174,8 @@ export default function AuthScreen() {
           // 1. Handle PKCE code parameter
           const params = Linking.parse(res.url).queryParams;
           if (params?.code && typeof params.code === 'string') {
-            await supabase.auth.exchangeCodeForSession(params.code);
+            const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(params.code);
+            if (exchangeError) throw exchangeError;
           }
           // 2. Handle implicit hash tokens fallback
           const hash = res.url.split('#')[1];
@@ -107,32 +184,38 @@ export default function AuthScreen() {
             const access_token = hashParams.get('access_token');
             const refresh_token = hashParams.get('refresh_token');
             if (access_token && refresh_token) {
-              await supabase.auth.setSession({ access_token, refresh_token });
+              const { error: sessionError } = await supabase.auth.setSession({ access_token, refresh_token });
+              if (sessionError) throw sessionError;
             }
           }
 
           // Verify session and route to authenticated screen
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user) {
-            const meta = userData.user.user_metadata ?? {};
-            await fillMissingName(userData.user.id, meta.full_name || meta.name);
+          const { data: sessionData } = await supabase.auth.getSession();
+          const signedInUser = sessionData?.session?.user ?? (await supabase.auth.getUser()).data?.user;
+          if (signedInUser) {
+            const meta = signedInUser.user_metadata ?? {};
+            await fillMissingName(signedInUser.id, meta.full_name || meta.name);
             const { data: profile } = await supabase
               .from('users')
               .select('onboarding_done')
-              .eq('id', userData.user.id)
-              .single();
+              .eq('id', signedInUser.id)
+              .maybeSingle();
 
             if (profile?.onboarding_done) {
               router.replace('/(tabs)/plan' as any);
             } else {
               router.replace('/paywall' as any);
             }
+          } else {
+            throw new Error('Could not complete Google sign-in session.');
           }
         }
       }
     } catch (err: any) {
       console.error('[auth] google sign in error:', err);
-      setMessage(err?.message || 'Google sign in failed.');
+      const msg = formatAuthError(err, 'Google sign in failed.');
+      setMessage(msg);
+      Alert.alert('Login Error', msg);
     } finally {
       setIsGoogleLoading(false);
     }
@@ -140,7 +223,9 @@ export default function AuthScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      setMessage('Please enter both email and password.');
+      const msg = 'Please enter both email and password.';
+      setMessage(msg);
+      Alert.alert('Login Error', msg);
       return;
     }
     setIsLoading(true);
@@ -148,14 +233,16 @@ export default function AuthScreen() {
     try {
       const { error, data } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setMessage(error.message);
+        const msg = formatAuthError(error, 'Login failed.');
+        setMessage(msg);
+        Alert.alert('Login Error', msg);
       } else if (data?.user) {
         // Fetch user profile onboarding_done state
         const { data: profile } = await supabase
           .from('users')
           .select('onboarding_done')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.onboarding_done) {
           router.replace('/(tabs)/plan' as any);
@@ -164,7 +251,9 @@ export default function AuthScreen() {
         }
       }
     } catch (err: any) {
-      setMessage(err.message || 'Login failed.');
+      const msg = formatAuthError(err, 'Login failed.');
+      setMessage(msg);
+      Alert.alert('Login Error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -172,7 +261,9 @@ export default function AuthScreen() {
 
   const handleSignUp = async () => {
     if (!email || !password) {
-      setMessage('Please enter both email and password.');
+      const msg = 'Please enter both email and password.';
+      setMessage(msg);
+      Alert.alert('Sign Up Error', msg);
       return;
     }
     setIsLoading(true);
@@ -180,14 +271,16 @@ export default function AuthScreen() {
     try {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
-        setMessage(error.message);
+        const msg = formatAuthError(error, 'Sign up failed.');
+        setMessage(msg);
+        Alert.alert('Sign Up Error', msg);
       } else if (data?.session && data?.user) {
         // Email confirmation is off: session returned immediately
         const { data: profile } = await supabase
           .from('users')
           .select('onboarding_done')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.onboarding_done) {
           router.replace('/(tabs)/plan' as any);
@@ -198,7 +291,9 @@ export default function AuthScreen() {
         setMessage('Check your email for the confirmation link.');
       }
     } catch (err: any) {
-      setMessage(err.message || 'Sign up failed.');
+      const msg = formatAuthError(err, 'Sign up failed.');
+      setMessage(msg);
+      Alert.alert('Sign Up Error', msg);
     } finally {
       setIsLoading(false);
     }
@@ -238,7 +333,13 @@ export default function AuthScreen() {
       });
 
       if (error) {
-        setMessage(error.message);
+        const isExpoGo = Constants.appOwnership === 'expo';
+        const msg =
+          isExpoGo && /audience|unacceptable|host\.exp\.Exponent/i.test(error.message)
+            ? 'Apple Sign-In in Expo Go fails due to bundle ID (host.exp.Exponent) audience mismatch. Please use Email or Google Sign-In in Expo Go, or test Apple Sign-In in a native build.'
+            : formatAuthError(error, 'Apple Sign-In failed.');
+        setMessage(msg);
+        Alert.alert('Login Error', msg);
       } else if (data?.user) {
         // Apple only sends the name on the very first sign-in.
         const appleName = [credential.fullName?.givenName, credential.fullName?.familyName].filter(Boolean).join(' ');
@@ -249,7 +350,7 @@ export default function AuthScreen() {
           .from('users')
           .select('onboarding_done')
           .eq('id', data.user.id)
-          .single();
+          .maybeSingle();
 
         if (profile?.onboarding_done) {
           router.replace('/(tabs)/plan' as any);
@@ -260,7 +361,9 @@ export default function AuthScreen() {
     } catch (err: any) {
       // ERR_REQUEST_CANCELED means the user dismissed the Apple sheet — not an error
       if (err?.code !== 'ERR_REQUEST_CANCELED') {
-        setMessage(err.message || 'Apple Sign-In failed.');
+        const msg = formatAuthError(err, 'Apple Sign-In failed.');
+        setMessage(msg);
+        Alert.alert('Login Error', msg);
       }
     } finally {
       setIsAppleLoading(false);

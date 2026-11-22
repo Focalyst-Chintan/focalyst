@@ -18,7 +18,9 @@
         "EAS_BUILD_NO_EXPO_DOCTOR": "1",
         "EXPO_NO_CAPABILITY_SYNC": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs",
+        "EXPO_PUBLIC_BACKEND_URL": "https://focalyst.online",
+        "EXPO_PUBLIC_STATUS_GIST_URL": "https://gist.githubusercontent.com/Focalyst-Chintan/5886802c3649814b51cb813780a17f2d/raw/focalyst-status.json"
       }
     },
     "production": {
@@ -35,7 +37,9 @@
         "EAS_BUILD_NO_EXPO_DOCTOR": "1",
         "EXPO_NO_CAPABILITY_SYNC": "1",
         "EXPO_PUBLIC_SUPABASE_URL": "https://thdvzgzbyqkxrptvyyqq.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fDeoIkFZDgI5DOW_GHl9Vw_aOwNqybs",
+        "EXPO_PUBLIC_BACKEND_URL": "https://focalyst.online",
+        "EXPO_PUBLIC_STATUS_GIST_URL": "https://gist.githubusercontent.com/Focalyst-Chintan/5886802c3649814b51cb813780a17f2d/raw/focalyst-status.json"
       }
     }
   },

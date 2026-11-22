@@ -19,11 +19,7 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
   // Gallery and placeholder entries arrive without props: show a realistic sample instead.
   const props = {
     title: 'To-Do List',
-    tasks: [
-      { id: 'sample-1', title: 'Plan the week', completed: false },
-      { id: 'sample-2', title: 'Read 20 pages', completed: false },
-      { id: 'sample-3', title: 'Gym session', completed: false },
-    ],
+    tasks: [],
     ...(rawProps as Partial<TodoWidgetProps>),
   };
   const preset = props.preset ?? 'cobalt';
@@ -138,7 +134,7 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
             padding({ horizontal: 9, vertical: 5 }),
             background(p.pill),
             cornerRadius(8),
-            frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
+            frame({ maxWidth: fill, height: 30, alignment: 'leading' }),
           ]}
         >
           <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundStyle(p.accent), ...accentable]}>
@@ -161,30 +157,6 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
     );
   };
 
-  const renderGhostSlot = (slotIdx: number, showLabel: boolean) => (
-    <HStack
-      key={`ghost-${slotIdx}`}
-      alignment="center"
-      modifiers={[
-        padding({ horizontal: 9, vertical: 5 }),
-        background(p.ghostBg),
-        cornerRadius(8),
-        border({ content: p.ghostBorder, width: 1 }),
-        frame({ maxWidth: fill, minHeight: 30, maxHeight: fill, alignment: 'leading' }),
-      ]}
-    >
-      <Text
-        modifiers={[
-          font({ size: 11, weight: 'medium' }),
-          foregroundStyle(p.secondaryText),
-          lineLimit(1),
-        ]}
-      >
-        {showLabel ? 'No more tasks' : ' '}
-      </Text>
-      <Spacer minLength={0} />
-    </HStack>
-  );
 
   return (
     <VStack
@@ -218,44 +190,34 @@ const TodoWidget = (rawProps: TodoWidgetProps, env?: WidgetEnv) => {
         <HStack
           alignment="top"
           spacing={8}
-          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}
         >
           <VStack
             alignment="leading"
             spacing={8}
-            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+            modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}
           >
-            {[0, 1, 2].map((slotIdx) => {
-              const task = leftTasks[slotIdx];
-              if (task) return renderTaskPill(task);
-              return renderGhostSlot(slotIdx, slotIdx === leftTasks.length);
-            })}
+            {leftTasks.map(renderTaskPill)}
           </VStack>
           <VStack
             alignment="leading"
             spacing={8}
-            modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+            modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}
           >
-            {[0, 1, 2].map((slotIdx) => {
-              const task = rightTasks[slotIdx];
-              if (task) return renderTaskPill(task);
-              return renderGhostSlot(10 + slotIdx, false);
-            })}
+            {rightTasks.map(renderTaskPill)}
           </VStack>
         </HStack>
       ) : (
         <VStack
           alignment="leading"
           spacing={8}
-          modifiers={[frame({ maxWidth: fill, maxHeight: fill, alignment: 'topLeading' })]}
+          modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}
         >
-          {[0, 1, 2].map((slotIdx) => {
-            const task = smallTasks[slotIdx];
-            if (task) return renderTaskPill(task);
-            return renderGhostSlot(slotIdx, slotIdx === smallTasks.length);
-          })}
+          {smallTasks.map(renderTaskPill)}
+          {smallTasks.length === 0 && <Text modifiers={[font({ size: 12 }), foregroundStyle(p.secondaryText), frame({ maxWidth: fill, maxHeight: fill, alignment: 'center' })]}>No more tasks</Text>}
         </VStack>
       )}
+      <Spacer minLength={0} />
     </VStack>
   );
 };

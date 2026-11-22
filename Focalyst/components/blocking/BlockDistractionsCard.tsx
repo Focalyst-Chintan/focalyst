@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Pressable, StyleSheet, Switch, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { Alert, Animated, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { TactileSwitch } from '../ui/TactileSwitch';
 
 import { type, useBlockingTheme, useReduceMotion } from '../../constants/blockingTheme';
 import { formatClock, selectionLabel } from '../../src/blocking/levels';
@@ -157,8 +158,8 @@ export function BlockDistractionsCard({ containerStyle }: { containerStyle?: Sty
         accessibilityLabel={`Block distractions. ${subtitle}`}
         style={styles.topRow}
       >
-        <View style={[styles.iconCircle, { backgroundColor: c.iconCircle }]}>
-          <Ionicons name="shield-half-outline" size={20} color={c.accent} />
+        <View style={[styles.iconCircle, { backgroundColor: isDark ? 'rgba(55, 129, 252, 0.14)' : 'rgba(25, 81, 252, 0.10)' }]}>
+          <Ionicons name="shield-half-outline" size={20} color={isDark ? '#3781fc' : '#1951fc'} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={[type.cardTitle, { color: c.textPrimary }]}>Block distractions</Text>
@@ -169,12 +170,11 @@ export function BlockDistractionsCard({ containerStyle }: { containerStyle?: Sty
             {subtitle}
           </Animated.Text>
         </View>
-        <Switch
+        <TactileSwitch
           value={toggleOn}
           onValueChange={onToggle}
           disabled={state === 'D'}
-          trackColor={{ false: isDark ? '#222D47' : '#cbd5e1', true: c.accent }}
-          thumbColor={toggleOn ? '#FFFFFF' : isDark ? '#8E95A9' : '#f1f5f9'}
+          isDarkMode={isDark}
           accessibilityLabel="Auto-block when Pomodoro starts"
         />
       </Pressable>

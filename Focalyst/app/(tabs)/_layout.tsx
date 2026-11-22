@@ -5,6 +5,7 @@ import React, { useState, useEffect } from 'react';
 import AskFocalystModal from '../../components/AskFocalystModal';
 import FloatingGlassTabBar from '../../components/FloatingGlassTabBar';
 import { VoiceNoteRecorderModal } from '../../components/VoiceNoteRecorderModal';
+import { VoiceNoteProvider, useVoiceNoteRecorder } from '../../src/services/VoiceNoteContext';
 import { supabase } from '../../src/utils/supabase';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,7 +14,7 @@ import { AdaptiveFrame } from '../../src/layout/adaptive';
 
 function ProfileButton({ isDarkMode }: { isDarkMode: boolean }) {
   const router = useRouter();
-  const iconColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
+  const iconColor = '#FFFFFF';
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -30,8 +31,8 @@ function ProfileButton({ isDarkMode }: { isDarkMode: boolean }) {
 }
 
 function AskAIButton({ isDarkMode, onPress }: { isDarkMode: boolean; onPress: () => void }) {
-  const iconColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
-  const badgeBg = isDarkMode ? '#0B1021' : '#ffffff';
+  const iconColor = '#FFFFFF';
+  const badgeBg = isDarkMode ? '#03195b' : '#1951fc';
   return (
     <TouchableOpacity
       activeOpacity={0.7}
@@ -65,11 +66,20 @@ function AskAIButton({ isDarkMode, onPress }: { isDarkMode: boolean; onPress: ()
 }
 
 export default function TabLayout() {
+  return (
+    <VoiceNoteProvider>
+      <TabLayoutContent />
+    </VoiceNoteProvider>
+  );
+}
+
+function TabLayoutContent() {
   const router = useRouter();
   const pathname = usePathname();
+  const { openAndStartRecording } = useVoiceNoteRecorder();
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [isAiModalVisible, setIsAiModalVisible] = useState(false);
-  const [isVoiceModalVisible, setIsVoiceModalVisible] = useState(false);
+  const [isPomodoroActive, setIsPomodoroActive] = useState(false);
   const [userId, setUserId] = useState<string>('');
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
@@ -102,16 +112,20 @@ export default function TabLayout() {
     const sub = DeviceEventEmitter.addListener('themeChanged', (newVal: boolean) => {
       setIsDarkMode(newVal);
     });
-    return () => sub.remove();
+    const pomoSub = DeviceEventEmitter.addListener('FOCALYST_POMODORO_ACTIVE_CHANGED', (active: boolean) => {
+      setIsPomodoroActive(Boolean(active));
+    });
+    return () => {
+      sub.remove();
+      pomoSub.remove();
+    };
   }, []);
 
-  const headerBgColor = isDarkMode ? '#0B1021' : '#FFFFFF';
-  const headerBorderColor = isDarkMode ? '#151B2E' : '#f1f5f9';
-  const titleColor = isDarkMode ? '#FFFFFF' : '#4a6c8c';
+  const titleColor = '#FFFFFF';
 
   return (
     <>
-      <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+      <StatusBar style="light" />
       <Tabs
         initialRouteName="plan"
         detachInactiveScreens={false}
@@ -120,15 +134,15 @@ export default function TabLayout() {
         screenLayout={({ children }) => <AdaptiveFrame>{children}</AdaptiveFrame>}
         screenOptions={{
           lazy: false,
-          sceneStyle: { backgroundColor: isDarkMode ? '#0B1021' : '#F4F6FA' },
-          ...({ sceneContainerStyle: { backgroundColor: isDarkMode ? '#0B1021' : '#F4F6FA' } } as any),
+          headerTransparent: true,
+          sceneStyle: { backgroundColor: 'transparent' },
+          ...({ sceneContainerStyle: { backgroundColor: 'transparent' } } as any),
           tabBarStyle: { display: 'none' },
           headerStyle: {
-            backgroundColor: headerBgColor,
+            backgroundColor: 'transparent',
             elevation: 0,
             shadowOpacity: 0,
-            borderBottomWidth: 1,
-            borderBottomColor: headerBorderColor,
+            borderBottomWidth: 0,
           },
           headerTitleAlign: 'center',
           // The header's own title limit uses a frame that can stay at the portrait width after
@@ -223,27 +237,20 @@ export default function TabLayout() {
 
       <FloatingGlassTabBar
         activeRoute={pathname}
+        isDarkMode={isDarkMode}
+        hidden={isPomodoroActive}
         onNavigate={(route) => router.navigate(`/(tabs)/${route}` as any)}
         onAddTask={() => router.push({ pathname: '/(tabs)/plan', params: { action: 'addTask', t: Date.now() } } as any)}
-        onStartSession={() => router.push({ pathname: '/(tabs)/focus', params: { action: 'startSession', t: Date.now() } } as any)}
-        onVoice={() => setIsVoiceModalVisible(true)}
+        onStartSession={() => {
+          const ts = String(Date.now());
+          router.push({ pathname: '/(tabs)/focus', params: { action: 'startSession', quickStartTs: ts, t: ts } } as any);
+          DeviceEventEmitter.emit('FOCALYST_QUICK_START_POMODORO', { quickStartTs: ts });
+        }}
+        onVoice={openAndStartRecording}
         onChat={() => setIsAiModalVisible(true)}
       />
 
-      <VoiceNoteRecorderModal
-        visible={isVoiceModalVisible}
-        isDarkMode={isDarkMode}
-        onClose={() => setIsVoiceModalVisible(false)}
-        onSaveSuccess={(savedNote) => {
-          setIsVoiceModalVisible(false);
-          DeviceEventEmitter.emit('refreshNotes');
-          if (savedNote?.id) {
-            router.push(`/note/${savedNote.id}` as any);
-          }
-        }}
-        userId={userId}
-        supabase={supabase}
-      />
+      <VoiceNoteRecorderModal isDarkMode={isDarkMode} />
     </>
   );
 }

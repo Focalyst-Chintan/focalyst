@@ -49,6 +49,19 @@ export function isHabitScheduledOn(habit: HabitSchedule, ymd: string): boolean {
   return true;
 }
 
+function normalizeYMD(d: string | Date | null | undefined): string | null {
+  if (!d) return null;
+  if (d instanceof Date) {
+    if (isNaN(d.getTime())) return null;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  const clean = String(d).trim().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(clean) ? clean : null;
+}
+
 export function calculateHabitStreak(
   habit: HabitSchedule,
   completedDates: (string | Date | null | undefined)[],
@@ -58,12 +71,12 @@ export function calculateHabitStreak(
     return { currentStreak: 0, bestStreak: 0 };
   }
 
+  const cleanToday = normalizeYMD(todayYMD) ?? todayYMD.slice(0, 10);
   const dateSet = new Set<string>();
   for (const d of completedDates) {
-    if (!d) continue;
-    const clean = String(d).slice(0, 10);
-    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
-      dateSet.add(clean);
+    const normalized = normalizeYMD(d);
+    if (normalized) {
+      dateSet.add(normalized);
     }
   }
 
@@ -75,16 +88,16 @@ export function calculateHabitStreak(
   let currentStreak = 0;
   let checkDate: string;
 
-  const todayLogged = dateSet.has(todayYMD);
+  const todayLogged = dateSet.has(cleanToday);
 
   if (todayLogged) {
     // If the user logged the habit today, streak is ALWAYS at least 1
     currentStreak = 1;
-    checkDate = addDaysYMD(todayYMD, -1);
+    checkDate = addDaysYMD(cleanToday, -1);
   } else {
     // Today is not logged yet. Find the most recent scheduled day strictly before today (yesterday or earlier)
     let lastSched: string | null = null;
-    let step = addDaysYMD(todayYMD, -1);
+    let step = addDaysYMD(cleanToday, -1);
     for (let i = 0; i < 14; i++) {
       if (isHabitScheduledOn(habit, step)) {
         lastSched = step;

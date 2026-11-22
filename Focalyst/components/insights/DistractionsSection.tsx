@@ -1,6 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { DeviceEventEmitter, Pressable, StyleSheet, Text, View } from 'react-native';
+import { DeviceEventEmitter, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, {
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  RadialGradient,
+  Stop,
+  Rect,
+} from 'react-native-svg';
 
 import {
   REASON_LABELS,
@@ -16,6 +24,7 @@ import {
 import { BLOCKING_HISTORY_UPDATED, loadBlockingHistory } from '../../src/services/blockingTelemetrySync';
 import { openPaywall } from '../../src/blocking/BlockingContext';
 import { AppIcon } from '../blocking/AppIcon';
+import { SegmentedToggle } from '../ui/SegmentedToggle';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const RANGES = [7, 30] as const;
@@ -29,6 +38,18 @@ const REASONS: UnlockReason[] = ['study', 'reply', 'bored', 'other'];
 export default function DistractionsSection({ isDarkMode, isPro }: { isDarkMode: boolean; isPro: boolean }) {
   const [history, setHistory] = useState<BlockingSessionRecord[] | null>(null);
   const [range, setRange] = useState<(typeof RANGES)[number]>(7);
+  const [cardSize, setCardSize] = useState({ width: 350, height: 112 });
+
+  const handleCardLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    if (
+      width > 0 &&
+      height > 0 &&
+      (Math.abs(width - cardSize.width) > 1 || Math.abs(height - cardSize.height) > 1)
+    ) {
+      setCardSize({ width, height });
+    }
+  };
 
   const load = useCallback(() => {
     loadBlockingHistory().then(setHistory);
@@ -41,13 +62,12 @@ export default function DistractionsSection({ isDarkMode, isPro }: { isDarkMode:
   }, [load]);
 
   const colors = {
-    card: isDarkMode ? '#151B2E' : '#FFFFFF',
-    // Same card treatment as the Weekly Report card below it.
-    border: isDarkMode ? '#222A41' : '#cbd5e1',
-    title: isDarkMode ? '#FFFFFF' : '#121C2A',
-    sub: isDarkMode ? '#9AA0B4' : '#42474D',
-    track: isDarkMode ? '#222A41' : '#EFF3FF',
-    accent: isDarkMode ? '#EE7742' : '#315472',
+    card: isDarkMode ? '#0A0905' : '#B45309',
+    border: isDarkMode ? 'rgba(234, 179, 8, 0.34)' : 'rgba(254, 240, 138, 0.50)',
+    title: '#FFFFFF',
+    sub: isDarkMode ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.88)',
+    track: isDarkMode ? 'rgba(255, 255, 255, 0.07)' : 'rgba(255, 255, 255, 0.22)',
+    accent: isDarkMode ? '#EAB308' : '#FFFFFF',
   };
 
   if (!history) return null;
@@ -64,22 +84,109 @@ export default function DistractionsSection({ isDarkMode, isPro }: { isDarkMode:
   const firstAttempt = avgMinutesToFirstAttempt(records);
 
   return (
-    <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
+    <View
+      onLayout={handleCardLayout}
+      style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
+    >
+      {/* Base obsidian-charcoal (Dark) / rich golden-amber jewel-tone (Light) surface */}
+      <LinearGradient
+        colors={
+          isDarkMode
+            ? ['#0A0905', '#100E07', '#161308']
+            : ['#92400E', '#B45309', '#D97706', '#F59E0B']
+        }
+        start={{ x: 0.2, y: 0 }}
+        end={{ x: 0.8, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+
+      {/* Full-bleed bottom-center golden-yellow radial glow + specular rim highlight */}
+      <Svg
+        width={cardSize.width}
+        height={cardSize.height}
+        viewBox={`0 0 ${cardSize.width} ${cardSize.height}`}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      >
+        <Defs>
+          {isDarkMode ? (
+            <RadialGradient id="distractionGoldGlow" cx="50%" cy="102%" rx="72%" ry="58%">
+              <Stop offset="0%" stopColor="#EAB308" stopOpacity="0.55" />
+              <Stop offset="35%" stopColor="#CA8A04" stopOpacity="0.33" />
+              <Stop offset="68%" stopColor="#A16207" stopOpacity="0.14" />
+              <Stop offset="100%" stopColor="#0A0905" stopOpacity="0" />
+            </RadialGradient>
+          ) : (
+            <RadialGradient id="distractionGoldGlow" cx="50%" cy="102%" rx="72%" ry="58%">
+              <Stop offset="0%" stopColor="#FEF08A" stopOpacity="0.52" />
+              <Stop offset="38%" stopColor="#FDE68A" stopOpacity="0.30" />
+              <Stop offset="72%" stopColor="#F59E0B" stopOpacity="0" />
+            </RadialGradient>
+          )}
+
+          <SvgLinearGradient id="distractionBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+            <Stop
+              offset="0%"
+              stopColor={isDarkMode ? '#A16207' : '#FDE68A'}
+              stopOpacity={0}
+            />
+            <Stop
+              offset="25%"
+              stopColor={isDarkMode ? '#EAB308' : '#FEF08A'}
+              stopOpacity={isDarkMode ? 0.48 : 0.55}
+            />
+            <Stop
+              offset="50%"
+              stopColor={isDarkMode ? '#FEF08A' : '#FEFCE8'}
+              stopOpacity={isDarkMode ? 0.9 : 0.92}
+            />
+            <Stop
+              offset="75%"
+              stopColor={isDarkMode ? '#EAB308' : '#FEF08A'}
+              stopOpacity={isDarkMode ? 0.48 : 0.55}
+            />
+            <Stop
+              offset="100%"
+              stopColor={isDarkMode ? '#A16207' : '#FDE68A'}
+              stopOpacity={0}
+            />
+          </SvgLinearGradient>
+        </Defs>
+        <Rect
+          x={0}
+          y={0}
+          width={cardSize.width}
+          height={cardSize.height}
+          fill="url(#distractionGoldGlow)"
+        />
+        <Rect
+          x={0}
+          y={cardSize.height - 3}
+          width={cardSize.width}
+          height={3}
+          fill="url(#distractionBottomRim)"
+        />
+      </Svg>
+
       <View style={styles.head}>
-        <Text style={[styles.title, { color: colors.title }]}>Distractions</Text>
-        <View style={[styles.toggle, { backgroundColor: colors.track }]}>
-          {RANGES.map((r) => (
-            <Pressable
-              key={r}
-              onPress={() => setRange(r)}
-              accessibilityRole="button"
-              accessibilityState={{ selected: range === r }}
-              style={[styles.toggleItem, range === r && { backgroundColor: colors.accent }]}
-            >
-              <Text style={[styles.toggleLabel, { color: range === r ? '#FFFFFF' : colors.sub }]}>{r} days</Text>
-            </Pressable>
-          ))}
-        </View>
+        <Text style={[styles.title, { color: colors.title }]}>Distraction Block</Text>
+        <SegmentedToggle
+          size="compact"
+          isDarkMode={isDarkMode}
+          activeValue={range}
+          onChange={(r) => setRange(r as 7 | 30)}
+          trackBgColor={isDarkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(255, 255, 255, 0.18)'}
+          trackBorderColor={isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.28)'}
+          activePillColor={isDarkMode ? 'rgba(234, 179, 8, 0.28)' : '#FFFFFF'}
+          activePillBorderColor={isDarkMode ? 'rgba(253, 224, 71, 0.55)' : 'transparent'}
+          activePillBorderWidth={isDarkMode ? 1 : 0}
+          activeTextColorOverride={isDarkMode ? '#FFFFFF' : '#B45309'}
+          inactiveTextColorOverride={isDarkMode ? 'rgba(255, 255, 255, 0.65)' : 'rgba(255, 255, 255, 0.86)'}
+          options={[
+            { label: '7 days', value: 7 },
+            { label: '30 days', value: 30, locked: !isPro },
+          ]}
+        />
       </View>
 
       {history.length === 0 ? (
@@ -185,14 +292,16 @@ export default function DistractionsSection({ isDarkMode, isPro }: { isDarkMode:
 const styles = StyleSheet.create({
   card: {
     width: '100%',
-    borderRadius: 20,
+    borderRadius: 22,
     borderWidth: 1,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#4a6c8c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#0A1530',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
   head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 },

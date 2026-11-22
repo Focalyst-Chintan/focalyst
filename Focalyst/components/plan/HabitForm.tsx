@@ -95,8 +95,8 @@ export default function HabitForm({
     textPrimary: isDarkMode ? '#FFFFFF' : '#4a6c8c',
     textSecondary: isDarkMode ? '#8E95A9' : '#94a3b8',
     borderColor: isDarkMode ? '#222A41' : '#cbd5e1',
-    accentBlue: '#2B6BFF',
-    accentOrange: '#FF6B00',
+    accentBlue: '#1951fc',
+    accentOrange: '#1951fc',
     white: '#FFFFFF',
     darkNavy: '#0B1021',
   };
@@ -395,7 +395,7 @@ export default function HabitForm({
           </View>
 
           <TouchableOpacity onPress={handleSave} style={{ padding: 4 }} hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}>
-            <Ionicons name="checkmark" size={28} color="#FF6B00" />
+            <Ionicons name="checkmark" size={28} color="#1951fc" />
           </TouchableOpacity>
         </View>
 

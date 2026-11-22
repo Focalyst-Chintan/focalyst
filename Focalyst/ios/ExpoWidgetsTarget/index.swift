@@ -9,6 +9,7 @@ struct ExportWidgets0: WidgetBundle {
     HeatmapWidget()
     TodoWidget()
     CountdownWidget()
+    VoiceNoteWidget()
     ExportWidgets1().body
   }
 }
@@ -56,6 +57,7 @@ struct FocalystThemeBackground: View {
     switch widget {
     case "StreakWidget": fallback = "ember"
     case "CountdownWidget": fallback = "emerald"
+    case "VoiceNoteWidget": fallback = "emerald"
     default: fallback = "cobalt"
     }
     let preset = (props?["preset"] as? String) ?? fallback

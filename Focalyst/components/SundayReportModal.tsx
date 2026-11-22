@@ -40,7 +40,7 @@ export default function SundayReportModal({
 
           {/* Icon Badge */}
           <View style={styles.reportIconBg}>
-            <Ionicons name="document-text" size={36} color="#FF6B00" />
+            <Ionicons name="document-text" size={36} color="#1951fc" />
           </View>
 
           {/* Typography */}
@@ -121,17 +121,17 @@ const styles = StyleSheet.create({
     opacity: 0.8,
   },
   ctaButton: {
-    backgroundColor: '#FF6B00', // Accent Orange
+    backgroundColor: '#1951fc', // Primary Blue
     borderRadius: 99,
     width: '100%',
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 2,
   },
   ctaText: {
     color: '#ffffff',

@@ -1,4 +1,16 @@
-import { createWidget } from 'expo-widgets';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+
+function getExpoWidgetsCreateWidget(): ((name: string, component: any, initialProps: any) => any) | null {
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    return null;
+  }
+  try {
+    const mod = require('expo-widgets');
+    return typeof mod?.createWidget === 'function' ? mod.createWidget : null;
+  } catch {
+    return null;
+  }
+}
 
 export type SafeWidgetController<T> = {
   updateSnapshot: (props: T) => void;
@@ -11,8 +23,22 @@ export function safeCreateWidget<T extends Record<string, any>>(
   component: any,
   initialProps: T
 ): SafeWidgetController<T> {
+  const createWidget = getExpoWidgetsCreateWidget();
+  if (!createWidget) {
+    let latestProps = initialProps;
+    return {
+      updateSnapshot: (props: T) => {
+        latestProps = props;
+      },
+      updateTimeline: (entries: { date: Date; props: T }[]) => {
+        if (entries.length > 0) latestProps = entries[0].props;
+      },
+      getTimeline: async () => [{ date: new Date(), props: latestProps }],
+    };
+  }
+
   try {
-    const widget = (createWidget as any)(name, component, initialProps);
+    const widget = createWidget(name, component, initialProps);
     return {
       updateSnapshot: (props: T) => {
         try {

@@ -53,7 +53,7 @@ export default function WidgetsScreen() {
           <Switch
             value={enabled}
             onValueChange={toggleEnabled}
-            trackColor={{ false: '#334155', true: '#FF6B00' }}
+            trackColor={{ false: '#334155', true: '#3781fc' }}
             thumbColor="#FFFFFF"
           />
         </View>

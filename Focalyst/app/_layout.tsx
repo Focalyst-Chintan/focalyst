@@ -1,9 +1,20 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, ScrollView, StyleSheet, LogBox, DeviceEventEmitter, AppState } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, LogBox, DeviceEventEmitter, AppState, Appearance, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 import '../global.css';
 import { useFonts } from 'expo-font';
+import {
+  InstrumentSerif_400Regular,
+  InstrumentSerif_400Regular_Italic,
+} from '@expo-google-fonts/instrument-serif';
+import {
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+  Inter_800ExtraBold,
+} from '@expo-google-fonts/inter';
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import 'react-native-reanimated';
@@ -19,7 +30,7 @@ if (missingEnvs.length > 0) {
 }
 
 // Suppress internal Supabase async refresh errors
-LogBox.ignoreLogs(['AuthApiError: Invalid Refresh Token']);
+LogBox.ignoreLogs(['AuthApiError: Invalid Refresh Token', 'AuthRetryableFetchError']);
 
 // Initialize i18n (side-effect import — must be at root)
 import '../src/lib/i18n';
@@ -38,6 +49,7 @@ import { AppReviewModal } from '../components/AppReviewModal';
 import { UpdateModal } from '../components/UpdateModal';
 import { OnboardingAuthRouter } from '../src/onboarding/AuthRouter';
 import { OnboardingFollowUps } from '../src/onboarding/followUps';
+import { recordVoiceNoteDeepLink } from '../src/services/voiceNoteIntent';
 import {
   getWidgetPayload,
   initializeWidgetListeners,
@@ -72,6 +84,12 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    InstrumentSerif_400Regular,
+    InstrumentSerif_400Regular_Italic,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    Inter_800ExtraBold,
   });
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
@@ -101,6 +119,19 @@ function RootLayoutNav() {
   // The hook handles: permission request, ExpoPushToken fetch, Supabase upsert,
   // and timezone detection — all in a single mount-once effect.
   const { expoPushToken } = useNotifications();
+
+  // Lock native Appearance to the app's persisted theme (defaults to dark mode)
+  useEffect(() => {
+    if (Platform.OS === 'web' || typeof Appearance.setColorScheme !== 'function') return;
+    AsyncStorage.getItem('darkMode')
+      .then((val) => {
+        const isDark = val !== null ? val === 'true' : true;
+        Appearance.setColorScheme(isDark ? 'dark' : 'light');
+      })
+      .catch(() => {
+        Appearance.setColorScheme('dark');
+      });
+  }, []);
 
   // Safety boot timer: Never block rendering longer than 2.8s
   useEffect(() => {
@@ -157,6 +188,18 @@ function RootLayoutNav() {
       } catch (oauthErr) {
         console.warn('[RootLayout] OAuth deep link resolution error:', oauthErr);
       }
+      }
+
+      const voiceAction = recordVoiceNoteDeepLink(event.url);
+      if (voiceAction) {
+        setTimeout(() => {
+          try {
+            router.navigate('/(tabs)/notes' as any);
+          } catch (navErr) {
+            console.warn('[RootLayout] Voice note deep link navigation error:', navErr);
+          }
+        }, 50);
+        return;
       }
 
       // Check for calendar deep link (?view=calendar) and route to Plan tab
@@ -251,6 +294,7 @@ function RootLayoutNav() {
               <Stack.Screen name="onboarding/finish" options={{ headerShown: false, gestureEnabled: false }} />
               <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
               <Stack.Screen name="blocking" options={{ headerShown: false, presentation: 'card' }} />
+              <Stack.Screen name="wrapped" options={{ headerShown: false, presentation: 'fullScreenModal' }} />
             </Stack>
             </BlockingProvider>
           </UserProvider>

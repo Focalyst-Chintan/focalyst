@@ -215,6 +215,12 @@ PODS:
     - ExpoModulesCore
   - ExpoLogBox (57.0.5):
     - React-Core
+  - ExpoMediaLibrary (57.0.6):
+    - ExpoModulesCore
+    - React-Core
+  - ExpoMediaLibraryImageLoader (57.0.6):
+    - React-Core
+    - React-RCTImage
   - ExpoModulesCore (57.0.26):
     - ExpoModulesJSI
     - hermes-engine
@@ -2641,6 +2647,8 @@ DEPENDENCIES:
   - ExpoLinearGradient (from `../node_modules/expo-linear-gradient/ios`)
   - ExpoLinking (from `../node_modules/expo-linking/ios`)
   - "ExpoLogBox (from `../node_modules/@expo/log-box`)"
+  - ExpoMediaLibrary (from `../node_modules/expo-media-library/ios/ExpoMediaLibrary.podspec`)
+  - ExpoMediaLibraryImageLoader (from `../node_modules/expo-media-library`)
   - ExpoModulesCore (from `../node_modules/expo-modules-core/ExpoModulesCore.podspec`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../node_modules/expo-modules-core/ExpoModulesWorklets.podspec`)
@@ -2805,6 +2813,10 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-linking/ios"
   ExpoLogBox:
     :path: "../node_modules/@expo/log-box"
+  ExpoMediaLibrary:
+    :podspec: "../node_modules/expo-media-library/ios/ExpoMediaLibrary.podspec"
+  ExpoMediaLibraryImageLoader:
+    :path: "../node_modules/expo-media-library"
   ExpoModulesCore:
     :podspec: "../node_modules/expo-modules-core/ExpoModulesCore.podspec"
   ExpoModulesJSI:
@@ -3044,6 +3056,8 @@ SPEC CHECKSUMS:
   ExpoLinearGradient: f08a0dea5ad3fe23042d15b1ced831312c9141b8
   ExpoLinking: 5c609b3f92582a1825bcd6ace633129b11fcaf5d
   ExpoLogBox: 1e498d9b63edb2895cacad690bd1848c0546cf01
+  ExpoMediaLibrary: f97cb82ef5135e36e665643d4759e5dc77e0f60e
+  ExpoMediaLibraryImageLoader: adc13cae195e7aee0594290b45d3ce835d03b00f
   ExpoModulesCore: eddcff7b0f292f3ffccbb237fc17877fefe4885d
   ExpoModulesJSI: ded9f4c72f35fc9400ad85506a94acdd87b2b23b
   ExpoModulesWorklets: a3021e8f3b01c5f9b989ce625782cd296eaaf68f

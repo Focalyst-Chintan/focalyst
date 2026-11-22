@@ -30,7 +30,7 @@ const HeatmapWidget = (props: HeatmapWidgetProps, env?: WidgetEnv) => {
   const t = getTheme();
   const fallbackHabit = Array.isArray(props.habits) && props.habits.length > 0 ? props.habits[0] : null;
   const activeHabitId = props.habitId || fallbackHabit?.id || 'default';
-  const displayHabitName = props.habitName || fallbackHabit?.habitName || 'Yoga';
+  const displayHabitName = props.habitName || fallbackHabit?.habitName || '';
   const displayTotalDays = props.totalDays ?? fallbackHabit?.totalDays ?? 0;
   const displayCompletedToday = Boolean(props.completedToday ?? fallbackHabit?.completedToday);
   const displayGridLevels =
@@ -127,7 +127,7 @@ const HeatmapWidget = (props: HeatmapWidgetProps, env?: WidgetEnv) => {
 export default safeCreateWidget<HeatmapWidgetProps>('HeatmapWidget', HeatmapWidget, {
   preset: 'cobalt',
   systemScheme: 'dark',
-  habitName: 'Yoga',
+  habitName: '',
   totalDays: 26,
   gridLevels: [
     0, 0, 1, 2, 3, 4, 2,

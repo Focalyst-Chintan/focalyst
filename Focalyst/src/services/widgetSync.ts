@@ -1,17 +1,33 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { addUserInteractionListener } from 'expo-widgets';
-import { Appearance, AppState } from 'react-native';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
+import { Appearance, AppState, DeviceEventEmitter } from 'react-native';
+import { calculateHabitStreak } from '../utils/streak';
+import { HABIT_GROUP_UPDATED_EVENT } from './habitGroupService';
+
+function getExpoWidgetsModule(): typeof import('expo-widgets') | null {
+  if (Constants.executionEnvironment === ExecutionEnvironment.StoreClient) {
+    return null;
+  }
+  try {
+    return require('expo-widgets');
+  } catch {
+    return null;
+  }
+}
 import { queryCache } from '../utils/queryCache';
-import { supabase } from '../utils/supabase';
+import { supabase, getCoalescedSession } from '../utils/supabase';
 import StreakWidget from '../widgets/StreakWidget';
 import HeatmapWidget from '../widgets/HeatmapWidget';
 import TodoWidget from '../widgets/TodoWidget';
 import CountdownWidget from '../widgets/CountdownWidget';
 import PomodoroWidget from '../widgets/PomodoroWidget';
 import CalendarWidget from '../widgets/CalendarWidget';
+import VoiceNoteWidget from '../widgets/VoiceNoteWidget';
 import type {
   CalendarEventItem,
   HabitHeatmapItem,
+  HabitWidgetToggleEntry,
+  HabitWidgetToggleValue,
   SystemColorScheme,
   TodoItem,
   WidgetColorPreset,
@@ -34,6 +50,7 @@ export interface CountdownWidgetItem {
 
 export type FocalystWidgetPayload = {
   preset: WidgetColorPreset;
+  snapshotDate?: string;
   habitName: string;
   streakDays: number;
   totalDays: number;
@@ -55,24 +72,19 @@ export type FocalystWidgetPayload = {
 
 let currentPayload: FocalystWidgetPayload = {
   preset: 'white',
-  habitName: 'Yoga',
-  streakDays: 4,
-  totalDays: 26,
-  gridLevels: [
-    0, 0, 1, 2, 3, 4, 2,
-    1, 0, 2, 3, 4, 3, 1,
-    2, 3, 4, 2, 4, 3, 2,
-    0, 1, 2, 3, 4, 4, 3,
-    2, 3, 4, 0, 0, 0, 0,
-  ],
+  snapshotDate: undefined,
+  habitName: '',
+  streakDays: 0,
+  totalDays: 0,
+  gridLevels: Array(35).fill(0),
   habits: [],
   tasks: [],
   calendarEvents: [],
   upcomingCalendarEvents: [],
   countdown: {
-    title: 'AUDIT',
-    dateLabel: '17/12/2026',
-    targetDateIso: '2026-12-17T11:00:00.000Z',
+    title: '',
+    dateLabel: '',
+    targetDateIso: '',
   },
   countdowns: [],
   pomodoro: {
@@ -88,7 +100,7 @@ let isReconciling = false;
 let hydrationPromise: Promise<void> | null = null;
 
 type TaskCompleteHandler = (completedTaskIds: string[]) => Promise<void> | void;
-type HabitToggleHandler = (toggledHabits: Record<string, boolean>) => Promise<void> | void;
+type HabitToggleHandler = (toggledHabits: Record<string, HabitWidgetToggleValue>) => Promise<void> | void;
 type PomodoroSyncHandler = (pomodoro: FocalystWidgetPayload['pomodoro']) => void;
 
 const taskCompleteHandlers = new Set<TaskCompleteHandler>();
@@ -122,13 +134,14 @@ export const getActiveWidgetPreset = (): WidgetColorPreset => currentPayload.pre
 export const getSystemScheme = (): SystemColorScheme =>
   Appearance.getColorScheme() === 'light' ? 'light' : 'dark';
 
-export const getTodayYYYYMMDD = (): string => {
-  const d = new Date();
+export const formatLocalYYYYMMDD = (d: Date): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 };
+
+export const getTodayYYYYMMDD = (): string => formatLocalYYYYMMDD(new Date());
 
 export const getTodayIndexInMonthlyGrid = (referenceDate: Date = new Date()): number => {
   const firstDayOfMonth = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 1);
@@ -204,10 +217,19 @@ export const setWidgetColorPreset = async (preset: WidgetColorPreset) => {
 };
 
 // Reconciles ticks from TodoWidget and Start/End actions from PomodoroWidget BEFORE app overwrites widgets
-export const reconcileWidgetsToApp = async () => {
+export const reconcileWidgetsToApp = async (knownUserId?: string) => {
+  if (!getExpoWidgetsModule()) return;
   if (isReconciling) return;
   isReconciling = true;
   try {
+    let activeUserId = knownUserId;
+    if (!activeUserId) {
+      try {
+        const { data } = await getCoalescedSession();
+        activeUserId = data?.session?.user?.id;
+      } catch {}
+    }
+
     await ensureWidgetStateHydrated();
 
     // 1. Check TodoWidget timeline for tasks ticked off on the Home Screen
@@ -255,15 +277,25 @@ export const reconcileWidgetsToApp = async () => {
       StreakWidget.getTimeline(),
       HeatmapWidget.getTimeline(),
     ]);
-    const toggleEvents: { updatedAtMs: number; map: Record<string, boolean> }[] = [];
+    const toggleEvents: {
+      updatedAtMs: number;
+      snapshotDate: string;
+      map: Record<string, HabitWidgetToggleValue>;
+    }[] = [];
+    const todayYYYYMMDD = getTodayYYYYMMDD();
 
     for (const timeline of [streakTimeline, heatmapTimeline]) {
       if (Array.isArray(timeline) && timeline.length > 0) {
         for (const entry of timeline) {
           const p: any = entry?.props ?? entry;
           if (p?.toggledHabitMap && typeof p.toggledHabitMap === 'object' && Object.keys(p.toggledHabitMap).length > 0) {
+            const snapDate =
+              typeof p.snapshotDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(p.snapshotDate)
+                ? p.snapshotDate
+                : todayYYYYMMDD;
             toggleEvents.push({
               updatedAtMs: typeof p.updatedAtMs === 'number' ? p.updatedAtMs : 0,
+              snapshotDate: snapDate,
               map: p.toggledHabitMap,
             });
           }
@@ -272,16 +304,34 @@ export const reconcileWidgetsToApp = async () => {
     }
 
     toggleEvents.sort((a, b) => a.updatedAtMs - b.updatedAtMs);
-    let latestStreakToggles: Record<string, boolean> = {};
+    const latestStreakToggles: Record<string, HabitWidgetToggleEntry> = {};
     for (const evt of toggleEvents) {
-      latestStreakToggles = { ...latestStreakToggles, ...evt.map };
+      for (const [hId, rawVal] of Object.entries(evt.map)) {
+        if (typeof rawVal === 'boolean') {
+          latestStreakToggles[hId] = {
+            completed: rawVal,
+            date: evt.snapshotDate,
+            updatedAtMs: evt.updatedAtMs,
+          };
+        } else if (rawVal && typeof rawVal === 'object') {
+          const entryDate =
+            typeof rawVal.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawVal.date)
+              ? rawVal.date
+              : evt.snapshotDate;
+          latestStreakToggles[hId] = {
+            completed: Boolean(rawVal.completed),
+            date: entryDate,
+            updatedAtMs: typeof rawVal.updatedAtMs === 'number' ? rawVal.updatedAtMs : evt.updatedAtMs,
+          };
+        }
+      }
     }
 
     const toggledHabitIds = Object.keys(latestStreakToggles);
     if (toggledHabitIds.length > 0) {
       const existingRaw = await AsyncStorage.getItem(HABIT_TOGGLES_FROM_WIDGET_KEY);
-      const existingMap: Record<string, boolean> = existingRaw ? JSON.parse(existingRaw) : {};
-      const mergedToggles: Record<string, boolean> = { ...existingMap, ...latestStreakToggles };
+      const existingMap: Record<string, HabitWidgetToggleValue> = existingRaw ? JSON.parse(existingRaw) : {};
+      const mergedToggles: Record<string, HabitWidgetToggleValue> = { ...existingMap, ...latestStreakToggles };
       await AsyncStorage.setItem(HABIT_TOGGLES_FROM_WIDGET_KEY, JSON.stringify(mergedToggles));
 
       const todayIdx = getTodayIndexInMonthlyGrid();
@@ -292,7 +342,9 @@ export const reconcileWidgetsToApp = async () => {
 
       currentPayload.habits = currentPayload.habits.map((h) => {
         if (!(h.id in latestStreakToggles)) return h;
-        const nextDone = Boolean(latestStreakToggles[h.id]);
+        const toggleEntry = latestStreakToggles[h.id];
+        if (toggleEntry.date !== todayYYYYMMDD) return h;
+        const nextDone = Boolean(toggleEntry.completed);
         const wasDone = Boolean(h.completedToday);
         if (wasDone === nextDone) return h;
 
@@ -331,29 +383,70 @@ export const reconcileWidgetsToApp = async () => {
         }
       } else {
         try {
-          const { data: { session } } = await supabase.auth.getSession();
-          const uid = session?.user?.id;
-          const today = getTodayYYYYMMDD();
+          const uid = activeUserId;
           if (uid) {
-            for (const [hId, desired] of Object.entries(latestStreakToggles)) {
-              const targetHabit = currentPayload.habits.find((item) => item.id === hId);
-              await supabase
-                .from('habit_logs')
-                .delete()
-                .eq('habit_id', hId)
-                .eq('completed_date', today);
-              if (desired) {
+            for (const [hId, toggleEntry] of Object.entries(latestStreakToggles)) {
+              const targetDate = toggleEntry.date || todayYYYYMMDD;
+              if (toggleEntry.completed) {
+                const { error: upsertErr } = await supabase
+                  .from('habit_logs')
+                  .upsert(
+                    [{ habit_id: hId, user_id: uid, completed_date: targetDate }],
+                    { onConflict: 'habit_id,completed_date', ignoreDuplicates: true }
+                  );
+                if (upsertErr?.code === '42P10') {
+                  const { data: existingLog } = await supabase
+                    .from('habit_logs')
+                    .select('id')
+                    .eq('habit_id', hId)
+                    .eq('completed_date', targetDate)
+                    .limit(1);
+                  if (!existingLog || existingLog.length === 0) {
+                    await supabase
+                      .from('habit_logs')
+                      .insert([{ habit_id: hId, user_id: uid, completed_date: targetDate }]);
+                  }
+                }
+              } else {
                 await supabase
                   .from('habit_logs')
-                  .insert([{ habit_id: hId, user_id: uid, completed_date: today }]);
+                  .delete()
+                  .eq('habit_id', hId)
+                  .eq('completed_date', targetDate);
               }
-              if (targetHabit) {
-                await supabase
+
+              // Recalculate true streak from habit_logs and persist to habits table
+              const [{ data: habitRow }, { data: habitLogs }] = await Promise.all([
+                supabase
                   .from('habits')
-                  .update({ current_streak: targetHabit.streakDays ?? targetHabit.totalDays })
-                  .eq('id', hId);
-              }
+                  .select('id, frequency, custom_days')
+                  .eq('id', hId)
+                  .single(),
+                supabase
+                  .from('habit_logs')
+                  .select('completed_date')
+                  .eq('habit_id', hId)
+                  .order('completed_date', { ascending: false })
+                  .limit(1000),
+              ]);
+              const logDates = (habitLogs || []).map((l: any) => l.completed_date);
+              const { currentStreak, bestStreak } = calculateHabitStreak(
+                habitRow || { frequency: 'daily' },
+                logDates,
+                todayYYYYMMDD
+              );
+              await supabase
+                .from('habits')
+                .update({ current_streak: currentStreak, longest_streak: bestStreak })
+                .eq('id', hId);
+
+              currentPayload.habits = currentPayload.habits.map((item) =>
+                item.id === hId
+                  ? { ...item, streakDays: currentStreak, totalDays: new Set(logDates.map((d: any) => String(d).slice(0, 10))).size }
+                  : item
+              );
             }
+            DeviceEventEmitter.emit(HABIT_GROUP_UPDATED_EVENT);
           }
         } catch {}
       }
@@ -484,7 +577,7 @@ export const clearWidgetCompletedTaskIds = async (idsToClear?: string[]): Promis
   } catch {}
 };
 
-export const consumeWidgetToggledHabits = async (): Promise<Record<string, boolean>> => {
+export const consumeWidgetToggledHabits = async (): Promise<Record<string, HabitWidgetToggleValue>> => {
   try {
     const raw = await AsyncStorage.getItem(HABIT_TOGGLES_FROM_WIDGET_KEY);
     if (!raw) return {};
@@ -500,7 +593,7 @@ export const clearWidgetToggledHabits = async (): Promise<void> => {
   } catch {}
 };
 
-export const completeTaskFromWidgetPreview = async (taskId: string) => {
+export const completeTaskFromWidgetPreview = async (taskId: string, knownUserId?: string) => {
   const existingRaw = await AsyncStorage.getItem(COMPLETED_FROM_WIDGET_KEY);
   const existingIds: string[] = existingRaw ? JSON.parse(existingRaw) : [];
   const mergedIds = Array.from(new Set([...existingIds, String(taskId)]));
@@ -521,8 +614,13 @@ export const completeTaskFromWidgetPreview = async (taskId: string) => {
         .from('tasks')
         .update({ is_completed: true, completed_at: new Date().toISOString() })
         .eq('id', taskId);
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
+      let uid = knownUserId;
+      if (!uid) {
+        try {
+          const { data } = await getCoalescedSession();
+          uid = data?.session?.user?.id;
+        } catch {}
+      }
       if (uid) {
         const cached = queryCache.getSync<any[]>(`user:${uid}:tasks`);
         if (cached) {
@@ -539,7 +637,7 @@ export const completeTaskFromWidgetPreview = async (taskId: string) => {
   payloadListeners.forEach((cb) => cb());
 };
 
-export const toggleHabitFromWidgetPreview = async (habitId: string) => {
+export const toggleHabitFromWidgetPreview = async (habitId: string, knownUserId?: string) => {
   const target = currentPayload.habits.find((h) => h.id === habitId);
   if (!target) return;
 
@@ -588,9 +686,13 @@ export const toggleHabitFromWidgetPreview = async (habitId: string) => {
       : {}),
   };
 
+  const today = getTodayYYYYMMDD();
   const existingRaw = await AsyncStorage.getItem(HABIT_TOGGLES_FROM_WIDGET_KEY);
-  const existingMap: Record<string, boolean> = existingRaw ? JSON.parse(existingRaw) : {};
-  const mergedToggles: Record<string, boolean> = { ...existingMap, [habitId]: nextDone };
+  const existingMap: Record<string, HabitWidgetToggleValue> = existingRaw ? JSON.parse(existingRaw) : {};
+  const mergedToggles: Record<string, HabitWidgetToggleValue> = {
+    ...existingMap,
+    [habitId]: { completed: nextDone, date: today, updatedAtMs: Date.now() },
+  };
   await AsyncStorage.setItem(HABIT_TOGGLES_FROM_WIDGET_KEY, JSON.stringify(mergedToggles));
 
   if (habitToggleHandlers.size > 0) {
@@ -599,24 +701,66 @@ export const toggleHabitFromWidgetPreview = async (habitId: string) => {
     }
   } else {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const uid = session?.user?.id;
-      const today = getTodayYYYYMMDD();
+      let uid = knownUserId;
+      if (!uid) {
+        try {
+          const { data } = await getCoalescedSession();
+          uid = data?.session?.user?.id;
+        } catch {}
+      }
       if (uid) {
-        await supabase
-          .from('habit_logs')
-          .delete()
-          .eq('habit_id', habitId)
-          .eq('completed_date', today);
         if (nextDone) {
+          const { error: upsertErr } = await supabase
+            .from('habit_logs')
+            .upsert(
+              [{ habit_id: habitId, user_id: uid, completed_date: today }],
+              { onConflict: 'habit_id,completed_date', ignoreDuplicates: true }
+            );
+          if (upsertErr?.code === '42P10') {
+            const { data: existingLog } = await supabase
+              .from('habit_logs')
+              .select('id')
+              .eq('habit_id', habitId)
+              .eq('completed_date', today)
+              .limit(1);
+            if (!existingLog || existingLog.length === 0) {
+              await supabase
+                .from('habit_logs')
+                .insert([{ habit_id: habitId, user_id: uid, completed_date: today }]);
+            }
+          }
+        } else {
           await supabase
             .from('habit_logs')
-            .insert([{ habit_id: habitId, user_id: uid, completed_date: today }]);
+            .delete()
+            .eq('habit_id', habitId)
+            .eq('completed_date', today);
         }
+
+        const [{ data: habitRow }, { data: habitLogs }] = await Promise.all([
+          supabase
+            .from('habits')
+            .select('id, frequency, custom_days')
+            .eq('id', habitId)
+            .single(),
+          supabase
+            .from('habit_logs')
+            .select('completed_date')
+            .eq('habit_id', habitId)
+            .order('completed_date', { ascending: false })
+            .limit(1000),
+        ]);
+        const logDates = (habitLogs || []).map((l: any) => l.completed_date);
+        const { currentStreak, bestStreak } = calculateHabitStreak(
+          habitRow || { frequency: 'daily' },
+          logDates,
+          today
+        );
         await supabase
           .from('habits')
-          .update({ current_streak: nextStreak })
+          .update({ current_streak: currentStreak, longest_streak: bestStreak })
           .eq('id', habitId);
+        DeviceEventEmitter.emit(HABIT_GROUP_UPDATED_EVENT);
       }
     } catch {}
   }
@@ -626,22 +770,90 @@ export const toggleHabitFromWidgetPreview = async (habitId: string) => {
 };
 
 const pushSnapshotsToNativeWidgets = async (overrideScheme?: SystemColorScheme) => {
+  if (!getExpoWidgetsModule()) return;
   await ensureWidgetStateHydrated();
   const systemScheme = overrideScheme ?? getSystemScheme();
   const preset = currentPayload.preset;
+  const nowDate = new Date();
+  const todayStr = formatLocalYYYYMMDD(nowDate);
+  const tomorrowMidnight = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate() + 1,
+    0,
+    0,
+    5
+  );
+  const tomorrowStr = formatLocalYYYYMMDD(tomorrowMidnight);
+  const dayAfterMidnight = new Date(
+    nowDate.getFullYear(),
+    nowDate.getMonth(),
+    nowDate.getDate() + 2,
+    0,
+    0,
+    5
+  );
+  const dayAfterStr = formatLocalYYYYMMDD(dayAfterMidnight);
+  const nowMs = Date.now();
+  currentPayload.snapshotDate = todayStr;
 
-  StreakWidget.updateSnapshot({
+  const tomorrowHabits = currentPayload.habits.map((h) => ({
+    ...h,
+    completedToday: false,
+    streakDays: h.completedToday ? h.streakDays : 0,
+  }));
+  const dayAfterHabits = currentPayload.habits.map((h) => ({
+    ...h,
+    completedToday: false,
+    streakDays: 0,
+  }));
+
+  const baseStreakProps = {
     preset,
     systemScheme,
     habitName: currentPayload.habitName,
     streakDays: currentPayload.streakDays,
     totalDays: currentPayload.totalDays,
     goalDays: 30,
-    habits: currentPayload.habits,
     toggledHabitMap: {},
     lastToggledHabitId: undefined,
-    updatedAtMs: Date.now(),
-  });
+    updatedAtMs: nowMs,
+  };
+
+  if (typeof StreakWidget.updateTimeline === 'function') {
+    StreakWidget.updateTimeline([
+      {
+        date: nowDate,
+        props: {
+          ...baseStreakProps,
+          snapshotDate: todayStr,
+          habits: currentPayload.habits,
+        },
+      },
+      {
+        date: tomorrowMidnight,
+        props: {
+          ...baseStreakProps,
+          snapshotDate: tomorrowStr,
+          habits: tomorrowHabits,
+        },
+      },
+      {
+        date: dayAfterMidnight,
+        props: {
+          ...baseStreakProps,
+          snapshotDate: dayAfterStr,
+          habits: dayAfterHabits,
+        },
+      },
+    ]);
+  } else {
+    StreakWidget.updateSnapshot({
+      ...baseStreakProps,
+      snapshotDate: todayStr,
+      habits: currentPayload.habits,
+    });
+  }
 
   let selectedHabitId: string | null = null;
   try {
@@ -652,21 +864,51 @@ const pushSnapshotsToNativeWidgets = async (overrideScheme?: SystemColorScheme) 
     currentPayload.habits.find((h) => h.habitName === currentPayload.habitName) ||
     currentPayload.habits[0];
 
-  HeatmapWidget.updateSnapshot({
+  const baseHeatmapProps = {
     preset,
     systemScheme,
     habitId: activeHeatmapHabit?.id,
     habitName: currentPayload.habitName,
     totalDays: currentPayload.totalDays,
-    completedToday: Boolean(activeHeatmapHabit?.completedToday),
-    todayCellIndex: getTodayIndexInMonthlyGrid(),
     gridLevels: currentPayload.gridLevels,
-    habits: currentPayload.habits,
     activeHabitIndex: 0,
     toggledHabitMap: {},
     lastToggledHabitId: undefined,
-    updatedAtMs: Date.now(),
-  });
+    updatedAtMs: nowMs,
+  };
+
+  if (typeof HeatmapWidget.updateTimeline === 'function') {
+    HeatmapWidget.updateTimeline([
+      {
+        date: nowDate,
+        props: {
+          ...baseHeatmapProps,
+          snapshotDate: todayStr,
+          completedToday: Boolean(activeHeatmapHabit?.completedToday),
+          todayCellIndex: getTodayIndexInMonthlyGrid(nowDate),
+          habits: currentPayload.habits,
+        },
+      },
+      {
+        date: tomorrowMidnight,
+        props: {
+          ...baseHeatmapProps,
+          snapshotDate: tomorrowStr,
+          completedToday: false,
+          todayCellIndex: getTodayIndexInMonthlyGrid(tomorrowMidnight),
+          habits: tomorrowHabits,
+        },
+      },
+    ]);
+  } else {
+    HeatmapWidget.updateSnapshot({
+      ...baseHeatmapProps,
+      snapshotDate: todayStr,
+      completedToday: Boolean(activeHeatmapHabit?.completedToday),
+      todayCellIndex: getTodayIndexInMonthlyGrid(nowDate),
+      habits: currentPayload.habits,
+    });
+  }
 
   // Strict "Due Today Only" + uncompleted filter before updating TodoWidget
   const todayYYYYMMDD = getTodayYYYYMMDD();
@@ -705,6 +947,8 @@ const pushSnapshotsToNativeWidgets = async (overrideScheme?: SystemColorScheme) 
     minutesLeft,
   });
 
+  VoiceNoteWidget.updateSnapshot({ preset, systemScheme });
+
   // CalendarWidget snapshot update
   const nowCalendar = new Date();
   const weekdayLabel = nowCalendar
@@ -717,7 +961,7 @@ const pushSnapshotsToNativeWidgets = async (overrideScheme?: SystemColorScheme) 
     systemScheme,
     weekdayLabel,
     dayNumber,
-    events: currentPayload.calendarEvents ?? [],
+    events: (currentPayload.calendarEvents ?? []).filter((event: any) => event.dateIso === getTodayYYYYMMDD()),
     upcomingEvents: currentPayload.upcomingCalendarEvents ?? [],
   });
 
@@ -788,6 +1032,7 @@ export const syncAllWidgetsFromApp = async (
     currentPayload = {
       ...currentPayload,
       ...partialData,
+      calendarEvents: partialData.calendarEvents?.filter((event: any) => event.dateIso === todayYYYYMMDD) ?? currentPayload.calendarEvents,
       tasks: filteredTasks,
       preset: nextPreset,
     };
@@ -825,8 +1070,13 @@ export const initializeWidgetListeners = () => {
 
   const appStateSub = AppState.addEventListener('change', async (nextState) => {
     if (nextState === 'active') {
+      let activeUid: string | undefined;
+      try {
+        const { data } = await getCoalescedSession();
+        activeUid = data?.session?.user?.id;
+      } catch {}
       // Read widget completions, habit toggles & Pomodoro taps FIRST before pushing app state!
-      await reconcileWidgetsToApp();
+      await reconcileWidgetsToApp(activeUid);
       await pushSnapshotsToNativeWidgets();
       payloadListeners.forEach((cb) => cb());
     } else if (nextState === 'background' || nextState === 'inactive') {
@@ -837,11 +1087,14 @@ export const initializeWidgetListeners = () => {
 
   let interactionSub: { remove?: () => void } | null = null;
   try {
-    interactionSub = addUserInteractionListener(async () => {
-      await reconcileWidgetsToApp();
-      await pushSnapshotsToNativeWidgets();
-      payloadListeners.forEach((cb) => cb());
-    });
+    const expoWidgets = getExpoWidgetsModule();
+    if (expoWidgets?.addUserInteractionListener) {
+      interactionSub = expoWidgets.addUserInteractionListener(async () => {
+        await reconcileWidgetsToApp();
+        await pushSnapshotsToNativeWidgets();
+        payloadListeners.forEach((cb) => cb());
+      });
+    }
   } catch {}
 
   return () => {
@@ -849,4 +1102,17 @@ export const initializeWidgetListeners = () => {
     appStateSub.remove();
     interactionSub?.remove?.();
   };
+};
+
+export const clearWidgetsOnSignOut = async () => {
+  currentPayload = {
+    ...currentPayload,
+    habitName: '', streakDays: 0, totalDays: 0, gridLevels: Array(35).fill(0), habits: [], tasks: [],
+    calendarEvents: [], upcomingCalendarEvents: [], countdown: { title: '', dateLabel: '', targetDateIso: '' },
+    countdowns: [], pomodoro: { taskLabel: '', durationSeconds: 0, isRunning: false, updatedAtMs: Date.now() },
+  };
+  const keys = [SELECTED_WIDGET_HABIT_KEY, SELECTED_WIDGET_COUNTDOWN_KEY, CALENDAR_EVENTS_STORAGE_KEY, POMODORO_SESSION_STORAGE_KEY, COMPLETED_FROM_WIDGET_KEY, HABIT_TOGGLES_FROM_WIDGET_KEY];
+  await Promise.all(keys.map((key) => AsyncStorage.removeItem(key).catch(() => {})));
+  await pushSnapshotsToNativeWidgets();
+  payloadListeners.forEach((cb) => cb());
 };

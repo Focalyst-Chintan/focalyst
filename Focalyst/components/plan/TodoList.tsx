@@ -470,14 +470,12 @@ const styles = StyleSheet.create({
   inlineInput: { flex: 1, color: '#4a6c8c', fontSize: 15, fontWeight: '500', padding: 0 },
   checkButton: { padding: 2 },
   orangeButton: {
-    width: '100%', height: 48,
-    backgroundColor: '#ff6b2b',
-    borderRadius: 12,
+    width: '100%', minHeight: 48,
+    backgroundColor: '#1951fc',
+    borderRadius: 14,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#ff6b2b', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 4, elevation: 3,
   },
-  orangeButtonText: { color: '#ffffff', fontSize: 14, fontWeight: '700' },
+  orangeButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '700' },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.2)',
     justifyContent: 'center', alignItems: 'center',

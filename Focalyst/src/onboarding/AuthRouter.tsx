@@ -21,7 +21,7 @@ import { hasPendingFinish } from './finish';
  * changes outside onboarding. Whichever navigation lands last, the user ends up here.
  */
 export function OnboardingAuthRouter() {
-  const { user, loading } = useUser();
+  const { user, profile, loading } = useUser();
   const pathname = usePathname();
   const router = useRouter();
   const userId = user?.id as string | undefined;
@@ -29,7 +29,7 @@ export function OnboardingAuthRouter() {
   useEffect(() => {
     if (loading) return;
     if (
-      !userId &&
+      !loading && !userId &&
       pathname !== '/' &&
       pathname !== '/auth' &&
       pathname !== '/forgot-password' &&
@@ -40,6 +40,8 @@ export function OnboardingAuthRouter() {
     }
     // "/" is the entry route, which already routes signed-in users (app/index.tsx).
     if (!userId || pathname === '/' || pathname.startsWith('/onboarding')) return;
+    // Entry deep links (including home screen widget actions) must survive auth boot routing.
+    if (pathname === '/(tabs)/notes' || pathname === '/notes' || pathname === '/voice-note') return;
     let cancelled = false;
     (async () => {
       const draft = await loadDraft();
@@ -56,9 +58,16 @@ export function OnboardingAuthRouter() {
       }
       // A save that already failed moved on to the report; the next app open retries it.
       if (await hasPendingFinish()) return;
-      const { data, error } = await supabase.from('users').select('onboarding_done').eq('id', userId).maybeSingle();
-      if (cancelled || error) return;
-      if (data?.onboarding_done) {
+      let onboardingDone: boolean | undefined = undefined;
+      if (profile && profile.id === userId && typeof profile.onboarding_done === 'boolean') {
+        onboardingDone = profile.onboarding_done;
+      } else {
+        const { data, error } = await supabase.from('users').select('onboarding_done').eq('id', userId).maybeSingle();
+        if (cancelled || error) return;
+        onboardingDone = data?.onboarding_done;
+      }
+      if (cancelled) return;
+      if (onboardingDone) {
         await clearDraft();
         return;
       }
@@ -68,7 +77,7 @@ export function OnboardingAuthRouter() {
     return () => {
       cancelled = true;
     };
-  }, [loading, pathname, router, userId]);
+  }, [loading, pathname, router, userId, profile]);
 
   return null;
 }

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,8 +20,8 @@ import { formatMcpDate, useMcpSummary } from '../src/hooks/useMcpStatus';
 import { openMcpConnections } from '../src/utils/openMcpConnections';
 import { useColumnStyle } from '../src/layout/adaptive';
 
-// Same tokens as the Profile screen
-const ACCENT_ORANGE = '#FF6B00';
+// Brand blue gradient tokens
+const BRAND_GRADIENT = ['#3781fc', '#1951fc', '#0b2cb1'] as const;
 
 type ToolCost = { tool: string; label: string; cost: number; is_write: boolean };
 
@@ -43,14 +44,18 @@ export default function McpCreditsScreen() {
     return () => sub.remove();
   }, []);
 
+  const brandBlue = darkMode ? '#3781fc' : '#1951fc';
+
   const theme = {
-    bg: darkMode ? '#0B1021' : '#F4F6FA',
+    bg: darkMode ? '#060810' : '#F4F7FC',
     cardBg: darkMode ? '#151B2E' : '#FFFFFF',
     textPrimary: darkMode ? '#FFFFFF' : '#1E2229',
     textSecondary: darkMode ? '#8E95A9' : '#5C6479',
     borderColor: darkMode ? '#222A41' : '#E2E8F0',
-    iconCircleBg: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
-    track: darkMode ? '#222D47' : '#E2E8F0',
+    iconCircleBg: darkMode ? 'rgba(55, 129, 252, 0.14)' : 'rgba(25, 81, 252, 0.08)',
+    iconCircleColor: darkMode ? '#cbe9fd' : '#0b2cb1',
+    track: darkMode ? 'rgba(203, 233, 253, 0.14)' : '#E6F0FF',
+    bonusBg: darkMode ? 'rgba(55, 129, 252, 0.16)' : 'rgba(25, 81, 252, 0.10)',
   };
 
   const toggleInfo = () => {
@@ -113,8 +118,8 @@ export default function McpCreditsScreen() {
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               style={styles.infoLink}
             >
-              <Ionicons name="information-circle-outline" size={15} color={ACCENT_ORANGE} />
-              <Text style={styles.infoLinkText}>What uses credits</Text>
+              <Ionicons name="information-circle-outline" size={15} color={brandBlue} />
+              <Text style={[styles.infoLinkText, { color: brandBlue }]}>What uses credits</Text>
             </TouchableOpacity>
           </View>
 
@@ -142,7 +147,12 @@ export default function McpCreditsScreen() {
                 accessibilityRole="progressbar"
                 accessibilityValue={{ min: 0, max: 100, now: pct }}
               >
-                <View style={[styles.fill, { width: `${pct}%` }]} />
+                <LinearGradient
+                  colors={['#0b2cb1', '#1951fc', '#3781fc']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={[styles.fill, { width: `${pct}%` }]}
+                />
               </View>
 
               <View style={styles.refillRow}>
@@ -157,8 +167,10 @@ export default function McpCreditsScreen() {
                   </Text>
                 )}
                 {showBonusPill && (
-                  <View style={styles.bonusPill}>
-                    <Text style={styles.bonusPillText}>+10 when you open Focalyst tomorrow</Text>
+                  <View style={[styles.bonusPill, { backgroundColor: theme.bonusBg }]}>
+                    <Text style={[styles.bonusPillText, { color: brandBlue }]}>
+                      +10 when you open Focalyst tomorrow
+                    </Text>
                   </View>
                 )}
               </View>
@@ -218,7 +230,7 @@ export default function McpCreditsScreen() {
                 {i > 0 && <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />}
                 <View style={styles.appRow}>
                   <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-                    <Ionicons name="link" size={18} color={theme.textSecondary} />
+                    <Ionicons name="link" size={18} color={theme.iconCircleColor} />
                   </View>
                   <Text style={[styles.prefLabel, { color: theme.textPrimary }]} numberOfLines={1}>
                     {name}
@@ -230,6 +242,13 @@ export default function McpCreditsScreen() {
         </View>
 
         <TouchableOpacity style={styles.mainButton} activeOpacity={0.85} onPress={manage} accessibilityRole="button">
+          <LinearGradient
+            colors={BRAND_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
           <Text style={styles.mainButtonText}>Manage connections</Text>
         </TouchableOpacity>
 
@@ -256,23 +275,22 @@ const styles = StyleSheet.create({
   cardTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   overline: { fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   infoLink: { flexDirection: 'row', alignItems: 'center', gap: 4, minHeight: 24 },
-  infoLinkText: { color: ACCENT_ORANGE, fontSize: 13, fontWeight: '600' },
+  infoLinkText: { fontSize: 13, fontWeight: '600' },
   balanceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 10 },
   // The app's largest display number style (Plan screen date)
   balanceNumber: { fontSize: 48, fontWeight: '700', lineHeight: 52, fontVariant: ['tabular-nums'] },
   allowanceText: { fontSize: 17, fontWeight: '500' },
   track: { height: 8, borderRadius: 4, overflow: 'hidden', marginTop: 14 },
-  fill: { height: '100%', borderRadius: 4, backgroundColor: ACCENT_ORANGE },
+  fill: { height: '100%', borderRadius: 4 },
   refillRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 12 },
   mutedText: { fontSize: 13, fontWeight: '500' },
   bonusPill: {
-    backgroundColor: 'rgba(255, 107, 0, 0.15)',
     borderRadius: 10,
     paddingHorizontal: 8,
     paddingVertical: 3,
     flexShrink: 1,
   },
-  bonusPillText: { color: ACCENT_ORANGE, fontSize: 12, fontWeight: '600' },
+  bonusPillText: { fontSize: 12, fontWeight: '600' },
   loader: { alignSelf: 'flex-start', marginTop: 14 },
   infoBox: { borderTopWidth: 1, marginTop: 16, paddingTop: 14 },
   infoText: { fontSize: 13, fontWeight: '500', lineHeight: 18 },
@@ -294,15 +312,15 @@ const styles = StyleSheet.create({
   divider: { height: 1, marginLeft: 62 },
   // Same as the Profile screen's main (Log out) button
   mainButton: {
-    backgroundColor: ACCENT_ORANGE,
     borderRadius: 16,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
-    shadowColor: ACCENT_ORANGE,
+    overflow: 'hidden',
+    shadowColor: '#1951fc',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 8,
     elevation: 4,
   },

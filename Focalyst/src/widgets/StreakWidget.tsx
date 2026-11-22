@@ -15,17 +15,12 @@ import type { HabitHeatmapItem, StreakWidgetProps, WidgetEnv } from './types';
 
 const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
   'widget';
-  const defaultHabits: HabitHeatmapItem[] = [
-    { id: 'sample-1', habitName: 'Drink water', streakDays: 6, totalDays: 6, completedToday: false, gridLevels: [] },
-    { id: 'sample-2', habitName: 'Yoga', streakDays: 32, totalDays: 32, completedToday: true, gridLevels: [] },
-    { id: 'sample-3', habitName: 'Skincare', streakDays: 1, totalDays: 1, completedToday: false, gridLevels: [] },
-  ];
   const props = {
-    habitName: 'Yoga',
-    streakDays: 26,
-    totalDays: 48,
+    habitName: '',
+    streakDays: 0,
+    totalDays: 0,
     goalDays: 30,
-    habits: defaultHabits,
+    habits: [],
     ...(rawProps as Partial<StreakWidgetProps>),
   };
   const preset = props.preset ?? 'ember';
@@ -68,17 +63,26 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
   const p = makePalette();
   const accentable: any[] = isAccented ? [{ $type: 'widgetAccentable', accentable: true }] : [];
 
-  const habitList: HabitHeatmapItem[] =
-    Array.isArray(props.habits) && props.habits.length > 0
-      ? props.habits.filter((h) => h && typeof h === 'object')
-      : defaultHabits;
+  const getLocalTodayStr = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  const todayStr = getLocalTodayStr();
+  const isStaleDay = Boolean(rawProps.snapshotDate && rawProps.snapshotDate !== todayStr);
 
-  const completedCount = habitList.filter((h) => Boolean(h.completedToday)).length;
+  const habitList: HabitHeatmapItem[] = Array.isArray(props.habits) ? props.habits.filter((h) => h && typeof h === 'object') : [];
+
+  const completedCount = isStaleDay
+    ? 0
+    : habitList.filter((h) => Boolean(h.completedToday)).length;
   const leftHabits = habitList.slice(0, 3);
   const rightHabits = habitList.slice(3, 6);
 
   const renderHabitRow = (h: HabitHeatmapItem) => {
-    const isDone = Boolean(h.completedToday);
+    const isDone = isStaleDay ? false : Boolean(h.completedToday);
     const streak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
     const name = `${h.habitName ?? ''}`.trim() || 'Habit';
 
@@ -88,35 +92,44 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
         target={`habit-${h.id}`}
         modifiers={[buttonStyle('plain')]}
         onPress={() => {
+          const tapTodayStr = getLocalTodayStr();
+          const tapIsStale = Boolean(rawProps.snapshotDate && rawProps.snapshotDate !== tapTodayStr);
           const currentHabits =
             Array.isArray(rawProps.habits) && rawProps.habits.length > 0 ? rawProps.habits : habitList;
           const prevMap =
-            rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
+            !tapIsStale && rawProps.toggledHabitMap && typeof rawProps.toggledHabitMap === 'object'
               ? rawProps.toggledHabitMap
               : {};
-          const nextDone = !Boolean(h.completedToday);
+          const wasDone = tapIsStale ? false : Boolean(h.completedToday);
+          const nextDone = !wasDone;
           const curStreak = Math.max(0, Math.floor(Number(h.streakDays ?? h.totalDays) || 0));
           const nextStreak = nextDone ? curStreak + 1 : Math.max(0, curStreak - 1);
           const curTotal = Math.max(0, Math.floor(Number(h.totalDays) || 0));
           const nextTotal = nextDone ? curTotal + 1 : Math.max(0, curTotal - 1);
+          const nowMs = Date.now();
 
-          const nextHabits = currentHabits.map((item) =>
-            item.id === h.id
-              ? {
-                  ...item,
-                  completedToday: nextDone,
-                  streakDays: nextStreak,
-                  totalDays: nextTotal,
-                }
-              : item
-          );
+          const nextHabits = currentHabits.map((item) => {
+            if (item.id === h.id) {
+              return {
+                ...item,
+                completedToday: nextDone,
+                streakDays: nextStreak,
+                totalDays: nextTotal,
+              };
+            }
+            return tapIsStale ? { ...item, completedToday: false } : item;
+          });
 
           return {
             ...rawProps,
+            snapshotDate: tapTodayStr,
             habits: nextHabits,
             lastToggledHabitId: h.id,
-            toggledHabitMap: { ...prevMap, [h.id]: nextDone },
-            updatedAtMs: Date.now(),
+            toggledHabitMap: {
+              ...prevMap,
+              [h.id]: { completed: nextDone, date: tapTodayStr, updatedAtMs: nowMs },
+            },
+            updatedAtMs: nowMs,
           };
         }}
       >
@@ -192,7 +205,9 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
       </HStack>
 
       {/* Multi-Habit Checklist */}
-      {isMedium ? (
+      {habitList.length === 0 ? (
+        <Text modifiers={[font({ size: 12 }), foregroundStyle(p.secondaryText), frame({ maxWidth: fill, maxHeight: fill, alignment: 'center' })]}>No habits yet</Text>
+      ) : isMedium ? (
         <HStack alignment="top" spacing={8} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
           <VStack alignment="leading" spacing={5} modifiers={[frame({ maxWidth: fill, alignment: 'topLeading' })]}>
             {leftHabits.map(renderHabitRow)}
@@ -215,9 +230,9 @@ const StreakWidget = (rawProps: StreakWidgetProps, env?: WidgetEnv) => {
 export default safeCreateWidget<StreakWidgetProps>('StreakWidget', StreakWidget, {
   preset: 'ember',
   systemScheme: 'dark',
-  habitName: 'Yoga',
-  streakDays: 26,
-  totalDays: 48,
+  habitName: '',
+  streakDays: 0,
+  totalDays: 0,
   goalDays: 30,
   habits: [],
   toggledHabitMap: {},

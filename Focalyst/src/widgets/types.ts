@@ -30,18 +30,28 @@ export type HabitHeatmapItem = {
   gridLevels: number[];
 };
 
+export type HabitWidgetToggleEntry = {
+  completed: boolean;
+  date: string;
+  updatedAtMs?: number;
+};
+
+export type HabitWidgetToggleValue = boolean | HabitWidgetToggleEntry;
+
 export type StreakWidgetProps = BaseWidgetThemeProps & {
+  snapshotDate?: string;
   habitName?: string;
   streakDays?: number;
   totalDays?: number;
   goalDays?: number;
   habits?: HabitHeatmapItem[];
-  toggledHabitMap?: Record<string, boolean>;
+  toggledHabitMap?: Record<string, HabitWidgetToggleValue>;
   lastToggledHabitId?: string;
   updatedAtMs?: number;
 };
 
 export type HeatmapWidgetProps = BaseWidgetThemeProps & {
+  snapshotDate?: string;
   habitId?: string;
   habitName: string;
   totalDays: number;
@@ -50,7 +60,7 @@ export type HeatmapWidgetProps = BaseWidgetThemeProps & {
   gridLevels: number[];
   habits?: HabitHeatmapItem[];
   activeHabitIndex?: number;
-  toggledHabitMap?: Record<string, boolean>;
+  toggledHabitMap?: Record<string, HabitWidgetToggleValue>;
   lastToggledHabitId?: string;
   updatedAtMs?: number;
   monthLabel?: string;

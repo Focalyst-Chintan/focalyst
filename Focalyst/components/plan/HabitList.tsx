@@ -13,6 +13,7 @@ import {
   Pressable,
   Platform,
   DeviceEventEmitter,
+  AppState,
 } from 'react-native';
 import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -25,6 +26,7 @@ import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService'
 import { getHabitColorShades, HabitColorShades } from '../../src/utils/habitColorHelper';
 import HabitMilestoneModal, { STREAK_MILESTONES } from './HabitMilestoneModal';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
+import { TactilePressable } from '../ui/TactilePressable';
 import {
   clearWidgetToggledHabits,
   consumeWidgetToggledHabits,
@@ -126,6 +128,13 @@ export default function HabitList({
   const { height: windowHeight, gutterRight } = useAdaptiveLayout();
   const cachedHabits = userId ? (queryCache.getSync<any[]>(`user:${userId}:habits_v2`) || []) : [];
   const [habits, setHabits] = useState<any[]>(cachedHabits);
+  const habitsRef = useRef<any[]>(cachedHabits);
+  const togglingIdsRef = useRef<Set<string>>(new Set());
+  const lastLoadedDateRef = useRef<string>(getTodayStr());
+
+  useEffect(() => {
+    habitsRef.current = habits;
+  }, [habits]);
 
   // Sync selected habit streak, heatmap & stats to Home Screen Widgets
   useEffect(() => {
@@ -159,26 +168,49 @@ export default function HabitList({
   useEffect(() => {
     if (!userId) return;
 
-    const processWidgetHabitToggles = async (toggledMap: Record<string, boolean>) => {
+    const processWidgetHabitToggles = async (
+      toggledMap: Record<string, boolean | { completed: boolean; date?: string; updatedAtMs?: number }>
+    ) => {
       if (!toggledMap || Object.keys(toggledMap).length === 0) return;
       const today = getTodayStr();
+      const dbTasks: Promise<void>[] = [];
 
       setHabits((prev) => {
         if (!prev || prev.length === 0) return prev;
         let changed = false;
         const nextHabits = prev.map((h: any) => {
           if (!(h.id in toggledMap)) return h;
-          const desiredStatus = Boolean(toggledMap[h.id]);
-          const currentStatus = Boolean(h.completed_today);
-          if (currentStatus === desiredStatus) return h;
+          const rawEntry = toggledMap[h.id];
+          const desiredStatus =
+            typeof rawEntry === 'object' && rawEntry !== null
+              ? Boolean(rawEntry.completed)
+              : Boolean(rawEntry);
+          const targetDate =
+            typeof rawEntry === 'object' &&
+            rawEntry !== null &&
+            typeof rawEntry.date === 'string' &&
+            /^\d{4}-\d{2}-\d{2}$/.test(rawEntry.date)
+              ? rawEntry.date
+              : today;
+
+          const existingDates: string[] = Array.isArray(h.completedDates)
+            ? Array.from(
+                new Set(
+                  h.completedDates
+                    .map((d: any) => String(d || '').slice(0, 10))
+                    .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                )
+              )
+            : [];
+          const hadTargetDate = existingDates.includes(targetDate);
+          if (hadTargetDate === desiredStatus && (targetDate !== today || Boolean(h.completed_today) === desiredStatus)) {
+            return h;
+          }
 
           changed = true;
-          const existingDates = Array.isArray(h.completedDates) ? h.completedDates : [];
-          const currentTotalDays = h.total_days ?? existingDates.length ?? 0;
-          const nextTotalDays = desiredStatus ? currentTotalDays + 1 : Math.max(0, currentTotalDays - 1);
           const nextDates = desiredStatus
-            ? Array.from(new Set([...existingDates, today]))
-            : existingDates.filter((d: string) => d !== today);
+            ? Array.from(new Set([...existingDates, targetDate]))
+            : existingDates.filter((d: string) => d !== targetDate);
 
           const { currentStreak: nextStreak, bestStreak: nextBestStreak } = calculateHabitStreak(
             h || { frequency: 'daily' },
@@ -186,50 +218,73 @@ export default function HabitList({
             today
           );
 
-          // Persist to Supabase in background
-          (async () => {
-            try {
-              if (desiredStatus) {
+          // Persist to Supabase in background (idempotent upsert/delete for targetDate)
+          dbTasks.push(
+            (async () => {
+              try {
+                if (desiredStatus) {
+                  const { error: upsertError } = await supabase
+                    .from('habit_logs')
+                    .upsert(
+                      [{ habit_id: h.id, user_id: userId, completed_date: targetDate }],
+                      { onConflict: 'habit_id,completed_date', ignoreDuplicates: true }
+                    );
+                  if (upsertError) {
+                    if (upsertError.code === '42P10') {
+                      const { data: existingLog } = await supabase
+                        .from('habit_logs')
+                        .select('id')
+                        .eq('habit_id', h.id)
+                        .eq('completed_date', targetDate)
+                        .limit(1);
+                      if (!existingLog || existingLog.length === 0) {
+                        const { error: insertError } = await supabase
+                          .from('habit_logs')
+                          .insert([{ habit_id: h.id, user_id: userId, completed_date: targetDate }]);
+                        if (insertError && insertError.code !== '23505') throw insertError;
+                      }
+                    } else if (upsertError.code !== '23505') {
+                      throw upsertError;
+                    }
+                  }
+                } else {
+                  await supabase
+                    .from('habit_logs')
+                    .delete()
+                    .eq('habit_id', h.id)
+                    .eq('completed_date', targetDate);
+                }
                 await supabase
-                  .from('habit_logs')
-                  .delete()
-                  .eq('habit_id', h.id)
-                  .eq('completed_date', today);
-                await supabase
-                  .from('habit_logs')
-                  .insert([{ habit_id: h.id, user_id: userId, completed_date: today }]);
-              } else {
-                await supabase
-                  .from('habit_logs')
-                  .delete()
-                  .eq('habit_id', h.id)
-                  .eq('completed_date', today);
+                  .from('habits')
+                  .update({ current_streak: nextStreak, longest_streak: nextBestStreak })
+                  .eq('id', h.id);
+              } catch (err) {
+                console.warn('Error syncing widget-toggled habit to DB:', err);
               }
-              await supabase
-                .from('habits')
-                .update({ current_streak: nextStreak, longest_streak: nextBestStreak })
-                .eq('id', h.id);
-            } catch (err) {
-              console.warn('Error syncing widget-toggled habit to DB:', err);
-            }
-          })();
+            })()
+          );
 
           return {
             ...h,
-            completed_today: desiredStatus,
+            completed_today: nextDates.includes(today),
             current_streak: nextStreak,
             longest_streak: nextBestStreak,
-            total_days: nextTotalDays,
+            total_days: nextDates.length,
             completedDates: nextDates,
           };
         });
 
         if (changed) {
+          habitsRef.current = nextHabits;
           queryCache.setSync(`user:${userId}:habits_v2`, nextHabits);
         }
         return changed ? nextHabits : prev;
       });
 
+      if (dbTasks.length > 0) {
+        await Promise.all(dbTasks);
+        DeviceEventEmitter.emit(HABIT_GROUP_UPDATED_EVENT);
+      }
       await clearWidgetToggledHabits();
     };
 
@@ -293,33 +348,50 @@ export default function HabitList({
   };
 
   const theme = {
-    cardBg: isDarkMode ? '#151B2E' : '#dbe1ec',
-    textPrimary: isDarkMode ? '#FFFFFF' : '#4a6c8c',
-    textSecondary: isDarkMode ? '#8E95A9' : '#94a3b8',
-    borderColor: isDarkMode ? '#222A41' : '#cbd5e1',
-    innerBg: isDarkMode ? '#0B1021' : '#ffffff',
-    perfBg: isDarkMode ? '#0E1424' : '#f1f5f9',
-    dropdownBg: isDarkMode ? '#151B2E' : '#ffffff',
-    dropdownBorder: isDarkMode ? '#222A41' : '#e2e8f0',
-    dotInactiveBorder: isDarkMode ? '#222A41' : '#cbd5e1',
+    cardBg: isDarkMode ? '#111521' : '#FFFFFF',
+    textPrimary: isDarkMode ? '#FFFFFF' : '#0A1530',
+    textSecondary: isDarkMode ? '#8E98AD' : '#52607A',
+    borderColor: isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.07)',
+    innerBg: isDarkMode ? '#0B1021' : '#F8FAFC',
+    perfBg: isDarkMode ? '#0E1424' : '#F1F5F9',
+    dropdownBg: isDarkMode ? '#151B2E' : '#FFFFFF',
+    dropdownBorder: isDarkMode ? '#222A41' : '#E2E8F0',
+    dotInactiveBorder: isDarkMode ? 'rgba(255, 255, 255, 0.12)' : 'rgba(15, 23, 42, 0.10)',
+  };
+
+  const fetchAllHabitLogs = async () => {
+    const pageSize = 1000;
+    let from = 0;
+    const allLogs: any[] = [];
+    while (true) {
+      const { data, error } = await supabase
+        .from('habit_logs')
+        .select('id, habit_id, completed_date')
+        .eq('user_id', userId)
+        .order('completed_date', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allLogs.push(...data);
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+    return allLogs;
   };
 
   const fetchHabits = async (forceRefresh: boolean = false) => {
     if (!userId) return;
     try {
-      if (habits.length === 0) setLoading(true);
+      if (habitsRef.current.length === 0) setLoading(true);
 
-      // Direct query from Supabase habits + habit_logs for maximum reliability
-      const [habitRes, logRes] = await Promise.all([
+      // Direct query from Supabase habits + paginated habit_logs ordered descending
+      const [habitRes, logData] = await Promise.all([
         supabase
           .from('habits')
           .select('*')
           .eq('user_id', userId)
           .order('position', { ascending: true }),
-        supabase
-          .from('habit_logs')
-          .select('id, habit_id, completed_date')
-          .eq('user_id', userId),
+        fetchAllHabitLogs(),
       ]);
 
       if (habitRes.error) throw habitRes.error;
@@ -328,20 +400,20 @@ export default function HabitList({
       const activeHabits = (habitRes.data || []).filter(
         (h: any) => h.is_active !== false && !h.is_archived
       );
-      const logData = logRes.data || [];
 
       const completionsMap: Record<string, Set<string>> = {};
       logData.forEach((log: any) => {
         if (!completionsMap[log.habit_id]) {
           completionsMap[log.habit_id] = new Set<string>();
         }
-        const cleanDate = String(log.completed_date || '').slice(0, 10);
-        if (cleanDate) {
+        const cleanDate = String(log.completed_date || '').trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(cleanDate)) {
           completionsMap[log.habit_id].add(cleanDate);
         }
       });
 
       const today = getTodayStr();
+      lastLoadedDateRef.current = today;
       const mappedHabits = activeHabits.map((h: any) => {
         const completedDatesSet = completionsMap[h.id] || new Set<string>();
         const completedDates = Array.from(completedDatesSet);
@@ -350,7 +422,7 @@ export default function HabitList({
           id: h.id,
           name: h.name,
           current_streak: currentStreak,
-          completed_today: completedDates.includes(today),
+          completed_today: completedDatesSet.has(today),
           completedDates,
           total_days: completedDatesSet.size,
           created_at: h.created_at || new Date().toISOString(),
@@ -363,6 +435,7 @@ export default function HabitList({
         };
       });
 
+      habitsRef.current = mappedHabits;
       setHabits(mappedHabits);
       queryCache.setSync(`user:${userId}:habits_v2`, mappedHabits);
     } catch (e) {
@@ -378,15 +451,26 @@ export default function HabitList({
         if (cached && cached.length > 0) {
           const today = getTodayStr();
           const refreshedCached = cached.map((h: any) => {
-            const completedDates = Array.isArray(h.completedDates) ? h.completedDates : [];
+            const completedDates: string[] = Array.isArray(h.completedDates)
+              ? Array.from(
+                  new Set<string>(
+                    h.completedDates
+                      .map((d: any) => String(d || '').trim().slice(0, 10))
+                      .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                  )
+                )
+              : [];
             const { currentStreak, bestStreak } = calculateHabitStreak(h, completedDates, today);
             return {
               ...h,
+              completedDates,
+              total_days: completedDates.length,
               current_streak: currentStreak,
               longest_streak: bestStreak,
               completed_today: completedDates.includes(today),
             };
           });
+          habitsRef.current = refreshedCached;
           setHabits(refreshedCached);
           setLoading(false);
         }
@@ -395,63 +479,118 @@ export default function HabitList({
     }
   }, [userId]);
 
-  const handleToggle = async (id: string, currentStatus: boolean, currentStreak: number) => {
-    const today = getTodayStr();
-    const nextStatus = !currentStatus;
-    
-    const habit = habits.find(h => h.id === id);
-    const existingDates = Array.isArray(habit?.completedDates) ? habit.completedDates : [];
-    const currentTotalDays = habit?.total_days ?? existingDates.length ?? 0;
-    const nextTotalDays = nextStatus ? currentTotalDays + 1 : Math.max(0, currentTotalDays - 1);
-    
-    const nextDates = nextStatus
-      ? Array.from(new Set([...existingDates, today]))
-      : existingDates.filter((d: string) => d !== today);
+  // Refresh habits when returning to foreground across midnight or after widget interactions
+  useEffect(() => {
+    if (!userId) return;
+    const sub = AppState.addEventListener('change', async (nextState) => {
+      if (nextState !== 'active') return;
+      const today = getTodayStr();
+      const dateChanged = today !== lastLoadedDateRef.current;
+      let hadWidgetToggles = false;
+      try {
+        const pendingMap = await consumeWidgetToggledHabits();
+        if (pendingMap && Object.keys(pendingMap).length > 0) {
+          hadWidgetToggles = true;
+          await clearWidgetToggledHabits();
+        }
+      } catch {}
 
-    const { currentStreak: nextStreak, bestStreak: nextBestStreak } = calculateHabitStreak(
-      habit || { frequency: 'daily' },
-      nextDates,
-      today
-    );
-    
-    // Immediate 0ms optimistic UI update in React state
-    const updatedHabits = habits.map(h => {
-      if (h.id === id) {
-        return {
-          ...h,
-          completed_today: nextStatus,
-          current_streak: nextStreak,
-          total_days: nextTotalDays,
-          completedDates: nextDates,
-        };
+      if (dateChanged || hadWidgetToggles) {
+        lastLoadedDateRef.current = today;
+        await fetchHabits(true);
       }
-      return h;
     });
+    return () => {
+      sub.remove();
+    };
+  }, [userId]);
 
-    setHabits(updatedHabits);
-    if (userId) {
-      queryCache.setSync(`user:${userId}:habits_v2`, updatedHabits);
-    }
+  const handleToggle = async (id: string, _currentStatus?: boolean, _currentStreak?: number) => {
+    if (togglingIdsRef.current.has(id)) return;
+    togglingIdsRef.current.add(id);
 
-    // Automatically trigger Milestone Streak Card if newStreak is in STREAK_MILESTONES
-    if (nextStatus && STREAK_MILESTONES.includes(nextStreak) && habit) {
+    try {
+      const today = getTodayStr();
+      const habit = habitsRef.current.find((h) => h.id === id);
+      if (!habit) return;
+
+      const currentStatus = Boolean(habit.completed_today);
+      const nextStatus = !currentStatus;
+
+      const existingDates: string[] = Array.isArray(habit.completedDates)
+        ? Array.from(
+            new Set<string>(
+              habit.completedDates
+                .map((d: any) => String(d || '').trim().slice(0, 10))
+                .filter((d: string) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+            )
+          )
+        : [];
+
+      const nextDates = nextStatus
+        ? Array.from(new Set([...existingDates, today]))
+        : existingDates.filter((d: string) => d !== today);
+
+      const { currentStreak: nextStreak, bestStreak: nextBestStreak } = calculateHabitStreak(
+        habit || { frequency: 'daily' },
+        nextDates,
+        today
+      );
+
       const updatedHabit = {
         ...habit,
         completed_today: nextStatus,
         current_streak: nextStreak,
-        total_days: nextTotalDays,
+        longest_streak: nextBestStreak,
+        total_days: nextDates.length,
         completedDates: nextDates,
       };
-      handleMilestoneTrigger(updatedHabit, nextStreak);
-    }
 
-    try {
+      // Update ref synchronously & use functional state update so concurrent taps on other habits never overwrite
+      habitsRef.current = habitsRef.current.map((h) => (h.id === id ? updatedHabit : h));
+      setHabits((prev) => {
+        const nextList = prev.map((h) => (h.id === id ? updatedHabit : h));
+        habitsRef.current = nextList;
+        if (userId) {
+          queryCache.setSync(`user:${userId}:habits_v2`, nextList);
+        }
+        return nextList;
+      });
+      if (userId) {
+        queryCache.setSync(`user:${userId}:habits_v2`, habitsRef.current);
+      }
+
+      // Automatically trigger Milestone Streak Card if newStreak is in STREAK_MILESTONES
+      if (nextStatus && STREAK_MILESTONES.includes(nextStreak)) {
+        handleMilestoneTrigger(updatedHabit, nextStreak);
+      }
+
       if (nextStatus) {
-        const { error: logError } = await supabase
+        const { error: upsertError } = await supabase
           .from('habit_logs')
-          .insert([{ habit_id: id, user_id: userId, completed_date: today }]);
+          .upsert(
+            [{ habit_id: id, user_id: userId, completed_date: today }],
+            { onConflict: 'habit_id,completed_date', ignoreDuplicates: true }
+          );
 
-        if (logError) throw logError;
+        if (upsertError) {
+          if (upsertError.code === '42P10') {
+            const { data: existingLog } = await supabase
+              .from('habit_logs')
+              .select('id')
+              .eq('habit_id', id)
+              .eq('completed_date', today)
+              .limit(1);
+            if (!existingLog || existingLog.length === 0) {
+              const { error: insertError } = await supabase
+                .from('habit_logs')
+                .insert([{ habit_id: id, user_id: userId, completed_date: today }]);
+              if (insertError && insertError.code !== '23505') throw insertError;
+            }
+          } else if (upsertError.code !== '23505') {
+            throw upsertError;
+          }
+        }
 
         const { error: habitError } = await supabase
           .from('habits')
@@ -487,6 +626,8 @@ export default function HabitList({
       } catch (fetchError) {
         console.warn('Network disruption during rollback fetch:', fetchError);
       }
+    } finally {
+      togglingIdsRef.current.delete(id);
     }
   };
 
@@ -588,10 +729,10 @@ export default function HabitList({
               }}
             />
             {submitting ? (
-              <ActivityIndicator size="small" color="#FF6B00" style={{ padding: 4 }} />
+              <ActivityIndicator size="small" color="#1951fc" style={{ padding: 4 }} />
             ) : (
               <TouchableOpacity onPress={handleAddHabit} style={styles.checkButton}>
-                <Ionicons name="checkmark-circle" size={22} color="#FF6B00" />
+                <Ionicons name="checkmark-circle" size={22} color="#1951fc" />
               </TouchableOpacity>
             )}
           </View>
@@ -599,7 +740,7 @@ export default function HabitList({
       </View>
 
       {!isAdding && (
-        <TouchableOpacity
+        <TactilePressable
           style={styles.orangeButton}
           onPress={() => {
             if (onAddHabitPress) {
@@ -608,10 +749,9 @@ export default function HabitList({
               setIsAdding(true);
             }
           }}
-          activeOpacity={0.9}
         >
-          <Text style={styles.orangeButtonText}>+ Add new habit</Text>
-        </TouchableOpacity>
+          <Text style={[styles.orangeButtonText, { color: isDarkMode ? '#FFFFFF' : '#1D4ED8' }]}>+ Add new habit</Text>
+        </TactilePressable>
       )}
 
       {/* Habit 3-Dot Overflow Menu Modal */}
@@ -1075,7 +1215,18 @@ function HabitCardItem({
     <View
       style={[
         styles.cardWrapper,
-        { backgroundColor: theme.cardBg },
+        {
+          backgroundColor: theme.cardBg,
+          borderWidth: 1,
+          borderColor: theme.borderColor,
+          ...(!isDarkMode ? {
+            shadowColor: '#0A1530',
+            shadowOpacity: 0.04,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          } : {}),
+        },
       ]}
     >
       <View
@@ -1235,8 +1386,8 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   checkboxChecked: {
-    backgroundColor: '#FF6B00',
-    borderColor: '#FF6B00',
+    backgroundColor: '#1951fc',
+    borderColor: '#1951fc',
   },
   iconBadge: {
     width: 32,
@@ -1487,20 +1638,12 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   orangeButton: {
-    width: '100%',
-    height: 48,
-    backgroundColor: '#FF6B00',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#FF6B00',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
   },
   orangeButtonText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
   },

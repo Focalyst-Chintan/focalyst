@@ -103,17 +103,28 @@ export default function TaskCard({
     }
   };
 
-  const cardBg = isDarkMode ? '#151B2E' : '#FFFFFF';
-  const textPrimary = isDarkMode ? '#FFFFFF' : '#1E2229';
-  const textSecondary = isDarkMode ? '#8E95A9' : '#5C6479';
-  const borderColor = isDarkMode ? '#222A41' : '#E2E8F0';
-  const dragColor = isDarkMode ? '#8E95A9' : '#94a3b8';
+  const cardBg = isDarkMode ? '#111521' : '#FFFFFF';
+  const textPrimary = isDarkMode ? '#FFFFFF' : '#0A1530';
+  const textSecondary = isDarkMode ? '#8E98AD' : '#52607A';
+  const borderColor = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)';
+  const dragColor = isDarkMode ? '#8E98AD' : '#94a3b8';
 
   return (
     <View
       style={[
         styles.cardContainer,
-        { backgroundColor: cardBg, borderColor: borderColor, borderWidth: isDarkMode ? 1 : 1 },
+        {
+          backgroundColor: cardBg,
+          borderColor: borderColor,
+          borderWidth: 1,
+          ...(!isDarkMode ? {
+            shadowColor: '#0A1530',
+            shadowOpacity: 0.04,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 2 },
+            elevation: 2,
+          } : {}),
+        },
         isActive && (isDarkMode ? styles.cardActiveDark : styles.cardActiveLight),
       ]}
     >
@@ -210,7 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#2B6BFF',
+    backgroundColor: '#1951fc',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
@@ -231,21 +242,15 @@ const styles = StyleSheet.create({
   },
   cardActiveLight: {
     backgroundColor: '#E2E8F0',
-    shadowColor: '#4a6c8c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-    transform: [{ scale: 1.02 }],
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.16)',
+    transform: [{ scale: 1.01 }],
   },
   cardActiveDark: {
     backgroundColor: '#1C2438',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
-    elevation: 5,
-    transform: [{ scale: 1.02 }],
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.16)',
+    transform: [{ scale: 1.01 }],
   },
   leftGroup: {
     flexDirection: 'row',
@@ -267,8 +272,8 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   checkboxChecked: {
-    backgroundColor: '#FF6B00',
-    borderColor: '#FF6B00',
+    backgroundColor: '#1951fc',
+    borderColor: '#1951fc',
   },
   titleContainer: {
     flex: 1,

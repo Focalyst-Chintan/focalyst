@@ -2,13 +2,34 @@ import { useEffect, useState } from 'react';
 import { View, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from '../src/utils/supabase';
+import { supabase, getCoalescedSession } from '../src/utils/supabase';
+import { useUser } from '../src/utils/UserContext';
+import { clearWidgetsOnSignOut } from '../src/services/widgetSync';
+import { hasPendingVoiceNoteIntent, setPendingVoiceNoteIntent } from '../src/services/voiceNoteIntent';
 
 export default function Index() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ view?: string }>();
+  const params = useLocalSearchParams<{ view?: string; action?: string }>();
   const [loading, setLoading] = useState(true);
-  const targetDestination = params?.view === 'countdown'
+  const { profile: userContextProfile } = useUser();
+
+  useEffect(() => {
+    if (!hasPendingVoiceNoteIntent()) {
+      if (params?.action === 'start' || params?.action === 'record-voice') {
+        setPendingVoiceNoteIntent('start', `index:${params.action}`);
+      } else if (params?.action === 'open') {
+        setPendingVoiceNoteIntent('open', 'index:open');
+      }
+    }
+  }, [params?.action]);
+
+  const isVoiceDeepLink =
+    params?.action === 'record-voice' ||
+    params?.action === 'start' ||
+    params?.action === 'open';
+  const targetDestination = isVoiceDeepLink
+    ? '/(tabs)/notes'
+    : params?.view === 'countdown'
     ? '/(tabs)/focus?section=countdown'
     : params?.view
     ? `/(tabs)/plan?view=${params.view}`
@@ -42,12 +63,14 @@ export default function Index() {
       try {
         // 1. Fast check: Check if we have a cached boot user in AsyncStorage
         let cachedBootUser: any = null;
+        let cachedBootProfile: any = null;
         try {
           const rawBoot = await AsyncStorage.getItem('@focalyst_boot_user_v1');
           if (rawBoot) {
             const parsed = JSON.parse(rawBoot);
             if (parsed?.user?.id) {
               cachedBootUser = parsed.user;
+              cachedBootProfile = parsed.profile;
             }
           }
         } catch (bootErr) {
@@ -55,7 +78,7 @@ export default function Index() {
         }
 
         // 2. Race getSession with an 8000ms timeout for slow Android networks / token refreshes
-        const sessionPromise = supabase.auth.getSession();
+        const sessionPromise = getCoalescedSession();
         const timeoutPromise = new Promise<{ data: { session: null }; error: null }>((resolve) =>
           setTimeout(() => resolve({ data: { session: null }, error: null }), 8000)
         );
@@ -63,22 +86,13 @@ export default function Index() {
         const result = await Promise.race([sessionPromise, timeoutPromise]);
         const session = result?.data?.session;
 
+        if (!session) await clearWidgetsOnSignOut();
+
         if (redirected) return;
 
         let activeUser = session?.user ?? null;
-        if (activeUser) {
-          try {
-            const { data: userData, error: userError } = await supabase.auth.getUser();
-            if (userError || !userData?.user) {
-              console.warn('[Index] Stale/invalid session detected via getUser(), signing out.');
-              activeUser = null;
-              await AsyncStorage.removeItem('@focalyst_boot_user_v1').catch(() => {});
-              await supabase.auth.signOut().catch(() => {});
-            } else {
-              activeUser = userData.user;
-            }
-          } catch {}
-        }
+        // getSession is the local persisted source of truth. Network validation via getUser
+        // can fail during resume or token refresh and must not discard a valid local session.
 
         if (activeUser) {
           redirected = true;
@@ -87,18 +101,27 @@ export default function Index() {
 
           // Non-blocking onboarding check with timeout
           try {
-            const profilePromise = supabase
-              .from('users')
-              .select('onboarding_done')
-              .eq('id', activeUser.id)
-              .maybeSingle();
+            let onboardingDone: boolean | undefined = undefined;
+            if (userContextProfile?.id === activeUser.id && typeof userContextProfile.onboarding_done === 'boolean') {
+              onboardingDone = userContextProfile.onboarding_done;
+            } else if (cachedBootProfile?.id === activeUser.id && typeof cachedBootProfile.onboarding_done === 'boolean') {
+              onboardingDone = cachedBootProfile.onboarding_done;
+            } else {
+              const profilePromise = supabase
+                .from('users')
+                .select('onboarding_done')
+                .eq('id', activeUser.id)
+                .maybeSingle();
 
-            const profileTimeout = new Promise<{ data: { onboarding_done: boolean } | null }>((resolve) =>
-              setTimeout(() => resolve({ data: { onboarding_done: true } }), 2000)
-            );
+              const profileTimeout = new Promise<{ data: { onboarding_done: boolean } | null }>((resolve) =>
+                setTimeout(() => resolve({ data: { onboarding_done: true } }), 2000)
+              );
 
-            const { data: profile } = await Promise.race([profilePromise, profileTimeout]);
-            if (profile?.onboarding_done === false) {
+              const { data: profile } = await Promise.race([profilePromise, profileTimeout]);
+              onboardingDone = profile?.onboarding_done;
+            }
+
+            if (onboardingDone === false) {
               router.replace({ pathname: '/onboarding', params: { signedIn: '1' } } as any);
             } else {
               router.replace(targetDestination as any);

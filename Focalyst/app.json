@@ -2,7 +2,7 @@
   "expo": {
     "name": "Focalyst",
     "slug": "Focalyst",
-    "version": "1.1.5",
+    "version": "1.1.6",
     "orientation": "default",
     "icon": "./assets/images/app-icon.png",
     "scheme": "online.focalyst",
@@ -16,16 +16,21 @@
         "com.apple.developer.family-controls": true
       },
       "supportsTablet": false,
-      "buildNumber": "60",
+      "buildNumber": "62",
       "usesAppleSignIn": true,
       "infoPlist": {
         "NSMicrophoneUsageDescription": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat.",
         "NSPhotoLibraryUsageDescription": "Focalyst requires access to the photo library to allow users to personalize their profile avatars and attach reference images to their tasks.",
+        "UIBackgroundModes": [
+          "audio"
+        ],
+        "NSSupportsLiveActivities": true,
         "CFBundleURLTypes": [
           {
             "CFBundleURLSchemes": [
               "com.googleusercontent.apps.1084227702891-b1e8erh6bqpjclur38t02p3gcoo1j979",
-              "focalyst"
+              "focalyst",
+              "online.focalyst"
             ]
           }
         ],
@@ -34,8 +39,8 @@
     },
     "android": {
       "package": "online.focalyst",
-      "versionCode": 42,
-      "version": "1.1.5",
+      "versionCode": 44,
+      "version": "1.1.6",
       "intentFilters": [
         {
           "action": "VIEW",
@@ -70,7 +75,7 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
@@ -121,6 +126,16 @@
                 "supportedFamilies": [
                   "systemSmall",
                   "systemMedium"
+                ]
+              }
+            },
+            {
+              "name": "VoiceNoteWidget",
+              "displayName": "Voice Note",
+              "description": "Start recording a voice note instantly.",
+              "ios": {
+                "supportedFamilies": [
+                  "systemSmall"
                 ]
               }
             },
@@ -176,7 +191,8 @@
       [
         "expo-audio",
         {
-          "microphonePermission": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat."
+          "microphonePermission": "Focalyst needs access to your microphone to record voice notes and dictate in AI chat.",
+          "enableBackgroundRecording": true
         }
       ],
       "expo-asset",
@@ -198,7 +214,8 @@
         }
       ],
       "expo-dev-client",
-      "./plugins/withScreenTimeBlocker"
+      "./plugins/withScreenTimeBlocker",
+      "./plugins/withOptionalWifiFeature"
     ],
     "experiments": {
       "typedRoutes": true

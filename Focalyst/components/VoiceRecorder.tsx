@@ -1,6 +1,5 @@
 import React from 'react';
 import { VoiceNoteRecorderModal } from './VoiceNoteRecorderModal';
-import { supabase } from '../src/utils/supabase';
 
 interface VoiceRecorderProps {
   visible: boolean;
@@ -12,21 +11,8 @@ interface VoiceRecorderProps {
   isDarkMode?: boolean;
 }
 
-export function VoiceRecorder({
-  visible,
-  onClose,
-  onSaveSuccess,
-  userId,
-}: VoiceRecorderProps) {
-  return (
-    <VoiceNoteRecorderModal
-      visible={visible}
-      onClose={onClose}
-      onSaveSuccess={onSaveSuccess}
-      userId={userId}
-      supabase={supabase}
-    />
-  );
+export function VoiceRecorder({ isDarkMode }: VoiceRecorderProps) {
+  return <VoiceNoteRecorderModal isDarkMode={isDarkMode} />;
 }
 
 export default VoiceRecorder;

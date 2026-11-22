@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,7 +12,10 @@ import {
   Platform,
   Modal,
   Linking,
+  Animated,
+  LayoutRectangle,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColumnStyle } from '../../src/layout/adaptive';
@@ -48,6 +51,9 @@ import { awardXP } from '../../src/utils/xpService';
 import { recordMilestoneForReview } from '../../src/services/reviewPromptService';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { useUser } from '../../src/utils/UserContext';
+import { SegmentedToggle } from '../../components/ui/SegmentedToggle';
+import { TactilePressable } from '../../components/ui/TactilePressable';
+import AtmosphericScreenBackground from '../../components/AtmosphericScreenBackground';
 import { queryCache } from '../../src/utils/queryCache';
 import { ScreenSkeleton, ErrorRetryBanner } from '../../components/ui/ScreenSkeleton';
 
@@ -182,6 +188,61 @@ export default function PlanTab() {
   }, [user?.id, user?.user_metadata, profile]);
 
   const [activeTab, setActiveTab] = useState<TabView>('today');
+  const [tabLayouts, setTabLayouts] = useState<Record<number, LayoutRectangle>>({});
+  const tabTranslateX = useRef(new Animated.Value(0)).current;
+  const tabPillWidth = useRef(new Animated.Value(0)).current;
+  const isTabInitialized = useRef(false);
+
+  const activeTabIndex = activeTab === 'today' ? 0 : 1;
+
+  const onTabLayout = (index: number, layout: LayoutRectangle) => {
+    setTabLayouts((prev) => {
+      if (!isTabInitialized.current && index === activeTabIndex) {
+        tabTranslateX.setValue(layout.x);
+        tabPillWidth.setValue(layout.width);
+        isTabInitialized.current = true;
+      }
+      return { ...prev, [index]: layout };
+    });
+  };
+
+  useEffect(() => {
+    const layout = tabLayouts[activeTabIndex];
+    if (layout) {
+      if (!isTabInitialized.current) {
+        tabTranslateX.setValue(layout.x);
+        tabPillWidth.setValue(layout.width);
+        isTabInitialized.current = true;
+      } else {
+        Animated.parallel([
+          Animated.spring(tabTranslateX, {
+            toValue: layout.x,
+            damping: 20,
+            stiffness: 260,
+            mass: 0.8,
+            useNativeDriver: false,
+          }),
+          Animated.spring(tabPillWidth, {
+            toValue: layout.width,
+            damping: 20,
+            stiffness: 260,
+            mass: 0.8,
+            useNativeDriver: false,
+          }),
+        ]).start();
+      }
+    }
+  }, [activeTabIndex, tabLayouts, tabTranslateX, tabPillWidth]);
+
+  const handleTabPress = (tab: TabView) => {
+    if (tab === activeTab) return;
+    try {
+      Haptics.selectionAsync?.();
+    } catch {
+      // Ignore if haptics unavailable
+    }
+    setActiveTab(tab);
+  };
   const [userId, setUserId] = useState<string>(currentUserId);
 
   // Synchronous cache hydration: instantaneous 0ms display on tab switch
@@ -361,6 +422,7 @@ export default function PlanTab() {
   const [repeatOption, setRepeatOption] = useState<string>('Never');
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [isSavingReminder, setIsSavingReminder] = useState(false);
 
   // Picker and custom repeat state variables
   const [showStartsPicker, setShowStartsPicker] = useState<boolean>(false);
@@ -386,20 +448,20 @@ export default function PlanTab() {
 
   // Dynamic Theme definitions for plan tab
   const theme = {
-    bg: darkMode ? '#0B1021' : '#F4F6FA',
-    cardBg: darkMode ? '#151B2E' : '#FFFFFF',
-    textPrimary: darkMode ? '#FFFFFF' : '#1E2229',
-    textSecondary: darkMode ? '#8E95A9' : '#5C6479',
-    borderColor: darkMode ? '#222A41' : '#E2E8F0',
-    accentOrange: '#FF6B00',
-    accentBlue: '#2B6BFF',
-    modalBg: darkMode ? '#151B2E' : '#F1F5F9',
+    bg: 'transparent',
+    cardBg: darkMode ? '#111521' : '#FFFFFF',
+    textPrimary: darkMode ? '#FFFFFF' : '#0A1530',
+    textSecondary: darkMode ? '#8E98AD' : '#334155',
+    borderColor: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)',
+    accentOrange: '#1951fc',
+    accentBlue: '#1951fc',
+    modalBg: darkMode ? '#111521' : '#F8FAFC',
     modalInputBg: darkMode ? '#0B1021' : '#FFFFFF',
     modalTextPrimary: darkMode ? '#FFFFFF' : '#0F172A',
-    modalTextSecondary: darkMode ? '#94A3B8' : '#64748B',
-    modalBorder: darkMode ? '#222A41' : '#E2E8F0',
+    modalTextSecondary: darkMode ? '#8E98AD' : '#64748B',
+    modalBorder: darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(15, 23, 42, 0.08)',
     white: '#FFFFFF',
-    colors: { primary: '#FF6B00' },
+    colors: { primary: '#1951fc' },
   };
 
   // Calendar Default Initialization (STEP 4)
@@ -950,6 +1012,7 @@ export default function PlanTab() {
   };
 
   const handleAddReminder = async () => {
+    if (isSavingReminder) return;
     if (!reminderTitle.trim()) return;
 
     if (!allDay) {
@@ -961,6 +1024,7 @@ export default function PlanTab() {
       }
     }
 
+    setIsSavingReminder(true);
     const selectedDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(selectedDay).padStart(2, '0')}`;
     try {
       const { data: authData } = await supabase.auth.getUser();
@@ -1019,11 +1083,17 @@ export default function PlanTab() {
       const createdId = createdReminder?.id;
 
       setDbError(null);
-      await fetchReminders();
+      const normalized = { ...createdReminder, id: String(createdReminder.id), day: createdReminder.day ?? selectedDate, allDay: createdReminder.all_day ?? allDay, starts: createdReminder.start_time ?? startsTime, ends: createdReminder.end_time ?? endsTime, repeat: createdReminder.repeat ?? repeatOption };
+      setReminders((prev) => [...prev, normalized]);
+      setAllUserReminders((prev) => [...prev, createdReminder]);
+      queryCache.setSync(`user:${activeUid}:reminders`, (prev: any[] = []) => [...prev, createdReminder]);
+      setIsAddingReminder(false);
+      setIsSavingReminder(false);
+      void fetchReminders();
       fetchTodaysEventCount();
 
       // Schedule 3-stage local notifications (3 days before, 24h before, start time)
-      try {
+      void (async () => { try {
         const [y, m, d] = selectedDate.split('-').map(Number);
         let eventStartDate = new Date(y, m - 1, d, 9, 0, 0);
         if (!allDay && startsTime) {
@@ -1044,7 +1114,7 @@ export default function PlanTab() {
         }
       } catch (notifErr) {
         console.warn('Error scheduling 3-stage notifications:', notifErr);
-      }
+      } })();
 
       setReminderTitle('');
       setReminderDescription('');
@@ -1058,6 +1128,7 @@ export default function PlanTab() {
       setCustomEvery(1);
       setIsAddingReminder(false);
     } catch (e: any) {
+      setIsSavingReminder(false);
       console.warn('Error adding reminder:', e);
       if (isMissingTableError(e)) {
         setDbError("Database table 'reminders' is missing. Please create it in Supabase.");
@@ -1303,49 +1374,80 @@ export default function PlanTab() {
     return 'plan.evening';
   }
 
+  const activeTabPillBg = darkMode ? '#2D354E' : '#0F172A';
+
   const renderHeader = () => (
     <View style={styles.headerWrapper}>
-      {/* Header Greeting */}
-      <Text style={[styles.greetingText, { color: theme.textPrimary }]}>
-        {t(getGreetingKey())}
-        {userName ? `, ${userName}` : '.'}
-      </Text>
+        {/* Header Greeting */}
+        <Text style={[styles.greetingText, { color: '#FFFFFF' }]}>
+          {t(getGreetingKey())}
+          {userName ? `, ${userName}` : '.'}
+        </Text>
 
-      {/* Tab Toggle Row */}
-      <View style={[styles.tabToggleRow, { backgroundColor: theme.cardBg }]}>
-        <TouchableOpacity
+        {/* Tab Toggle Row */}
+        <View
           style={[
-            styles.tabButton,
-            activeTab === 'today' && { backgroundColor: darkMode ? '#2D354E' : '#4a6c8c' },
+            styles.tabToggleRow,
+            {
+              backgroundColor: theme.cardBg,
+              borderColor: theme.borderColor,
+              borderWidth: 1,
+            },
           ]}
-          onPress={() => setActiveTab('today')}
-          activeOpacity={0.8}
         >
-          <Text style={[
-            styles.tabButtonText, 
-            { color: theme.textSecondary },
-            activeTab === 'today' && { color: '#FFFFFF' }
-          ]}>
-            {t('plan.today')}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.tabButton,
-            activeTab === 'calendar' && { backgroundColor: darkMode ? '#2D354E' : '#4a6c8c' },
-          ]}
-          onPress={() => setActiveTab('calendar')}
-          activeOpacity={0.8}
-        >
-          <Text style={[
-            styles.tabButtonText, 
-            { color: theme.textSecondary },
-            activeTab === 'calendar' && { color: '#FFFFFF' }
-          ]}>
-            {t('plan.calendar')}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          {/* Sliding active pill indicator */}
+          {isTabInitialized.current && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.tabActiveIndicator,
+                {
+                  backgroundColor: activeTabPillBg,
+                  transform: [{ translateX: tabTranslateX }],
+                  width: tabPillWidth,
+                },
+              ]}
+            />
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              !isTabInitialized.current && activeTab === 'today' && { backgroundColor: activeTabPillBg },
+            ]}
+            onLayout={(e) => onTabLayout(0, e.nativeEvent.layout)}
+            onPress={() => handleTabPress('today')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.tabButtonText,
+                { color: activeTab === 'today' ? '#FFFFFF' : (darkMode ? '#8E98AD' : '#64748B') },
+              ]}
+            >
+              {t('plan.today')}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.tabButton,
+              !isTabInitialized.current && activeTab === 'calendar' && { backgroundColor: activeTabPillBg },
+            ]}
+            onLayout={(e) => onTabLayout(1, e.nativeEvent.layout)}
+            onPress={() => handleTabPress('calendar')}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.tabButtonText,
+                { color: activeTab === 'calendar' ? '#FFFFFF' : (darkMode ? '#8E98AD' : '#64748B') },
+              ]}
+            >
+              {t('plan.calendar')}
+            </Text>
+          </TouchableOpacity>
+        </View>
 
       {/* Date Row */}
       <View style={styles.dateRow}>
@@ -1370,34 +1472,16 @@ export default function PlanTab() {
       {activeTab === 'today' && (
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <Text style={[styles.sectionTitle, { color: theme.textPrimary, marginBottom: 0 }]}>{t('plan.todo')}</Text>
-          <View style={{ flexDirection: 'row', backgroundColor: darkMode ? '#151B2E' : '#e2e8f0', borderRadius: 999, padding: 3 }}>
-            <TouchableOpacity
-              onPress={() => setTaskViewMode('due')}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 5,
-                borderRadius: 999,
-                backgroundColor: taskViewMode === 'due' ? (darkMode ? '#2D354E' : '#4a6c8c') : 'transparent',
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: taskViewMode === 'due' ? '#FFFFFF' : theme.textSecondary }}>
-                DUE
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setTaskViewMode('upcoming')}
-              style={{
-                paddingHorizontal: 12,
-                paddingVertical: 5,
-                borderRadius: 999,
-                backgroundColor: taskViewMode === 'upcoming' ? (darkMode ? '#2D354E' : '#4a6c8c') : 'transparent',
-              }}
-            >
-              <Text style={{ fontSize: 12, fontWeight: '700', color: taskViewMode === 'upcoming' ? '#FFFFFF' : theme.textSecondary }}>
-                UPCOMING
-              </Text>
-            </TouchableOpacity>
-          </View>
+          <SegmentedToggle
+            size="compact"
+            isDarkMode={darkMode}
+            activeValue={taskViewMode}
+            onChange={(val) => setTaskViewMode(val as 'due' | 'upcoming')}
+            options={[
+              { label: 'DUE', value: 'due' },
+              { label: 'UPCOMING', value: 'upcoming' },
+            ]}
+          />
         </View>
       )}
     </View>
@@ -1407,17 +1491,16 @@ export default function PlanTab() {
     <View style={styles.footerWrapper}>
       {activeTab === 'today' && (
         <>
-          {/* Orange add task button */}
-          <TouchableOpacity
-            style={[styles.orangeButton, { backgroundColor: theme.accentOrange, shadowColor: theme.accentOrange }]}
+          {/* Add task button */}
+          <TactilePressable
+            style={styles.orangeButton}
             onPress={() => {
               setEditingTask(null);
               setIsTaskFormOpen(true);
             }}
-            activeOpacity={0.9}
           >
-            <Text style={styles.orangeButtonText}>{t('plan.addTask')}</Text>
-          </TouchableOpacity>
+            <Text style={[styles.orangeButtonText, { color: darkMode ? '#FFFFFF' : '#1D4ED8' }]}>{t('plan.addTask')}</Text>
+          </TactilePressable>
 
           {/* Habits Tracker */}
           <View style={{ marginTop: 24 }}>
@@ -1444,9 +1527,9 @@ export default function PlanTab() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+    <AtmosphericScreenBackground isDarkMode={darkMode} withHeaderPadding={true}>
       <StatusBar style={darkMode ? 'light' : 'dark'} />
-      <View style={[styles.container, { backgroundColor: theme.bg }]}>
+      <View style={[styles.container, { backgroundColor: 'transparent' }]}>
         {activeTab === 'today' ? (
           <NestableScrollContainer
             showsVerticalScrollIndicator={false}
@@ -1485,16 +1568,15 @@ export default function PlanTab() {
               }
             />
 
-            <TouchableOpacity
-              style={[styles.orangeButton, { backgroundColor: theme.accentOrange, shadowColor: theme.accentOrange }]}
+            <TactilePressable
+              style={styles.orangeButton}
               onPress={() => {
                 setEditingTask(null);
                 setIsTaskFormOpen(true);
               }}
-              activeOpacity={0.9}
             >
-              <Text style={styles.orangeButtonText}>{t('plan.addTask')}</Text>
-            </TouchableOpacity>
+              <Text style={[styles.orangeButtonText, { color: darkMode ? '#FFFFFF' : '#1D4ED8' }]}>{t('plan.addTask')}</Text>
+            </TactilePressable>
 
             <View style={{ marginTop: 24 }}>
               <HabitList
@@ -2296,9 +2378,10 @@ export default function PlanTab() {
                     <TouchableOpacity
                       style={[styles.addButton, { backgroundColor: theme.accentOrange, shadowColor: theme.accentOrange }]}
                       onPress={handleAddReminder}
+                      disabled={isSavingReminder}
                       activeOpacity={0.8}
                     >
-                      <Text style={styles.addButtonText}>Add</Text>
+                      {isSavingReminder ? <ActivityIndicator color="#fff" /> : <Text style={styles.addButtonText}>Add</Text>}
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2493,7 +2576,7 @@ export default function PlanTab() {
                     {opt}
                   </Text>
                   {repeatOption === opt && (
-                    <Ionicons name="checkmark" size={18} color="#FF6B00" />
+                    <Ionicons name="checkmark" size={18} color="#1951fc" />
                   )}
                 </TouchableOpacity>
               ))}
@@ -2509,7 +2592,7 @@ export default function PlanTab() {
                   Custom
                 </Text>
                 {repeatOption === 'Custom' && (
-                  <Ionicons name="checkmark" size={18} color="#FF6B00" />
+                  <Ionicons name="checkmark" size={18} color="#1951fc" />
                 )}
               </TouchableOpacity>
             </View>
@@ -2605,7 +2688,7 @@ export default function PlanTab() {
                         {freq}
                       </Text>
                       {customFrequency === freq && (
-                        <Ionicons name="checkmark" size={18} color="#FF6B00" />
+                        <Ionicons name="checkmark" size={18} color="#1951fc" />
                       )}
                     </TouchableOpacity>
                   ))}
@@ -2643,7 +2726,7 @@ export default function PlanTab() {
                             {label}
                           </Text>
                           {customEvery === num && (
-                            <Ionicons name="checkmark" size={18} color="#FF6B00" />
+                            <Ionicons name="checkmark" size={18} color="#1951fc" />
                           )}
                         </TouchableOpacity>
                       );
@@ -2655,7 +2738,7 @@ export default function PlanTab() {
           </SafeAreaView>
         </Modal>
       </View>
-    </View>
+    </AtmosphericScreenBackground>
   );
 }
 
@@ -2665,13 +2748,13 @@ const styles = StyleSheet.create({
   },
   flatListContent: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 140,
   },
   scrollContainer: {
     paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 140,
   },
   loadingContainer: {
     flex: 1,
@@ -2695,14 +2778,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     borderRadius: 99,
     padding: 3,
-    gap: 2,
-    marginBottom: 24,
+    marginBottom: 20,
     alignSelf: 'flex-start',
+    position: 'relative',
+    alignItems: 'center',
+  },
+  tabActiveIndicator: {
+    position: 'absolute',
+    top: 3,
+    left: 0,
+    bottom: 3,
+    borderRadius: 99,
+    zIndex: 0,
   },
   tabButton: {
     paddingHorizontal: 22,
     paddingVertical: 7,
     borderRadius: 99,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
   },
   tabButtonText: {
     fontSize: 12,
@@ -2742,18 +2837,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   orangeButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+    paddingHorizontal: 4,
+    paddingVertical: 8,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   orangeButtonText: {
-    color: '#ffffff',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -3063,7 +3154,7 @@ const styles = StyleSheet.create({
   },
   repeatOptionTextSelected: {
     fontWeight: '700',
-    color: '#FF6B00',
+    color: '#1951fc',
   },
   dropdownDivider: {
     height: 1,
@@ -3183,6 +3274,6 @@ const styles = StyleSheet.create({
   },
   everyOptionTextSelected: {
     fontWeight: '700',
-    color: '#FF6B00',
+    color: '#1951fc',
   },
 });

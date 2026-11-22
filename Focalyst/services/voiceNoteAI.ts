@@ -5,9 +5,11 @@ export interface ProcessedVoiceNote {
   title: string;
   cleanedTranscript: string;
   summary: string;
+  summarizationError?: string;
 }
 
-const FOCALYST_BACKEND_URL = 'https://focalyst.online';
+const FOCALYST_BACKEND_URL =
+  process.env.EXPO_PUBLIC_BACKEND_URL || 'https://focalyst.online';
 
 // Common Whisper hallucinations when audio is silent
 const WHISPER_SILENCE_PHRASES = new Set([
@@ -57,6 +59,7 @@ export async function processTranscriptWithAI(rawTranscript: string): Promise<Pr
         title: 'Voice Note',
         cleanedTranscript: rawTranscript,
         summary: rawTranscript,
+        summarizationError: 'Not signed in. Saved raw transcript instead.',
       };
     }
 
@@ -73,7 +76,8 @@ export async function processTranscriptWithAI(rawTranscript: string): Promise<Pr
     });
 
     if (!res.ok) {
-      throw new Error(`Voice summary endpoint returned ${res.status}`);
+      const errBody = await res.text().catch(() => '');
+      throw new Error(`Voice summary endpoint returned ${res.status}${errBody ? `: ${errBody.slice(0, 120)}` : ''}`);
     }
 
     const data = await res.json();
@@ -96,12 +100,13 @@ export async function processTranscriptWithAI(rawTranscript: string): Promise<Pr
       cleanedTranscript: data?.cleanedTranscript || data?.note?.transcript || rawTranscript,
       summary: data?.summary || data?.note?.content || rawTranscript,
     };
-  } catch (err) {
+  } catch (err: any) {
     console.warn('[Voice Note AI] Backend summarization fallback to raw transcript:', err);
     return {
       title: 'Voice Note',
       cleanedTranscript: rawTranscript,
       summary: rawTranscript,
+      summarizationError: err?.message || 'Could not reach AI summarization service.',
     };
   }
 }

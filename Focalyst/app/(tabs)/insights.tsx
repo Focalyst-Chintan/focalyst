@@ -15,6 +15,7 @@ import { supabase } from '../../src/utils/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, RadialGradient as SvgRadialGradient, Stop, Rect } from 'react-native-svg';
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router';
 import { useUser } from '../../src/utils/UserContext';
 import { useTranslation } from 'react-i18next';
@@ -25,13 +26,24 @@ import {
   fetchTotalFocusHours,
 } from '../../src/utils/analytics';
 import { LEVEL_BENCHMARKS, LevelBenchmark } from '../../src/utils/xpService';
+import { syncLevelBadges, syncStreakBadges } from '../../src/utils/badgeMilestones';
+import { LevelUpModal } from '../../components/insights/LevelUpModal';
 import { queryCache } from '../../src/utils/queryCache';
 import WeeklyReportSheet from '../../components/WeeklyReportSheet';
 import HabitGroupLeaderboardSection from '../../components/insights/HabitGroupLeaderboardSection';
 import { StartingReportCard } from '../../src/onboarding/StartingReportCard';
 import DistractionsSection from '../../components/insights/DistractionsSection';
+import { ProductivityScoreCard } from '../../components/insights/ProductivityScoreCard';
+import { TotalFocusTimeCard } from '../../components/insights/TotalFocusTimeCard';
+import { TasksCompletedCard } from '../../components/insights/TasksCompletedCard';
+import { ActiveHabitCard } from '../../components/insights/ActiveHabitCard';
+import FocusActivityCard from '../../components/insights/FocusActivityCard';
 import { HABIT_GROUP_UPDATED_EVENT } from '../../src/services/habitGroupService';
 import { ScreenSkeleton, ErrorRetryBanner } from '../../components/ui/ScreenSkeleton';
+import { AtmosphericScreenBackground } from '../../components/AtmosphericScreenBackground';
+import { SegmentedToggle } from '../../components/ui/SegmentedToggle';
+import { TactilePressable } from '../../components/ui/TactilePressable';
+import { fetchYearWrapped, isWrappedWindowActive } from '../../src/services/wrappedService';
 
 export default function InsightsTab() {
   const { t } = useTranslation();
@@ -58,6 +70,7 @@ export default function InsightsTab() {
   
   // Theme State
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [wrappedAvailable, setWrappedAvailable] = useState(() => isWrappedWindowActive());
 
   // Local YYYY-MM-DD Date Formatter (Prevents UTC midnight backward shift)
   const formatLocalYMD = (d: Date = new Date()): string =>
@@ -87,6 +100,20 @@ export default function InsightsTab() {
         void refreshProfile();
       }
 
+      if (isWrappedWindowActive()) {
+        fetchYearWrapped({ year: 2026, preview: false })
+          .then((res) => {
+            if (isMounted) {
+              setWrappedAvailable(res.status === 'ready');
+            }
+          })
+          .catch(() => {
+            if (isMounted) setWrappedAvailable(false);
+          });
+      } else {
+        setWrappedAvailable(false);
+      }
+
       return () => {
         isMounted = false;
       };
@@ -98,7 +125,10 @@ export default function InsightsTab() {
       setIsDarkMode(newVal);
     });
     const groupSub = DeviceEventEmitter.addListener(HABIT_GROUP_UPDATED_EVENT, () => {
-      fetchInsights(false);
+      fetchInsights(true);
+    });
+    const habitsSub = DeviceEventEmitter.addListener('refreshHabits', () => {
+      fetchInsights(true);
     });
     const focusSub = DeviceEventEmitter.addListener('FOCALYST_FOCUS_ACTIVITY_UPDATED', () => {
       fetchInsights(true);
@@ -109,6 +139,7 @@ export default function InsightsTab() {
     return () => {
       sub.remove();
       groupSub.remove();
+      habitsSub.remove();
       focusSub.remove();
       refreshSub.remove();
     };
@@ -122,6 +153,8 @@ export default function InsightsTab() {
   const [currentLevel, setCurrentLevel] = useState(cachedData?.fetchedLevel || 1);
   const [currentTitle, setCurrentTitle] = useState(cachedData?.fetchedTitle || 'Ignition');
   const [timelineExpanded, setTimelineExpanded] = useState(false);
+  const [levelBannerSize, setLevelBannerSize] = useState({ width: 350, height: 112 });
+  const [weeklyReportCardSize, setWeeklyReportCardSize] = useState({ width: 350, height: 170 });
   const [showLevelUpModal, setShowLevelUpModal] = useState(false);
   const [newLevelAchieved, setNewLevelAchieved] = useState<LevelBenchmark | null>(null);
 
@@ -194,9 +227,12 @@ export default function InsightsTab() {
 
           // Strict Date Boundaries for daily_focus_activity
           const startOfMonthStr = `${todayYear}-${todayMonth}-01`;
-          const sixDaysAgo = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate() - 6);
-          const sevenDaysAgoStr = formatLocalYMD(sixDaysAgo);
-          const earliestBoundStr = startOfMonthStr < sevenDaysAgoStr ? startOfMonthStr : sevenDaysAgoStr;
+          const currentDayOfWeek = localNow.getDay(); // 0 = Sun .. 6 = Sat
+          const startOfWeek = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate() - currentDayOfWeek);
+          const startOfWeekStr = formatLocalYMD(startOfWeek);
+          const earliestBoundStr = startOfMonthStr < startOfWeekStr ? startOfMonthStr : startOfWeekStr;
+          const yearAgo = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate() - 365);
+          const yearAgoStr = formatLocalYMD(yearAgo);
 
           // Parallelize all queries concurrently via a single Promise.all block
           const [xpRes, totalHoursRaw, weeklyData, habitsRes, logsRes, dailyActivityRes] = await Promise.all([
@@ -220,7 +256,8 @@ export default function InsightsTab() {
             supabase
               .from('habit_logs')
               .select('habit_id')
-              .eq('user_id', uid),
+              .eq('user_id', uid)
+              .gte('completed_date', yearAgoStr),
             supabase
               .from('daily_focus_activity')
               .select('focus_time_minutes, break_time_minutes, date')
@@ -256,11 +293,11 @@ export default function InsightsTab() {
 
           const focusRows = dailyActivityRes?.data || [];
 
-          // ─── Weekly 7-Day Chart Generation (Strict Local Date Matching) ───
+          // ─── Weekly 7-Day Chart Generation (Sun -> Sat with Strict Local Date Matching) ───
           const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
           const tempWeeklyChart: any[] = [];
-          for (let i = 6; i >= 0; i--) {
-            const d = new Date(localNow.getFullYear(), localNow.getMonth(), localNow.getDate() - i);
+          for (let i = 0; i < 7; i++) {
+            const d = new Date(startOfWeek.getFullYear(), startOfWeek.getMonth(), startOfWeek.getDate() + i);
             const exactDateStr = formatLocalYMD(d);
 
             let focusMinutes = 0;
@@ -276,47 +313,41 @@ export default function InsightsTab() {
 
             tempWeeklyChart.push({
               dateStr: exactDateStr,
-              label: weekdays[d.getDay()],
+              label: weekdays[i],
               focusMinutes,
               breakMinutes,
+              isToday: exactDateStr === todayStr,
             });
           }
 
-          // ─── Monthly Chart Generation (Strict W1..W4 Buckets) ───
-          // Filter strictly to current YYYY-MM prefix and <= todayStr
-          const currentMonthPrefix = `${todayYear}-${todayMonth}`;
-          const currentMonthRows = focusRows.filter((row: any) => {
-            const rowDateStr = String(row.date).slice(0, 10);
-            return rowDateStr.startsWith(currentMonthPrefix) && rowDateStr <= todayStr;
-          });
+          // ─── Monthly Chart Generation (Every Day 1..daysInMonth) ───
+          const daysInMonth = new Date(todayYear, localNow.getMonth() + 1, 0).getDate();
+          const tempMonthlyChart: any[] = [];
 
-          const monthlyBuckets = [
-            { label: 'W1', focusMinutes: 0, breakMinutes: 0 },
-            { label: 'W2', focusMinutes: 0, breakMinutes: 0 },
-            { label: 'W3', focusMinutes: 0, breakMinutes: 0 },
-            { label: 'W4', focusMinutes: 0, breakMinutes: 0 },
-          ];
+          for (let day = 1; day <= daysInMonth; day++) {
+            const d = new Date(todayYear, localNow.getMonth(), day);
+            const exactDateStr = formatLocalYMD(d);
 
-          currentMonthRows.forEach((row: any) => {
-            const rowDateStr = String(row.date).slice(0, 10);
-            const dayNum = parseInt(rowDateStr.split('-')[2], 10);
-            const fMins = Number(row.focus_time_minutes) || 0;
-            const bMins = Number(row.break_time_minutes) || 0;
+            let focusMinutes = 0;
+            let breakMinutes = 0;
 
-            if (dayNum >= 1 && dayNum <= 7) {
-              monthlyBuckets[0].focusMinutes += fMins;
-              monthlyBuckets[0].breakMinutes += bMins;
-            } else if (dayNum >= 8 && dayNum <= 14) {
-              monthlyBuckets[1].focusMinutes += fMins;
-              monthlyBuckets[1].breakMinutes += bMins;
-            } else if (dayNum >= 15 && dayNum <= 21) {
-              monthlyBuckets[2].focusMinutes += fMins;
-              monthlyBuckets[2].breakMinutes += bMins;
-            } else if (dayNum >= 22) {
-              monthlyBuckets[3].focusMinutes += fMins;
-              monthlyBuckets[3].breakMinutes += bMins;
-            }
-          });
+            focusRows.forEach((row: any) => {
+              const rowDateStr = String(row.date || row.activity_date || '').slice(0, 10);
+              if (rowDateStr === exactDateStr) {
+                focusMinutes += Number(row.focus_time_minutes) || 0;
+                breakMinutes += Number(row.break_time_minutes) || 0;
+              }
+            });
+
+            tempMonthlyChart.push({
+              dateStr: exactDateStr,
+              label: String(day),
+              dayNum: day,
+              focusMinutes,
+              breakMinutes,
+              isToday: exactDateStr === todayStr,
+            });
+          }
 
           const sumWeeklyMins = tempWeeklyChart.reduce((acc, item) => acc + (item.focusMinutes || 0), 0);
 
@@ -331,7 +362,7 @@ export default function InsightsTab() {
             weeklyHabitsTotal: weeklyData.habitsTotal,
             mappedHabits,
             weeklyChart: tempWeeklyChart,
-            monthlyChart: monthlyBuckets,
+            monthlyChart: tempMonthlyChart,
             sumWeeklyMinutes: sumWeeklyMins,
           };
         },
@@ -354,7 +385,16 @@ export default function InsightsTab() {
         setTotalWeeklyMinutes(cachedResult.sumWeeklyMinutes);
       }
 
-      // Check for Level Up trigger
+      // Check for Level Up trigger & sync badges silently
+      void syncLevelBadges(cachedResult.fetchedLevel, uid);
+      const bestHabitStreak = (cachedResult.mappedHabits || []).reduce(
+        (max: number, h: any) => Math.max(max, Number(h.longest_streak || 0), Number(h.current_streak || 0)),
+        0
+      );
+      if (bestHabitStreak > 0) {
+        void syncStreakBadges(bestHabitStreak, uid);
+      }
+
       const lastSeenLevelStr = await AsyncStorage.getItem(`last_seen_level_${uid}`);
       if (lastSeenLevelStr && isMountedRef.current) {
         const lastSeenLevelNum = parseInt(lastSeenLevelStr, 10);
@@ -381,11 +421,11 @@ export default function InsightsTab() {
 
   if (loading && !cachedData) {
     return (
-      <View style={[styles.container, isDarkMode && { backgroundColor: '#0B1021' }]}>
+      <AtmosphericScreenBackground isDarkMode={isDarkMode} withHeaderPadding={true} style={styles.container}>
         <View style={{ padding: 16 }}>
           <ScreenSkeleton isDark={isDarkMode} showChart={true} rows={3} />
         </View>
-      </View>
+      </AtmosphericScreenBackground>
     );
   }
 
@@ -406,73 +446,266 @@ export default function InsightsTab() {
     habitsTotal
   );
 
-  // Current dynamic chart view data
-  const currentChartData = chartView === 'weekly' ? chartData : monthlyChartData;
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: isDarkMode ? '#0B1021' : '#f8fafc' }]}
-    >
+    <AtmosphericScreenBackground isDarkMode={isDarkMode} withHeaderPadding={true} style={styles.container}>
       <ScrollView
         ref={scrollRef}
         style={{ flex: 1, width: '100%' }}
         contentContainerStyle={{
           flexGrow: 1,
           paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 120, // Ample clearance above bottom tab bar and floating menu
+          paddingTop: 12,
+          paddingBottom: 140, // Ample clearance above bottom tab bar and floating menu
         }}
         showsVerticalScrollIndicator={false}
         scrollEventThrottle={16}
         keyboardShouldPersistTaps="handled"
         scrollEnabled={true}
       >
+        {/* 2026 Year Wrapped Entry Card (Dec 31 – Jan 5 only) */}
+        {isWrappedWindowActive() && wrappedAvailable && (
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => router.push('/wrapped?year=2026' as any)}
+            style={{ marginBottom: 14 }}
+          >
+            <LinearGradient
+              colors={['#020307', '#061547', '#0043EE']}
+              start={{ x: 0.05, y: 0 }}
+              end={{ x: 0.95, y: 1 }}
+              style={{
+                borderRadius: 18,
+                paddingVertical: 15,
+                paddingHorizontal: 18,
+                borderWidth: 1,
+                borderColor: 'rgba(61, 200, 255, 0.28)',
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text
+                  style={{
+                    color: '#3DC8FF',
+                    fontSize: 10,
+                    fontWeight: '700',
+                    letterSpacing: 1.6,
+                  }}
+                >
+                  FOCALYST · 2026
+                </Text>
+                <Text style={{ color: '#F8FAFC', fontSize: 16, fontWeight: '700' }}>
+                  Your 2026 Wrapped is Here
+                </Text>
+                <Text style={{ color: 'rgba(226, 232, 240, 0.78)', fontSize: 12 }}>
+                  Open your Dec 31 – Jan 5 annual story
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#3DC8FF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
+
         {/* Gamification Level Banner */}
         <TouchableOpacity
           activeOpacity={0.95}
           onPress={() => setTimelineExpanded(!timelineExpanded)}
         >
-          <LinearGradient
-            colors={['#f59e0b', '#ff6b2b']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.levelBanner}
+          <View
+            onLayout={(e) => {
+              const { width, height } = e.nativeEvent.layout;
+              if (
+                width > 0 &&
+                height > 0 &&
+                (Math.abs(width - levelBannerSize.width) > 1 ||
+                  Math.abs(height - levelBannerSize.height) > 1)
+              ) {
+                setLevelBannerSize({ width, height });
+              }
+            }}
+            style={[
+              styles.levelBanner,
+              {
+                backgroundColor: isDarkMode ? '#0A0E14' : '#B91C1C',
+                borderColor: isDarkMode
+                  ? 'rgba(239, 68, 68, 0.34)'
+                  : 'rgba(254, 202, 202, 0.48)',
+              },
+            ]}
           >
-            <View style={styles.bannerRow}>
-              {/* Badge Icon */}
-              <View style={styles.bannerBadgeContainer}>
-                <Ionicons name="star" size={24} color="#ffffff" />
-                <Text style={styles.bannerBadgeLevel}>Level {currentLevel}</Text>
-              </View>
+            {/* Base obsidian-charcoal (Dark) / rich crimson jewel-tone (Light) surface */}
+            <LinearGradient
+              colors={
+                isDarkMode
+                  ? ['#0A0E14', '#0D1219', '#0F1722']
+                  : ['#7F1D1D', '#B91C1C', '#DC2626', '#EF4444']
+              }
+              start={{ x: 0.2, y: 0 }}
+              end={{ x: 0.8, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
 
-              {/* Text Info */}
-              <View style={styles.bannerTextInfo}>
-                <Text style={styles.bannerLevelName}>{currentTitle}</Text>
-                <View style={styles.bannerProgressBg}>
-                  <View style={[styles.bannerProgressBar, { width: `${progressPercent}%` }]} />
-                </View>
-                <Text style={styles.bannerSubtext}>
-                  {totalXP} XP / {nextBenchmark.xp} XP base
-                </Text>
-                <Text style={styles.bannerSubtext}>
-                  {Math.max(0, xpRemaining)} XP remaining to Level {nextBenchmark.level}
-                </Text>
-              </View>
+            {/* Lower-center crimson radial shine + bottom-center specular rim highlight */}
+            <Svg
+              width={levelBannerSize.width}
+              height={levelBannerSize.height}
+              viewBox={`0 0 ${levelBannerSize.width} ${levelBannerSize.height}`}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            >
+              <Defs>
+                {isDarkMode ? (
+                  <SvgRadialGradient id="levelCrimsonGlow" cx="50%" cy="102%" rx="72%" ry="58%">
+                    <Stop offset="0%" stopColor="#EF4444" stopOpacity="0.58" />
+                    <Stop offset="32%" stopColor="#DC2626" stopOpacity="0.36" />
+                    <Stop offset="65%" stopColor="#991B1B" stopOpacity="0.14" />
+                    <Stop offset="100%" stopColor="#0A0E14" stopOpacity="0" />
+                  </SvgRadialGradient>
+                ) : (
+                  <SvgRadialGradient id="levelCrimsonGlow" cx="50%" cy="102%" rx="72%" ry="58%">
+                    <Stop offset="0%" stopColor="#FECACA" stopOpacity="0.50" />
+                    <Stop offset="38%" stopColor="#FCA5A5" stopOpacity="0.28" />
+                    <Stop offset="75%" stopColor="#EF4444" stopOpacity="0" />
+                  </SvgRadialGradient>
+                )}
 
+                <SvgLinearGradient id="levelBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <Stop
+                    offset="0%"
+                    stopColor={isDarkMode ? '#DC2626' : '#FCA5A5'}
+                    stopOpacity={0}
+                  />
+                  <Stop
+                    offset="25%"
+                    stopColor={isDarkMode ? '#EF4444' : '#FECACA'}
+                    stopOpacity={isDarkMode ? 0.48 : 0.55}
+                  />
+                  <Stop
+                    offset="50%"
+                    stopColor={isDarkMode ? '#FCA5A5' : '#FEF2F2'}
+                    stopOpacity={isDarkMode ? 0.9 : 0.92}
+                  />
+                  <Stop
+                    offset="75%"
+                    stopColor={isDarkMode ? '#EF4444' : '#FECACA'}
+                    stopOpacity={isDarkMode ? 0.48 : 0.55}
+                  />
+                  <Stop
+                    offset="100%"
+                    stopColor={isDarkMode ? '#DC2626' : '#FCA5A5'}
+                    stopOpacity={0}
+                  />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                x={0}
+                y={0}
+                width={levelBannerSize.width}
+                height={levelBannerSize.height}
+                fill="url(#levelCrimsonGlow)"
+              />
+              <Rect
+                x={0}
+                y={levelBannerSize.height - 3}
+                width={levelBannerSize.width}
+                height={3}
+                fill="url(#levelBottomRim)"
+              />
+            </Svg>
+
+            {/* Row 1: Level & XP Remaining */}
+            <View style={styles.levelTopRow}>
+              <Text
+                style={[
+                  styles.levelNumText,
+                  !isDarkMode && { color: 'rgba(255, 255, 255, 0.88)' },
+                ]}
+              >
+                Level {currentLevel}
+              </Text>
+              <Text
+                style={[
+                  styles.levelRemainingText,
+                  !isDarkMode && { color: 'rgba(255, 255, 255, 0.88)' },
+                ]}
+              >
+                {Math.max(0, xpRemaining)} XP remaining to Level {nextBenchmark.level}
+              </Text>
+            </View>
+
+            {/* Row 2: Large Bold Level Title & Chevron */}
+            <View style={styles.levelMiddleRow}>
+              <Text
+                style={[
+                  styles.bannerLevelName,
+                  { color: '#FFFFFF' },
+                ]}
+              >
+                {currentTitle}
+              </Text>
               <Ionicons
                 name={timelineExpanded ? 'chevron-up' : 'chevron-down'}
-                size={22}
-                color="#ffffff"
-                style={styles.bannerArrow}
+                size={23}
+                color="#FFFFFF"
               />
             </View>
-          </LinearGradient>
+
+            {/* Row 3: Full-Width XP Progress Bar */}
+            <View
+              style={[
+                styles.bannerProgressBg,
+                !isDarkMode && { backgroundColor: 'rgba(255, 255, 255, 0.28)' },
+              ]}
+            >
+              <View
+                style={[
+                  styles.bannerProgressBar,
+                  !isDarkMode && { backgroundColor: '#FFFFFF' },
+                  { width: `${progressPercent}%` },
+                ]}
+              />
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* Expandable Level Timeline Accordion */}
         {timelineExpanded && (
-          <View style={[styles.timelineCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-            <Text style={[styles.timelineTitle, isDarkMode && { color: '#FFFFFF' }]}>Level Timeline</Text>
+          <View
+            style={[
+              styles.timelineCard,
+              isDarkMode
+                ? { backgroundColor: '#111521', borderColor: 'rgba(255, 255, 255, 0.08)' }
+                : { backgroundColor: '#FFFFFF', borderColor: 'rgba(15, 23, 42, 0.08)' },
+            ]}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={[styles.timelineTitle, { marginBottom: 0 }, isDarkMode ? { color: '#F87171' } : { color: '#DC2626' }]}>
+                Level Timeline
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => router.push('/badges' as any)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 4,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: isDarkMode ? 'rgba(255,107,0,0.4)' : 'rgba(255,107,0,0.35)',
+                  backgroundColor: isDarkMode ? 'rgba(255,107,0,0.14)' : 'rgba(255,107,0,0.08)',
+                }}
+              >
+                <Ionicons name="ribbon" size={12} color="#FF6B00" />
+                <Text style={{ fontSize: 11, fontWeight: '700', color: isDarkMode ? '#FFFFFF' : '#0F172A' }}>
+                  See Badges
+                </Text>
+                <Ionicons name="chevron-forward" size={12} color={isDarkMode ? '#94A3B8' : '#64748B'} />
+              </TouchableOpacity>
+            </View>
             <ScrollView style={styles.timelineScroll} nestedScrollEnabled>
               {LEVEL_BENCHMARKS.map((benchmark) => {
                 const isCompleted = totalXP >= benchmark.xp && benchmark.level !== currentLevel;
@@ -486,11 +719,17 @@ export default function InsightsTab() {
                       <View
                         style={[
                           styles.timelineCircle,
-                          isCompleted && styles.timelineCircleCompleted,
-                          isCurrent && styles.timelineCircleCurrent,
-                          isCurrent && isDarkMode && { borderColor: '#151B2E', shadowColor: '#FF6B00' },
+                          isCompleted && [
+                            styles.timelineCircleCompleted,
+                            { backgroundColor: isDarkMode ? '#EF4444' : '#DC2626' },
+                          ],
+                          isCurrent && [
+                            styles.timelineCircleCurrent,
+                            { backgroundColor: isDarkMode ? '#EF4444' : '#DC2626' },
+                          ],
+                          isCurrent && isDarkMode && { borderColor: '#111521' },
                           isLocked && styles.timelineCircleLocked,
-                          isLocked && isDarkMode && { backgroundColor: '#0B1021', borderColor: '#222A41' },
+                          isLocked && isDarkMode && { backgroundColor: '#080c18', borderColor: 'rgba(255, 255, 255, 0.1)' },
                         ]}
                       >
                         {isCompleted && <Ionicons name="checkmark" size={14} color="#ffffff" />}
@@ -499,7 +738,7 @@ export default function InsightsTab() {
                         )}
                         {isLocked && <Ionicons name="lock-closed" size={12} color={isDarkMode ? '#8E95A9' : '#94a3b8'} />}
                       </View>
-                      {benchmark.level < 15 && <View style={[styles.timelineLine, isDarkMode && { backgroundColor: '#222A41' }]} />}
+                      {benchmark.level < 15 && <View style={[styles.timelineLine, isDarkMode && { backgroundColor: 'rgba(255, 255, 255, 0.08)' }]} />}
                     </View>
 
                     {/* Timeline Level Detail Info */}
@@ -508,8 +747,7 @@ export default function InsightsTab() {
                         style={[
                           styles.timelineLvlName,
                           isDarkMode && { color: '#FFFFFF' },
-                          isCurrent && styles.timelineLvlNameCurrent,
-                          isCurrent && { color: '#FF6B00' },
+                          isCurrent && { color: isDarkMode ? '#F87171' : '#DC2626' },
                           isLocked && styles.timelineLvlNameLocked,
                           isLocked && isDarkMode && { color: '#8E95A9' },
                         ]}
@@ -518,20 +756,34 @@ export default function InsightsTab() {
                       </Text>
                       
                       {isCurrent ? (
-                        <View style={[styles.currentLvlInfoBox, isDarkMode && { backgroundColor: '#0B1021', borderColor: '#FF6B00', borderWidth: 1 }]}>
-                          <Text style={[styles.timelineHoursText, isDarkMode && { color: '#8E95A9' }]}>
+                        <View
+                          style={[
+                            styles.currentLvlInfoBox,
+                            isDarkMode
+                              ? { backgroundColor: 'rgba(239, 68, 68, 0.08)', borderColor: 'rgba(239, 68, 68, 0.45)', borderWidth: 1 }
+                              : { backgroundColor: '#FEF2F2', borderColor: 'rgba(220, 38, 38, 0.35)', borderWidth: 1 },
+                          ]}
+                        >
+                          <Text style={[styles.timelineHoursText, isDarkMode && { color: '#CBD5E1' }]}>
                             {totalXP} XP / {nextBenchmark.xp} XP base
                           </Text>
-                          <View style={[styles.timelineProgressBarBg, isDarkMode && { backgroundColor: 'rgba(255,107,0,0.2)' }]}>
+                          <View
+                            style={[
+                              styles.timelineProgressBarBg,
+                              { backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.18)' : '#FEE2E2' },
+                            ]}
+                          >
                             <View
                               style={[
                                 styles.timelineProgressBarFill,
-                                isDarkMode && { backgroundColor: '#FF6B00' },
-                                { width: `${progressPercent}%` },
+                                {
+                                  backgroundColor: isDarkMode ? '#FFFFFF' : '#DC2626',
+                                  width: `${progressPercent}%`,
+                                },
                               ]}
                             />
                           </View>
-                          <Text style={[styles.timelineRemainingText, isDarkMode && { color: '#FF6B00' }]}>
+                          <Text style={[styles.timelineRemainingText, isDarkMode ? { color: '#F87171' } : { color: '#DC2626' }]}>
                             {Math.max(0, xpRemaining)} XP remaining to Level {nextBenchmark.level}
                           </Text>
                         </View>
@@ -548,175 +800,97 @@ export default function InsightsTab() {
 
         {/* Stats Grid Layout */}
         <View style={styles.gridContainer}>
-          {/* Tasks Completed (Wide Blue Card) */}
-          <View style={[styles.wideBlueCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-            <View style={styles.wideCardText}>
-              <Text style={[styles.wideCardTitle, isDarkMode && { color: '#FFFFFF' }]}>{t('insights.tasksCompleted')}</Text>
-              <Text style={[styles.wideCardSubtitle, isDarkMode && { color: '#8E95A9' }]}>
-                {tasksCompleted === tasksTotal && tasksTotal > 0
-                  ? 'Incredible! You completed all tasks.'
-                  : t('insights.tasksSub')}
-              </Text>
-              <Text style={[styles.wideCardValue, isDarkMode && { color: '#8E95A9' }]}>
-                <Text style={styles.orangeHighlight}>{tasksCompleted}</Text> / {tasksTotal} tasks
-              </Text>
-            </View>
-            <View style={styles.wideCardPercentContainer}>
-              <Text style={[styles.wideCardPercent, isDarkMode && { color: '#FFFFFF' }]}>
-                {tasksTotal > 0 ? Math.round((tasksCompleted / tasksTotal) * 100) : 0}%
-              </Text>
-            </View>
-          </View>
+          {/* Tasks Completed */}
+          <TasksCompletedCard
+            title={t('insights.tasksCompleted')}
+            subtitle={
+              tasksCompleted === tasksTotal && tasksTotal > 0
+                ? 'Incredible! You completed all tasks.'
+                : t('insights.tasksSub')
+            }
+            tasksCompleted={tasksCompleted}
+            tasksTotal={tasksTotal}
+            isDarkMode={isDarkMode}
+          />
 
           {/* Square Cards Grid Row */}
           <View style={styles.gridRow}>
             {/* Total Focus Time Card */}
-            <View style={[styles.squareWhiteCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-              <View style={styles.squareCardHeader}>
-                <View style={[styles.focusIconBg, isDarkMode && { backgroundColor: '#222A41' }]}>
-                  <Ionicons name="stopwatch" size={16} color="#ff6b2b" />
-                </View>
-                <View style={styles.comparisonBadge}>
-                  <Text style={styles.comparisonText}>-9%</Text>
-                </View>
-              </View>
-              <Text style={[styles.squareCardValue, isDarkMode && { color: '#FFFFFF' }]}>
-                {(() => {
-                  const totalMinutes = Math.round(totalFocusHours * 60);
-                  return Math.floor(totalMinutes / 60) + 'h ' + (totalMinutes % 60) + 'm';
-                })()}
-              </Text>
-              <Text style={[styles.squareCardLabel, isDarkMode && { color: '#8E95A9' }]}>{t('insights.totalFocus')}</Text>
-            </View>
+            <TotalFocusTimeCard
+              formattedTime={(() => {
+                const totalMinutes = Math.round(totalFocusHours * 60);
+                return Math.floor(totalMinutes / 60) + 'h ' + (totalMinutes % 60) + 'm';
+              })()}
+              label={t('insights.totalFocus')}
+              deltaText="-9%"
+              isDarkMode={isDarkMode}
+            />
 
             {/* Productivity Score (Subscription Gated Card) */}
-            <View style={[styles.squareWhiteCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-              {!isPro ? (
-                // Locked Paywall Overlay
-                <View style={[styles.paywallOverlay, isDarkMode && { backgroundColor: '#151B2E' }]}>
-                  <Ionicons name="lock-closed" size={24} color={isDarkMode ? '#8E95A9' : '#4a6c8c'} />
+            <ProductivityScoreCard
+              score={displayScore}
+              label={t('insights.productivityScore')}
+              isDarkMode={isDarkMode}
+              isLocked={!isPro}
+              lockedOverlay={
+                <View style={[styles.paywallOverlay, isDarkMode ? { backgroundColor: '#111521' } : { backgroundColor: '#FFFFFF' }]}>
+                  <Ionicons name="lock-closed" size={24} color={isDarkMode ? '#8E98AD' : '#1951fc'} />
                   <TouchableOpacity
-                    style={[styles.paywallUpgradeBtn, isDarkMode && { backgroundColor: '#222A41', borderColor: '#222A41' }]}
+                    style={[
+                      styles.paywallUpgradeBtn,
+                      isDarkMode
+                        ? { backgroundColor: 'rgba(25, 81, 252, 0.15)', borderColor: '#1951fc' }
+                        : { backgroundColor: '#EBF3FF', borderColor: '#3781fc' },
+                    ]}
                     activeOpacity={0.9}
                     onPress={() => router.push('/paywall')}
                   >
-                    <Text style={[styles.paywallUpgradeText, isDarkMode && { color: '#FFFFFF' }]}>{t('insights.upgradeToPro')}</Text>
+                    <Text style={[styles.paywallUpgradeText, isDarkMode ? { color: '#3781fc' } : { color: '#1951fc' }]}>{t('insights.upgradeToPro')}</Text>
                   </TouchableOpacity>
-                  <Text style={[styles.paywallLabel, isDarkMode && { color: '#8E95A9' }]}>{t('insights.productivityScore')}</Text>
+                  <Text style={[styles.paywallLabel, isDarkMode ? { color: '#8E98AD' } : { color: '#52607A' }]}>{t('insights.productivityScore')}</Text>
                 </View>
-              ) : (
-                // Pro Content unlocked
-                <View style={styles.scoreContent}>
-                  <View style={styles.squareCardHeader}>
-                    <View style={[styles.focusIconBg, { backgroundColor: isDarkMode ? '#222A41' : '#e6ebf4' }]}>
-                      <Ionicons name="pulse" size={16} color={isDarkMode ? '#FFFFFF' : '#4a6c8c'} />
-                    </View>
-                  </View>
-                  <Text style={[styles.squareCardValue, isDarkMode && { color: '#FFFFFF' }]}>{displayScore}%</Text>
-                  <Text style={[styles.squareCardLabel, isDarkMode && { color: '#8E95A9' }]}>{t('insights.productivityScore')}</Text>
-                </View>
-              )}
-            </View>
+              }
+            />
           </View>
         </View>
 
-        {/* 7-Day Focus Activity Custom Stacked Bar Chart */}
-        <View style={[styles.chartCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-          <View style={styles.chartHeader}>
-            <Text style={[styles.chartTitle, isDarkMode && { color: '#FFFFFF' }]}>{t('insights.activity')}</Text>
-            {/* Chart toggle buttons (serving as manual bottom sheet trigger) */}
-            <View style={[styles.chartTogglerContainer, isDarkMode && { backgroundColor: '#0B1021' }]}>
-              <TouchableOpacity
-                style={chartView === 'weekly' ? styles.toggleBtnActive : styles.toggleBtnLocked}
-                activeOpacity={0.8}
-                onPress={() => setChartView('weekly')}
-              >
-                <Text style={chartView === 'weekly' ? styles.toggleBtnTextActive : [styles.toggleBtnTextLocked, isDarkMode && { color: '#8E95A9' }]}>{t('insights.weekly')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={chartView === 'monthly' ? styles.toggleBtnActive : styles.toggleBtnLocked}
-                activeOpacity={0.8}
-                onPress={() => {
-                  if (isPro) {
-                    setChartView('monthly');
-                  } else {
-                    router.push('/paywall');
-                  }
-                }}
-              >
-                <Text style={chartView === 'monthly' ? styles.toggleBtnTextActive : [styles.toggleBtnTextLocked, isDarkMode && { color: '#8E95A9' }]}>{t('insights.monthly')}</Text>
-                {!isPro && (
-                  <Ionicons name="lock-closed" size={10} color={isDarkMode ? '#8E95A9' : '#94a3b8'} style={{ marginLeft: 3 }} />
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Stacking Flexbox Bar Chart */}
-          <View style={styles.barChartContainer}>
-            <View style={styles.barsRow}>
-              {currentChartData.map((item, idx) => {
-                const maxScale = chartView === 'weekly' ? 100 : 300; // Normalized max limit representing maximum bar height
-                const focusHeight = Math.min(90, (item.focusMinutes / maxScale) * 100);
-                const breakHeight = Math.min(20, (item.breakMinutes / maxScale) * 100);
-                const hasActivity = focusHeight > 0 || breakHeight > 0;
-
-                return (
-                  <View key={`chart-col-${idx}`} style={styles.chartColumn}>
-                    <View style={[styles.barOutline, isDarkMode && { backgroundColor: '#0B1021' }]}>
-                      {hasActivity ? (
-                        <>
-                          {/* Stacking orange break tip directly above blue focus */}
-                          {breakHeight > 0 && (
-                            <View style={[styles.barBreakSegment, { height: `${breakHeight}%` }]} />
-                          )}
-                          {focusHeight > 0 && (
-                            <View style={[styles.barFocusSegment, { height: `${focusHeight}%` }]} />
-                          )}
-                        </>
-                      ) : null}
-                    </View>
-                    <Text style={[styles.chartDayLabel, isDarkMode && { color: '#8E95A9' }]}>{item.label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Chart Legends */}
-          <View style={styles.chartLegends}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#4a6c8c' }]} />
-              <Text style={[styles.legendText, isDarkMode && { color: '#8E95A9' }]}>{t('nav.focus')}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#ff6b2b' }]} />
-              <Text style={[styles.legendText, isDarkMode && { color: '#8E95A9' }]}>{t('focus.break')}</Text>
-            </View>
-          </View>
-        </View>
+        {/* Focus Activity Card (Visual Aesthetic & Interactive Pop-Up) */}
+        <FocusActivityCard
+          isDarkMode={isDarkMode}
+          isPro={isPro}
+          chartView={chartView}
+          weeklyData={chartData}
+          monthlyData={monthlyChartData}
+          onChartViewChange={(val) => setChartView(val)}
+          onRequirePro={() => router.push('/paywall')}
+        />
 
         {/* Active Habits list (Flex layout for side-by-side equal width) */}
         <View style={styles.habitsSection}>
-          <Text style={[styles.habitsSectionTitle, isDarkMode && { color: '#4a6c8c' }]}>{t('insights.activeHabits')}</Text>
+          <Text style={[styles.habitsSectionTitle, isDarkMode ? { color: '#FFFFFF' } : { color: '#0A1530' }]}>{t('insights.activeHabits')}</Text>
           {activeHabits.length === 0 ? (
-            <View style={[styles.emptyHabitsCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
+            <View
+              style={[
+                styles.emptyHabitsCard,
+                isDarkMode
+                  ? { backgroundColor: '#111521', borderColor: 'rgba(255, 255, 255, 0.08)' }
+                  : { backgroundColor: '#FFFFFF', borderColor: 'rgba(15, 23, 42, 0.07)' },
+              ]}
+            >
               <Text style={[styles.emptyHabitsText, isDarkMode && { color: '#8E95A9' }]}>No active habits tracked. Add one in Plan!</Text>
             </View>
           ) : (
             <View style={styles.habitsRow}>
               {activeHabits.slice(0, 2).map((habit) => (
-                <View key={habit.id} style={[styles.habitCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-                  <View style={[styles.habitEmojiContainer, isDarkMode && { backgroundColor: '#0B1021' }]}>
-                    <Text style={styles.habitEmojiText}>{habit.icon || '🔥'}</Text>
-                  </View>
-                  <Text style={[styles.habitCardName, isDarkMode && { color: '#FFFFFF' }]} numberOfLines={1}>
-                    {habit.name}
-                  </Text>
-                  <Text style={[styles.habitCardStreak, isDarkMode && { color: '#8E95A9' }]}>
-                    {t('plan.totalDays', { count: habit.total_days || 0 })}
-                  </Text>
-                </View>
+                <ActiveHabitCard
+                  key={habit.id}
+                  id={habit.id}
+                  name={habit.name}
+                  icon={habit.icon}
+                  color={habit.color}
+                  totalDaysLabel={t('plan.totalDays', { count: habit.total_days || 0 })}
+                  isDarkMode={isDarkMode}
+                />
               ))}
             </View>
           )}
@@ -736,84 +910,202 @@ export default function InsightsTab() {
         </View>
 
         {/* 7. Persistent Weekly Productivity Report Entry Card */}
-        {!isPro ? (
-          <View style={[styles.weeklyReportEntryCard, styles.lockedReportCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41', opacity: 0.85 }]}>
-            <View style={styles.weeklyReportEntryHeader}>
-              <Ionicons name="lock-closed" size={20} color={isDarkMode ? '#8E95A9' : '#64748b'} />
-              <Text style={[styles.weeklyReportEntryTitle, { color: isDarkMode ? '#FFFFFF' : '#64748b' }]}>{t('insights.report')}</Text>
-            </View>
-            <Text style={[styles.weeklyReportEntrySubtitle, { color: isDarkMode ? '#8E95A9' : '#94a3b8' }]}>
-              Unlock weekly performance analysis, habit consistency grading, and AI-powered Catalyst insights.
-            </Text>
-            <TouchableOpacity
-              style={[styles.weeklyReportEntryBtn, { backgroundColor: '#4a6c8c' }]}
-              activeOpacity={0.8}
-              onPress={() => router.push('/paywall')}
-            >
-              <Text style={styles.weeklyReportEntryBtnText}>Unlock Catalyst Report</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={[styles.weeklyReportEntryCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41' }]}>
-            <View style={styles.weeklyReportEntryHeader}>
-              <Ionicons name="calendar-outline" size={20} color={isDarkMode ? '#FF6B00' : '#4a6c8c'} />
-              <Text style={[styles.weeklyReportEntryTitle, isDarkMode && { color: '#FFFFFF' }]}>{t('insights.report')}</Text>
-            </View>
-            <Text style={[styles.weeklyReportEntrySubtitle, isDarkMode && { color: '#8E95A9' }]}>
-              Review your performance, check your habit consistency, and get AI-powered Catalyst insights.
-            </Text>
-            <TouchableOpacity
-              style={styles.weeklyReportEntryBtn}
-              activeOpacity={0.8}
-              onPress={() => setReportSheetOpen(true)}
-            >
-              <Text style={styles.weeklyReportEntryBtnText}>Read</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+        <View
+          onLayout={(e) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (
+              width > 0 &&
+              height > 0 &&
+              (Math.abs(width - weeklyReportCardSize.width) > 1 ||
+                Math.abs(height - weeklyReportCardSize.height) > 1)
+            ) {
+              setWeeklyReportCardSize({ width, height });
+            }
+          }}
+            style={[
+              styles.weeklyReportEntryCard,
+              {
+                backgroundColor: isDarkMode ? '#0B060B' : '#9D174D',
+                borderColor: isDarkMode
+                  ? 'rgba(236, 72, 153, 0.36)'
+                  : 'rgba(251, 207, 232, 0.50)',
+              },
+              !isPro && styles.lockedReportCard,
+            ]}
+        >
+          {/* Base obsidian-charcoal (Dark) / rich berry-pink jewel-tone (Light) surface */}
+          <LinearGradient
+            colors={
+              isDarkMode
+                ? ['#0B060B', '#120812', '#190A18']
+                : ['#831843', '#9D174D', '#DB2777', '#EC4899']
+            }
+            start={{ x: 0.2, y: 0 }}
+            end={{ x: 0.8, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+
+          {/* Full-bleed bottom-center vibrant-pink radial glow + specular rim highlight */}
+          <Svg
+            width={weeklyReportCardSize.width}
+            height={weeklyReportCardSize.height}
+            viewBox={`0 0 ${weeklyReportCardSize.width} ${weeklyReportCardSize.height}`}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          >
+            <Defs>
+              {isDarkMode ? (
+                <SvgRadialGradient id="weeklyPinkGlow" cx="50%" cy="102%" rx="72%" ry="55%">
+                  <Stop offset="0%" stopColor="#EC4899" stopOpacity="0.58" />
+                  <Stop offset="35%" stopColor="#DB2777" stopOpacity="0.35" />
+                  <Stop offset="68%" stopColor="#9D174D" stopOpacity="0.14" />
+                  <Stop offset="100%" stopColor="#0B060B" stopOpacity="0" />
+                </SvgRadialGradient>
+              ) : (
+                <SvgRadialGradient id="weeklyPinkGlow" cx="50%" cy="102%" rx="72%" ry="55%">
+                  <Stop offset="0%" stopColor="#FBCFE8" stopOpacity="0.52" />
+                  <Stop offset="38%" stopColor="#F9A8D4" stopOpacity="0.28" />
+                  <Stop offset="75%" stopColor="#EC4899" stopOpacity="0" />
+                </SvgRadialGradient>
+              )}
+
+              <SvgLinearGradient id="weeklyBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+                <Stop
+                  offset="0%"
+                  stopColor={isDarkMode ? '#9D174D' : '#F9A8D4'}
+                  stopOpacity={0}
+                />
+                <Stop
+                  offset="25%"
+                  stopColor={isDarkMode ? '#EC4899' : '#FBCFE8'}
+                  stopOpacity={isDarkMode ? 0.48 : 0.55}
+                />
+                <Stop
+                  offset="50%"
+                  stopColor={isDarkMode ? '#FBCFE8' : '#FDF2F8'}
+                  stopOpacity={isDarkMode ? 0.9 : 0.92}
+                />
+                <Stop
+                  offset="75%"
+                  stopColor={isDarkMode ? '#EC4899' : '#FBCFE8'}
+                  stopOpacity={isDarkMode ? 0.48 : 0.55}
+                />
+                <Stop
+                  offset="100%"
+                  stopColor={isDarkMode ? '#9D174D' : '#F9A8D4'}
+                  stopOpacity={0}
+                />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={weeklyReportCardSize.width}
+              height={weeklyReportCardSize.height}
+              fill="url(#weeklyPinkGlow)"
+            />
+            <Rect
+              x={0}
+              y={weeklyReportCardSize.height - 3}
+              width={weeklyReportCardSize.width}
+              height={3}
+              fill="url(#weeklyBottomRim)"
+            />
+          </Svg>
+
+          {!isPro ? (
+            <>
+              <View style={styles.weeklyReportEntryHeader}>
+                <Ionicons name="lock-closed" size={20} color={isDarkMode ? '#F472B6' : '#FFFFFF'} />
+                <Text style={[styles.weeklyReportEntryTitle, { color: '#FFFFFF' }]}>
+                  {t('insights.report')}
+                </Text>
+              </View>
+              <Text style={[styles.weeklyReportEntrySubtitle, { color: isDarkMode ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.88)' }]}>
+                Unlock weekly performance analysis, habit consistency grading, and AI-powered Catalyst insights.
+              </Text>
+              <TactilePressable
+                style={[
+                  styles.weeklyReportEntryBtn,
+                  !isDarkMode && {
+                    backgroundColor: '#FFFFFF',
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                  },
+                ]}
+                onPress={() => router.push('/paywall')}
+              >
+                {isDarkMode && (
+                  <LinearGradient
+                    colors={['#F43F85', '#DB2777']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.weeklyReportEntryBtnText,
+                    !isDarkMode && { color: '#BE185D' },
+                  ]}
+                >
+                  Unlock Catalyst Report
+                </Text>
+              </TactilePressable>
+            </>
+          ) : (
+            <>
+              <View style={styles.weeklyReportEntryHeader}>
+                <Text style={[styles.weeklyReportEntryTitle, { color: '#FFFFFF' }]}>
+                  {t('insights.report')}
+                </Text>
+              </View>
+              <Text style={[styles.weeklyReportEntrySubtitle, { color: isDarkMode ? 'rgba(255, 255, 255, 0.78)' : 'rgba(255, 255, 255, 0.88)' }]}>
+                Review your performance, check your habit consistency, and get AI-powered Catalyst insights.
+              </Text>
+              <TactilePressable
+                style={[
+                  styles.weeklyReportEntryBtn,
+                  !isDarkMode && {
+                    backgroundColor: '#FFFFFF',
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                  },
+                ]}
+                onPress={() => setReportSheetOpen(true)}
+              >
+                {isDarkMode && (
+                  <LinearGradient
+                    colors={['#F43F85', '#DB2777']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={StyleSheet.absoluteFill}
+                  />
+                )}
+                <Text
+                  style={[
+                    styles.weeklyReportEntryBtnText,
+                    !isDarkMode && { color: '#BE185D' },
+                  ]}
+                >
+                  Read
+                </Text>
+              </TactilePressable>
+            </>
+          )}
+        </View>
 
         {/* Starting report: always last, below the weekly report */}
         <StartingReportCard isDark={isDarkMode} />
       </ScrollView>
 
       {/* Level Up Achievement Modal */}
-      <Modal
-        animationType="fade"
-        transparent
+      <LevelUpModal
         visible={showLevelUpModal}
-        onRequestClose={() => setShowLevelUpModal(false)}
-      >
-        <Pressable
-          style={[styles.modalOverlay, isDarkMode && { backgroundColor: 'rgba(11,16,33,0.75)' }]}
-          onPress={() => setShowLevelUpModal(false)}
-        >
-          <View style={[styles.modalContentCard, isDarkMode && { backgroundColor: '#151B2E', borderColor: '#222A41', borderWidth: 1 } as any]}>
-            <Text style={[styles.modalHeading, isDarkMode && { color: '#FF6B00' } as any]}>LEVELED UP!</Text>
-            
-            {/* Diamond container */}
-            <View style={[styles.modalDiamond, { backgroundColor: isDarkMode ? '#FF6B00' : '#4a6c8c' } as any]}>
-              <View style={styles.modalDiamondInner as any}>
-                <Text style={{ fontSize: 36, fontWeight: 'bold', color: '#ffffff', textAlign: 'center' }}>
-                  Lv. {newLevelAchieved?.level}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={[styles.modalLevelName, isDarkMode && { color: '#FFFFFF' } as any]}>{newLevelAchieved?.title}</Text>
-            <Text style={[styles.modalDescText, isDarkMode && { color: '#8E95A9' } as any]}>
-              You are now a {newLevelAchieved?.title} member. Keep the momentum going to reach the next tier!
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.modalButton, isDarkMode && { backgroundColor: '#FF6B00' } as any]}
-              activeOpacity={0.9}
-              onPress={() => setShowLevelUpModal(false)}
-            >
-              <Text style={styles.modalButtonText as any}>Awesome!</Text>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      </Modal>
+        level={newLevelAchieved || LEVEL_BENCHMARKS[0]}
+        userId={currentUserId || undefined}
+        isDarkMode={isDarkMode}
+        onClose={() => setShowLevelUpModal(false)}
+        onViewAllBadges={() => router.push('/badges' as any)}
+      />
 
       {/* Conditionally rendered Gorhom Bottom Sheet Weekly Productivity Report */}
       {reportSheetOpen && (
@@ -830,18 +1122,18 @@ export default function InsightsTab() {
           userId={userId}
         />
       )}
-    </View>
+    </AtmosphericScreenBackground>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'transparent',
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: 'transparent',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -851,9 +1143,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: 'rgba(15, 23, 42, 0.08)',
   },
   headerTitle: {
     fontSize: 22,
@@ -872,70 +1164,56 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   levelBanner: {
-    borderRadius: 20,
+    borderRadius: 22,
+    borderWidth: 1,
     padding: 20,
     marginBottom: 16,
-    elevation: 3,
-    shadowColor: '#ff6b2b',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
+    overflow: 'hidden',
   },
-  bannerRow: {
+  levelTopRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  bannerBadgeContainer: {
-    width: 60,
-    height: 60,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    borderRadius: 14,
-    justifyContent: 'center',
+  levelNumText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.88)',
+  },
+  levelRemainingText: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: 'rgba(255, 255, 255, 0.82)',
+  },
+  levelMiddleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  bannerBadgeLevel: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontWeight: '900',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-  bannerTextInfo: {
-    flex: 1,
-    marginLeft: 16,
-    gap: 6,
+    marginTop: 4,
+    marginBottom: 14,
   },
   bannerLevelName: {
-    color: '#ffffff',
-    fontSize: 18,
+    color: '#FFFFFF',
+    fontSize: 30,
     fontWeight: '800',
+    letterSpacing: -0.5,
   },
   bannerProgressBg: {
     height: 6,
-    backgroundColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 99,
+    backgroundColor: 'rgba(255, 255, 255, 0.26)',
+    borderRadius: 3,
     overflow: 'hidden',
-    width: '90%',
+    width: '100%',
   },
   bannerProgressBar: {
     height: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 99,
-  },
-  bannerSubtext: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  bannerArrow: {
-    marginLeft: 8,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
   },
   timelineCard: {
     backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderWidth: 1,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -944,7 +1222,7 @@ const styles = StyleSheet.create({
   timelineTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#4a6c8c',
+    color: '#03195b',
   },
   timelineScroll: {
     maxHeight: 280,
@@ -969,13 +1247,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#10b981',
   },
   timelineCircleCurrent: {
-    backgroundColor: '#f59e0b',
+    backgroundColor: '#1951fc',
     borderWidth: 2,
     borderColor: '#ffffff',
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
   },
   timelineCircleLocked: {
     backgroundColor: '#f1f5f9',
@@ -1004,7 +1278,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   timelineLvlNameCurrent: {
-    color: '#f59e0b',
+    color: '#1951fc',
   },
   timelineLvlNameLocked: {
     color: '#94a3b8',
@@ -1016,14 +1290,14 @@ const styles = StyleSheet.create({
   },
   currentLvlInfoBox: {
     marginTop: 6,
-    backgroundColor: '#fef3c7',
+    backgroundColor: '#EBF3FF',
     borderRadius: 10,
     padding: 10,
     width: '90%',
   },
   timelineProgressBarBg: {
     height: 4,
-    backgroundColor: 'rgba(245,158,11,0.22)',
+    backgroundColor: 'rgba(25, 81, 252, 0.15)',
     borderRadius: 99,
     overflow: 'hidden',
     marginTop: 6,
@@ -1031,27 +1305,32 @@ const styles = StyleSheet.create({
   },
   timelineProgressBarFill: {
     height: '100%',
-    backgroundColor: '#f59e0b',
+    backgroundColor: '#1951fc',
     borderRadius: 99,
   },
   timelineRemainingText: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#b45309',
+    color: '#0b2cb1',
   },
   gridContainer: {
     gap: 16,
     marginBottom: 16,
   },
   wideBlueCard: {
-    backgroundColor: '#e6ebf4',
+    backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderColor: '#cbd5e1',
+    borderColor: 'rgba(15, 23, 42, 0.07)',
     borderWidth: 1,
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   wideCardText: {
     flex: 1,
@@ -1060,20 +1339,20 @@ const styles = StyleSheet.create({
   wideCardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#4a6c8c',
+    color: '#0A1530',
   },
   wideCardSubtitle: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#52607A',
   },
   wideCardValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#64748b',
+    color: '#52607A',
     marginTop: 6,
   },
   orangeHighlight: {
-    color: '#ff6b2b',
+    color: '#1951fc',
     fontSize: 24,
     fontWeight: '900',
   },
@@ -1084,7 +1363,7 @@ const styles = StyleSheet.create({
   wideCardPercent: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#4a6c8c',
+    color: '#1951fc',
   },
   gridRow: {
     flexDirection: 'row',
@@ -1093,14 +1372,19 @@ const styles = StyleSheet.create({
   squareWhiteCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.07)',
+    borderWidth: 1,
     borderRadius: 20,
     padding: 16,
     minHeight: 120,
     justifyContent: 'space-between',
     position: 'relative',
     overflow: 'hidden',
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   squareCardHeader: {
     flexDirection: 'row',
@@ -1110,7 +1394,7 @@ const styles = StyleSheet.create({
   focusIconBg: {
     width: 28,
     height: 28,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#EBF3FF',
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1129,13 +1413,13 @@ const styles = StyleSheet.create({
   squareCardValue: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#0A1530',
     marginTop: 12,
   },
   squareCardLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#64748b',
+    color: '#52607A',
     marginTop: 2,
   },
   paywallOverlay: {
@@ -1147,21 +1431,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   paywallUpgradeBtn: {
-    backgroundColor: '#e6ebf4',
+    backgroundColor: '#EBF3FF',
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 14,
-    borderColor: '#cbd5e1',
+    borderColor: '#3781fc',
     borderWidth: 1,
   },
   paywallUpgradeText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#4a6c8c',
+    color: '#1951fc',
   },
   paywallLabel: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: '#8E98AD',
     fontWeight: '600',
   },
   scoreContent: {
@@ -1170,12 +1454,17 @@ const styles = StyleSheet.create({
   },
   chartCard: {
     backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.07)',
+    borderWidth: 1,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
     gap: 16,
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -1185,7 +1474,7 @@ const styles = StyleSheet.create({
   chartTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#4a6c8c',
+    color: '#0A1530',
   },
   chartTogglerContainer: {
     flexDirection: 'row',
@@ -1194,7 +1483,7 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   toggleBtnActive: {
-    backgroundColor: '#4a6c8c',
+    backgroundColor: '#1951fc',
     paddingVertical: 5,
     paddingHorizontal: 10,
     borderRadius: 6,
@@ -1213,7 +1502,7 @@ const styles = StyleSheet.create({
   toggleBtnTextLocked: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#94a3b8',
+    color: '#8E98AD',
   },
   barChartContainer: {
     height: 140,
@@ -1242,19 +1531,19 @@ const styles = StyleSheet.create({
   },
   barFocusSegment: {
     width: '100%',
-    backgroundColor: '#4a6c8c',
+    backgroundColor: '#1951fc',
     borderBottomLeftRadius: 6,
     borderBottomRightRadius: 6,
   },
   barBreakSegment: {
     width: '100%',
-    backgroundColor: '#ff6b2b',
+    backgroundColor: '#38BDF8',
     borderTopLeftRadius: 3,
     borderTopRightRadius: 3,
   },
   chartDayLabel: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#52607A',
     fontWeight: '600',
     marginTop: 8,
   },
@@ -1276,7 +1565,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#52607A',
     fontWeight: '600',
   },
   habitsSection: {
@@ -1285,22 +1574,27 @@ const styles = StyleSheet.create({
   habitsSectionTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: '#4a6c8c',
+    color: '#0A1530',
     marginTop: 4,
     marginBottom: 12,
   },
   emptyHabitsCard: {
     backgroundColor: '#ffffff',
-    borderColor: '#cbd5e1',
+    borderColor: 'rgba(15, 23, 42, 0.07)',
     borderWidth: 1,
     borderRadius: 16,
     padding: 24,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   emptyHabitsText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: '#8E98AD',
     textAlign: 'center',
   },
   habitsRow: {
@@ -1312,17 +1606,22 @@ const styles = StyleSheet.create({
   habitCard: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderColor: '#e2e8f0',
-    borderWidth: 1.5,
+    borderColor: 'rgba(15, 23, 42, 0.07)',
+    borderWidth: 1,
     borderRadius: 20,
     padding: 16,
     alignItems: 'center',
     gap: 8,
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   habitEmojiContainer: {
     width: 44,
     height: 44,
-    backgroundColor: '#fff7ed',
+    backgroundColor: '#f1f5f9',
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1333,17 +1632,17 @@ const styles = StyleSheet.create({
   habitCardName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#0A1530',
     textAlign: 'center',
   },
   habitCardStreak: {
     fontSize: 11,
-    color: '#64748b',
+    color: '#52607A',
     fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15,23,42,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1354,32 +1653,25 @@ const styles = StyleSheet.create({
     width: '85%',
     maxWidth: 320,
     alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(15, 23, 42, 0.08)',
   },
   modalHeading: {
     fontSize: 18,
     fontWeight: '900',
-    color: '#4a6c8c',
+    color: '#1951fc',
     letterSpacing: 2,
     marginBottom: 20,
   },
   modalDiamond: {
     width: 110,
     height: 110,
-    backgroundColor: '#4a6c8c',
+    backgroundColor: '#1951fc',
     transform: [{ rotate: '45deg' }],
     borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
     marginVertical: 20,
-    shadowColor: '#4a6c8c',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
   },
   modalDiamondInner: {
     transform: [{ rotate: '-45deg' }],
@@ -1397,12 +1689,12 @@ const styles = StyleSheet.create({
   modalLevelName: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#0A1530',
     marginTop: 10,
   },
   modalDescText: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#52607A',
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 8,
@@ -1410,7 +1702,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   modalButton: {
-    backgroundColor: '#4a6c8c',
+    backgroundColor: '#1951fc',
     width: '100%',
     height: 48,
     borderRadius: 14,
@@ -1423,16 +1715,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   weeklyReportEntryCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#cbd5e1',
+    borderRadius: 22,
     borderWidth: 1,
-    borderRadius: 20,
     padding: 20,
     marginBottom: 20,
-    shadowColor: '#4a6c8c',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#0A1530',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   weeklyReportEntryHeader: {
@@ -1444,19 +1736,22 @@ const styles = StyleSheet.create({
   weeklyReportEntryTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#0A1530',
   },
   weeklyReportEntrySubtitle: {
     fontSize: 13,
-    color: '#64748b',
+    color: '#52607A',
     lineHeight: 18,
   },
   weeklyReportEntryBtn: {
-    backgroundColor: '#4a6c8c',
     borderRadius: 14,
     paddingVertical: 13,
     alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(251, 207, 232, 0.45)',
   },
   weeklyReportEntryBtnText: {
     color: '#ffffff',
@@ -1465,7 +1760,8 @@ const styles = StyleSheet.create({
   },
   lockedReportCard: {
     backgroundColor: '#f1f5f9',
-    borderColor: '#cbd5e1',
+    borderColor: 'rgba(15, 23, 42, 0.08)',
+    borderWidth: 1,
     opacity: 0.85,
   },
 });

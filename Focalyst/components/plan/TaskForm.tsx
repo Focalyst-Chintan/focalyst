@@ -113,8 +113,8 @@ export default function TaskForm({
     textPrimary: isDarkMode ? '#FFFFFF' : '#4a6c8c',
     textSecondary: isDarkMode ? '#8E95A9' : '#94a3b8',
     borderColor: isDarkMode ? '#222A41' : '#cbd5e1',
-    accentBlue: '#2B6BFF',
-    accentOrange: '#FF6B00',
+    accentBlue: '#1951fc',
+    accentOrange: '#1951fc',
   };
 
   function getDefaultTime(hours: number, minutes: number): Date {
@@ -366,7 +366,7 @@ export default function TaskForm({
             style={{ padding: 4, opacity: submitting ? 0.4 : 1 }}
             hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
           >
-            <Ionicons name="checkmark" size={28} color="#FF6B00" />
+            <Ionicons name="checkmark" size={28} color="#1951fc" />
           </TouchableOpacity>
         </View>
 
@@ -471,7 +471,7 @@ export default function TaskForm({
                       mode="time"
                       textColor={isDarkMode ? '#FFFFFF' : '#000000'}
                       themeVariant={isDarkMode ? 'dark' : 'light'}
-                      accentColor="#FF6B00"
+                      accentColor="#1951fc"
                       display={Platform.OS === 'ios' ? 'compact' : 'default'}
                       onChange={(event, date) => {
                         if (Platform.OS === 'android') setShowStartPicker(false);
@@ -500,7 +500,7 @@ export default function TaskForm({
                       mode="time"
                       textColor={isDarkMode ? '#FFFFFF' : '#000000'}
                       themeVariant={isDarkMode ? 'dark' : 'light'}
-                      accentColor="#FF6B00"
+                      accentColor="#1951fc"
                       display={Platform.OS === 'ios' ? 'compact' : 'default'}
                       onChange={(event, date) => {
                         if (Platform.OS === 'android') setShowEndPicker(false);
@@ -611,7 +611,7 @@ export default function TaskForm({
                 mode="date"
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 themeVariant={isDarkMode ? 'dark' : 'light'}
-                accentColor="#FF6B00"
+                accentColor="#1951fc"
                 onChange={(_, date) => {
                   if (date) {
                     setTempDate(date);
@@ -635,7 +635,7 @@ export default function TaskForm({
                     <Text style={[styles.calendarModalBtnText, { color: theme.textPrimary }]}>Cancel</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.calendarModalBtn, { backgroundColor: '#FF6B00' }]}
+                    style={[styles.calendarModalBtn, { backgroundColor: '#1951fc' }]}
                     onPress={() => {
                       const ymd = getLocalYYYYMMDD(tempDate);
                       setSelectedDate(ymd);

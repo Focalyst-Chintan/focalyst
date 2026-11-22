@@ -63,11 +63,11 @@ export const darkTokens: BlockingTokens = {
   textPrimary: '#FFFFFF',
   textSecondary: '#9AA0B4',
   textTertiary: '#7C8297',
-  accent: '#EE7742',
-  accentSoft: '#F6A06F',
-  accentFill: '#D9622B',
+  accent: '#3781fc',
+  accentSoft: '#60A5FA',
+  accentFill: '#1951fc',
   onAccent: '#FFFFFF',
-  accentTint: 'rgba(238, 119, 66, 0.14)',
+  accentTint: 'rgba(55, 129, 252, 0.14)',
   selectedFill: '#FFFFFF',
   onSelected: '#0F1220',
   success: '#5FD39A',
@@ -79,8 +79,8 @@ export const darkTokens: BlockingTokens = {
   snackbar: '#262B3D',
 };
 
-/** Filled orange CTA used app-wide; deepened from #EE7742 so white labels pass contrast. */
-export const ORANGE_FILL = '#D9622B';
+/** Brand blue CTA used app-wide (zero orange). */
+export const ORANGE_FILL = '#1951fc';
 
 const tabular: TextStyle['fontVariant'] = ['tabular-nums'];
 

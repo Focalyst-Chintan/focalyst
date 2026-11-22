@@ -80,63 +80,100 @@ const emptyLog = (): SessionBlockingLog => ({
   attemptsByApp: {},
 });
 
+const NATIVE_CALL_TIMEOUT_MS = 5000;
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+  label: string
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const timeoutPromise = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`[ScreenTimeBlocker] ${label} timed out after ${ms}ms; returning fallback`);
+      resolve(fallback);
+    }, ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  });
+}
+
 async function call<T>(
   fn: (m: NativeScreenTimeBlocker) => Promise<T>,
   fallback: T,
-  native: NativeScreenTimeBlocker | null = Native
+  native: NativeScreenTimeBlocker | null = Native,
+  label: string = 'nativeCall',
+  timeoutMs: number = NATIVE_CALL_TIMEOUT_MS
 ): Promise<T> {
   if (!native) return fallback;
   try {
-    return await fn(native);
+    const promise = fn(native);
+    return timeoutMs > 0 ? await withTimeout(promise, timeoutMs, fallback, label) : await promise;
   } catch (err) {
-    if (__DEV__) console.warn('[ScreenTimeBlocker]', err);
+    if (__DEV__) console.warn(`[ScreenTimeBlocker:${label}]`, err);
     return fallback;
   }
 }
 
 export const requestAuthorization = () =>
-  call<'approved' | 'denied'>((m) => m.requestAuthorization(), 'denied');
+  call<'approved' | 'denied'>((m) => m.requestAuthorization(), 'denied', Native, 'requestAuthorization', 0);
 
 export const getAuthorizationStatus = () =>
-  call<AuthStatus>((m) => m.getAuthorizationStatus(), 'notDetermined');
+  call<AuthStatus>((m) => m.getAuthorizationStatus(), 'notDetermined', Native, 'getAuthorizationStatus');
 
-export const openAppPicker = (mode: PickerMode) => call((m) => m.openAppPicker(mode), EMPTY_PICKER);
+export const openAppPicker = (mode: PickerMode) =>
+  call((m) => m.openAppPicker(mode), EMPTY_PICKER, Native, 'openAppPicker', 0);
 
 export const getSelectionSummary = (mode: PickerMode) =>
-  call((m) => m.getSelectionSummary(mode), EMPTY_PICKER);
+  call((m) => m.getSelectionSummary(mode), EMPTY_PICKER, Native, 'getSelectionSummary');
 
 export const startSessionBlocking = (config: StartSessionConfig) =>
-  call((m) => m.startSessionBlocking(config), false);
+  call((m) => m.startSessionBlocking(config), false, Native, 'startSessionBlocking');
 
-export const pauseSessionBlocking = () => call((m) => m.pauseSessionBlocking(), false);
+export const pauseSessionBlocking = () =>
+  call((m) => m.pauseSessionBlocking(), false, Native, 'pauseSessionBlocking');
 
-export const resumeSessionBlocking = () => call((m) => m.resumeSessionBlocking(), false);
+export const resumeSessionBlocking = () =>
+  call((m) => m.resumeSessionBlocking(), false, Native, 'resumeSessionBlocking');
 
-export const stopSessionBlocking = () => call((m) => m.stopSessionBlocking(), false);
+export const stopSessionBlocking = () =>
+  call((m) => m.stopSessionBlocking(), false, Native, 'stopSessionBlocking');
 
 export const grantTemporaryUnlock = (durationMinutes: number, reason?: string) =>
-  call((m) => m.grantTemporaryUnlock(durationMinutes, reason), false);
+  call((m) => m.grantTemporaryUnlock(durationMinutes, reason), false, Native, 'grantTemporaryUnlock');
 
-export const lockTemporaryUnlockNow = () => call((m) => m.lockTemporaryUnlockNow(), false);
+export const lockTemporaryUnlockNow = () =>
+  call((m) => m.lockTemporaryUnlockNow(), false, Native, 'lockTemporaryUnlockNow');
 
-export const triggerEmergencyUnlock = () => call((m) => m.triggerEmergencyUnlock(), false);
+export const triggerEmergencyUnlock = () =>
+  call((m) => m.triggerEmergencyUnlock(), false, Native, 'triggerEmergencyUnlock');
 
-export const canUseEmergencyUnlockToday = () => call((m) => m.canUseEmergencyUnlockToday(), false);
+export const canUseEmergencyUnlockToday = () =>
+  call((m) => m.canUseEmergencyUnlockToday(), false, Native, 'canUseEmergencyUnlockToday');
 
 export const startQuickBlock = (endTimestamp: number, level: StrictnessLevel) =>
-  call((m) => m.startQuickBlock(endTimestamp, level), false);
+  call((m) => m.startQuickBlock(endTimestamp, level), false, Native, 'startQuickBlock');
 
-export const stopQuickBlock = () => call((m) => m.stopQuickBlock(), false);
+export const stopQuickBlock = () =>
+  call((m) => m.stopQuickBlock(), false, Native, 'stopQuickBlock');
 
-export const getSessionTelemetry = () => call((m) => m.getSessionTelemetry(), emptyLog());
+export const getSessionTelemetry = () =>
+  call((m) => m.getSessionTelemetry(), emptyLog(), Native, 'getSessionTelemetry');
 
-export const clearSessionTelemetry = () => call((m) => m.clearSessionTelemetry(), undefined);
+export const clearSessionTelemetry = () =>
+  call((m) => m.clearSessionTelemetry(), undefined, Native, 'clearSessionTelemetry');
 
 /** Set by the shield's "Unblock in Focalyst" button. Missing on builds without the extensions. */
 export const getPendingUnlockRequest = () =>
-  call<PendingUnlockRequest | null>((m) => m.getPendingUnlockRequest(), null);
+  call<PendingUnlockRequest | null>((m) => m.getPendingUnlockRequest(), null, Native, 'getPendingUnlockRequest');
 
-export const clearPendingUnlockRequest = () => call((m) => m.clearPendingUnlockRequest(), undefined);
+export const clearPendingUnlockRequest = () =>
+  call((m) => m.clearPendingUnlockRequest(), undefined, Native, 'clearPendingUnlockRequest');
 
 /**
  * Registers a recurring block the DeviceActivityMonitor extension enforces while the app is closed.
@@ -150,34 +187,50 @@ export const scheduleRecurringBlock = (
   endMinute: number,
   repeatDays: number[],
   level: StrictnessLevel
-) => call((m) => m.scheduleRecurringBlock(id, startHour, startMinute, endHour, endMinute, repeatDays, level), false);
+) =>
+  call(
+    (m) => m.scheduleRecurringBlock(id, startHour, startMinute, endHour, endMinute, repeatDays, level),
+    false,
+    Native,
+    'scheduleRecurringBlock'
+  );
 
-export const cancelRecurringBlock = (id: string) => call((m) => m.cancelRecurringBlock(id), undefined);
+export const cancelRecurringBlock = (id: string) =>
+  call((m) => m.cancelRecurringBlock(id), undefined, Native, 'cancelRecurringBlock');
 
 // ─── Android only (safe no-ops elsewhere) ─────────────────────────────────────
 
 const NO_ANDROID_PERMISSIONS: AndroidPermissionsStatus = { usageAccess: false, accessibilityEnabled: false };
 
 export const getAndroidPermissionsStatus = () =>
-  call((m) => m.getAndroidPermissionsStatus(), NO_ANDROID_PERMISSIONS, AndroidNative);
+  call((m) => m.getAndroidPermissionsStatus(), NO_ANDROID_PERMISSIONS, AndroidNative, 'getAndroidPermissionsStatus');
 
-export const openUsageAccessSettings = () => call((m) => m.openUsageAccessSettings(), undefined, AndroidNative);
+export const openUsageAccessSettings = () =>
+  call((m) => m.openUsageAccessSettings(), undefined, AndroidNative, 'openUsageAccessSettings');
 
-export const openAccessibilitySettings = () => call((m) => m.openAccessibilitySettings(), undefined, AndroidNative);
+export const openAccessibilitySettings = () =>
+  call((m) => m.openAccessibilitySettings(), undefined, AndroidNative, 'openAccessibilitySettings');
 
 /** Launchable apps with real icons and 7-day average usage, for the in-app picker. */
 export const getInstalledAppsWithUsage = () =>
-  call<AndroidInstalledApps>((m) => m.getInstalledAppsWithUsage(), { mostUsed: [], allApps: [] }, AndroidNative);
+  call<AndroidInstalledApps>(
+    (m) => m.getInstalledAppsWithUsage(),
+    { mostUsed: [], allApps: [] },
+    AndroidNative,
+    'getInstalledAppsWithUsage'
+  );
 
 export const setAndroidBlocklist = (packageNames: string[]) =>
-  call((m) => m.setAndroidBlocklist(packageNames), EMPTY_PICKER, AndroidNative);
+  call((m) => m.setAndroidBlocklist(packageNames), EMPTY_PICKER, AndroidNative, 'setAndroidBlocklist');
 
 export const setAndroidAllowlist = (packageNames: string[]) =>
-  call((m) => m.setAndroidAllowlist(packageNames), EMPTY_PICKER, AndroidNative);
+  call((m) => m.setAndroidAllowlist(packageNames), EMPTY_PICKER, AndroidNative, 'setAndroidAllowlist');
 
-export const getAndroidBlocklist = () => call<string[]>((m) => m.getAndroidBlocklist(), [], AndroidNative);
+export const getAndroidBlocklist = () =>
+  call<string[]>((m) => m.getAndroidBlocklist(), [], AndroidNative, 'getAndroidBlocklist');
 
-export const getAndroidAllowlist = () => call<string[]>((m) => m.getAndroidAllowlist(), [], AndroidNative);
+export const getAndroidAllowlist = () =>
+  call<string[]>((m) => m.getAndroidAllowlist(), [], AndroidNative, 'getAndroidAllowlist');
 
 // iOS only: Android renders real icons from `getInstalledAppsWithUsage` instead.
 const NativeAppTokenLabelView: ComponentType<AppTokenLabelViewProps> | null =

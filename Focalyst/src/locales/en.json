@@ -43,7 +43,7 @@
     "skip": "Skip",
     "back": "Back",
     "pomodoro": "Pomodoro",
-    "addnew": "+Add new",
+    "addnew": "+ Add new",
     "offMessage": "Focus mode is currently off",
     "greatJob": "Great job",
     "focusedMinutes": "You focused for {{minutes}} minutes across {{sets}} sets",

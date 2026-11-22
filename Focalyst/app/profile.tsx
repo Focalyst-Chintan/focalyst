@@ -14,13 +14,24 @@ import {
   Linking,
   LayoutAnimation,
   Platform,
+  Appearance,
   DeviceEventEmitter,
+  LayoutChangeEvent,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import Svg, {
+  Defs,
+  RadialGradient,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+} from 'react-native-svg';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from '../src/utils/supabase';
+import { supabase, getCoalescedSession } from '../src/utils/supabase';
+import { clearWidgetsOnSignOut } from '../src/services/widgetSync';
 import { isProPlan } from '../src/utils/plan';
 import { getDisplayName } from '../src/utils/displayName';
 import { formatMcpApps, useMcpSummary } from '../src/hooks/useMcpStatus';
@@ -34,8 +45,7 @@ import { WIDGETS_ENABLED_KEY } from './widgets';
 import { useColumnStyle, useSheetFrame } from '../src/layout/adaptive';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
-const ACCENT_ORANGE = '#FF6B00';
-const MUTED_BLUE_BG = '#4C6A8D';
+const BRAND_GRADIENT = ['#3781fc', '#1951fc', '#0b2cb1'] as const;
 
 const SUPPORT_URLS = {
   contact: 'https://www.chintan.store/emaillist',
@@ -80,6 +90,7 @@ export default function ProfileScreen() {
   const [darkMode, setDarkMode] = useState(true); // Default dark mode to true
   const [languageModalVisible, setLanguageModalVisible] = useState(false);
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [planCardSize, setPlanCardSize] = useState({ width: 350, height: 170 });
 
   // Same check as everywhere else (src/utils/plan.ts): lifetime always, other paid plans until they expire.
   const isPro = isProPlan(user?.plan, user?.plan_expires_at);
@@ -106,18 +117,25 @@ export default function ProfileScreen() {
     }
   };
 
+  const brandBlue = darkMode ? '#3781fc' : '#1951fc';
+
   // Dynamic Theme Definitions
   const theme = {
-    bg: darkMode ? '#0B1021' : '#F4F6FA',
+    bg: darkMode ? '#060810' : '#F4F7FC',
     cardBg: darkMode ? '#151B2E' : '#FFFFFF',
     textPrimary: darkMode ? '#FFFFFF' : '#1E2229',
     textSecondary: darkMode ? '#8E95A9' : '#5C6479',
     borderColor: darkMode ? '#222A41' : '#E2E8F0',
-    borderButtonColor: darkMode ? '#38425A' : '#E2E8F0',
-    avatarBg: darkMode ? '#1C2438' : '#E8EDF2',
-    deleteBtnBg: darkMode ? '#1E2538' : '#E2E8F0',
-    deleteBtnText: darkMode ? '#FFFFFF' : '#1E2229',
-    iconCircleBg: darkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)',
+    borderButtonColor: darkMode ? 'rgba(203, 233, 253, 0.22)' : 'rgba(25, 81, 252, 0.22)',
+    avatarBg: darkMode ? 'rgba(55, 129, 252, 0.14)' : '#EBF3FF',
+    avatarBorder: darkMode ? 'rgba(203, 233, 253, 0.24)' : '#cbe9fd',
+    avatarIcon: darkMode ? '#cbe9fd' : '#0b2cb1',
+    deleteBtnBg: darkMode ? 'rgba(255, 255, 255, 0.08)' : '#EBF1FA',
+    deleteBtnText: darkMode ? '#CBD5E1' : '#03195b',
+    iconCircleBg: darkMode ? 'rgba(55, 129, 252, 0.14)' : 'rgba(25, 81, 252, 0.08)',
+    iconCircleColor: darkMode ? '#cbe9fd' : '#0b2cb1',
+    switchOff: darkMode ? 'rgba(255, 255, 255, 0.16)' : '#E2E8F0',
+    brandBlue,
   };
 
   const toggleSection = (section: string) => {
@@ -137,16 +155,21 @@ export default function ProfileScreen() {
         console.warn('Error loading darkMode from AsyncStorage:', e);
       }
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session } } = await getCoalescedSession();
         if (!session?.user) {
           setLoading(false);
           return;
         }
-        const { data: profile, error } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
+        const { data: profile, error } = await Promise.race([
+          supabase
+            .from('users')
+            .select('*')
+            .eq('id', session.user.id)
+            .single(),
+          new Promise<{ data: null; error: { message: string } }>((resolve) =>
+            setTimeout(() => resolve({ data: null, error: { message: 'Profile fetch timeout' } }), 5000)
+          ),
+        ]);
 
         if (error) {
           console.error('[Profile] Supabase fetch error:', error.message);
@@ -223,6 +246,7 @@ export default function ProfileScreen() {
   // ── Logout ──
   const handleLogout = useCallback(async () => {
     queryCache.clearAll();
+    await clearWidgetsOnSignOut();
     await supabase.auth.signOut();
     router.replace('/auth' as any);
   }, [router]);
@@ -233,7 +257,7 @@ export default function ProfileScreen() {
   if (loading) {
     return (
       <SafeAreaView style={[styles.loadingContainer, { backgroundColor: theme.bg }]}>
-        <ActivityIndicator size="large" color={ACCENT_ORANGE} />
+        <ActivityIndicator size="large" color={darkMode ? '#3781fc' : '#1951fc'} />
       </SafeAreaView>
     );
   }
@@ -257,13 +281,23 @@ export default function ProfileScreen() {
         {/* ═══ Avatar + Name ═══ */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarContainer}>
-            <View style={[styles.avatar, { backgroundColor: theme.avatarBg, borderColor: theme.borderColor }]}>
-              <Ionicons name="person" size={36} color={theme.textSecondary} />
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: theme.avatarBg, borderColor: theme.avatarBorder },
+              ]}
+            >
+              <Ionicons name="person" size={36} color={theme.avatarIcon} />
             </View>
             {isPro && (
-              <View style={styles.proBadge}>
+              <LinearGradient
+                colors={BRAND_GRADIENT}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.proBadge, { borderColor: theme.bg }]}
+              >
                 <Text style={styles.proBadgeText}>PRO</Text>
-              </View>
+              </LinearGradient>
             )}
           </View>
           {user?.full_name ? (
@@ -274,7 +308,7 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           )}
           <Text style={[styles.userEmail, { color: theme.textSecondary }]}>{user?.email || ''}</Text>
-          <Text style={styles.userRole}>{t('settings.student')}</Text>
+          <Text style={[styles.userRole, { color: brandBlue }]}>{t('settings.student')}</Text>
           <TouchableOpacity 
             style={[styles.editProfileButton, { borderColor: theme.borderButtonColor }]} 
             activeOpacity={0.7}
@@ -285,7 +319,87 @@ export default function ProfileScreen() {
         </View>
 
         {/* ═══ Subscription Card ═══ */}
-        <View style={styles.subscriptionCard}>
+        <View
+          onLayout={(e: LayoutChangeEvent) => {
+            const { width, height } = e.nativeEvent.layout;
+            if (
+              width > 0 &&
+              height > 0 &&
+              (Math.abs(width - planCardSize.width) > 1 ||
+                Math.abs(height - planCardSize.height) > 1)
+            ) {
+              setPlanCardSize({ width, height });
+            }
+          }}
+          style={[
+            styles.subscriptionCard,
+            {
+              backgroundColor: darkMode ? '#03195b' : '#0b2cb1',
+              borderColor: darkMode
+                ? 'rgba(55, 129, 252, 0.42)'
+                : 'rgba(203, 233, 253, 0.45)',
+            },
+          ]}
+        >
+          <LinearGradient
+            colors={
+              darkMode
+                ? ['#03195b', '#060B1A']
+                : ['#03195b', '#0b2cb1', '#1951fc', '#3781fc']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+
+          <Svg
+            width={planCardSize.width}
+            height={planCardSize.height}
+            viewBox={`0 0 ${planCardSize.width} ${planCardSize.height}`}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          >
+            <Defs>
+              {darkMode ? (
+                <RadialGradient id="planBottomGlow" cx="50%" cy="104%" rx="72%" ry="58%">
+                  <Stop offset="0%" stopColor="#cbe9fd" stopOpacity="0.45" />
+                  <Stop offset="25%" stopColor="#3781fc" stopOpacity="0.48" />
+                  <Stop offset="55%" stopColor="#1951fc" stopOpacity="0.28" />
+                  <Stop offset="80%" stopColor="#0b2cb1" stopOpacity="0.12" />
+                  <Stop offset="100%" stopColor="#060B1A" stopOpacity="0" />
+                </RadialGradient>
+              ) : (
+                <RadialGradient id="planBottomGlow" cx="50%" cy="104%" rx="72%" ry="56%">
+                  <Stop offset="0%" stopColor="#cbe9fd" stopOpacity="0.46" />
+                  <Stop offset="45%" stopColor="#cbe9fd" stopOpacity="0.18" />
+                  <Stop offset="100%" stopColor="#3781fc" stopOpacity="0" />
+                </RadialGradient>
+              )}
+              <SvgLinearGradient id="planBottomRim" x1="0%" y1="0%" x2="100%" y2="0%">
+                <Stop offset="0%" stopColor="#3781fc" stopOpacity={0} />
+                <Stop offset="25%" stopColor="#cbe9fd" stopOpacity={0.5} />
+                <Stop offset="50%" stopColor="#cbe9fd" stopOpacity={0.9} />
+                <Stop offset="75%" stopColor="#cbe9fd" stopOpacity={0.5} />
+                <Stop offset="100%" stopColor="#3781fc" stopOpacity={0} />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect
+              x={0}
+              y={0}
+              width={planCardSize.width}
+              height={planCardSize.height}
+              fill="url(#planBottomGlow)"
+            />
+            <Rect
+              x={0}
+              y={planCardSize.height - 2.5}
+              width={planCardSize.width}
+              height={2.5}
+              fill="url(#planBottomRim)"
+            />
+          </Svg>
+
           <View style={styles.subscriptionContent}>
             <Text style={styles.subscriptionLabel}>{t('settings.plan')}</Text>
             <Text style={styles.planName}>
@@ -306,7 +420,7 @@ export default function ProfileScreen() {
           </View>
           {/* Decorative diamond watermark */}
           <View style={styles.diamondDecor}>
-            <Ionicons name="diamond" size={90} color="rgba(255,255,255,0.08)" />
+            <Ionicons name="diamond" size={90} color="rgba(203, 233, 253, 0.14)" />
           </View>
         </View>
 
@@ -316,7 +430,7 @@ export default function ProfileScreen() {
           {/* Task Reminders */}
           <View style={styles.prefRow}>
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="notifications" size={18} color={theme.textSecondary} />
+              <Ionicons name="notifications" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>{t('settings.taskReminders')}</Text>
             <Switch
@@ -325,9 +439,9 @@ export default function ProfileScreen() {
                 setTaskReminders(val);
                 handleToggle('task_reminders_enabled', val);
               }}
-              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              trackColor={{ false: theme.switchOff, true: brandBlue }}
               thumbColor="#ffffff"
-              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+              ios_backgroundColor={theme.switchOff}
             />
           </View>
           <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
@@ -335,7 +449,7 @@ export default function ProfileScreen() {
           {/* Habit Reminders */}
           <View style={styles.prefRow}>
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="sync" size={18} color={theme.textSecondary} />
+              <Ionicons name="sync" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>{t('settings.habitReminders')}</Text>
             <Switch
@@ -344,9 +458,9 @@ export default function ProfileScreen() {
                 setHabitReminders(val);
                 handleToggle('habit_reminders_enabled', val);
               }}
-              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              trackColor={{ false: theme.switchOff, true: brandBlue }}
               thumbColor="#ffffff"
-              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+              ios_backgroundColor={theme.switchOff}
             />
           </View>
           <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
@@ -354,7 +468,7 @@ export default function ProfileScreen() {
           {/* Pomodoro Alerts */}
           <View style={styles.prefRow}>
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="timer" size={18} color={theme.textSecondary} />
+              <Ionicons name="timer" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>{t('settings.pomodoroAlerts')}</Text>
             <Switch
@@ -363,9 +477,9 @@ export default function ProfileScreen() {
                 setPomodoroAlerts(val);
                 handleToggle('pomodoro_alerts_enabled', val);
               }}
-              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              trackColor={{ false: theme.switchOff, true: brandBlue }}
               thumbColor="#ffffff"
-              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+              ios_backgroundColor={theme.switchOff}
             />
           </View>
           <View style={[styles.divider, { backgroundColor: theme.borderColor }]} />
@@ -377,15 +491,15 @@ export default function ProfileScreen() {
             onPress={() => handleWidgetsToggle(true)}
           >
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="grid" size={18} color={theme.textSecondary} />
+              <Ionicons name="grid" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>Home Screen Widgets</Text>
             <Switch
               value={widgetsEnabled}
               onValueChange={handleWidgetsToggle}
-              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              trackColor={{ false: theme.switchOff, true: brandBlue }}
               thumbColor="#ffffff"
-              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+              ios_backgroundColor={theme.switchOff}
             />
           </TouchableOpacity>
         </View>
@@ -400,7 +514,7 @@ export default function ProfileScreen() {
             onPress={() => setLanguageModalVisible(true)}
           >
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="globe" size={18} color={theme.textSecondary} />
+              <Ionicons name="globe" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>{t('settings.language')}</Text>
             <View style={styles.languageValueRow}>
@@ -413,13 +527,16 @@ export default function ProfileScreen() {
           {/* Dark Mode */}
           <View style={styles.prefRow}>
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <Ionicons name="moon" size={18} color={theme.textSecondary} />
+              <Ionicons name="moon" size={18} color={theme.iconCircleColor} />
             </View>
             <Text style={[styles.prefLabel, { color: theme.textPrimary }]}>{t('settings.dark')}</Text>
             <Switch
               value={darkMode}
               onValueChange={async (val) => {
                 setDarkMode(val);
+                if (Platform.OS !== 'web' && typeof Appearance.setColorScheme === 'function') {
+                  Appearance.setColorScheme(val ? 'dark' : 'light');
+                }
                 DeviceEventEmitter.emit('themeChanged', val);
                 try {
                   await AsyncStorage.setItem('darkMode', val ? 'true' : 'false');
@@ -427,9 +544,9 @@ export default function ProfileScreen() {
                   console.warn('Error saving darkMode to AsyncStorage:', e);
                 }
               }}
-              trackColor={{ false: darkMode ? '#222D47' : '#E2E8F0', true: ACCENT_ORANGE }}
+              trackColor={{ false: theme.switchOff, true: brandBlue }}
               thumbColor="#ffffff"
-              ios_backgroundColor={darkMode ? '#222D47' : '#E2E8F0'}
+              ios_backgroundColor={theme.switchOff}
             />
           </View>
         </View>
@@ -445,7 +562,7 @@ export default function ProfileScreen() {
             onPress={isPro ? openMcpConnections : () => router.push('/paywall')}
           >
             <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-              <MaterialCommunityIcons name="power-plug" size={18} color={theme.textSecondary} />
+              <MaterialCommunityIcons name="power-plug" size={18} color={theme.iconCircleColor} />
             </View>
             {isPro ? (
               <>
@@ -457,7 +574,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
                   Connect MCP
                 </Text>
-                <View style={styles.mcpProPill}>
+                <View style={[styles.mcpProPill, { backgroundColor: brandBlue }]}>
                   <Text style={styles.mcpProPillText}>Requires Pro</Text>
                 </View>
               </View>
@@ -476,7 +593,7 @@ export default function ProfileScreen() {
                 onPress={() => router.push('/mcp-credits' as any)}
               >
                 <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-                  <Ionicons name="flash" size={18} color={theme.textSecondary} />
+                  <Ionicons name="flash" size={18} color={theme.iconCircleColor} />
                 </View>
                 <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
                   MCP Credits
@@ -504,7 +621,7 @@ export default function ProfileScreen() {
                 onPress={openMcpConnections}
               >
                 <View style={[styles.prefIconBg, { backgroundColor: theme.iconCircleBg }]}>
-                  <Ionicons name="link" size={18} color={theme.textSecondary} />
+                  <Ionicons name="link" size={18} color={theme.iconCircleColor} />
                 </View>
                 <Text style={[styles.prefLabel, styles.mcpLabelFixed, { color: theme.textPrimary }]} numberOfLines={1}>
                   Connected apps
@@ -561,7 +678,7 @@ export default function ProfileScreen() {
             <View style={[styles.expandedContainer, { backgroundColor: darkMode ? '#0E1424' : '#F8FAFC', borderTopColor: theme.borderColor }]}>
               {FAQ_DATA.map((cat, idx) => (
                 <View key={cat.title} style={[styles.accordionSection, idx > 0 && { marginTop: 16 }]}>
-                  <Text style={styles.accordionCategoryHeader}>{cat.title}</Text>
+                  <Text style={[styles.accordionCategoryHeader, { color: brandBlue }]}>{cat.title}</Text>
                   {cat.items.map((item) => (
                     <View key={item.question} style={{ marginTop: 10 }}>
                       <Text style={[styles.accordionQuestion, { color: theme.textPrimary }]}>{item.question}</Text>
@@ -604,7 +721,7 @@ export default function ProfileScreen() {
             <View style={[styles.expandedContainer, { backgroundColor: darkMode ? '#0E1424' : '#F8FAFC', borderTopColor: theme.borderColor }]}>
               {PRIVACY_DATA.map((sec, idx) => (
                 <View key={sec.title || idx} style={[styles.accordionSection, idx > 0 && { marginTop: 16 }]}>
-                  {sec.title && <Text style={styles.accordionCategoryHeader}>{sec.title}</Text>}
+                  {sec.title && <Text style={[styles.accordionCategoryHeader, { color: brandBlue }]}>{sec.title}</Text>}
                   {sec.content.map((p, pIdx) => (
                     <Text key={pIdx} style={[styles.accordionAnswer, { color: theme.textSecondary, marginTop: 6 }]}>
                       {p}
@@ -634,7 +751,7 @@ export default function ProfileScreen() {
             <View style={[styles.expandedContainer, { backgroundColor: darkMode ? '#0E1424' : '#F8FAFC', borderTopColor: theme.borderColor }]}>
               {TERMS_DATA.map((sec, idx) => (
                 <View key={sec.title || idx} style={[styles.accordionSection, idx > 0 && { marginTop: 16 }]}>
-                  {sec.title && <Text style={styles.accordionCategoryHeader}>{sec.title}</Text>}
+                  {sec.title && <Text style={[styles.accordionCategoryHeader, { color: brandBlue }]}>{sec.title}</Text>}
                   {sec.content.map((p, pIdx) => (
                     <Text key={pIdx} style={[styles.accordionAnswer, { color: theme.textSecondary, marginTop: 6 }]}>
                       {p}
@@ -664,11 +781,18 @@ export default function ProfileScreen() {
         {/* ═══ Sign In / Logout ═══ */}
         {!user ? (
           <TouchableOpacity
-            style={[styles.logoutButton, { backgroundColor: '#2B6BFF', borderColor: '#2B6BFF' }]}
+            style={styles.logoutButton}
             activeOpacity={0.85}
             onPress={() => router.push('/auth')}
           >
-            <Text style={[styles.logoutButtonText, { color: '#FFFFFF' }]}>Sign In / Log In</Text>
+            <LinearGradient
+              colors={BRAND_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
+            <Text style={styles.logoutButtonText}>Sign In / Log In</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
@@ -676,6 +800,13 @@ export default function ProfileScreen() {
             activeOpacity={0.85}
             onPress={handleLogout}
           >
+            <LinearGradient
+              colors={BRAND_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+            />
             <Text style={styles.logoutButtonText}>{t('settings.logout')}</Text>
           </TouchableOpacity>
         )}
@@ -758,13 +889,16 @@ function LanguagePickerModal({
                   style={[
                     styles.languageItemText,
                     { color: theme.textPrimary },
-                    item.code === currentLanguage && styles.languageItemActive,
+                    item.code === currentLanguage && [
+                      styles.languageItemActive,
+                      { color: theme.brandBlue },
+                    ],
                   ]}
                 >
                   {item.label}
                 </Text>
                 {item.code === currentLanguage && (
-                  <Ionicons name="checkmark" size={20} color={ACCENT_ORANGE} />
+                  <Ionicons name="checkmark" size={20} color={theme.brandBlue} />
                 )}
               </TouchableOpacity>
             )}
@@ -822,18 +956,17 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3,
+    borderWidth: 1,
   },
   proBadge: {
     position: 'absolute',
     bottom: -2,
     right: -4,
-    backgroundColor: ACCENT_ORANGE,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#0B1021', // Use a dark offset for the overlapping badge border
+    overflow: 'hidden',
   },
   proBadgeText: {
     color: '#FFFFFF',
@@ -852,7 +985,6 @@ const styles = StyleSheet.create({
   },
   userRole: {
     fontSize: 13,
-    color: ACCENT_ORANGE,
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -870,8 +1002,8 @@ const styles = StyleSheet.create({
 
   // Subscription Card
   subscriptionCard: {
-    backgroundColor: MUTED_BLUE_BG,
-    borderRadius: 20,
+    borderRadius: 22,
+    borderWidth: 1,
     padding: 24,
     marginBottom: 28,
     position: 'relative',
@@ -881,7 +1013,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   subscriptionLabel: {
-    color: '#B0B8C8',
+    color: 'rgba(203, 233, 253, 0.85)',
     fontSize: 13,
     fontWeight: '500',
     marginBottom: 4,
@@ -899,7 +1031,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   renewalText: {
-    color: '#B0B8C8',
+    color: 'rgba(203, 233, 253, 0.85)',
     fontSize: 12,
     marginBottom: 16,
     marginTop: 2,
@@ -912,7 +1044,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   managePlanText: {
-    color: '#2C4259',
+    color: '#03195b',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -999,7 +1131,6 @@ const styles = StyleSheet.create({
   },
   // Same colour, radius and weight as the PRO badge, slightly smaller and without the overlap border
   mcpProPill: {
-    backgroundColor: ACCENT_ORANGE,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 10,
@@ -1037,7 +1168,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   accordionCategoryHeader: {
-    color: ACCENT_ORANGE,
     fontWeight: '700',
     fontSize: 14,
     marginBottom: 4,
@@ -1079,15 +1209,15 @@ const styles = StyleSheet.create({
 
   // Logout Button
   logoutButton: {
-    backgroundColor: ACCENT_ORANGE,
     borderRadius: 16,
     height: 52,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 16,
-    shadowColor: ACCENT_ORANGE,
+    overflow: 'hidden',
+    shadowColor: '#1951fc',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.28,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -1136,7 +1266,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   languageItemActive: {
-    color: ACCENT_ORANGE,
     fontWeight: '700',
   },
   modalDivider: {
