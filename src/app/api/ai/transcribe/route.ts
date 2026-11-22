@@ -29,6 +29,27 @@ interface NormalizedAudio {
   mime: string;
   ext: string;
   fileName: string;
+  mp4Codec?: string;
+}
+
+function buildPcm16Wav(pcm16Le: Buffer, sampleRate: number, channels: number): Buffer {
+  const byteRate = sampleRate * channels * 2;
+  const blockAlign = channels * 2;
+  const wavHeader = Buffer.alloc(44);
+  wavHeader.write('RIFF', 0, 'ascii');
+  wavHeader.writeUInt32LE(36 + pcm16Le.length, 4);
+  wavHeader.write('WAVE', 8, 'ascii');
+  wavHeader.write('fmt ', 12, 'ascii');
+  wavHeader.writeUInt32LE(16, 16);
+  wavHeader.writeUInt16LE(1, 20); // PCM
+  wavHeader.writeUInt16LE(channels, 22);
+  wavHeader.writeUInt32LE(sampleRate, 24);
+  wavHeader.writeUInt32LE(byteRate, 28);
+  wavHeader.writeUInt16LE(blockAlign, 32);
+  wavHeader.writeUInt16LE(16, 34);
+  wavHeader.write('data', 36, 'ascii');
+  wavHeader.writeUInt32LE(pcm16Le.length, 40);
+  return Buffer.concat([wavHeader, pcm16Le]);
 }
 
 /**
@@ -123,13 +144,191 @@ function cafToWav(caf: Buffer): Buffer | null {
   return Buffer.concat([wavHeader, pcmData]);
 }
 
+interface Mp4Box {
+  type: string;
+  dataStart: number;
+  end: number;
+}
+
+function findMp4Boxes(buf: Buffer, start: number, end: number, targetType?: string): Mp4Box[] {
+  const out: Mp4Box[] = [];
+  let pos = start;
+  while (pos + 8 <= end) {
+    const size32 = buf.readUInt32BE(pos);
+    const type = buf.subarray(pos + 4, pos + 8).toString('ascii');
+    let headerLen = 8;
+    let boxSize = size32;
+    if (size32 === 1) {
+      if (pos + 16 > end) break;
+      const hi = buf.readUInt32BE(pos + 8);
+      const lo = buf.readUInt32BE(pos + 12);
+      boxSize = hi * 0x100000000 + lo;
+      headerLen = 16;
+    } else if (size32 === 0) {
+      boxSize = end - pos;
+    }
+    if (boxSize < headerLen || pos + boxSize > end) break;
+    const boxEnd = pos + boxSize;
+    if (!targetType || type === targetType) {
+      out.push({ type, dataStart: pos + headerLen, end: boxEnd });
+    }
+    pos = boxEnd;
+  }
+  return out;
+}
+
+function convertPcmToInt16Le(
+  raw: Buffer,
+  bitsPerChannel: number,
+  isFloat: boolean,
+  isBigEndian: boolean,
+  isSigned: boolean
+): Buffer {
+  if (isFloat && bitsPerChannel === 32) {
+    const count = Math.floor(raw.length / 4);
+    const out = Buffer.allocUnsafe(count * 2);
+    for (let i = 0; i < count; i++) {
+      const sample = isBigEndian ? raw.readFloatBE(i * 4) : raw.readFloatLE(i * 4);
+      const clamped = Math.max(-1, Math.min(1, Number.isFinite(sample) ? sample : 0));
+      out.writeInt16LE(Math.round(clamped * 32767), i * 2);
+    }
+    return out;
+  }
+  if (bitsPerChannel === 16) {
+    const usable = raw.length - (raw.length % 2);
+    const out = Buffer.from(raw.subarray(0, usable));
+    if (isBigEndian) out.swap16();
+    return out;
+  }
+  if (bitsPerChannel === 24) {
+    const count = Math.floor(raw.length / 3);
+    const out = Buffer.allocUnsafe(count * 2);
+    for (let i = 0; i < count; i++) {
+      const o = i * 3;
+      const b0 = isBigEndian ? raw[o] : raw[o + 2];
+      const b1 = raw[o + 1];
+      const signedHigh = ((b0 << 24) >> 16) | b1;
+      out.writeInt16LE(signedHigh, i * 2);
+    }
+    return out;
+  }
+  if (bitsPerChannel === 32) {
+    const count = Math.floor(raw.length / 4);
+    const out = Buffer.allocUnsafe(count * 2);
+    for (let i = 0; i < count; i++) {
+      const val = isBigEndian ? raw.readInt32BE(i * 4) : raw.readInt32LE(i * 4);
+      out.writeInt16LE(val >> 16, i * 2);
+    }
+    return out;
+  }
+  if (bitsPerChannel === 8) {
+    const out = Buffer.allocUnsafe(raw.length * 2);
+    for (let i = 0; i < raw.length; i++) {
+      const s8 = isSigned ? raw.readInt8(i) : raw.readUInt8(i) - 128;
+      out.writeInt16LE(s8 << 8, i * 2);
+    }
+    return out;
+  }
+  return raw;
+}
+
+const UNCOMPRESSED_MP4_CODECS = new Set(['lpcm', 'sowt', 'twos', 'fl32', 'in24', 'in32']);
+
+function inspectAndConvertM4a(buffer: Buffer): { wavBuffer: Buffer | null; mp4Codec?: string } {
+  const moovs = findMp4Boxes(buffer, 0, buffer.length, 'moov');
+  if (moovs.length === 0) return { wavBuffer: null };
+  const moov = moovs[0];
+
+  let mp4Codec: string | undefined;
+  let entryStart = -1;
+  let entryEnd = -1;
+
+  for (const trak of findMp4Boxes(buffer, moov.dataStart, moov.end, 'trak')) {
+    const mdia = findMp4Boxes(buffer, trak.dataStart, trak.end, 'mdia')[0];
+    if (!mdia) continue;
+    const minf = findMp4Boxes(buffer, mdia.dataStart, mdia.end, 'minf')[0];
+    if (!minf) continue;
+    const stbl = findMp4Boxes(buffer, minf.dataStart, minf.end, 'stbl')[0];
+    if (!stbl) continue;
+    const stsd = findMp4Boxes(buffer, stbl.dataStart, stbl.end, 'stsd')[0];
+    if (!stsd || stsd.dataStart + 16 > stsd.end) continue;
+
+    const firstEntry = stsd.dataStart + 8;
+    const entrySize = buffer.readUInt32BE(firstEntry);
+    if (entrySize >= 16 && firstEntry + entrySize <= stsd.end) {
+      mp4Codec = buffer.subarray(firstEntry + 4, firstEntry + 8).toString('ascii');
+      entryStart = firstEntry;
+      entryEnd = firstEntry + entrySize;
+      break;
+    }
+  }
+
+  if (!mp4Codec || !UNCOMPRESSED_MP4_CODECS.has(mp4Codec) || entryStart < 0) {
+    return { wavBuffer: null, mp4Codec };
+  }
+
+  const mdat = findMp4Boxes(buffer, 0, buffer.length, 'mdat')[0];
+  if (!mdat || mdat.dataStart >= mdat.end) {
+    return { wavBuffer: null, mp4Codec };
+  }
+
+  const version = entryStart + 18 <= entryEnd ? buffer.readUInt16BE(entryStart + 16) : 0;
+  let sampleRate = 44100;
+  let channels = 2;
+  let bitsPerChannel = 16;
+  let flags = 0;
+  let isFloat = false;
+  let isBigEndian = false;
+  let isSigned = true;
+
+  if (version === 2 && entryStart + 64 <= entryEnd) {
+    sampleRate = Math.round(buffer.readDoubleBE(entryStart + 40)) || 44100;
+    channels = buffer.readUInt32BE(entryStart + 48) || 1;
+    bitsPerChannel = buffer.readUInt32BE(entryStart + 56) || 16;
+    flags = buffer.readUInt32BE(entryStart + 60);
+    isFloat = (flags & 1) !== 0;
+    isBigEndian = (flags & 2) !== 0;
+    isSigned = (flags & 4) !== 0;
+  } else if (entryStart + 36 <= entryEnd) {
+    channels = buffer.readUInt16BE(entryStart + 24) || 1;
+    bitsPerChannel = buffer.readUInt16BE(entryStart + 26) || 16;
+    sampleRate = Math.round(buffer.readUInt32BE(entryStart + 32) / 65536) || 44100;
+    if (mp4Codec === 'fl32') {
+      isFloat = true;
+      bitsPerChannel = 32;
+      isBigEndian = true;
+    } else if (mp4Codec === 'twos' || mp4Codec === 'in24' || mp4Codec === 'in32') {
+      isBigEndian = true;
+      if (mp4Codec === 'in24') bitsPerChannel = 24;
+      if (mp4Codec === 'in32') bitsPerChannel = 32;
+    }
+  }
+
+  const rawPcm = buffer.subarray(mdat.dataStart, mdat.end);
+  const pcm16Le = convertPcmToInt16Le(rawPcm, bitsPerChannel, isFloat, isBigEndian, isSigned);
+  const wavBuffer = buildPcm16Wav(pcm16Le, sampleRate, channels);
+  console.info('[ai:transcribe] converted M4A PCM -> WAV', {
+    mp4Codec,
+    sampleRate,
+    channels,
+    bitsPerChannel,
+    flags,
+    wavLen: wavBuffer.length,
+  });
+  return { wavBuffer, mp4Codec };
+}
+
 function normalizeAudioContainer(
   buffer: Buffer,
   fallbackMime: string,
   fallbackExt: string
 ): NormalizedAudio {
   if (buffer.length >= 8 && buffer.subarray(4, 8).toString('ascii') === 'ftyp') {
-    return { buffer, mime: 'audio/mp4', ext: 'm4a', fileName: 'audio.m4a' };
+    const { wavBuffer, mp4Codec } = inspectAndConvertM4a(buffer);
+    if (wavBuffer) {
+      return { buffer: wavBuffer, mime: 'audio/wav', ext: 'wav', fileName: 'audio.wav', mp4Codec };
+    }
+    return { buffer, mime: 'audio/mp4', ext: 'm4a', fileName: 'audio.m4a', mp4Codec };
   }
   if (buffer.length >= 4 && buffer.subarray(0, 4).toString('ascii') === 'RIFF') {
     return { buffer, mime: 'audio/wav', ext: 'wav', fileName: 'audio.wav' };
@@ -314,14 +513,27 @@ export async function POST(req: NextRequest) {
       origMime: base,
       origName,
       detected: detected.ext,
+      mp4Codec: detected.mp4Codec,
       effectiveMime,
       effectiveExt,
       hasMoov: rawBuffer.includes(Buffer.from('moov')),
       hex16: rawBuffer.subarray(0, 16).toString('hex'),
     });
 
-    // 1. Try Azure AI Speech REST API first
-    if (azureSpeechKey) {
+    // 1. Try OpenRouter STT first (whisper-large-v3-turbo)
+    if (openRouterKey) {
+      try {
+        text = await transcribeOpenRouter(fileBuffer, effectiveExt, effectiveMime);
+        if (text) {
+          providerName = 'openrouter';
+        }
+      } catch (e: any) {
+        console.warn('[ai:transcribe] openrouter failed, falling back:', String(e).slice(0, 200));
+      }
+    }
+
+    // 2. Fallback to Azure AI Speech REST API
+    if (!text && azureSpeechKey) {
       try {
         const azureText = await transcribeWithAzureSpeech(fileBuffer, fileName, effectiveMime);
         if (azureText) {
@@ -333,7 +545,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Automatic fallback to Gemini if Azure fails, returns empty, or for formats needing conversion
+    // 3. Last-resort fallback to Gemini
     if (!text && geminiKey) {
       try {
         const geminiText = await transcribeWithGemini(fileBuffer, effectiveMime);
@@ -343,18 +555,6 @@ export async function POST(req: NextRequest) {
         }
       } catch (e: any) {
         console.warn('[ai:transcribe] gemini fallback failed:', String(e).slice(0, 200));
-      }
-    }
-
-    // 3. Fallback to OpenRouter if still empty
-    if (!text && openRouterKey) {
-      try {
-        text = await transcribeOpenRouter(fileBuffer, effectiveExt, effectiveMime);
-        if (text) {
-          providerName = 'openrouter';
-        }
-      } catch (e: any) {
-        console.warn('[ai:transcribe] openrouter failed:', String(e).slice(0, 200));
       }
     }
 
