@@ -8,6 +8,7 @@ import { TableOfContents } from '@/components/desktop/product-overview/TableOfCo
 import { ConnectedExperienceShowcase } from '@/components/desktop/product-overview/ConnectedExperienceShowcase';
 import { ProductDemoShowcase } from '@/components/desktop/product-overview/ProductDemoShowcase';
 import { IntelligenceShowcase } from '@/components/desktop/product-overview/IntelligenceShowcase';
+import { McpEcosystemMarquee } from '@/components/desktop/product-overview/McpEcosystemMarquee';
 import { McpLiveDemoShowcase } from '@/components/desktop/product-overview/McpLiveDemoShowcase';
 import { WrappedDemoShowcase } from '@/components/desktop/product-overview/WrappedDemoShowcase';
 import { MEDIA_MANIFEST } from '@/components/desktop/product-overview/mediaManifest';
@@ -572,14 +573,16 @@ export default function ProductOverviewPage() {
                       MCP (Model Context Protocol) support
                     </h3>
                     <p className="text-[15px] leading-[24px] text-ink-2">
-                      Users can connect compatible external AI clients such as Claude directly to
-                      Focalyst to query tasks, habits, focus sessions, and countdowns, or create new
-                      habits and dated tasks from any conversation while keeping full control over
-                      their data.
+                      Users can connect compatible external AI clients such as Claude, Gemini,
+                      ChatGPT, and other MCP-supported AI tools directly to Focalyst to query
+                      tasks, habits, focus sessions, and countdowns, or create new habits and dated
+                      tasks from any conversation while keeping full control over their data.
                     </p>
                   </div>
                   <StatusBadge variant="available" />
                 </div>
+
+                <McpEcosystemMarquee />
 
                 <McpLiveDemoShowcase />
               </div>
@@ -711,7 +714,7 @@ export default function ProductOverviewPage() {
                       'Notes & voice transcription',
                       'Home screen widgets & countdowns',
                       'Productivity insights, AI assistant & Catalyst weekly reports',
-                      'MCP (Model Context Protocol) connectivity for external AI clients',
+                      'MCP (Model Context Protocol) connectivity for Claude, Gemini, ChatGPT, and compatible AI clients',
                       'XP, levels, badges & shared habit groups',
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-2.5">

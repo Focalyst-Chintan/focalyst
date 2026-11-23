@@ -175,3 +175,108 @@ export const MEDIA_MANIFEST = {
 export type ProductMediaKey = keyof typeof MEDIA_MANIFEST;
 
 export const ALL_PRODUCT_MEDIA: ProductMediaItem[] = Object.values(MEDIA_MANIFEST);
+
+export interface AiLogoAsset {
+  id: string;
+  name: string;
+  filename: string;
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+}
+
+export const AI_LOGO_MANIFEST = {
+  focalyst: {
+    id: 'focalyst',
+    name: 'Focalyst',
+    filename: 'focalyst.png',
+    src: '/product-overview/ai-logos/focalyst.png',
+    alt: 'Focalyst logo',
+    width: 512,
+    height: 512,
+  },
+  claude: {
+    id: 'claude',
+    name: 'Claude',
+    filename: 'claude.png',
+    src: '/product-overview/ai-logos/claude.png',
+    alt: 'Claude logo',
+    width: 512,
+    height: 512,
+  },
+  chatgpt: {
+    id: 'chatgpt',
+    name: 'ChatGPT',
+    filename: 'chatgpt.png',
+    src: '/product-overview/ai-logos/chatgpt.png',
+    alt: 'ChatGPT logo',
+    width: 512,
+    height: 512,
+  },
+  gemini: {
+    id: 'gemini',
+    name: 'Gemini',
+    filename: 'gemini.png',
+    src: '/product-overview/ai-logos/gemini.png',
+    alt: 'Gemini logo',
+    width: 512,
+    height: 512,
+  },
+  claudeCode: {
+    id: 'claudeCode',
+    name: 'Claude Code',
+    filename: 'claude-code.png',
+    src: '/product-overview/ai-logos/claude-code.png',
+    alt: 'Claude Code logo',
+    width: 512,
+    height: 512,
+  },
+  perplexity: {
+    id: 'perplexity',
+    name: 'Perplexity',
+    filename: 'perplexity.png',
+    src: '/product-overview/ai-logos/perplexity.png',
+    alt: 'Perplexity logo',
+    width: 512,
+    height: 512,
+  },
+  deepseek: {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    filename: 'deepseek.png',
+    src: '/product-overview/ai-logos/deepseek.png',
+    alt: 'DeepSeek logo',
+    width: 512,
+    height: 512,
+  },
+  qwen: {
+    id: 'qwen',
+    name: 'Qwen',
+    filename: 'qwen.png',
+    src: '/product-overview/ai-logos/qwen.png',
+    alt: 'Qwen logo',
+    width: 512,
+    height: 512,
+  },
+  grok: {
+    id: 'grok',
+    name: 'Grok',
+    filename: 'grok-com-logo.png',
+    src: '/product-overview/ai-logos/grok-com-logo.png',
+    alt: 'Grok logo',
+    width: 256,
+    height: 256,
+  },
+  kimi: {
+    id: 'kimi',
+    name: 'Kimi',
+    filename: 'kimi-com-logo.png',
+    src: '/product-overview/ai-logos/kimi-com-logo.png',
+    alt: 'Kimi logo',
+    width: 256,
+    height: 256,
+  },
+} as const satisfies Record<string, AiLogoAsset>;
+
+export const ALL_AI_LOGOS: AiLogoAsset[] = Object.values(AI_LOGO_MANIFEST);

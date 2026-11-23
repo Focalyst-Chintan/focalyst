@@ -861,3 +861,42 @@ body.distraction-free nav {
 .fx-article a.fx-internal:hover {
   text-decoration-thickness: 2px;
 }
+
+/* ── MCP Ecosystem Dual-Track Marquee ──────────────────────────────────────── */
+@keyframes fx-marquee-left {
+  0% {
+    transform: translate3d(0%, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+@keyframes fx-marquee-right {
+  0% {
+    transform: translate3d(-50%, 0, 0);
+  }
+  100% {
+    transform: translate3d(0%, 0, 0);
+  }
+}
+
+.fx-marquee-track-left {
+  animation: fx-marquee-left 34s linear infinite;
+  will-change: transform;
+}
+
+.fx-marquee-track-right {
+  animation: fx-marquee-right 36s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-marquee-track-left,
+  .fx-marquee-track-right {
+    animation: none;
+    transform: none;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
