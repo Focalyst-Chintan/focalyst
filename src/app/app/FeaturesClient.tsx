@@ -47,10 +47,10 @@ export default function AppLandingPage() {
                         </button>
 
                         {/* Logo Wordmark */}
-                        <a href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-[0.04em] text-snow select-none">
+                        <Link href="/" className="flex items-center gap-2.5 text-[17px] font-semibold tracking-[0.04em] text-snow select-none">
                             <span className="h-4 w-[1.5px] bg-[#3781FC]" />
                             <span>Focalyst</span>
-                        </a>
+                        </Link>
                     </div>
 
                     {/* Centered Navigation Links (Desktop) */}
@@ -192,13 +192,12 @@ export default function AppLandingPage() {
                         <div className="relative w-full max-w-[280px] sm:max-w-[320px] md:max-w-[350px] animate-float-mobile md:animate-float-desktop">
                             {/* Screen Image */}
                             <Image 
-                                src="/landing/app/plan.webp" 
+                                src="/product-overview/plan-tab-new.png" 
                                 alt="Focalyst Plan Tab Mockup" 
-                                width={900}
-                                height={1600}
+                                width={1080}
+                                height={1920}
                                 sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
-                                className="h-auto w-full select-none"
-                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
+                                className="h-auto w-full select-none drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
                                 priority
                             />
                         </div>
@@ -619,22 +618,21 @@ export default function AppLandingPage() {
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
                             {/* Front Image */}
                             <Image 
-                                src="/focus-tab.png" 
-                                alt="Focalyst Focus Tab Mockup" 
-                                width={1290}
-                                height={2796}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-0 left-0 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-20 drop-shadow-[0_24px_50px_rgba(0,0,0,0.8)] rounded-[2.5rem] select-none h-auto"
+                                src="/product-overview/plan-tab-new.png" 
+                                alt="Focalyst Plan Tab Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-0 left-0 md:left-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] z-20 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)] select-none h-auto"
                             />
                             {/* Back Image */}
                             <Image 
-                                src="/landing/app/plan.webp" 
-                                alt="Focalyst Plan Tab Mockup" 
-                                width={900}
-                                height={1600}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:-right-10 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-10"
-                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
+                                src="/product-overview/calendar-new.png" 
+                                alt="Focalyst Calendar Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-24 right-0 md:top-20 md:right-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] h-auto select-none z-10 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
                             />
                         </div>
                     </div>
@@ -648,18 +646,27 @@ export default function AppLandingPage() {
                     
                     {/* Left Column - Visual Column */}
                     <div className="flex justify-center items-center py-6 md:py-0 order-2 md:order-1">
-                        <div className="relative max-w-[280px] sm:max-w-[320px] md:max-w-[350px] w-full">
+                        <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
+                            {/* Front Image */}
                             <Image 
-                                src="/landing/app/pomodoro.webp" 
+                                src="/product-overview/pomodoro-new.png" 
                                 alt="Focalyst Pomodoro Mockup" 
-                                width={900}
-                                height={1600}
-                                sizes="(min-width: 1024px) 350px, (min-width: 640px) 320px, 280px"
-                                className="h-auto w-full select-none"
-                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-0 left-0 md:left-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] z-20 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)] select-none h-auto"
+                            />
+                            {/* Back Image */}
+                            <Image 
+                                src="/product-overview/focus-tab-new.png" 
+                                alt="Focalyst Focus Tab Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-24 right-0 md:top-20 md:right-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] h-auto select-none z-10 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
                             />
                             {/* The Floating Shield Badge */}
-                            <div className="absolute bottom-10 right-0 md:-right-4 bg-[#0B1020]/80 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5 z-30 select-none">
+                            <div className="absolute bottom-6 left-2 md:bottom-10 md:left-0 bg-[#0B1020]/85 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl px-4 py-3 flex items-center gap-2.5 z-30 select-none">
                                 <Shield className="w-5 h-5 text-[#6FA4FF] fill-[#1951FC]/40" />
                                 <span className="text-snow text-[13px] font-semibold">
                                     Distractions Blocked
@@ -758,24 +765,23 @@ export default function AppLandingPage() {
                     {/* Right Column - Overlapping Composition */}
                     <div className="flex justify-center items-center py-6 md:py-0">
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
-                            {/* Image 1 (Back) */}
+                            {/* Front Image */}
                             <Image 
-                                src="/notes-tab.png" 
+                                src="/product-overview/notes-tab-new.png" 
                                 alt="Focalyst Notes Tab Mockup" 
-                                width={1290}
-                                height={2796}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none h-auto"
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-0 left-0 md:left-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] z-20 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)] select-none h-auto"
                             />
-                            {/* Image 2 (Front) */}
+                            {/* Back Image */}
                             <Image 
-                                src="/landing/app/voice-ui.webp" 
+                                src="/product-overview/voice-note-new.png" 
                                 alt="Focalyst Voice Note Mockup" 
-                                width={900}
-                                height={1600}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-20"
-                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-24 right-0 md:top-20 md:right-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] h-auto select-none z-10 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
                             />
                         </div>
                     </div>
@@ -790,24 +796,23 @@ export default function AppLandingPage() {
                     {/* Left Column - Visual Column */}
                     <div className="flex justify-center items-center py-6 md:py-0 order-2 md:order-1">
                         <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
-                            {/* Image 1 (Back) */}
+                            {/* Front Image */}
                             <Image 
-                                src="/insights-tab.png" 
-                                alt="Focalyst Insights Tab Mockup" 
-                                width={1290}
-                                height={2796}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-0 left-0 md:left-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] z-10 drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)] rounded-[2.5rem] select-none h-auto"
+                                src="/product-overview/weekly-report-new.png" 
+                                alt="Focalyst Weekly Report Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-0 left-0 md:left-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] z-20 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)] select-none h-auto"
                             />
-                            {/* Image 2 (Front) */}
+                            {/* Back Image */}
                             <Image 
-                                src="/landing/app/ai-chat.webp" 
+                                src="/product-overview/ai-chat-new.png" 
                                 alt="Focalyst AI Chat Mockup" 
-                                width={900}
-                                height={1600}
-                                sizes="(min-width: 1024px) 360px, 75vw"
-                                className="absolute top-32 right-0 md:top-24 md:right-4 w-[85%] md:w-[75%] max-w-[320px] md:max-w-[360px] h-auto select-none z-20"
-                                style={{ filter: 'drop-shadow(0 30px 60px rgba(3,25,91,0.45))' }}
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-24 right-0 md:top-20 md:right-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] h-auto select-none z-10 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
                             />
                         </div>
                     </div>
@@ -849,6 +854,86 @@ export default function AppLandingPage() {
                                     Visual focus heatmaps &amp; scoring
                                 </span>
                             </div>
+                            <div className="flex items-start gap-2.5">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#3781FC] flex-shrink-0 mt-[8px]" />
+                                <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
+                                    <Link href="/product-overview#intelligence" className="underline decoration-[#3781FC]/60 underline-offset-4 hover:text-[#6FA4FF] transition-colors">
+                                        MCP integration
+                                    </Link>{' '}
+                                    to query your tasks &amp; focus inside Claude
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+
+            {/* Section 8.5: Accountability & Widgets */}
+            <section className="w-full bg-[#05070F] px-8 py-14 md:py-[100px] border-t border-white/10">
+                <div className="max-w-[1160px] mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-center">
+                    
+                    {/* Left Column - Text Column */}
+                    <div className="flex flex-col items-center md:items-start text-center md:text-left">
+                        {/* Pill tag */}
+                        <div className="rounded-full border border-[#3781FC]/30 bg-[#1951FC]/15 px-3.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6FA4FF]">
+                            ACCOUNTABILITY &amp; WIDGETS
+                        </div>
+                        
+                        {/* Headline */}
+                        <h2 className="font-display text-[30px] md:text-[50px] font-normal leading-[1.12] text-snow mt-3">
+                            Stay consistent everywhere.
+                        </h2>
+                        
+                        {/* Body */}
+                        <p className="text-[#A3ADC8] text-[15.5px] md:text-[16.5px] leading-[1.7] font-normal mt-4 max-w-[420px]">
+                            Momentum sticks when your goals stay visible and your circle keeps you honest. Compete in shared habit groups, earn XP milestones, and glance at your priorities right from your Home Screen.
+                        </p>
+                        
+                        {/* Feature Bullets */}
+                        <div className="flex flex-col gap-3.5 mt-6 text-left items-start">
+                            <div className="flex items-start gap-2.5">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#3781FC] flex-shrink-0 mt-[8px]" />
+                                <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
+                                    Shared habit groups with live streak leaderboards
+                                </span>
+                            </div>
+                            <div className="flex items-start gap-2.5">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#3781FC] flex-shrink-0 mt-[8px]" />
+                                <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
+                                    Native iOS Home Screen widgets for tasks, habits &amp; countdowns
+                                </span>
+                            </div>
+                            <div className="flex items-start gap-2.5">
+                                <span className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-[#3781FC] flex-shrink-0 mt-[8px]" />
+                                <span className="text-snow text-[14px] md:text-[15px] font-medium leading-tight">
+                                    XP levels, milestone badges, and daily streak protection
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right Column - Overlapping Composition */}
+                    <div className="flex justify-center items-center py-6 md:py-0">
+                        <div className="relative w-full h-[550px] md:h-[650px] mt-12 md:mt-0 max-w-md md:max-w-none mx-auto">
+                            {/* Front Image */}
+                            <Image 
+                                src="/product-overview/habit-leaderboard.png" 
+                                alt="Focalyst Habit Leaderboard Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-0 left-0 md:left-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] z-20 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)] select-none h-auto"
+                            />
+                            {/* Back Image */}
+                            <Image 
+                                src="/product-overview/widgets-new.png" 
+                                alt="Focalyst iOS Home Screen Widgets Mockup" 
+                                width={1080}
+                                height={1920}
+                                sizes="(min-width: 1024px) 320px, 72vw"
+                                className="absolute top-24 right-0 md:top-20 md:right-4 w-[72%] md:w-[68%] max-w-[260px] md:max-w-[320px] h-auto select-none z-10 drop-shadow-[0_24px_48px_rgba(0,0,0,0.65)]"
+                            />
                         </div>
                     </div>
 
@@ -980,7 +1065,9 @@ export default function AppLandingPage() {
                                     Built by Chintan
                                 </span>
                                 <span className="text-[#6B7591] text-[11px]">
-                                    Privacy · Terms
+                                    <Link href="/privacy" className="hover:text-snow transition-colors">Privacy</Link>
+                                    {' · '}
+                                    <Link href="/terms" className="hover:text-snow transition-colors">Terms</Link>
                                 </span>
                             </div>
                         </div>
@@ -1016,7 +1103,9 @@ export default function AppLandingPage() {
                                     Built by Chintan
                                 </span>
                                 <span className="text-[#6B7591] text-[13px]">
-                                    Privacy · Terms
+                                    <Link href="/privacy" className="hover:text-snow transition-colors">Privacy</Link>
+                                    {' · '}
+                                    <Link href="/terms" className="hover:text-snow transition-colors">Terms</Link>
                                 </span>
                             </div>
                         </div>
