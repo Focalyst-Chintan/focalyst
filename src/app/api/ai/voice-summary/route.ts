@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
 import { completeJSON } from '@/lib/ai/providers';
+import { VOICE_SUMMARY_SYSTEM_PROMPT, buildVoiceSummaryUserPrompt } from '@/lib/ai/voiceSummaryPrompt';
 import { FREE_TIER_LIMITS } from '@/lib/featureGates';
 import { uploadVoiceNoteBlob, getVoiceNoteReadSasUrl } from '@/lib/server/azure-storage';
 import { insertVoiceNote } from '@/lib/server/azure-db';
@@ -18,22 +19,6 @@ export async function OPTIONS(req: NextRequest) {
     headers: corsHeaders(req),
   });
 }
-
-const VOICE_SUMMARY_SYSTEM_PROMPT = `You are a precise voice note editor and summarizer inside the Focalyst app.
-You will receive a raw speech-to-text transcript spoken by the user.
-
-STRICT RULES:
-1. ONLY use the information actually present in the user's transcript. NEVER invent, assume, or add any external topics, brand names, or examples that the user did not speak.
-2. "cleanedTranscript": Fix obvious speech-to-text grammar, punctuation, and homophone errors while strictly preserving the user's exact meaning and words.
-3. "title": Generate a concise, accurate 3-to-6 word title based strictly on what the user talked about.
-4. "summary": Write a concise summary of the user's note using standard paragraphs and simple "- " bullet points starting at column 0 (never indent bullets with spaces and never use code blocks).
-
-Respond ONLY in valid JSON format:
-{
-  "title": "Concise Note Title",
-  "cleanedTranscript": "Corrected transcript...",
-  "summary": "Summary of the spoken note..."
-}`;
 
 export async function POST(req: NextRequest) {
   const cors = corsHeaders(req);
@@ -55,6 +40,8 @@ export async function POST(req: NextRequest) {
     let skipSave = false;
     let audioBlobUrl: string | null = null;
     let audioSasUrl: string | null = null;
+    let previousSummary: string | undefined;
+    let isRegenerate = false;
     const noteId = crypto.randomUUID();
 
     const contentType = req.headers.get('content-type') || '';
@@ -101,6 +88,8 @@ export async function POST(req: NextRequest) {
       durationSeconds = body.durationSeconds || 0;
       skipSave = Boolean(body.skipSave);
       audioBlobUrl = body.audio_blob_url || body.audio_url || null;
+      previousSummary = typeof body.previousSummary === 'string' ? body.previousSummary : undefined;
+      isRegenerate = Boolean(body.isRegenerate);
     }
 
     if (!transcript || !transcript.trim()) {
@@ -145,26 +134,46 @@ export async function POST(req: NextRequest) {
   "cleanedTranscript": "string",
   "summary": "string"
 }`;
-      const { data } = await completeJSON<{
+      const { data, provider } = await completeJSON<{
         title?: string;
         cleanedTranscript?: string;
         summary?: string;
       }>(
         VOICE_SUMMARY_SYSTEM_PROMPT,
-        `User Spoken Transcript:\n"""\n${transcript.trim()}\n"""`,
+        buildVoiceSummaryUserPrompt(transcript.trim(), { previousSummary, isRegenerate }),
         schemaHint,
-        25000
+        25000,
+        isRegenerate ? 0.35 : 0.2
       );
 
+      const summaryText = typeof data?.summary === 'string' ? data.summary.trim() : '';
+      const rawTrimmed = transcript.trim();
+      const isSummaryValid = Boolean(summaryText) && summaryText !== rawTrimmed;
+
+      if (!isSummaryValid) {
+        console.error(
+          '[ai:voice-summary] Invalid or un-summarized output from provider:',
+          provider,
+          { hasSummary: Boolean(summaryText), matchesRaw: summaryText === rawTrimmed }
+        );
+      }
+
       if (data) {
+        const cleaned = (typeof data.cleanedTranscript === 'string' && data.cleanedTranscript.trim())
+          ? data.cleanedTranscript.trim()
+          : rawTrimmed;
         processed = {
-          title: data.title || 'Voice Note',
-          cleanedTranscript: data.cleanedTranscript || transcript.trim(),
-          summary: data.summary || data.cleanedTranscript || transcript.trim(),
+          title: (typeof data.title === 'string' && data.title.trim()) ? data.title.trim() : 'Voice Note',
+          cleanedTranscript: cleaned,
+          summary: isSummaryValid ? summaryText : cleaned,
         };
       }
     } catch (summaryErr: any) {
-      console.error('[ai:voice-summary]', 'server', 500, summaryErr?.message || 'Summarization fallback used');
+      console.error(
+        '[ai:voice-summary] Summarization failed:',
+        summaryErr?.status || 500,
+        summaryErr?.message || 'Summarization fallback used'
+      );
     }
 
     if (skipSave) {

@@ -1,7 +1,8 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireUser, originAllowed, corsHeaders } from '@/lib/server/auth';
-import { streamChat, type ChatMessageParam } from '@/lib/ai/providers';
+import { streamChatWithTools, type ChatMessageParam } from '@/lib/ai/providers';
+import { CHAT_TOOLS, executeChatTool, isProPlan } from '@/lib/ai/chatTools';
 import { buildUserContext } from '@/lib/ai/chatContext';
 import { AI_PERSONA } from '@/lib/ai/persona';
 import { getTodayRangeInTz } from '@/lib/time/tz';
@@ -85,15 +86,15 @@ export async function POST(req: NextRequest) {
     const lastUserMsg = [...normalizedMessages].reverse().find((m) => m.role === 'user');
     const userPrompt = lastUserMsg?.content || '';
 
-    // Fetch user profile (timezone, plan)
+    // Fetch user profile (timezone, plan, plan_expires_at)
     const { data: profile } = await supabase
       .from('users')
-      .select('timezone, plan')
+      .select('timezone, plan, plan_expires_at')
       .eq('id', user.id)
       .single();
 
     const tz = profile?.timezone || 'Asia/Kolkata';
-    const isPro = profile?.plan && profile.plan !== 'free';
+    const isPro = isProPlan(profile?.plan, profile?.plan_expires_at);
     const dailyLimit = isPro ? 100 : 5;
 
     const { startOfDayIso, tz: safeTz } = getTodayRangeInTz(tz);
@@ -132,12 +133,29 @@ export async function POST(req: NextRequest) {
     const system = [
       AI_PERSONA,
       'Always finish your answer completely. Use short paragraphs and simple markdown (bold, bullet lists, numbered steps). Never stop mid-sentence.',
+      [
+        'TOOL EXECUTION GUARDRAIL (CRITICAL):',
+        '- You MUST call the appropriate tool (`create_habit`, `create_task`, `complete_task`, `update_task`, `create_calendar_event`, `create_countdown`) to create, complete, or update any habit, task, calendar event, or countdown.',
+        '- NEVER claim an item was created, scheduled, or updated unless the tool returned `{ "ok": true }` in this turn.',
+        '- If a tool returns `{ "ok": false, "error": "..." }`, explain the exact error honestly without claiming success.',
+        '- When creating a habit with a time range (e.g., "Every morning 4:30 a.m. to 9 am gym"), pass `reminder_time` as the start time in 24-hour `HH:MM:00` format (e.g., `"04:30:00"`) and `frequency: "daily"`.',
+      ].join('\n'),
       `Today is ${today} (${safeTz}).`,
       `The user's Focalyst data:\n${userContext}`,
     ].join('\n\n');
 
     const modelType = isHeavyQuery(userPrompt) ? 'heavy' : 'light';
-    const { stream, provider } = await streamChat(normalizedMessages, system, modelType);
+    const { stream, provider } = await streamChatWithTools(normalizedMessages, system, modelType, {
+      tools: CHAT_TOOLS,
+      executeTool: (name, args) =>
+        executeChatTool(name, args, {
+          userId: user.id,
+          supabase,
+          tz: safeTz,
+          isPro,
+        }),
+      maxToolRounds: 3,
+    });
 
     // Track stream output to persist in ai_chat_logs and update usage counter
     const textDecoder = new TextDecoder();

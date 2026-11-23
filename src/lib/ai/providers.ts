@@ -34,13 +34,181 @@ const OPENROUTER_TRANSCRIBE_MODEL = ALLOWED_OPENROUTER_MODELS.TRANSCRIPTION;
 const GEMINI_CHAT_MODEL = 'gemini-2.5-flash';
 
 export interface ChatMessageParam {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string | null;
+  name?: string;
+  tool_call_id?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: 'function';
+    function: { name: string; arguments: string };
+  }>;
+}
+
+export interface StreamChatWithToolsOptions {
+  tools: Array<{
+    type: 'function';
+    function: {
+      name: string;
+      description: string;
+      parameters: Record<string, any>;
+    };
+  }>;
+  executeTool: (name: string, args: Record<string, any>) => Promise<Record<string, any>>;
+  maxToolRounds?: number;
 }
 
 export interface StreamChatResult {
   stream: ReadableStream<Uint8Array>;
   provider: 'openrouter' | 'gemini';
+}
+
+function textToStream(text: string): ReadableStream<Uint8Array> {
+  const encoder = new TextEncoder();
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      if (text) controller.enqueue(encoder.encode(text));
+      controller.close();
+    },
+  });
+}
+
+async function runToolCompletionRound(
+  provider: 'openrouter' | 'gemini',
+  conversation: ChatMessageParam[],
+  tools: StreamChatWithToolsOptions['tools'],
+  orModel: string
+): Promise<any> {
+  const isOpenRouter = provider === 'openrouter';
+  const apiKey = isOpenRouter ? process.env.OPENROUTER_API_KEY : process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error(`${provider} API key missing`);
+
+  const url = isOpenRouter
+    ? 'https://openrouter.ai/api/v1/chat/completions'
+    : 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (isOpenRouter) {
+    headers['HTTP-Referer'] = 'https://focalyst.online';
+    headers['X-Title'] = 'Focalyst';
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(new Error('Tool completion timeout after 20s')), 20000);
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: isOpenRouter ? orModel : GEMINI_CHAT_MODEL,
+        messages: conversation,
+        tools,
+        tool_choice: 'auto',
+        stream: false,
+        max_tokens: 2048,
+        temperature: 0.3,
+      }),
+      signal: controller.signal,
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`${provider} returned status ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+/**
+ * Executes a bounded server-side tool-calling loop (OpenRouter primary, Gemini fallback),
+ * then returns a plain-text ReadableStream for the final assistant reply.
+ */
+export async function streamChatWithTools(
+  messages: ChatMessageParam[],
+  systemPrompt: string | undefined,
+  modelType: 'light' | 'heavy',
+  options: StreamChatWithToolsOptions
+): Promise<StreamChatResult> {
+  const orModel = modelType === 'heavy' ? OPENROUTER_CHAT_MODEL_HEAVY : OPENROUTER_CHAT_MODEL_LIGHT;
+  const maxRounds = options.maxToolRounds ?? 3;
+
+  const baseMessages: ChatMessageParam[] = [];
+  if (systemPrompt) {
+    baseMessages.push({ role: 'system', content: systemPrompt });
+  }
+  baseMessages.push(...messages);
+
+  const providers: Array<'openrouter' | 'gemini'> = [];
+  if (process.env.OPENROUTER_API_KEY) providers.push('openrouter');
+  if (process.env.GEMINI_API_KEY) providers.push('gemini');
+
+  let activeConversation = [...baseMessages];
+  let activeProvider: 'openrouter' | 'gemini' | null = null;
+
+  for (const provider of providers) {
+    const conversation = [...baseMessages];
+    try {
+      for (let round = 0; round < maxRounds; round++) {
+        const json = await runToolCompletionRound(provider, conversation, options.tools, orModel);
+        const choice = json?.choices?.[0];
+        const msg = choice?.message;
+        const toolCalls = Array.isArray(msg?.tool_calls) ? msg.tool_calls : [];
+
+        if (toolCalls.length === 0) {
+          const finalContent = typeof msg?.content === 'string' ? msg.content.trim() : '';
+          if (finalContent) {
+            return { stream: textToStream(finalContent), provider };
+          }
+          break;
+        }
+
+        conversation.push({
+          role: 'assistant',
+          content: msg?.content ?? null,
+          tool_calls: toolCalls,
+        });
+
+        for (const tc of toolCalls) {
+          const fnName = tc?.function?.name || '';
+          let parsedArgs: Record<string, any> = {};
+          try {
+            parsedArgs = tc?.function?.arguments ? JSON.parse(tc.function.arguments) : {};
+          } catch {
+            parsedArgs = {};
+          }
+
+          const toolResult = await options.executeTool(fnName, parsedArgs);
+          conversation.push({
+            role: 'tool',
+            tool_call_id: tc.id || fnName,
+            name: fnName,
+            content: JSON.stringify(toolResult),
+          });
+        }
+      }
+
+      activeConversation = conversation;
+      activeProvider = provider;
+      break;
+    } catch (err: any) {
+      console.error('[ai:chat:tools]', provider, err?.message || 'Tool loop failed, trying fallback');
+    }
+  }
+
+  // If tool loop completed max rounds without a final text message, stream final answer without tools
+  if (activeProvider) {
+    return streamChat(activeConversation, undefined, modelType);
+  }
+
+  // Fallback to standard streaming chat if all tool-calling providers failed
+  return streamChat(messages, systemPrompt, modelType);
 }
 
 /**
@@ -366,7 +534,8 @@ export async function completeJSON<T = any>(
   systemPrompt: string,
   userPrompt: string,
   schemaHint?: string,
-  timeoutMs = 45000
+  timeoutMs = 45000,
+  temperature = 0.2
 ): Promise<{ data: T; provider: 'openrouter' | 'gemini' }> {
   const openRouterKey = process.env.OPENROUTER_API_KEY;
   const geminiKey = process.env.GEMINI_API_KEY;
@@ -395,7 +564,7 @@ export async function completeJSON<T = any>(
           model: OPENROUTER_CHAT_MODEL_HEAVY,
           messages,
           response_format: { type: 'json_object' },
-          temperature: 0.2,
+          temperature,
         }),
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -436,7 +605,7 @@ export async function completeJSON<T = any>(
           model: GEMINI_CHAT_MODEL,
           messages,
           response_format: { type: 'json_object' },
-          temperature: 0.2,
+          temperature,
         }),
         signal: AbortSignal.timeout(timeoutMs),
       });
