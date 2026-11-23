@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import AmbientBackground from '@/components/desktop/AmbientBackground';
 import { EditorialNav } from '@/components/desktop/product-overview/EditorialNav';
 import { PhoneMockup } from '@/components/desktop/product-overview/PhoneMockup';
 import { StatusBadge } from '@/components/desktop/product-overview/StatusBadge';
 import { TableOfContents } from '@/components/desktop/product-overview/TableOfContents';
 import { ConnectedExperienceShowcase } from '@/components/desktop/product-overview/ConnectedExperienceShowcase';
+import { ProductDemoShowcase } from '@/components/desktop/product-overview/ProductDemoShowcase';
+import { IntelligenceShowcase } from '@/components/desktop/product-overview/IntelligenceShowcase';
+import { McpWorkflowExample } from '@/components/desktop/product-overview/McpWorkflowExample';
 import { MEDIA_MANIFEST } from '@/components/desktop/product-overview/mediaManifest';
 
 export const dynamic = 'force-static';
@@ -188,7 +192,7 @@ export default function ProductOverviewPage() {
                   <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
                     Platform
                   </dt>
-                  <dd className="mt-1 text-[14px] font-medium text-ink">iOS &amp; Web</dd>
+                  <dd className="mt-1 text-[14px] font-medium text-ink">iOS, Android &amp; Web</dd>
                 </div>
                 <div className="py-2 sm:px-6 sm:py-0">
                   <dt className="text-[11px] font-medium uppercase tracking-[0.08em] text-ink-3">
@@ -370,7 +374,8 @@ export default function ProductOverviewPage() {
                 </p>
                 <p>
                   Rounded surfaces, generous spacing, focused layouts, and approachable navigation
-                  keep complex daily workflows feeling lightweight across both iPhone and desktop.
+                  keep complex daily workflows feeling lightweight across iPhone, Android, and
+                  desktop.
                 </p>
               </div>
 
@@ -517,6 +522,365 @@ export default function ProductOverviewPage() {
                 </div>
               </div>
             </section>
+
+            {/* Interactive Day-in-the-Life Walkthrough */}
+            <ProductDemoShowcase />
+
+            {/* Section 04: Productivity That Adapts to the User */}
+            <section
+              id="intelligence"
+              aria-labelledby="intelligence-heading"
+              className="scroll-mt-24 space-y-10"
+            >
+              <div className="space-y-2">
+                <p className="tabular-nums text-[11px] font-medium uppercase tracking-[0.08em] text-primary-text">
+                  04
+                </p>
+                <h2
+                  id="intelligence-heading"
+                  className="font-display text-[36px] leading-[42px] tracking-[-0.015em] text-ink sm:text-[44px] sm:leading-[48px]"
+                >
+                  Productivity that adapts to the user
+                </h2>
+              </div>
+
+              {/* Part A: Integrated AI Assistant & Weekly Catalyst Reports */}
+              <div className="space-y-6">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="max-w-[68ch] space-y-2">
+                    <h3 className="text-[20px] font-semibold leading-[28px] tracking-[-0.01em] text-ink">
+                      Integrated AI assistant and weekly Catalyst reports
+                    </h3>
+                    <p className="text-[15px] leading-[24px] text-ink-2">
+                      Focalyst helps users understand task completion, focus activity, habits,
+                      strengths, and opportunities for improvement without manual spreadsheets or
+                      disconnected analytics tools.
+                    </p>
+                  </div>
+                  <StatusBadge variant="available" />
+                </div>
+
+                <IntelligenceShowcase />
+              </div>
+
+              {/* Part B: MCP (Model Context Protocol) Support */}
+              <div className="space-y-6 pt-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="max-w-[68ch] space-y-2">
+                    <h3 className="text-[20px] font-semibold leading-[28px] tracking-[-0.01em] text-ink">
+                      MCP (Model Context Protocol) support
+                    </h3>
+                    <p className="text-[15px] leading-[24px] text-ink-2">
+                      Users can optionally connect compatible external LLMs to explore their
+                      productivity data in their preferred AI tools while remaining in control of
+                      their data.
+                    </p>
+                  </div>
+                  <StatusBadge variant="development" />
+                </div>
+
+                <McpWorkflowExample />
+              </div>
+            </section>
+
+            {/* Section 05: Making Self-Improvement Engaging */}
+            <section
+              id="accountability"
+              aria-labelledby="accountability-heading"
+              className="scroll-mt-24 space-y-8"
+            >
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="tabular-nums text-[11px] font-medium uppercase tracking-[0.08em] text-primary-text">
+                    05
+                  </p>
+                  <h2
+                    id="accountability-heading"
+                    className="font-display text-[36px] leading-[42px] tracking-[-0.015em] text-ink sm:text-[44px] sm:leading-[48px]"
+                  >
+                    Making self-improvement engaging
+                  </h2>
+                </div>
+                <StatusBadge variant="available" />
+              </div>
+
+              <p className="max-w-[70ch] text-[15px] leading-[25px] text-ink-2">
+                Consistency is easier to sustain when effort feels tangible. Focalyst pairs
+                experience points, levels, milestone badges, and habit streaks with shared habit
+                groups that turn solo discipline into supportive accountability.
+              </p>
+
+              {/* Dual Floating Mockup Showcase */}
+              <div className="frost p-6 sm:p-10">
+                <div className="mx-auto grid max-w-[760px] grid-cols-1 items-start gap-10 sm:grid-cols-2 sm:gap-12">
+                  <div className="mx-auto w-full max-w-[260px] py-2">
+                    <PhoneMockup
+                      media={MEDIA_MANIFEST.habitLeaderboard}
+                      showCaption
+                      caption="Shared habit groups"
+                      sizes="(max-width: 640px) 240px, 260px"
+                    />
+                  </div>
+                  <div className="mx-auto w-full max-w-[260px] py-2">
+                    <PhoneMockup
+                      media={MEDIA_MANIFEST.badges}
+                      showCaption
+                      caption="Milestone badges & levels"
+                      sizes="(max-width: 640px) 240px, 260px"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Four Concise Highlight Cards */}
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="frost p-5">
+                  <h3 className="text-[15px] font-semibold leading-[22px] text-ink">
+                    Experience points
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-[22px] text-ink-2">
+                    Every completed task, focus block, and habit check-in contributes measurable
+                    momentum.
+                  </p>
+                </div>
+                <div className="frost p-5">
+                  <h3 className="text-[15px] font-semibold leading-[22px] text-ink">
+                    Levels &amp; badges
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-[22px] text-ink-2">
+                    Restrained milestone progression celebrates consistency over weeks and months.
+                  </p>
+                </div>
+                <div className="frost p-5">
+                  <h3 className="text-[15px] font-semibold leading-[22px] text-ink">
+                    Habit streaks
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-[22px] text-ink-2">
+                    Visual streaks reinforce daily follow-through without punitive pressure.
+                  </p>
+                </div>
+                <div className="frost p-5">
+                  <h3 className="text-[15px] font-semibold leading-[22px] text-ink">
+                    Shared habit groups
+                  </h3>
+                  <p className="mt-2 text-[14px] leading-[22px] text-ink-2">
+                    Small accountability circles keep friends and teams aligned on shared routines.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            {/* Section 06: Looking Ahead */}
+            <section
+              id="roadmap"
+              aria-labelledby="roadmap-heading"
+              className="scroll-mt-24 space-y-8"
+            >
+              <div className="space-y-2">
+                <p className="tabular-nums text-[11px] font-medium uppercase tracking-[0.08em] text-primary-text">
+                  06
+                </p>
+                <h2
+                  id="roadmap-heading"
+                  className="font-display text-[36px] leading-[42px] tracking-[-0.015em] text-ink sm:text-[44px] sm:leading-[48px]"
+                >
+                  Looking ahead
+                </h2>
+              </div>
+
+              {/* Released vs Planned Clarity Ledger */}
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="frost p-6 sm:p-8 space-y-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-[18px] font-semibold leading-[26px] text-ink">
+                      Shipped today
+                    </h3>
+                    <StatusBadge variant="available" />
+                  </div>
+                  <ul className="space-y-2.5 text-[14px] leading-[22px] text-ink-2">
+                    {[
+                      'Cross-platform sync across iOS, Android & Web',
+                      'Daily planning & tasks',
+                      'Habit tracking & heatmaps',
+                      'Customisable focus timer & distraction blocking',
+                      'Notes & voice transcription',
+                      'Home screen widgets & countdowns',
+                      'Productivity insights, AI assistant & Catalyst weekly reports',
+                      'XP, levels, badges & shared habit groups',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2.5">
+                        <span
+                          aria-hidden
+                          className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                        />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="frost p-6 sm:p-8 space-y-5">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-[18px] font-semibold leading-[26px] text-ink">
+                      Upcoming initiatives
+                    </h3>
+                    <StatusBadge variant="planned" />
+                  </div>
+                  <div className="space-y-4">
+                    <div className="rounded-[14px] border border-line bg-surface-2/60 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[14px] font-semibold text-ink">
+                          Optional MCP connectivity for external LLMs
+                        </p>
+                        <StatusBadge variant="development" />
+                      </div>
+                      <p className="text-[13px] leading-[20px] text-ink-2">
+                        Allow users to connect compatible external AI tools to query their own
+                        Focalyst tasks, focus logs, and habits with explicit permission.
+                      </p>
+                    </div>
+
+                    <div className="rounded-[14px] border border-line bg-surface-2/60 p-4 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[14px] font-semibold text-ink">
+                          Focalyst Wrapped annual retrospective
+                        </p>
+                        <StatusBadge variant="planned" />
+                      </div>
+                      <p className="text-[13px] leading-[20px] text-ink-2">
+                        A calm year-in-review summary reflecting total focus hours, completed
+                        habits, and personal milestones across the year.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Focalyst Wrapped Editorial Preview Card */}
+              <div
+                className="relative overflow-hidden rounded-[28px] border border-snow/15 p-6 text-snow shadow-[var(--shadow-glass)] sm:p-10"
+                style={{
+                  background:
+                    'radial-gradient(120% 100% at 85% 15%, #1951FC 0%, #0B2CB1 48%, #03195B 100%)',
+                }}
+              >
+                <div className="ambient-grain pointer-events-none" />
+                <div className="relative z-10 grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+                  <div className="space-y-4 lg:col-span-7">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-snow/20 bg-snow/10 px-2.5 text-[12px] font-medium text-snow">
+                        Planned · 2026
+                      </span>
+                      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/70">
+                        Concept preview
+                      </span>
+                    </div>
+                    <h3 className="font-display text-[32px] leading-[38px] tracking-[-0.015em] text-snow sm:text-[38px] sm:leading-[44px]">
+                      Focalyst Wrapped
+                    </h3>
+                    <p className="max-w-[54ch] text-[15px] leading-[24px] text-snow/80">
+                      An annual retrospective designed to help users see not just what they
+                      accomplished, but how far they have come across achievements, habits, focus
+                      hours, and personal milestones.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 lg:col-span-5">
+                    {[
+                      { label: 'Focus hours', value: '412h' },
+                      { label: 'Longest streak', value: '64d' },
+                      { label: 'Tasks completed', value: '1,284' },
+                      { label: 'Badges earned', value: '18' },
+                    ].map((metric) => (
+                      <div
+                        key={metric.label}
+                        className="rounded-[16px] border border-snow/15 bg-snow/10 p-4 backdrop-blur-md"
+                      >
+                        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/70">
+                          {metric.label}
+                        </p>
+                        <p className="mt-1 tabular-nums text-[26px] font-semibold leading-[32px] tracking-[-0.02em] text-snow">
+                          {metric.value}
+                        </p>
+                        <p className="mt-1 text-[11px] text-snow/60">Concept preview</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* Closing: Our Vision */}
+            <section
+              id="vision"
+              aria-labelledby="vision-heading"
+              className="scroll-mt-24 pt-6 pb-8 text-center"
+            >
+              <div className="mx-auto max-w-[680px] space-y-6">
+                <p
+                  id="vision-heading"
+                  className="text-[11px] font-medium uppercase tracking-[0.08em] text-primary-text"
+                >
+                  OUR VISION
+                </p>
+                <p className="font-display text-[30px] leading-[38px] tracking-[-0.015em] text-ink sm:text-[38px] sm:leading-[46px]">
+                  Focalyst is more than a collection of productivity tools. It is a connected system
+                  designed to help people take ownership of their time, build better routines, and
+                  make meaningful progress.
+                </p>
+                <p className="text-[15px] font-medium text-ink-2">
+                  Focalyst. Own your time.
+                </p>
+              </div>
+            </section>
+
+            {/* Minimal Editorial Footer */}
+            <footer className="border-t border-line pt-8 text-[13px] text-ink-3">
+              <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                <div className="flex items-center gap-3">
+                  <Link
+                    href="/"
+                    className="font-semibold tracking-[0.28em] text-ink transition-colors hover:text-primary-text focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    FOCALYST
+                  </Link>
+                  <span>© 2026 Focalyst</span>
+                </div>
+
+                <nav aria-label="Footer links" className="flex flex-wrap items-center gap-5">
+                  <Link
+                    href="/"
+                    className="transition-colors hover:text-ink focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    Home
+                  </Link>
+                  <Link
+                    href="/blog"
+                    className="transition-colors hover:text-ink focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    Blog
+                  </Link>
+                  <Link
+                    href="/privacy"
+                    className="transition-colors hover:text-ink focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    Privacy
+                  </Link>
+                  <Link
+                    href="/terms"
+                    className="transition-colors hover:text-ink focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    Terms
+                  </Link>
+                  <Link
+                    href="/contact"
+                    className="transition-colors hover:text-ink focus-visible:outline-none focus-visible:shadow-[0_0_0_2px_var(--canvas),0_0_0_4px_var(--ring)] rounded-[6px]"
+                  >
+                    Contact
+                  </Link>
+                </nav>
+              </div>
+            </footer>
           </div>
 
           {/* Sticky Right-Rail Editorial Index (>= 1280px) */}

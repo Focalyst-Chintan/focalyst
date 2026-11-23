@@ -88,8 +88,8 @@ export const MEDIA_MANIFEST = {
   },
   widgets: {
     id: 'widgets',
-    filename: 'widgets.png',
-    src: '/product-overview/widgets.png',
+    filename: 'widgets-new.png',
+    src: '/product-overview/widgets-new.png',
     alt: 'Focalyst native iOS Home Screen widgets for calendar, tasks, countdowns, and habits',
     caption: 'Native iOS Home Screen widgets at a glance',
     width: 1080,

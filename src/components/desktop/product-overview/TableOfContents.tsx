@@ -12,15 +12,25 @@ const TOC_ITEMS: TocItem[] = [
   { id: 'philosophy', numeral: '01', label: 'Philosophy' },
   { id: 'experience', numeral: '02', label: 'Experience' },
   { id: 'design', numeral: '03', label: 'Design & UX' },
-  { id: 'ai-mcp', numeral: '04', label: 'AI & MCP' },
+  { id: 'intelligence', numeral: '04', label: 'AI & MCP' },
   { id: 'accountability', numeral: '05', label: 'Accountability' },
-  { id: 'looking-ahead', numeral: '06', label: 'Looking Ahead' },
+  { id: 'roadmap', numeral: '06', label: 'Looking Ahead' },
+  { id: 'vision', numeral: '07', label: 'Our Vision' },
 ];
 
 export function TableOfContents() {
   const [activeId, setActiveId] = useState<string>('philosophy');
   const [availableIds, setAvailableIds] = useState<Set<string>>(
-    () => new Set(['philosophy', 'experience', 'design'])
+    () =>
+      new Set([
+        'philosophy',
+        'experience',
+        'design',
+        'intelligence',
+        'accountability',
+        'roadmap',
+        'vision',
+      ])
   );
 
   useEffect(() => {
