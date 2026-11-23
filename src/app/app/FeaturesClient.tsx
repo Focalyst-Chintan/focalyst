@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { CheckSquare, Clock, FileText, Activity, Flame, CalendarDays, Hourglass, Shield, Mic, Sparkles, LineChart, Menu, X } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
 import AppleIcon from '@/components/icons/AppleIcon'
@@ -57,6 +58,9 @@ export default function AppLandingPage() {
                         <a href="#features" className="text-snow/75 hover:text-snow text-[14.5px] font-medium transition-colors">
                             Features
                         </a>
+                        <Link href="/product-overview" className="text-snow/75 hover:text-snow text-[14.5px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3781FC] rounded-sm">
+                            Overview
+                        </Link>
                         <a href="#pricing" className="text-snow/75 hover:text-snow text-[14.5px] font-medium transition-colors">
                             Pricing
                         </a>
@@ -93,6 +97,13 @@ export default function AppLandingPage() {
                         >
                             Features
                         </a>
+                        <Link
+                            href="/product-overview"
+                            onClick={() => setIsMobileMenuOpen(false)}
+                            className="text-snow/75 hover:text-snow text-[16px] font-medium py-2 transition-colors border-b border-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3781FC] rounded-sm"
+                        >
+                            Overview
+                        </Link>
                         <a 
                             href="#pricing" 
                             onClick={() => setIsMobileMenuOpen(false)}
