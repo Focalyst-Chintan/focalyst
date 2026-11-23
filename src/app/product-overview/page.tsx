@@ -8,7 +8,7 @@ import { TableOfContents } from '@/components/desktop/product-overview/TableOfCo
 import { ConnectedExperienceShowcase } from '@/components/desktop/product-overview/ConnectedExperienceShowcase';
 import { ProductDemoShowcase } from '@/components/desktop/product-overview/ProductDemoShowcase';
 import { IntelligenceShowcase } from '@/components/desktop/product-overview/IntelligenceShowcase';
-import { McpWorkflowExample } from '@/components/desktop/product-overview/McpWorkflowExample';
+import { McpLiveDemoShowcase } from '@/components/desktop/product-overview/McpLiveDemoShowcase';
 import { WrappedDemoShowcase } from '@/components/desktop/product-overview/WrappedDemoShowcase';
 import { MEDIA_MANIFEST } from '@/components/desktop/product-overview/mediaManifest';
 
@@ -572,15 +572,16 @@ export default function ProductOverviewPage() {
                       MCP (Model Context Protocol) support
                     </h3>
                     <p className="text-[15px] leading-[24px] text-ink-2">
-                      Users can optionally connect compatible external LLMs to explore their
-                      productivity data in their preferred AI tools while remaining in control of
+                      Users can connect compatible external AI clients such as Claude directly to
+                      Focalyst to query tasks, habits, focus sessions, and countdowns, or create new
+                      habits and dated tasks from any conversation while keeping full control over
                       their data.
                     </p>
                   </div>
-                  <StatusBadge variant="development" />
+                  <StatusBadge variant="available" />
                 </div>
 
-                <McpWorkflowExample />
+                <McpLiveDemoShowcase />
               </div>
             </section>
 
@@ -710,6 +711,7 @@ export default function ProductOverviewPage() {
                       'Notes & voice transcription',
                       'Home screen widgets & countdowns',
                       'Productivity insights, AI assistant & Catalyst weekly reports',
+                      'MCP (Model Context Protocol) connectivity for external AI clients',
                       'XP, levels, badges & shared habit groups',
                     ].map((item) => (
                       <li key={item} className="flex items-start gap-2.5">
@@ -734,26 +736,13 @@ export default function ProductOverviewPage() {
                     <div className="rounded-[14px] border border-line bg-surface-2/60 p-4 space-y-2">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[14px] font-semibold text-ink">
-                          Optional MCP connectivity for external LLMs
-                        </p>
-                        <StatusBadge variant="development" />
-                      </div>
-                      <p className="text-[13px] leading-[20px] text-ink-2">
-                        Allow users to connect compatible external AI tools to query their own
-                        Focalyst tasks, focus logs, and habits with explicit permission.
-                      </p>
-                    </div>
-
-                    <div className="rounded-[14px] border border-line bg-surface-2/60 p-4 space-y-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[14px] font-semibold text-ink">
                           Focalyst Wrapped annual retrospective
                         </p>
                         <StatusBadge variant="planned" />
                       </div>
                       <p className="text-[13px] leading-[20px] text-ink-2">
                         A calm year-in-review summary reflecting total focus hours, completed
-                        habits, and personal milestones across the year.
+                        habits, and personal milestones across the year. Releases Dec 31, 2026.
                       </p>
                     </div>
                   </div>

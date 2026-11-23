@@ -22,6 +22,13 @@ export const WRAPPED_DEMO_VIDEO = {
   title: 'Focalyst 2026 Wrapped walkthrough',
 } as const;
 
+export const MCP_DEMO_VIDEO = {
+  src: '/product-overview/mcp-claude-demo.mp4',
+  durationSeconds: 82.3,
+  initialRestTime: 16.0,
+  title: 'Claude using Focalyst MCP walkthrough',
+} as const;
+
 export const MEDIA_MANIFEST = {
   planTab: {
     id: 'planTab',
