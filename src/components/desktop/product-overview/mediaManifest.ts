@@ -15,6 +15,13 @@ export const DEMO_VIDEO = {
   title: 'Focalyst product walkthrough',
 } as const;
 
+export const WRAPPED_DEMO_VIDEO = {
+  src: '/product-overview/wrapped-2026-demo.mp4',
+  durationSeconds: 28.5,
+  initialRestTime: 3.5,
+  title: 'Focalyst 2026 Wrapped walkthrough',
+} as const;
+
 export const MEDIA_MANIFEST = {
   planTab: {
     id: 'planTab',

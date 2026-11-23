@@ -9,6 +9,7 @@ import { ConnectedExperienceShowcase } from '@/components/desktop/product-overvi
 import { ProductDemoShowcase } from '@/components/desktop/product-overview/ProductDemoShowcase';
 import { IntelligenceShowcase } from '@/components/desktop/product-overview/IntelligenceShowcase';
 import { McpWorkflowExample } from '@/components/desktop/product-overview/McpWorkflowExample';
+import { WrappedDemoShowcase } from '@/components/desktop/product-overview/WrappedDemoShowcase';
 import { MEDIA_MANIFEST } from '@/components/desktop/product-overview/mediaManifest';
 
 export const dynamic = 'force-static';
@@ -688,6 +689,9 @@ export default function ProductOverviewPage() {
                 </h2>
               </div>
 
+              {/* Focalyst Wrapped Video Preview Showcase */}
+              <WrappedDemoShowcase />
+
               {/* Released vs Planned Clarity Ledger */}
               <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 <div className="frost p-6 sm:p-8 space-y-5">
@@ -752,59 +756,6 @@ export default function ProductOverviewPage() {
                         habits, and personal milestones across the year.
                       </p>
                     </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Focalyst Wrapped Editorial Preview Card */}
-              <div
-                className="relative overflow-hidden rounded-[28px] border border-snow/15 p-6 text-snow shadow-[var(--shadow-glass)] sm:p-10"
-                style={{
-                  background:
-                    'radial-gradient(120% 100% at 85% 15%, #1951FC 0%, #0B2CB1 48%, #03195B 100%)',
-                }}
-              >
-                <div className="ambient-grain pointer-events-none" />
-                <div className="relative z-10 grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
-                  <div className="space-y-4 lg:col-span-7">
-                    <div className="flex flex-wrap items-center gap-2.5">
-                      <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-snow/20 bg-snow/10 px-2.5 text-[12px] font-medium text-snow">
-                        Planned · 2026
-                      </span>
-                      <span className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/70">
-                        Concept preview
-                      </span>
-                    </div>
-                    <h3 className="font-display text-[32px] leading-[38px] tracking-[-0.015em] text-snow sm:text-[38px] sm:leading-[44px]">
-                      Focalyst Wrapped
-                    </h3>
-                    <p className="max-w-[54ch] text-[15px] leading-[24px] text-snow/80">
-                      An annual retrospective designed to help users see not just what they
-                      accomplished, but how far they have come across achievements, habits, focus
-                      hours, and personal milestones.
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 lg:col-span-5">
-                    {[
-                      { label: 'Focus hours', value: '412h' },
-                      { label: 'Longest streak', value: '64d' },
-                      { label: 'Tasks completed', value: '1,284' },
-                      { label: 'Badges earned', value: '18' },
-                    ].map((metric) => (
-                      <div
-                        key={metric.label}
-                        className="rounded-[16px] border border-snow/15 bg-snow/10 p-4 backdrop-blur-md"
-                      >
-                        <p className="text-[11px] font-medium uppercase tracking-[0.08em] text-snow/70">
-                          {metric.label}
-                        </p>
-                        <p className="mt-1 tabular-nums text-[26px] font-semibold leading-[32px] tracking-[-0.02em] text-snow">
-                          {metric.value}
-                        </p>
-                        <p className="mt-1 text-[11px] text-snow/60">Concept preview</p>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
