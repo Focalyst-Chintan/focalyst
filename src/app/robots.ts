@@ -19,7 +19,7 @@ const PRIVATE = [
 ];
 
 // Public pages the AI crawlers are explicitly allowed to read
-const AI_ALLOW = ['/', '/blog', '/guides', '/app'];
+const AI_ALLOW = ['/', '/blog', '/guides', '/app', '/product-overview'];
 
 const AI_BOTS = [
   'OAI-SearchBot',

@@ -73,16 +73,30 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url)
     }
 
-    // If logged in, check onboarding status for redirects
-    if (user) {
-        // Fetch user profile for onboarding status
-        const { data: profile } = await supabase
-            .from('users')
-            .select('onboarding_done')
-            .eq('id', user.id)
-            .single()
+    // If logged in, check onboarding status for redirects (skip DB query on public/marketing routes or when metadata already confirms onboarding_done)
+    const isPublicMarketingRoute =
+        pathname === '/' ||
+        pathname.startsWith('/blog') ||
+        pathname === '/privacy' ||
+        pathname === '/terms' ||
+        pathname === '/product-overview' ||
+        pathname.startsWith('/product-overview/')
+    const needsOnboardingCheck =
+        !isPublicMarketingRoute &&
+        (isAuthRoute || isStartRoute || isAppRoute || isOnboardingRoute)
 
-        const onboardingDone = profile?.onboarding_done ?? false
+    if (user && needsOnboardingCheck) {
+        let onboardingDone = user.user_metadata?.onboarding_done === true
+        if (!onboardingDone) {
+            // Fetch user profile for onboarding status
+            const { data: profile } = await supabase
+                .from('users')
+                .select('onboarding_done')
+                .eq('id', user.id)
+                .single()
+
+            onboardingDone = profile?.onboarding_done ?? false
+        }
 
         // Logged in user on auth routes → redirect accordingly
         if (isAuthRoute) {
