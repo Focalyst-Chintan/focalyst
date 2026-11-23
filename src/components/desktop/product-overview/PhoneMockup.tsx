@@ -25,8 +25,8 @@ export function PhoneMockup({
   const displayCaption = caption ?? media.caption;
 
   return (
-    <figure className={`group flex flex-col items-center ${className}`}>
-      <div className="relative w-full transition-transform duration-[220ms] ease-[var(--ease)] group-hover:-translate-y-1 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0">
+    <figure className={`group flex flex-col items-center bg-transparent ${className}`}>
+      <div className="relative w-full bg-transparent transition-transform duration-[220ms] ease-[var(--ease)] group-hover:-translate-y-1 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0">
         <Image
           src={media.src}
           alt={media.alt}
@@ -34,7 +34,7 @@ export function PhoneMockup({
           height={media.height}
           priority={priority}
           sizes={sizes}
-          className={`h-auto w-full select-none object-contain drop-shadow-[0_24px_48px_rgba(3,25,91,0.28)] dark:drop-shadow-[0_28px_56px_rgba(0,0,0,0.65)] ${imageClassName}`}
+          className={`h-auto w-full select-none bg-transparent object-contain drop-shadow-[0_24px_48px_rgba(3,25,91,0.28)] dark:drop-shadow-[0_28px_56px_rgba(0,0,0,0.65)] ${imageClassName}`}
         />
       </div>
       {showCaption && displayCaption ? (
