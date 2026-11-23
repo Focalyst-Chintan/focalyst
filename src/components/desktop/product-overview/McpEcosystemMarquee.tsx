@@ -8,6 +8,7 @@ type MarqueeClientItem =
       id: string;
       name: string;
       logo: AiLogoAsset;
+      fullBleed?: boolean;
     }
   | {
       kind: 'icon';
@@ -26,30 +27,40 @@ const ROW_1_CLIENTS: MarqueeClientItem[] = [
 const ROW_2_CLIENTS: MarqueeClientItem[] = [
   { kind: 'logo', id: 'deepseek', name: 'DeepSeek', logo: AI_LOGO_MANIFEST.deepseek },
   { kind: 'logo', id: 'qwen', name: 'Qwen', logo: AI_LOGO_MANIFEST.qwen },
-  { kind: 'logo', id: 'grok', name: 'Grok', logo: AI_LOGO_MANIFEST.grok },
-  { kind: 'logo', id: 'kimi', name: 'Kimi', logo: AI_LOGO_MANIFEST.kimi },
+  { kind: 'logo', id: 'grok', name: 'Grok', logo: AI_LOGO_MANIFEST.grok, fullBleed: true },
+  { kind: 'logo', id: 'kimi', name: 'Kimi', logo: AI_LOGO_MANIFEST.kimi, fullBleed: true },
   { kind: 'icon', id: 'any-mcp-client', name: 'Any MCP Client' },
 ];
 
 function ClientPill({ item }: { item: MarqueeClientItem }) {
   return (
-    <div className="flex shrink-0 items-center gap-2.5 rounded-full border border-line bg-surface-2 px-3.5 py-2">
+    <div className="flex shrink-0 items-center gap-3.5 rounded-full border border-line bg-surface-2 p-1.5 pr-5">
       {item.kind === 'logo' ? (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-line bg-snow p-1.5">
+        <span
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] sm:h-12 sm:w-12 ${
+            item.fullBleed
+              ? 'overflow-hidden p-0'
+              : 'border border-line bg-snow p-1'
+          }`}
+        >
           <Image
             src={item.logo.src}
             alt={item.logo.alt}
             width={item.logo.width}
             height={item.logo.height}
-            className="h-full w-full object-contain"
+            className={
+              item.fullBleed
+                ? 'h-full w-full object-cover'
+                : 'h-full w-full object-contain'
+            }
           />
         </span>
       ) : (
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[8px] border border-line bg-primary-soft text-primary-text">
-          <Plug className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[12px] bg-primary-soft text-primary-text sm:h-12 sm:w-12">
+          <Plug className="h-[22px] w-[22px]" strokeWidth={1.75} aria-hidden />
         </span>
       )}
-      <span className="whitespace-nowrap text-[13px] font-medium text-ink">{item.name}</span>
+      <span className="whitespace-nowrap text-[15px] font-medium text-ink">{item.name}</span>
     </div>
   );
 }
@@ -69,14 +80,14 @@ function MarqueeTrack({
       <div
         className={`flex w-max items-center group-hover:[animation-play-state:paused] ${trackClass}`}
       >
-        <div className="flex items-center gap-3 pr-3 motion-reduce:flex-wrap motion-reduce:pr-0">
+        <div className="flex items-center gap-4 pr-4 motion-reduce:flex-wrap motion-reduce:pr-0">
           {items.map((item) => (
             <ClientPill key={item.id} item={item} />
           ))}
         </div>
         <div
           aria-hidden="true"
-          className="flex items-center gap-3 pr-3 motion-reduce:hidden"
+          className="flex items-center gap-4 pr-4 motion-reduce:hidden"
         >
           {items.map((item) => (
             <ClientPill key={`${item.id}-dup`} item={item} />
@@ -92,7 +103,7 @@ export function McpEcosystemMarquee() {
     <div className="frost overflow-hidden rounded-[24px] p-6 sm:p-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-3.5 sm:items-center">
-          <div className="h-10 w-10 shrink-0 overflow-hidden rounded-[12px] border border-line bg-snow shadow-[var(--shadow-1)]">
+          <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[14px] shadow-[var(--shadow-1)]">
             <Image
               src={AI_LOGO_MANIFEST.focalyst.src}
               alt={AI_LOGO_MANIFEST.focalyst.alt}
@@ -113,7 +124,7 @@ export function McpEcosystemMarquee() {
         </div>
       </div>
 
-      <div className="group mt-6 space-y-3">
+      <div className="group mt-6 space-y-4">
         <MarqueeTrack items={ROW_1_CLIENTS} direction="left" />
         <MarqueeTrack items={ROW_2_CLIENTS} direction="right" />
       </div>
