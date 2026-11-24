@@ -6,7 +6,7 @@ const root = path.join(__dirname, '..');
 const appDir = path.join(root, 'src', 'app');
 // Web-only routes, hidden from the static export: API and auth handlers, and the
 // blog (database-backed, ISR, web only) plus llms.txt, which lists blog posts
-const WEB_ONLY = ['api', 'auth', 'blog', 'llms.txt'].map((name) => ({
+const WEB_ONLY = ['api', 'auth', 'blog', 'llms.txt', '[indexnowKey]'].map((name) => ({
   name,
   dir: path.join(appDir, name),
   backup: path.join(root, `${name.replace('.', '_')}_backup`),

@@ -15,6 +15,7 @@ import { useAuth } from '@/context/AuthContext';
 import { isPaidPlan } from '@/lib/featureGates';
 import { MCP_FAQ } from '@/data/faqData';
 import { MCP_DAILY_BONUS, MCP_PRO_MONTHLY_CREDITS } from '@/lib/mcp/config';
+import McpSetupVideoSection from '@/components/desktop/mcp/McpSetupVideoSection';
 
 const IS_MOBILE_BUILD = process.env.NEXT_PUBLIC_BUILD_TARGET === 'mobile';
 
@@ -120,6 +121,9 @@ export default function McpView() {
           </ul>
         </div>
       </section>
+
+      {/* Setup Walkthrough Video */}
+      <McpSetupVideoSection />
 
       {/* Generic advice vs Context */}
       <section
