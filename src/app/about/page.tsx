@@ -11,6 +11,7 @@ import {
 import PublicLayout from '@/components/desktop/public/PublicLayout';
 import { JsonLd } from '@/components/seo/JsonLd';
 import { breadcrumb } from '@/lib/seo/schema';
+import ProductWalkthroughSection from '@/components/public/ProductWalkthroughSection';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -177,6 +178,11 @@ export default function AboutPage() {
             })}
           </div>
         </section>
+
+        {/* Product Walkthrough Video */}
+        <div className="mt-20">
+          <ProductWalkthroughSection />
+        </div>
 
         {/* Who we are */}
         <section

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { CheckSquare, Clock, FileText, Activity, Flame, CalendarDays, Hourglass, Shield, Mic, Sparkles, LineChart, Menu, X } from 'lucide-react'
 import PricingSection from '@/components/PricingSection'
+import ProductWalkthroughSection from '@/components/public/ProductWalkthroughSection'
 import AppleIcon from '@/components/icons/AppleIcon'
 import GooglePlayLogo from '@/components/icons/GooglePlayLogo'
 import { FAQ } from '@/content/faq'
@@ -242,6 +243,11 @@ export default function AppLandingPage() {
                         <span className="text-[13px] font-normal text-[#A3ADC8] tracking-[0.02em] mt-1 text-center">No ad trackers</span>
                     </div>
                 </div>
+            </div>
+
+            {/* Product Walkthrough Video */}
+            <div className="w-full bg-[#05070F] px-4 sm:px-6 py-16 sm:py-24">
+                <ProductWalkthroughSection />
             </div>
 
             {/* Section 3: Problem Statement (App Fatigue) Component */}
